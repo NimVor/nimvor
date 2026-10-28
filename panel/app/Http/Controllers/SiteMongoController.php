@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentException;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Services\JobTracker;
-use WhaCP\Services\ServerContext;
-use WhaCP\Services\SiteMongoService;
-use WhaCP\View\View;
+use NimVor\Agent\AgentException;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Services\JobTracker;
+use NimVor\Services\ServerContext;
+use NimVor\Services\SiteMongoService;
+use NimVor\View\View;
 
 /**
  * Site → MongoDB: a customer's own (prefixed) MongoDB databases and users.
@@ -175,7 +175,7 @@ final class SiteMongoController extends SiteController
         $back = $this->view->url('sites.mongo.browser', ['id' => (int) $site['id']]) . '?db=' . rawurlencode($db);
         try {
             $out = $this->mongo->export($site, $db, $collection, $format, (string) $request->query('filter', ''), (int) $request->query('limit', 2000), $this->userId($request));
-        } catch (\WhaCP\Support\UserFacingException $e) {
+        } catch (\NimVor\Support\UserFacingException $e) {
             return $this->redirectWithError($back, $e->getMessage());
         }
         return $this->downloadExport($db, $collection, $out);
@@ -253,7 +253,7 @@ final class SiteMongoController extends SiteController
                 default:
                     return Response::json(['success' => false, 'error' => ['message' => 'Unknown operation.']], 400);
             }
-        } catch (\WhaCP\Support\UserFacingException $e) {
+        } catch (\NimVor\Support\UserFacingException $e) {
             return Response::json(['success' => false, 'error' => ['message' => $e->getMessage()]], 403);
         } catch (AgentException $e) {
             return Response::json(['success' => false, 'error' => $e->toArray()], $e->status() >= 400 && $e->status() < 600 ? $e->status() : 502);

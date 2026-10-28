@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
 /** @internal A wizard step started an agent job (see ServerSetupService::runStep). */
 final class SetupJobStarted extends \RuntimeException

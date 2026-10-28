@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\View;
+namespace NimVor\View;
 
-use WhaCP\Security\Permissions as P;
+use NimVor\Security\Permissions as P;
 
 /**
  * The panel's areas for administrators and resellers: the sidebar, the
@@ -69,7 +69,7 @@ final class Navigation
                     ['Processes', 'monitoring.processes', P::MONITORING_VIEW, [], ['/monitoring/processes']],
                 ]],
                 ['Notifications', 'bell', 'notifications', P::NOTIFICATIONS_VIEW, '/notifications', 'What happened and what failed'],
-                ['Logs', 'journal-text', 'logs', P::LOGS_VIEW, '/logs', 'Web server, PHP, mail, security and WhaCP logs', [
+                ['Logs', 'journal-text', 'logs', P::LOGS_VIEW, '/logs', 'Web server, PHP, mail, security and NimVor logs', [
                     ['All server logs', 'logs', P::LOGS_VIEW],
                     ['Web server', 'logs', P::LOGS_VIEW, ['view' => 'web']],
                     ['PHP-FPM', 'logs', P::LOGS_VIEW, ['view' => 'php']],
@@ -79,7 +79,7 @@ final class Navigation
                     ['SSL / Let\'s Encrypt', 'logs', P::LOGS_VIEW, ['view' => 'ssl']],
                     ['System', 'logs', P::LOGS_VIEW, ['view' => 'system']],
                     ['Services', 'logs', P::LOGS_VIEW, ['view' => 'services']],
-                    ['WhaCP', 'logs', P::LOGS_VIEW, ['view' => 'whacp']],
+                    ['NimVor', 'logs', P::LOGS_VIEW, ['view' => 'nimvor']],
                     ['Audit log', 'audit', P::AUDIT_VIEW],
                     ['AutoSSL log', 'ssl.autossl', P::SSL_VIEW],
                     ['ModSecurity events', 'security.modsec', P::SECURITY_VIEW, ['tab' => 'events']],
@@ -103,7 +103,6 @@ final class Navigation
                 ['All servers', 'diagram-3', 'servers', P::SERVERS_MANAGE, '/servers', 'Other servers managed from here'],
                 ['Services', 'cpu', 'services', P::SERVICES_VIEW, '/services', 'Start, stop and restart services'],
                 ['IP addresses', 'ethernet', 'ips', P::SERVER_VIEW, '/ips', 'Addresses and their websites'],
-                ['Resource limits', 'speedometer', 'limits', P::SERVER_VIEW, '/limits', 'CPU, memory and disk quotas per account'],
                 ['Web terminal', 'terminal', 'terminal', P::SECURITY_MANAGE, '/terminal', 'A shell in the browser'],
                 ['Packages', 'box-seam', 'packages', P::PACKAGES_MANAGE, '/packages', 'Install and update server software'],
                 ['FFmpeg', 'film', 'ffmpeg', P::SERVER_VIEW, '/ffmpeg', 'Media conversion for websites'],
@@ -116,6 +115,7 @@ final class Navigation
                 ['Roles', 'person-badge', 'roles', P::USERS_VIEW, '/roles', 'What each kind of user may do'],
                 ['Plans', 'card-checklist', 'plans', P::PLANS_MANAGE, '/plans', 'Hosting plans and their limits'],
                 ['Bandwidth Limits', 'speedometer2', 'accounts.bandwidth', P::USERS_MANAGE, '/accounts/bandwidth', 'Monthly traffic per account, exceeders and resets'],
+                ['Resource limits', 'speedometer', 'limits', P::SERVER_VIEW, '/limits', 'CPU, memory and disk quotas per account'],
                 ['Basic WebHost Settings', 'house-gear', 'settings.basic', P::SETTINGS_VIEW, '/settings/basic', 'Contact, panel address, name servers, defaults for new accounts'],
                 ['Tweak Settings', 'sliders2', 'settings.tweak', P::SETTINGS_VIEW, '/settings/tweak', 'Every setting with its default: search, change, reset'],
                 ['Settings', 'sliders', 'settings', P::SETTINGS_VIEW, '/settings', 'Panel settings'],
@@ -231,7 +231,7 @@ final class Navigation
      *
      * @return array<string, list<string>> permission => page labels
      */
-    public static function coverage(\WhaCP\Http\Router $router): array
+    public static function coverage(\NimVor\Http\Router $router): array
     {
         $entries = [];
         $top = [];
@@ -262,7 +262,7 @@ final class Navigation
         $site = [
             '/' => 'Dashboard', '/sites' => 'Website pages (files, PHP, SSL, logs… of a website)',
             '/api' => 'API (the same actions with a token)', '/topbar' => 'Top bar server status',
-            '/whacp' => 'WhaCP update',
+            '/nimvor' => 'NimVor update',
         ];
         $out = [];
         foreach ($router->routes() as $r) {

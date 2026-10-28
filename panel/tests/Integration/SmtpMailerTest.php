@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Integration;
+namespace NimVor\Tests\Integration;
 
-use WhaCP\Mail\MailConfig;
-use WhaCP\Mail\MailException;
-use WhaCP\Mail\SmtpMailer;
-use WhaCP\Security\Crypto;
-use WhaCP\Support\Logger;
-use WhaCP\Support\ValidationException;
-use WhaCP\Tests\Support\DatabaseTestCase;
+use NimVor\Mail\MailConfig;
+use NimVor\Mail\MailException;
+use NimVor\Mail\SmtpMailer;
+use NimVor\Security\Crypto;
+use NimVor\Support\Logger;
+use NimVor\Support\ValidationException;
+use NimVor\Tests\Support\DatabaseTestCase;
 
 final class SmtpMailerTest extends DatabaseTestCase
 {
@@ -21,7 +21,7 @@ final class SmtpMailerTest extends DatabaseTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->dir = sys_get_temp_dir() . '/whacp-smtp-' . bin2hex(random_bytes(4));
+        $this->dir = sys_get_temp_dir() . '/nimvor-smtp-' . bin2hex(random_bytes(4));
         mkdir($this->dir);
     }
 
@@ -35,7 +35,7 @@ final class SmtpMailerTest extends DatabaseTestCase
 
     private function config(): MailConfig
     {
-        return new MailConfig(new \WhaCP\Repositories\SettingRepository($this->db), new Crypto($this->dir . '/key'), $this->audit);
+        return new MailConfig(new \NimVor\Repositories\SettingRepository($this->db), new Crypto($this->dir . '/key'), $this->audit);
     }
 
     /** Start the fake server; returns its port. */

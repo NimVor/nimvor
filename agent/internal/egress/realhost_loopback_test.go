@@ -30,8 +30,8 @@ func TestRealHostLoopbackIsolation(t *testing.T) {
 		}
 		return string([]byte(u[:len(u)-1]))
 	}
-	allowed := uid("whacp-lo-a")
-	denied := uid("whacp-lo-b")
+	allowed := uid("nimvor-lo-a")
+	denied := uid("nimvor-lo-b")
 
 	// A listener on a guarded port.
 	const port = 16379
@@ -50,7 +50,7 @@ func TestRealHostLoopbackIsolation(t *testing.T) {
 		}
 	}()
 
-	// Load the isolation rules directly (allowing only whacp-lo-a).
+	// Load the isolation rules directly (allowing only nimvor-lo-a).
 	rules := Rules(
 		Settings{MetadataAllowed: true, LoopbackIsolation: true, LoopbackPorts: []int{port}},
 		[]string{allowed, denied},
@@ -69,10 +69,10 @@ func TestRealHostLoopbackIsolation(t *testing.T) {
 		return cmd.Run() == nil
 	}
 
-	if connect("whacp-lo-b") {
+	if connect("nimvor-lo-b") {
 		t.Error("the denied account reached the guarded loopback port")
 	}
-	if !connect("whacp-lo-a") {
+	if !connect("nimvor-lo-a") {
 		t.Error("the allowlisted account could not reach the guarded loopback port")
 	}
 	if !connect("root") {

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 func TestLetsEncryptAccount(t *testing.T) {
@@ -26,7 +26,7 @@ func TestLetsEncryptAccount(t *testing.T) {
 	}
 
 	// Registration requires accepting the Terms of Service and a real email.
-	if _, err := call(t, r, "ssl.account_register", `{"email":"me@whacp.io"}`); err == nil {
+	if _, err := call(t, r, "ssl.account_register", `{"email":"me@nimvor.com"}`); err == nil {
 		t.Error("registered without accepting the ToS")
 	}
 	if _, err := call(t, r, "ssl.account_register", `{"email":"you@example.com","agree_tos":true}`); err == nil {
@@ -40,22 +40,22 @@ func TestLetsEncryptAccount(t *testing.T) {
 	// contact (update_account) rather than creating a new account.
 	acctDir := filepath.Join(h.Base, "etc/letsencrypt/accounts", acmeProd, "directory", "abc123")
 	os.MkdirAll(acctDir, 0o755)
-	os.WriteFile(filepath.Join(acctDir, "regr.json"), []byte(`{"uri":"https://acme-v02.api.letsencrypt.org/acme/acct/42","body":{"contact":["mailto:me@whacp.io"]}}`), 0o600)
+	os.WriteFile(filepath.Join(acctDir, "regr.json"), []byte(`{"uri":"https://acme-v02.api.letsencrypt.org/acme/acct/42","body":{"contact":["mailto:me@nimvor.com"]}}`), 0o600)
 
-	res2, err := call(t, r, "ssl.account_register", `{"email":"me@whacp.io","agree_tos":true}`)
+	res2, err := call(t, r, "ssl.account_register", `{"email":"me@nimvor.com","agree_tos":true}`)
 	if err != nil {
 		t.Fatalf("register: %v", err)
 	}
-	if res2["registered"] != true || res2["updated"] != true || res2["email"] != "me@whacp.io" {
+	if res2["registered"] != true || res2["updated"] != true || res2["email"] != "me@nimvor.com" {
 		t.Fatalf("register result = %+v", res2)
 	}
-	if !h.Runner.Called("certbot update_account --non-interactive -m me@whacp.io") {
+	if !h.Runner.Called("certbot update_account --non-interactive -m me@nimvor.com") {
 		t.Fatalf("did not update the account: %v", h.Runner.Calls)
 	}
 
 	// ssl.account now reports the stored account.
 	s, _ := call(t, r, "ssl.account", `{}`)
-	if s["registered"] != true || s["email"] != "me@whacp.io" || s["account_uri"] != "https://acme-v02.api.letsencrypt.org/acme/acct/42" {
+	if s["registered"] != true || s["email"] != "me@nimvor.com" || s["account_uri"] != "https://acme-v02.api.letsencrypt.org/acme/acct/42" {
 		t.Fatalf("status = %+v", s)
 	}
 }
@@ -65,10 +65,10 @@ func TestLetsEncryptAccountFreshRegister(t *testing.T) {
 	h := testhost.New(t)
 	r := actions.NewRegistry(true)
 	Register(r, h.Env)
-	if _, err := call(t, r, "ssl.account_register", `{"email":"ops@whacp.io","agree_tos":true}`); err != nil {
+	if _, err := call(t, r, "ssl.account_register", `{"email":"ops@nimvor.com","agree_tos":true}`); err != nil {
 		t.Fatal(err)
 	}
-	if !h.Runner.Called("certbot register --non-interactive --agree-tos -m ops@whacp.io") {
+	if !h.Runner.Called("certbot register --non-interactive --agree-tos -m ops@nimvor.com") {
 		t.Fatalf("did not register a new account: %v", h.Runner.Calls)
 	}
 }
@@ -87,14 +87,14 @@ func TestZeroSSLAccountNeedsEAB(t *testing.T) {
 	}
 
 	// Registration without EAB is refused.
-	if _, err := call(t, r, "ssl.account_register", `{"provider":"zerossl","email":"ops@whacp.io","agree_tos":true}`); err == nil {
+	if _, err := call(t, r, "ssl.account_register", `{"provider":"zerossl","email":"ops@nimvor.com","agree_tos":true}`); err == nil {
 		t.Error("registered ZeroSSL without EAB")
 	}
 	// With EAB it registers against ZeroSSL's directory.
-	if _, err := call(t, r, "ssl.account_register", `{"provider":"zerossl","email":"ops@whacp.io","agree_tos":true,"eab_kid":"KID1","eab_hmac_key":"HMAC1"}`); err != nil {
+	if _, err := call(t, r, "ssl.account_register", `{"provider":"zerossl","email":"ops@nimvor.com","agree_tos":true,"eab_kid":"KID1","eab_hmac_key":"HMAC1"}`); err != nil {
 		t.Fatal(err)
 	}
-	if !h.Runner.Called("certbot register --non-interactive --agree-tos -m ops@whacp.io --eab-kid KID1 --eab-hmac-key HMAC1 --server https://acme.zerossl.com/v2/DV90") {
+	if !h.Runner.Called("certbot register --non-interactive --agree-tos -m ops@nimvor.com --eab-kid KID1 --eab-hmac-key HMAC1 --server https://acme.zerossl.com/v2/DV90") {
 		t.Fatalf("ZeroSSL register args wrong: %v", h.Runner.Calls)
 	}
 }
@@ -104,14 +104,14 @@ func TestBuypassAccountRegister(t *testing.T) {
 	h := testhost.New(t)
 	r := actions.NewRegistry(true)
 	Register(r, h.Env)
-	if _, err := call(t, r, "ssl.account_register", `{"provider":"buypass","email":"ops@whacp.io","agree_tos":true}`); err != nil {
+	if _, err := call(t, r, "ssl.account_register", `{"provider":"buypass","email":"ops@nimvor.com","agree_tos":true}`); err != nil {
 		t.Fatal(err)
 	}
-	if !h.Runner.Called("certbot register --non-interactive --agree-tos -m ops@whacp.io --server https://api.buypass.com/acme/directory") {
+	if !h.Runner.Called("certbot register --non-interactive --agree-tos -m ops@nimvor.com --server https://api.buypass.com/acme/directory") {
 		t.Fatalf("Buypass register args wrong: %v", h.Runner.Calls)
 	}
 	// An unknown provider is refused.
-	if _, err := call(t, r, "ssl.account_register", `{"provider":"nope","email":"ops@whacp.io","agree_tos":true}`); err == nil {
+	if _, err := call(t, r, "ssl.account_register", `{"provider":"nope","email":"ops@nimvor.com","agree_tos":true}`); err == nil {
 		t.Error("accepted an unknown provider")
 	}
 }
@@ -122,7 +122,7 @@ func TestIssueAgainstAlternateProvider(t *testing.T) {
 	r := actions.NewRegistry(true)
 	Register(r, h.Env)
 	a, _ := r.Lookup("ssl.issue")
-	if _, err := a.Handler(context.Background(), []byte(`{"cert_name":"shop.test","names":["shop.test"],"email":"ops@whacp.io","provider":"buypass"}`)); err != nil {
+	if _, err := a.Handler(context.Background(), []byte(`{"cert_name":"shop.test","names":["shop.test"],"email":"ops@nimvor.com","provider":"buypass"}`)); err != nil {
 		t.Fatal(err)
 	}
 	found := false

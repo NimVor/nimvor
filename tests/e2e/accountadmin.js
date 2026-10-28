@@ -29,8 +29,8 @@ const OUT = process.env.E2E_OUT || '/tmp';
   const nav = click => Promise.all([page.waitForNavigation(), click()]);
   const main = async () => (await page.textContent('main')).replace(/\s+/g, ' ');
   const confirmOk = async () => {
-    await page.waitForSelector('#wcp-confirm.show [data-wcp-confirm-ok]');
-    await nav(() => page.click('#wcp-confirm [data-wcp-confirm-ok]'));
+    await page.waitForSelector('#nim-confirm.show [data-nim-confirm-ok]');
+    await nav(() => page.click('#nim-confirm [data-nim-confirm-ok]'));
   };
   try {
     await page.goto(BASE + '/login');
@@ -71,7 +71,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
     await page.goto(BASE + '/accounts/new');
     await page.fill('#a-domain', domain);
     await page.fill('#a-username', user);
-    await page.click('[data-wcp-genpass="#a-password"]');
+    await page.click('[data-nim-genpass="#a-password"]');
     const password = await page.inputValue('#a-password');
     if (password.length < 16 || await page.inputValue('#a-password2') !== password) { throw new Error('generated password'); }
     await page.fill('#a-email', user + '@example.test');
@@ -118,7 +118,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
 
     // ---- Addon domain → account of its own
     const addon = 'addon' + stamp + '.example.test';
-    await page.goto(BASE + site + '/domains');
+    await page.goto(BASE + site + '/addons');
     await page.click('button[data-bs-target="#new-addon"]');
     await page.waitForSelector('#new-addon.show');
     await page.fill('#ad-name', addon);
@@ -135,8 +135,8 @@ const OUT = process.env.E2E_OUT || '/tmp';
     await win.locator('input[name=password_confirmation]').fill('an-e2e-password-123');
     await page.screenshot({ path: OUT + '/convert-window.png' });
     await win.locator('button:has-text("Convert to account")').click();
-    await page.waitForSelector('#wcp-confirm.show');
-    await page.fill('#wcp-confirm-input', addon);
+    await page.waitForSelector('#nim-confirm.show');
+    await page.fill('#nim-confirm-input', addon);
     await confirmOk();
     if (!/\/users\/\d+\/edit$/.test(page.url())) { throw new Error('conversion: ' + page.url() + ' ' + (await main()).slice(0, 400)); }
     if (!(await main()).includes('is now the hosting account ' + newUser)) { throw new Error('conversion message: ' + (await main()).slice(0, 300)); }

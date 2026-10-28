@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Services\JobTracker;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Services\JobTracker;
+use NimVor\Tests\Support\HttpTestCase;
 
 final class ScopingTest extends HttpTestCase
 {
@@ -27,7 +27,7 @@ final class ScopingTest extends HttpTestCase
         foreach ([2 => 'edge-1', 3 => 'edge-2'] as $id => $name) {
             $this->db->run("INSERT INTO servers (id, name, kind, url, created_at) VALUES (?, ?, 'remote', 'https://192.0.2.1:8443', ?)", [$id, $name, $now]);
         }
-        $this->db->run("INSERT INTO websites (server_id, owner_id, domain, system_user, root, document_root, kind, created_at, updated_at) VALUES (2, ?, 'cust.test', 'cust', '/home/whacp/cust.test', '/home/whacp/cust.test/public_html', 'static', ?, ?)", [$this->customer, $now, $now]);
+        $this->db->run("INSERT INTO websites (server_id, owner_id, domain, system_user, root, document_root, kind, created_at, updated_at) VALUES (2, ?, 'cust.test', 'cust', '/home/nimvor/cust.test', '/home/nimvor/cust.test/public_html', 'static', ?, ?)", [$this->customer, $now, $now]);
     }
 
     public function testServerSwitchIsLimitedToServersWithOwnWebsites(): void
@@ -51,7 +51,7 @@ final class ScopingTest extends HttpTestCase
         $jobs = $this->app->container->get(JobTracker::class);
         $jobs->track('aaaaaaaaaaaaaaaa', 'Backup', 'website', '1', $this->customer);
         $job = (array) $jobs->find('aaaaaaaaaaaaaaaa');
-        $user = fn (int $id): array => (array) $this->app->container->get(\WhaCP\Repositories\UserRepository::class)->find($id);
+        $user = fn (int $id): array => (array) $this->app->container->get(\NimVor\Repositories\UserRepository::class)->find($id);
         self::assertTrue($jobs->visibleTo($job, $user($this->customer)));
         self::assertTrue($jobs->visibleTo($job, $user($this->reseller)));
         self::assertFalse($jobs->visibleTo($job, $user($this->other)));

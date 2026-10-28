@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/shacrypt"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/shacrypt"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 // The rendered rules in a real Nginx: password protection (with the

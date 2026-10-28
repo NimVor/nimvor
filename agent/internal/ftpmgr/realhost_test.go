@@ -16,16 +16,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/config"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/config"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/jobs"
+	"github.com/NimVor/nimvor/agent/internal/platform"
 )
 
-const rtSites = "/srv/whacp-rt-sites"
+const rtSites = "/srv/nimvor-rt-sites"
 
 // realEnv prepares a website account (rtftp, home <rtSites>/rt-ftp.test).
 func realEnv(t *testing.T) (*host.Env, *actions.Registry) {
@@ -289,14 +289,14 @@ func TestRealHostShellModes(t *testing.T) {
 	}
 	if b, _ := os.ReadFile("/proc/sys/kernel/apparmor_restrict_unprivileged_userns"); strings.TrimSpace(string(b)) == "1" {
 		// What the installer does on Ubuntu 23.10 and later.
-		profile := "abi <abi/4.0>,\ninclude <tunables/global>\nprofile whacp-bwrap " + JailBwrap + " flags=(unconfined) {\n  userns,\n}\n"
-		os.WriteFile("/etc/apparmor.d/whacp-bwrap", []byte(profile), 0o644)
-		if out, err := exec.Command("apparmor_parser", "-r", "/etc/apparmor.d/whacp-bwrap").CombinedOutput(); err != nil {
+		profile := "abi <abi/4.0>,\ninclude <tunables/global>\nprofile nimvor-bwrap " + JailBwrap + " flags=(unconfined) {\n  userns,\n}\n"
+		os.WriteFile("/etc/apparmor.d/nimvor-bwrap", []byte(profile), 0o644)
+		if out, err := exec.Command("apparmor_parser", "-r", "/etc/apparmor.d/nimvor-bwrap").CombinedOutput(); err != nil {
 			t.Fatalf("apparmor_parser: %s", out)
 		}
 		t.Cleanup(func() {
-			exec.Command("apparmor_parser", "-R", "/etc/apparmor.d/whacp-bwrap").Run()
-			os.Remove("/etc/apparmor.d/whacp-bwrap")
+			exec.Command("apparmor_parser", "-R", "/etc/apparmor.d/nimvor-bwrap").Run()
+			os.Remove("/etc/apparmor.d/nimvor-bwrap")
 			os.Remove(JailBwrap)
 		})
 	}
@@ -355,7 +355,7 @@ func TestRealHostShellModes(t *testing.T) {
 			t.Errorf("jailed session lacks %q", want)
 		}
 	}
-	for _, bad := range []string{"other.test\n", "other website", "shadow", "nginx", "whacp-agent", "sshd"} {
+	for _, bad := range []string{"other.test\n", "other website", "shadow", "nginx", "nimvor-agent", "sshd"} {
 		if strings.Contains(out, bad) {
 			t.Errorf("jailed session sees %q", bad)
 		}

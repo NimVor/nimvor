@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Integration;
+namespace NimVor\Tests\Integration;
 
-use WhaCP\Services\UserService;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
-use WhaCP\Tests\Support\DatabaseTestCase;
+use NimVor\Services\UserService;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
+use NimVor\Tests\Support\DatabaseTestCase;
 
 final class UserServiceTest extends DatabaseTestCase
 {

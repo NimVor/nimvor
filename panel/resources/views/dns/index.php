@@ -1,6 +1,6 @@
 <?php
 /**
- * @var \WhaCP\View\View $this
+ * @var \NimVor\View\View $this
  * @var array<string, mixed>|null $status
  * @var list<array<string, mixed>> $zones
  * @var array<string, int> $served
@@ -9,7 +9,7 @@
  * @var bool $admin
  * @var int $preselect
  */
-use WhaCP\Security\Permissions as P;
+use NimVor\Security\Permissions as P;
 
 $errors ??= [];
 $old ??= [];
@@ -25,11 +25,11 @@ $ready = !empty($status['configured']) && !empty($status['running']);
             <p>The DNS server (BIND) is not installed on this server.</p>
             <?php if ($this->can(P::PACKAGES_MANAGE)): ?><form method="post" action="<?= e($this->url('dns.install')) ?>"><?= $this->csrfField() ?><button class="btn btn-primary"><i class="bi bi-download me-1"></i>Install BIND</button></form><?php endif; ?>
         <?php elseif ($this->can(P::SERVER_MANAGE)): ?>
-            <p><?= empty($status['configured']) ? 'BIND is installed but not set up for WhaCP yet.' : 'BIND is set up but not running.' ?></p>
-            <form method="post" action="<?= e($this->url('dns.setup')) ?>" data-wcp-busy>
+            <p><?= empty($status['configured']) ? 'BIND is installed but not set up for NimVor yet.' : 'BIND is set up but not running.' ?></p>
+            <form method="post" action="<?= e($this->url('dns.setup')) ?>" data-nim-busy>
                 <?= $this->csrfField() ?>
                 <?php if (empty($status['configured'])): ?>
-                    <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="confirm" value="1" id="dns-confirm" required><label class="form-check-label" for="dns-confirm">Add one <code>include</code> line for WhaCP's zones to <code><?= e((string) $status['config_file']) ?></code> (a backup is kept)</label></div>
+                    <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="confirm" value="1" id="dns-confirm" required><label class="form-check-label" for="dns-confirm">Add one <code>include</code> line for NimVor's zones to <code><?= e((string) $status['config_file']) ?></code> (a backup is kept)</label></div>
                 <?php endif; ?>
                 <button class="btn btn-primary"><i class="bi bi-play me-1"></i>Set up and start</button>
             </form>
@@ -41,14 +41,14 @@ $ready = !empty($status['configured']) && !empty($status['running']);
 <?php if ($nameservers === []): ?>
     <div class="alert alert-info small"><?= $this->can(P::SETTINGS_MANAGE) ? 'Set the <strong>DNS name servers</strong> (and the default IPv4 for new zones) under <a href="' . e($this->url('settings')) . '">Settings</a> before creating zones.' : 'An administrator has to set the DNS name servers before zones can be created.' ?></div>
 <?php endif; ?>
-<div class="wcp-panel">
-    <div class="wcp-actionbar">
+<div class="nim-panel">
+    <div class="nim-actionbar">
         <div class="fw-semibold"><i class="bi bi-signpost me-1" aria-hidden="true"></i>Zones <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($zones) ?></span></div>
-        <?php if ($ready && $nameservers !== []): ?><div class="wcp-actionbar-end"><button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#new-zone"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>New zone</button></div><?php endif; ?>
+        <?php if ($ready && $nameservers !== []): ?><div class="nim-actionbar-end"><button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#new-zone"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>New zone</button></div><?php endif; ?>
     </div>
-    <div class="wcp-dtable">
+    <div class="nim-dtable">
 <div class="table-responsive">
-                <table class="table mb-0 wcp-table align-middle">
+                <table class="table mb-0 nim-table align-middle">
                     <thead><tr><th>Zone</th><th>Website</th><th class="text-end">Records</th><th>Serial</th><th>Status</th></tr></thead>
                     <tbody>
                     <?php foreach ($zones as $z): $srv = $served[$z['name']] ?? null; ?>
@@ -68,7 +68,7 @@ $ready = !empty($status['configured']) && !empty($status['running']);
 </div>
 <?php if ($ready && $nameservers !== []): ?>
     <?= $this->modalStart('new-zone', 'New zone', isset($errors['website_id']) || isset($errors['name']), 'modal-md') ?>
-                <form method="post" action="<?= e($this->url('dns.store')) ?>" data-wcp-busy>
+                <form method="post" action="<?= e($this->url('dns.store')) ?>" data-nim-busy>
                     <?= $this->csrfField() ?>
                     <div class="mb-3">
                         <label class="form-label" for="dns-site">Website</label>

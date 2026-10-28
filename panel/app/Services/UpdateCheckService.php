@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
 use Closure;
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
 
 /**
- * Is a newer WhaCP available? The agent reports the installed checkout
+ * Is a newer NimVor available? The agent reports the installed checkout
  * (commit, branch, remote; it has no network access itself); the panel
  * asks GitHub for the branch's newest commit. The answer is kept in a
  * small file, refreshed by the scheduler every six hours or on request,
@@ -29,7 +29,7 @@ final class UpdateCheckService
         $this->fetch = $fetch ?? static function (string $url): array {
             $ch = curl_init($url);
             curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 10, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_FOLLOWLOCATION => false,
-                CURLOPT_PROTOCOLS => CURLPROTO_HTTPS, CURLOPT_USERAGENT => 'WhaCP update check', CURLOPT_HTTPHEADER => ['Accept: application/vnd.github.sha']]);
+                CURLOPT_PROTOCOLS => CURLPROTO_HTTPS, CURLOPT_USERAGENT => 'NimVor update check', CURLOPT_HTTPHEADER => ['Accept: application/vnd.github.sha']]);
             $body = curl_exec($ch);
             $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
@@ -72,7 +72,7 @@ final class UpdateCheckService
     {
         $res = ['checked_at' => time(), 'available' => false, 'state' => 'unknown', 'current' => '', 'latest' => '', 'branch' => '', 'updatable' => false, 'reason' => '', 'command' => ''];
         try {
-            $src = (array) json_decode((string) json_encode($this->agent->call('whacp.update_status')), true);
+            $src = (array) json_decode((string) json_encode($this->agent->call('nimvor.update_status')), true);
         } catch (AgentException $e) {
             $res['reason'] = 'The agent could not report the installed version: ' . $e->getMessage();
             return $this->save($res);

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 func TestParseInfo(t *testing.T) {
@@ -36,7 +36,7 @@ func TestPasswordNeverInArgs(t *testing.T) {
 	if !h.Runner.Called("redis-cli --no-auth-warning --raw -h 127.0.0.1 -p 6379 CONFIG SET maxmemory 512mb") || !h.Runner.Called("redis-cli --no-auth-warning --raw -h 127.0.0.1 -p 6379 CONFIG REWRITE") {
 		t.Errorf("calls: %v", h.Runner.Calls)
 	}
-	backups, _ := h.Env.Root.Glob("/var/lib/whacp-agent/config-backups/redis.conf.*")
+	backups, _ := h.Env.Root.Glob("/var/lib/nimvor-agent/config-backups/redis.conf.*")
 	if len(backups) != 1 {
 		t.Error("redis.conf not backed up before change")
 	}

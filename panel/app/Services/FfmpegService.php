@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\UserRepository;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Database\Connection;
+use NimVor\Repositories\UserRepository;
 
 /**
  * FFmpeg per hosting plan. The server's FFmpeg programs can only be run by
- * the whacp-ffmpeg group; its members are the system accounts of websites
+ * the nimvor-ffmpeg group; its members are the system accounts of websites
  * whose owner may use FFmpeg: administrators' websites, and accounts whose
  * plan (and, for a reseller's customer, the reseller's plan too) includes
  * it. Suspended accounts never do.

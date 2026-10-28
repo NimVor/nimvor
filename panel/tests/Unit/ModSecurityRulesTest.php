@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Unit;
+namespace NimVor\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use WhaCP\Services\ModSecurityService;
+use NimVor\Services\ModSecurityService;
 
 final class ModSecurityRulesTest extends TestCase
 {

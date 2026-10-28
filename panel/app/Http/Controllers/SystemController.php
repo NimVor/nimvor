@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Services\AuditLogger;
-use WhaCP\Services\JobTracker;
-use WhaCP\Services\ServerContext;
-use WhaCP\Support\UserFacingException;
-use WhaCP\View\View;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Services\AuditLogger;
+use NimVor\Services\JobTracker;
+use NimVor\Services\ServerContext;
+use NimVor\Support\UserFacingException;
+use NimVor\View\View;
 
 /**
  * Packages and server settings (host name, time zone, restart).
@@ -27,10 +27,10 @@ final class SystemController extends Controller
         private readonly AuditLogger $audit,
         private readonly JobTracker $jobs,
         private readonly ServerContext $server,
-        private readonly \WhaCP\Repositories\UserRepository $users,
-        private readonly \WhaCP\Security\PasswordHasher $hasher,
-        private readonly \WhaCP\Security\PasswordPolicy $policy,
-        private readonly \WhaCP\Services\SiteOverview $overview,
+        private readonly \NimVor\Repositories\UserRepository $users,
+        private readonly \NimVor\Security\PasswordHasher $hasher,
+        private readonly \NimVor\Security\PasswordPolicy $policy,
+        private readonly \NimVor\Services\SiteOverview $overview,
     ) {
         parent::__construct($view, $session);
     }
@@ -255,7 +255,7 @@ final class SystemController extends Controller
         }
         try {
             $this->agent->call('server.root_password', ['password' => $new]);
-        } catch (\WhaCP\Support\UserFacingException $e) {
+        } catch (\NimVor\Support\UserFacingException $e) {
             $this->audit->record('server.root_password', 'server', (string) $this->server->id(), AuditLogger::FAILURE, ['error' => $e->getMessage()]);
             return $this->redirectWithFailure('/server#root-password', $e);
         }

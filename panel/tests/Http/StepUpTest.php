@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Step-up confirmation for sensitive changes, and signing out other sessions. */
 final class StepUpTest extends HttpTestCase
@@ -32,14 +32,14 @@ final class StepUpTest extends HttpTestCase
         self::assertNotNull($db->scalar("SELECT id FROM users WHERE username = 'newop'"));
 
         $this->expireConfirmation();
-        $res = $this->request('POST', '/users', ['_token' => $this->app->container->get(\WhaCP\Security\Csrf::class)->token()] + ['username' => 'second', 'email' => 'second@example.test'] + $user, ['referer' => 'https://panel.test/users/create']);
+        $res = $this->request('POST', '/users', ['_token' => $this->app->container->get(\NimVor\Security\Csrf::class)->token()] + ['username' => 'second', 'email' => 'second@example.test'] + $user, ['referer' => 'https://panel.test/users/create']);
         self::assertSame('/confirm-password?return=' . rawurlencode('/users/create'), $res->header('Location'));
         self::assertNull($db->scalar("SELECT id FROM users WHERE username = 'second'"));
         self::assertStringContainsString('need your password', $this->request('GET', '/confirm-password', [], [], '', ['return' => '/users/create'])->body());
 
         // A wrong password is refused and counted; the right one confirms.
         $this->post('/confirm-password', ['password' => 'wrong-password-1', 'return' => '/users/create']);
-        self::assertFalse($this->app->container->get(\WhaCP\Security\AuthService::class)->recentlyConfirmed());
+        self::assertFalse($this->app->container->get(\NimVor\Security\AuthService::class)->recentlyConfirmed());
         $res = $this->post('/confirm-password', ['password' => 'a-long-test-password', 'return' => 'https://evil.test/x']);
         self::assertSame('/x', $res->header('Location'), 'only local paths');
         $this->post('/users', ['username' => 'second', 'email' => 'second@example.test'] + $user);

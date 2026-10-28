@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Http\Request;
-use WhaCP\Repositories\AuditLogRepository;
-use WhaCP\Support\Logger;
-use WhaCP\Support\Redactor;
+use NimVor\Http\Request;
+use NimVor\Repositories\AuditLogRepository;
+use NimVor\Support\Logger;
+use NimVor\Support\Redactor;
 
 /**
  * Records security-relevant and state-changing actions.

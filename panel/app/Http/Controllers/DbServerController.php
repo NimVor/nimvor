@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Hosting\Scope;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Services\AuditLogger;
-use WhaCP\Support\UserFacingException;
-use WhaCP\View\View;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Hosting\Scope;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Services\AuditLogger;
+use NimVor\Support\UserFacingException;
+use NimVor\View\View;
 
 /**
  * Database server (MariaDB / MySQL) manager for server administrators:
- * status, connections, WhaCP's managed settings, flush and a checked
+ * status, connections, NimVor's managed settings, flush and a checked
  * restart. Everything runs in the agent.
  */
 final class DbServerController extends Controller
@@ -98,7 +98,7 @@ final class DbServerController extends Controller
         }
         $in = array_map(static fn (mixed $v): string => is_scalar($v) ? trim((string) $v) : '', (array) $request->input('settings', []));
         $managed = array_map(static fn (mixed $v): string => is_scalar($v) ? (string) $v : '', (array) $request->input('managed', []));
-        // Send only what changed: a value that differs from WhaCP's file, or a field emptied that was set.
+        // Send only what changed: a value that differs from NimVor's file, or a field emptied that was set.
         $send = [];
         foreach ($in as $k => $v) {
             if ($v !== ($managed[$k] ?? '')) {

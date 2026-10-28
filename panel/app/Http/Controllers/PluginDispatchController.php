@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Route;
-use WhaCP\Plugins\PluginManager;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Route;
+use NimVor\Plugins\PluginManager;
 
 /**
  * Invokes the handler a plugin registered for the matched route. The

@@ -1,4 +1,4 @@
-# WhaCP documentation
+# NimVor documentation
 
 | Section | Contents |
 |---------|----------|

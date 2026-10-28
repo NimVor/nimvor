@@ -1,4 +1,4 @@
-// Package fw opens and closes ports for services WhaCP sets up (mail, DNS,
+// Package fw opens and closes ports for services NimVor sets up (mail, DNS,
 // FTP, SSH) in whichever firewall is active: UFW on Debian and Ubuntu,
 // firewalld on AlmaLinux, Rocky Linux and RHEL. When neither is active it
 // changes nothing and says which ports to allow. Rules for other purposes
@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
 // Backend names the active firewall ("ufw", "firewalld" or "").
@@ -53,7 +53,7 @@ func Open(ctx context.Context, env *host.Env, purpose string, ports ...Port) str
 	switch Backend(ctx, env) {
 	case "ufw":
 		for _, p := range ports {
-			if out, err := env.Runner.Run(ctx, "ufw", "allow", string(p), "comment", "whacp: "+purpose); err != nil {
+			if out, err := env.Runner.Run(ctx, "ufw", "allow", string(p), "comment", "nimvor: "+purpose); err != nil {
 				failed = append(failed, string(p)+": "+host.Output(out))
 			}
 		}

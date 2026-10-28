@@ -5,13 +5,13 @@
  * is loaded, and every change is a modal so the page stays uncluttered as the
  * number of databases grows.
  *
- * @var \WhaCP\View\View $this
+ * @var \NimVor\View\View $this
  * @var array{installed: bool, running: bool, version: string, auth: bool}|null $status
  * @var array{databases: list<array<string, mixed>>, users: list<array<string, mixed>>} $overview
  * @var array{kind: string, name: string, url: string, version: string, supported: bool, enabled: bool, note: string}|null $repository
  * @var string $section
  */
-use WhaCP\Security\Permissions as P;
+use NimVor\Security\Permissions as P;
 
 $status ??= null;
 $overview ??= ['databases' => [], 'users' => [], 'databases_error' => '', 'users_error' => ''];
@@ -38,7 +38,7 @@ $base = $this->url('mongo');
     <div class="card mb-3">
         <div class="card-header d-flex align-items-center gap-2"><i class="bi bi-box-seam" aria-hidden="true"></i>Install MongoDB</div>
         <div class="card-body">
-            <p class="small text-body-secondary mb-3">MongoDB is not in the base operating-system repositories, so WhaCP installs it from MongoDB Inc.'s own signed repository. First add the repository, then install MongoDB — the server is enabled and started for you. Both steps run in the background.</p>
+            <p class="small text-body-secondary mb-3">MongoDB is not in the base operating-system repositories, so NimVor installs it from MongoDB Inc.'s own signed repository. First add the repository, then install MongoDB — the server is enabled and started for you. Both steps run in the background.</p>
             <ol class="list-unstyled mb-0">
                 <li class="d-flex align-items-start gap-3 py-2 border-top">
                     <i class="bi <?= $repoEnabled ? 'bi-check-circle-fill text-success' : 'bi-1-circle text-body-secondary' ?> fs-5" aria-hidden="true"></i>
@@ -55,7 +55,7 @@ $base = $this->url('mongo');
                         <?php endif; ?>
                     </div>
                     <?php if ($canInstall && $repoSupported && !$repoEnabled): ?>
-                        <form method="post" action="<?= e($this->url('mongo.repository_enable')) ?>" data-wcp-busy data-wcp-confirm="Add MongoDB Inc.'s signed repository to this server?">
+                        <form method="post" action="<?= e($this->url('mongo.repository_enable')) ?>" data-nim-busy data-nim-confirm="Add MongoDB Inc.'s signed repository to this server?">
                             <?= $this->csrfField() ?>
                             <button class="btn btn-sm btn-outline-primary text-nowrap"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Add repository</button>
                         </form>
@@ -68,7 +68,7 @@ $base = $this->url('mongo');
                         <div class="small text-body-secondary">Installs <code>mongodb-org</code> (server, shell and tools), then enables and starts the <code>mongod</code> service.</div>
                     </div>
                     <?php if ($canInstall && $repoEnabled): ?>
-                        <form method="post" action="<?= e($this->url('mongo.install')) ?>" data-wcp-busy data-wcp-confirm="Install MongoDB <?= e($repository['version'] ?? '8.0') ?> now?">
+                        <form method="post" action="<?= e($this->url('mongo.install')) ?>" data-nim-busy data-nim-confirm="Install MongoDB <?= e($repository['version'] ?? '8.0') ?> now?">
                             <?= $this->csrfField() ?>
                             <button class="btn btn-sm btn-primary text-nowrap"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Install MongoDB</button>
                         </form>
@@ -84,16 +84,16 @@ $base = $this->url('mongo');
     <?php return; ?>
 <?php endif; ?>
 
-<div class="wcp-infobar mb-3">
+<div class="nim-infobar mb-3">
     <i class="bi bi-database-check" aria-hidden="true"></i>
     <span class="me-auto">MongoDB <?= e($status['version'] !== '' ? $status['version'] : '(version unknown)') ?> · <?= $status['running'] ? 'running' : 'stopped' ?><?= $status['auth'] ? ' · authentication on' : '' ?></span>
     <?php if ($canServices && $status['running']): ?>
         <div class="d-flex gap-2">
-            <form method="post" action="<?= e($this->url('mongo.service')) ?>" data-wcp-busy data-wcp-confirm="Restart the MongoDB service?">
+            <form method="post" action="<?= e($this->url('mongo.service')) ?>" data-nim-busy data-nim-confirm="Restart the MongoDB service?">
                 <?= $this->csrfField() ?><input type="hidden" name="op" value="restart">
                 <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i>Restart</button>
             </form>
-            <form method="post" action="<?= e($this->url('mongo.service')) ?>" data-wcp-busy data-wcp-confirm="Stop the MongoDB service? Applications using it will lose their connection.">
+            <form method="post" action="<?= e($this->url('mongo.service')) ?>" data-nim-busy data-nim-confirm="Stop the MongoDB service? Applications using it will lose their connection.">
                 <?= $this->csrfField() ?><input type="hidden" name="op" value="stop">
                 <button class="btn btn-sm btn-outline-danger"><i class="bi bi-stop-fill me-1" aria-hidden="true"></i>Stop</button>
             </form>
@@ -105,7 +105,7 @@ $base = $this->url('mongo');
     <div class="card"><div class="card-body d-flex flex-wrap align-items-center gap-3">
         <span class="small text-body-secondary me-auto">The MongoDB service (<code>mongod</code>) is not running.</span>
         <?php if ($canServices): ?>
-            <form method="post" action="<?= e($this->url('mongo.service')) ?>" data-wcp-busy>
+            <form method="post" action="<?= e($this->url('mongo.service')) ?>" data-nim-busy>
                 <?= $this->csrfField() ?><input type="hidden" name="op" value="start">
                 <button class="btn btn-sm btn-primary"><i class="bi bi-play-fill me-1" aria-hidden="true"></i>Start MongoDB</button>
             </form>
@@ -124,7 +124,7 @@ $base = $this->url('mongo');
     <div class="alert alert-warning small" role="alert">The <?= e($what) ?> could not be listed: <?= e((string) $overview[$key]) ?></div>
 <?php endif; endforeach; ?>
 
-<ul class="nav nav-tabs wcp-tabs mb-3">
+<ul class="nav nav-tabs nim-tabs mb-3">
     <?php foreach ([
         'databases' => ['Databases', 'hdd-stack', count($overview['databases'])],
         'users' => ['Users', 'people', count($overview['users'])],
@@ -157,7 +157,7 @@ $base = $this->url('mongo');
     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
         <div class="input-group input-group-sm" style="max-width:20rem">
             <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
-            <input class="form-control" type="search" placeholder="Filter databases" aria-label="Filter databases" data-wcp-filter="#mongo-dbs">
+            <input class="form-control" type="search" placeholder="Filter databases" aria-label="Filter databases" data-nim-filter="#mongo-dbs">
         </div>
         <span class="me-auto"></span>
         <?php if ($canManage): ?>
@@ -165,9 +165,9 @@ $base = $this->url('mongo');
             <a class="btn btn-sm btn-outline-secondary" href="<?= e($base . '?section=remotes') ?>" title="Copy a database from another server"><i class="bi bi-cloud-download me-1" aria-hidden="true"></i>Get DB from server</a>
             <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#mongo-admin" title="Set the MongoDB administrator password"><i class="bi bi-shield-lock me-1" aria-hidden="true"></i>Root password</button>
             <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#mongo-config" title="Authentication and connection settings"><i class="bi bi-shield-check me-1" aria-hidden="true"></i>Security auth</button>
-            <button class="btn btn-sm btn-outline-secondary" type="button" data-wcp-check-all="#mongo-dbs"><i class="bi bi-check2-square me-1" aria-hidden="true"></i>All</button>
-            <button class="btn btn-sm btn-outline-secondary" type="button" data-wcp-check-none="#mongo-dbs">None</button>
-            <form id="mongo-dbs-bulk" method="post" action="<?= e($this->url('mongo.database_bulk_drop')) ?>" data-wcp-busy data-wcp-confirm="Drop every selected database and all their data? This cannot be undone.">
+            <button class="btn btn-sm btn-outline-secondary" type="button" data-nim-check-all="#mongo-dbs"><i class="bi bi-check2-square me-1" aria-hidden="true"></i>All</button>
+            <button class="btn btn-sm btn-outline-secondary" type="button" data-nim-check-none="#mongo-dbs">None</button>
+            <form id="mongo-dbs-bulk" method="post" action="<?= e($this->url('mongo.database_bulk_drop')) ?>" data-nim-busy data-nim-confirm="Drop every selected database and all their data? This cannot be undone.">
                 <?= $this->csrfField() ?>
                 <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1" aria-hidden="true"></i>Delete selected</button>
             </form>
@@ -178,7 +178,7 @@ $base = $this->url('mongo');
         <?php if ($overview['databases'] === []): ?>
             <div class="card-body small text-body-secondary">No databases yet.</div>
         <?php else: ?>
-            <div class="wcp-dtable table-responsive">
+            <div class="nim-dtable table-responsive">
                 <table class="table align-middle mb-0" id="mongo-dbs">
                     <thead><tr><?php if ($canManage): ?><th style="width:2.5rem"></th><?php endif; ?><th>Name</th><th>User</th><th>Size</th><th>Backup</th><th>Position</th><th>Note</th><th class="text-end">Action</th></tr></thead>
                     <tbody>
@@ -192,7 +192,7 @@ $base = $this->url('mongo');
                                 <?php if ($bc > 0): ?>
                                     <a class="text-success-emphasis text-decoration-none" href="<?= e($base . '?section=backups') ?>" title="<?= (int) $bc ?> backup(s)"><i class="bi bi-check-circle me-1"></i><?= (int) $bc ?></a>
                                 <?php elseif ($canManage): ?>
-                                    <form class="d-inline" method="post" action="<?= e($this->url('mongo.backup')) ?>" data-wcp-busy data-wcp-confirm="Back up “<?= e($dn) ?>” now?">
+                                    <form class="d-inline" method="post" action="<?= e($this->url('mongo.backup')) ?>" data-nim-busy data-nim-confirm="Back up “<?= e($dn) ?>” now?">
                                         <?= $this->csrfField() ?><input type="hidden" name="db" value="<?= e($dn) ?>">
                                         <button class="btn btn-sm btn-link p-0 text-decoration-none text-warning-emphasis" title="No backup yet — back up now"><i class="bi bi-dash-circle me-1"></i>Back up</button>
                                     </form>
@@ -214,7 +214,7 @@ $base = $this->url('mongo');
                                 <?php if ($du !== ''): ?>
                                 <button class="btn btn-sm btn-outline-secondary" type="button" title="Change the user's password" data-bs-toggle="modal" data-bs-target="#mongo-pw" data-user="<?= e($du) ?>" data-db="<?= e($dn) ?>"><i class="bi bi-key"></i></button>
                                 <?php endif; ?>
-                                <form class="d-inline" method="post" action="<?= e($this->url('mongo.database_drop')) ?>" data-wcp-confirm="Drop the database “<?= e($dn) ?>” and everything in it? This cannot be undone.">
+                                <form class="d-inline" method="post" action="<?= e($this->url('mongo.database_drop')) ?>" data-nim-confirm="Drop the database “<?= e($dn) ?>” and everything in it? This cannot be undone.">
                                     <?= $this->csrfField() ?>
                                     <input type="hidden" name="name" value="<?= e($dn) ?>"><input type="hidden" name="confirm" value="<?= e($dn) ?>">
                                     <button class="btn btn-sm btn-outline-danger" title="Drop"><i class="bi bi-trash"></i></button>
@@ -223,7 +223,7 @@ $base = $this->url('mongo');
                             </td>
                         </tr>
                     <?php endforeach; ?>
-                    <tr data-wcp-filter-empty class="d-none"><td colspan="<?= $canManage ? 8 : 7 ?>" class="small text-body-secondary">No databases match the filter.</td></tr>
+                    <tr data-nim-filter-empty class="d-none"><td colspan="<?= $canManage ? 8 : 7 ?>" class="small text-body-secondary">No databases match the filter.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -235,7 +235,7 @@ $base = $this->url('mongo');
     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
         <div class="input-group input-group-sm" style="max-width:22rem">
             <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
-            <input class="form-control" type="search" placeholder="Filter users" aria-label="Filter users" data-wcp-filter="#mongo-users">
+            <input class="form-control" type="search" placeholder="Filter users" aria-label="Filter users" data-nim-filter="#mongo-users">
         </div>
         <span class="me-auto"></span>
         <?php if ($canManage): ?>
@@ -246,7 +246,7 @@ $base = $this->url('mongo');
         <?php if ($overview['users'] === []): ?>
             <div class="card-body small text-body-secondary">No users yet.</div>
         <?php else: ?>
-            <div class="wcp-dtable table-responsive">
+            <div class="nim-dtable table-responsive">
                 <table class="table align-middle mb-0" id="mongo-users">
                     <thead><tr><th>User</th><th>Database</th><th>Roles</th><?php if ($canManage): ?><th class="text-end">Action</th><?php endif; ?></tr></thead>
                     <tbody>
@@ -258,7 +258,7 @@ $base = $this->url('mongo');
                             <?php if ($canManage): ?>
                             <td class="text-end text-nowrap">
                                 <button class="btn btn-sm btn-outline-secondary" title="Change password" data-bs-toggle="modal" data-bs-target="#mongo-pw" data-user="<?= e((string) ($u['user'] ?? '')) ?>" data-db="<?= e((string) ($u['db'] ?? '')) ?>"><i class="bi bi-key"></i></button>
-                                <form class="d-inline" method="post" action="<?= e($this->url('mongo.user_drop')) ?>" data-wcp-confirm="Drop the user “<?= e((string) ($u['user'] ?? '')) ?>”?">
+                                <form class="d-inline" method="post" action="<?= e($this->url('mongo.user_drop')) ?>" data-nim-confirm="Drop the user “<?= e((string) ($u['user'] ?? '')) ?>”?">
                                     <?= $this->csrfField() ?><input type="hidden" name="user" value="<?= e((string) ($u['user'] ?? '')) ?>"><input type="hidden" name="db" value="<?= e((string) ($u['db'] ?? '')) ?>">
                                     <button class="btn btn-sm btn-outline-danger" title="Drop"><i class="bi bi-trash"></i></button>
                                 </form>
@@ -266,7 +266,7 @@ $base = $this->url('mongo');
                             <?php endif; ?>
                         </tr>
                     <?php endforeach; ?>
-                    <tr data-wcp-filter-empty class="d-none"><td colspan="<?= $canManage ? 4 : 3 ?>" class="small text-body-secondary">No users match the filter.</td></tr>
+                    <tr data-nim-filter-empty class="d-none"><td colspan="<?= $canManage ? 4 : 3 ?>" class="small text-body-secondary">No users match the filter.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -278,11 +278,11 @@ $base = $this->url('mongo');
     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
         <div class="input-group input-group-sm" style="max-width:22rem">
             <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
-            <input class="form-control" type="search" placeholder="Filter backups" aria-label="Filter backups" data-wcp-filter="#mongo-backups">
+            <input class="form-control" type="search" placeholder="Filter backups" aria-label="Filter backups" data-nim-filter="#mongo-backups">
         </div>
         <span class="me-auto"></span>
         <?php if ($canManage && $overview['databases'] !== []): ?>
-            <form method="post" action="<?= e($this->url('mongo.backup')) ?>" class="d-flex gap-2" data-wcp-busy>
+            <form method="post" action="<?= e($this->url('mongo.backup')) ?>" class="d-flex gap-2" data-nim-busy>
                 <?= $this->csrfField() ?>
                 <select class="form-select form-select-sm" name="db" required aria-label="Database to back up" style="max-width:16rem">
                     <?php foreach ($overview['databases'] as $d): $dn = (string) ($d['name'] ?? ''); ?><option value="<?= e($dn) ?>"><?= e($dn) ?></option><?php endforeach; ?>
@@ -295,7 +295,7 @@ $base = $this->url('mongo');
         <?php if ($backups === []): ?>
             <div class="card-body small text-body-secondary">No backups yet. Backups are gzip <code>mongodump</code> archives kept on this server; large ones run in the background.</div>
         <?php else: ?>
-            <div class="wcp-dtable table-responsive">
+            <div class="nim-dtable table-responsive">
                 <table class="table align-middle mb-0" id="mongo-backups">
                     <thead><tr><th>Database</th><th>Archive</th><th>Size</th><th>Created (UTC)</th><?php if ($canManage): ?><th class="text-end">Action</th><?php endif; ?></tr></thead>
                     <tbody>
@@ -307,11 +307,11 @@ $base = $this->url('mongo');
                             <td class="small text-body-secondary"><?= e(((string) $b['created']) !== '' ? str_replace(['T', 'Z'], [' ', ''], substr((string) $b['created'], 0, 19)) : '—') ?></td>
                             <?php if ($canManage): ?>
                             <td class="text-end text-nowrap">
-                                <form class="d-inline" method="post" action="<?= e($this->url('mongo.restore')) ?>" data-wcp-busy data-wcp-confirm="Restore “<?= e($bdb) ?>” from this backup? Documents sharing an _id with the archive are overwritten.">
+                                <form class="d-inline" method="post" action="<?= e($this->url('mongo.restore')) ?>" data-nim-busy data-nim-confirm="Restore “<?= e($bdb) ?>” from this backup? Documents sharing an _id with the archive are overwritten.">
                                     <?= $this->csrfField() ?><input type="hidden" name="file" value="<?= e($bf) ?>"><input type="hidden" name="db" value="<?= e($bdb) ?>"><input type="hidden" name="drop" value="0">
                                     <button class="btn btn-sm btn-outline-secondary" title="Restore"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
                                 </form>
-                                <form class="d-inline" method="post" action="<?= e($this->url('mongo.backup_delete')) ?>" data-wcp-confirm="Delete this backup archive? This cannot be undone.">
+                                <form class="d-inline" method="post" action="<?= e($this->url('mongo.backup_delete')) ?>" data-nim-confirm="Delete this backup archive? This cannot be undone.">
                                     <?= $this->csrfField() ?><input type="hidden" name="file" value="<?= e($bf) ?>">
                                     <button class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></button>
                                 </form>
@@ -319,7 +319,7 @@ $base = $this->url('mongo');
                             <?php endif; ?>
                         </tr>
                     <?php endforeach; ?>
-                    <tr data-wcp-filter-empty class="d-none"><td colspan="<?= $canManage ? 5 : 4 ?>" class="small text-body-secondary">No backups match the filter.</td></tr>
+                    <tr data-nim-filter-empty class="d-none"><td colspan="<?= $canManage ? 5 : 4 ?>" class="small text-body-secondary">No backups match the filter.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -331,7 +331,7 @@ $base = $this->url('mongo');
     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
         <div class="input-group input-group-sm" style="max-width:22rem">
             <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
-            <input class="form-control" type="search" placeholder="Filter servers" aria-label="Filter servers" data-wcp-filter="#mongo-remotes">
+            <input class="form-control" type="search" placeholder="Filter servers" aria-label="Filter servers" data-nim-filter="#mongo-remotes">
         </div>
         <span class="me-auto"></span>
         <?php if ($canManage): ?>
@@ -343,7 +343,7 @@ $base = $this->url('mongo');
         <?php if ($remotes === []): ?>
             <div class="card-body small text-body-secondary">No remote servers yet. Add one to copy a database from another MongoDB server.</div>
         <?php else: ?>
-            <div class="wcp-dtable table-responsive">
+            <div class="nim-dtable table-responsive">
                 <table class="table align-middle mb-0" id="mongo-remotes">
                     <thead><tr><th>Name</th><th>Server</th><th>User</th><th>TLS</th><?php if ($canManage): ?><th class="text-end">Action</th><?php endif; ?></tr></thead>
                     <tbody>
@@ -356,11 +356,11 @@ $base = $this->url('mongo');
                             <?php if ($canManage): ?>
                             <td class="text-end text-nowrap">
                                 <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#mongo-getdb" data-id="<?= (int) $rm['id'] ?>" data-name="<?= e((string) $rm['name']) ?>"><i class="bi bi-cloud-download me-1"></i>Get DB</button>
-                                <form class="d-inline" method="post" action="<?= e($this->url('mongo.remote_test')) ?>" data-wcp-busy>
+                                <form class="d-inline" method="post" action="<?= e($this->url('mongo.remote_test')) ?>" data-nim-busy>
                                     <?= $this->csrfField() ?><input type="hidden" name="id" value="<?= (int) $rm['id'] ?>">
                                     <button class="btn btn-sm btn-outline-secondary" title="Test the connection"><i class="bi bi-plug"></i></button>
                                 </form>
-                                <form class="d-inline" method="post" action="<?= e($this->url('mongo.remote_delete')) ?>" data-wcp-confirm="Remove the saved connection “<?= e((string) $rm['name']) ?>”?">
+                                <form class="d-inline" method="post" action="<?= e($this->url('mongo.remote_delete')) ?>" data-nim-confirm="Remove the saved connection “<?= e((string) $rm['name']) ?>”?">
                                     <?= $this->csrfField() ?><input type="hidden" name="id" value="<?= (int) $rm['id'] ?>">
                                     <button class="btn btn-sm btn-outline-danger" title="Remove"><i class="bi bi-trash"></i></button>
                                 </form>
@@ -368,7 +368,7 @@ $base = $this->url('mongo');
                             <?php endif; ?>
                         </tr>
                     <?php endforeach; ?>
-                    <tr data-wcp-filter-empty class="d-none"><td colspan="<?= $canManage ? 5 : 4 ?>" class="small text-body-secondary">No servers match the filter.</td></tr>
+                    <tr data-nim-filter-empty class="d-none"><td colspan="<?= $canManage ? 5 : 4 ?>" class="small text-body-secondary">No servers match the filter.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -396,12 +396,12 @@ $base = $this->url('mongo');
                     <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#mongo-configfile"><i class="bi bi-file-earmark-code me-1" aria-hidden="true"></i>Edit config file</button>
                     <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#mongo-admin"><i class="bi bi-shield-lock me-1" aria-hidden="true"></i>Admin password</button>
                     <?php if ($status['auth']): ?>
-                        <form method="post" action="<?= e($this->url('mongo.auth')) ?>" data-wcp-busy data-wcp-confirm="Turn OFF MongoDB authentication? Anyone who can reach the server will be able to connect without a password. MongoDB restarts.">
+                        <form method="post" action="<?= e($this->url('mongo.auth')) ?>" data-nim-busy data-nim-confirm="Turn OFF MongoDB authentication? Anyone who can reach the server will be able to connect without a password. MongoDB restarts.">
                             <?= $this->csrfField() ?><input type="hidden" name="enable" value="0">
                             <button class="btn btn-sm btn-outline-warning w-100"><i class="bi bi-unlock me-1" aria-hidden="true"></i>Disable auth</button>
                         </form>
                     <?php else: ?>
-                        <form method="post" action="<?= e($this->url('mongo.auth')) ?>" data-wcp-busy data-wcp-confirm="Turn ON MongoDB authentication? Set an admin password first, or this is refused. MongoDB restarts and clients must then authenticate.">
+                        <form method="post" action="<?= e($this->url('mongo.auth')) ?>" data-nim-busy data-nim-confirm="Turn ON MongoDB authentication? Set an admin password first, or this is refused. MongoDB restarts and clients must then authenticate.">
                             <?= $this->csrfField() ?><input type="hidden" name="enable" value="1">
                             <button class="btn btn-sm btn-outline-secondary w-100"><i class="bi bi-shield-check me-1" aria-hidden="true"></i>Enable auth</button>
                         </form>
@@ -426,7 +426,7 @@ $base = $this->url('mongo');
             <?php elseif (trim($log['lines']) === ''): ?>
                 <div class="small text-body-secondary">The log is empty.</div>
             <?php else: ?>
-                <pre class="small border rounded p-2 mb-0 wcp-mongo-json"><?= e($log['lines']) ?></pre>
+                <pre class="small border rounded p-2 mb-0 nim-mongo-json"><?= e($log['lines']) ?></pre>
             <?php endif; ?>
             <a class="btn btn-sm btn-outline-secondary mt-2" href="<?= e($base . '?section=log') ?>"><i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i>Refresh</a>
         </div>
@@ -435,20 +435,20 @@ $base = $this->url('mongo');
 
 <?php if ($canManage): ?>
 <?= $this->modalStart('mongo-admin', 'MongoDB admin password') ?>
-    <form method="post" action="<?= e($this->url('mongo.admin_password')) ?>" data-wcp-busy>
+    <form method="post" action="<?= e($this->url('mongo.admin_password')) ?>" data-nim-busy>
         <div class="p-3">
             <?= $this->csrfField() ?>
-            <p class="small text-body-secondary">Sets the password of WhaCP's MongoDB administrator (<code>whacpAdmin</code>, in the <code>admin</code> database). WhaCP uses this account to manage the server once authentication is on. Set it <strong>before</strong> enabling authentication.</p>
+            <p class="small text-body-secondary">Sets the password of NimVor's MongoDB administrator (<code>nimvorAdmin</code>, in the <code>admin</code> database). NimVor uses this account to manage the server once authentication is on. Set it <strong>before</strong> enabling authentication.</p>
             <label class="form-label" for="madm-pw">New admin password</label>
             <input class="form-control font-monospace" id="madm-pw" name="password" type="text" minlength="8" maxlength="256" required autocomplete="off" spellcheck="false">
-            <div class="form-text">8 to 256 characters. Store it somewhere safe — WhaCP keeps only the server-side connection string, not a copy it shows you later.</div>
+            <div class="form-text">8 to 256 characters. Store it somewhere safe — NimVor keeps only the server-side connection string, not a copy it shows you later.</div>
             <button class="btn btn-primary btn-sm mt-3" type="submit">Save admin password</button>
         </div>
     </form>
 <?= $this->modalEnd() ?>
 
 <?= $this->modalStart('mongo-config', 'MongoDB settings') ?>
-    <form method="post" action="<?= e($this->url('mongo.config')) ?>" data-wcp-busy data-wcp-confirm="Save the MongoDB configuration and restart the service? The previous configuration is restored automatically if it fails to start.">
+    <form method="post" action="<?= e($this->url('mongo.config')) ?>" data-nim-busy data-nim-confirm="Save the MongoDB configuration and restart the service? The previous configuration is restored automatically if it fails to start.">
         <div class="p-3">
             <?= $this->csrfField() ?>
             <div class="row g-3">
@@ -474,23 +474,23 @@ $base = $this->url('mongo');
 <?= $this->modalEnd() ?>
 
 <?= $this->modalStart('mongo-configfile', 'MongoDB configuration file') ?>
-    <form method="post" action="<?= e($this->url('mongo.config_file')) ?>" data-wcp-busy data-wcp-confirm="Save the whole MongoDB configuration file and restart the service? If it fails to start, the previous file is restored automatically.">
+    <form method="post" action="<?= e($this->url('mongo.config_file')) ?>" data-nim-busy data-nim-confirm="Save the whole MongoDB configuration file and restart the service? If it fails to start, the previous file is restored automatically.">
         <div class="p-3">
             <?= $this->csrfField() ?>
             <textarea class="form-control font-monospace small" name="content" rows="18" spellcheck="false" aria-label="MongoDB configuration file"><?= e((($config ?? [])['raw'] ?? '')) ?></textarea>
-            <div class="form-text">Editing the whole <code><?= e((($config ?? [])['path'] ?? '/etc/mongod.conf')) ?></code>. MongoDB has no offline check, so WhaCP restarts to apply it and restores the previous file if it will not start.</div>
+            <div class="form-text">Editing the whole <code><?= e((($config ?? [])['path'] ?? '/etc/mongod.conf')) ?></code>. MongoDB has no offline check, so NimVor restarts to apply it and restores the previous file if it will not start.</div>
             <button class="btn btn-outline-primary btn-sm mt-3" type="submit"><i class="bi bi-save me-1" aria-hidden="true"></i>Save &amp; restart</button>
         </div>
     </form>
 <?= $this->modalEnd() ?>
 
 <?= $this->modalStart('mongo-db', 'Add database') ?>
-    <form method="post" action="<?= e($this->url('mongo.database_create')) ?>" data-wcp-busy>
+    <form method="post" action="<?= e($this->url('mongo.database_create')) ?>" data-nim-busy>
         <div class="p-3">
             <?= $this->csrfField() ?>
             <label class="form-label" for="mdb-name">Name</label>
             <input class="form-control" id="mdb-name" name="name" pattern="[A-Za-z0-9_][A-Za-z0-9_-]*" maxlength="63" required placeholder="shop">
-            <div class="form-text">Letters, digits, _ and -. The database exists once it has a collection; WhaCP adds an empty one.</div>
+            <div class="form-text">Letters, digits, _ and -. The database exists once it has a collection; NimVor adds an empty one.</div>
             <hr class="my-3">
             <div class="form-check form-switch mb-2">
                 <input class="form-check-input" type="checkbox" role="switch" id="mdb-withuser" data-mongo-dbuser-toggle>
@@ -511,7 +511,7 @@ $base = $this->url('mongo');
 <?= $this->modalEnd() ?>
 
 <?= $this->modalStart('mongo-user', 'Add user') ?>
-    <form method="post" action="<?= e($this->url('mongo.user_create')) ?>" data-wcp-busy>
+    <form method="post" action="<?= e($this->url('mongo.user_create')) ?>" data-nim-busy>
         <div class="p-3">
             <?= $this->csrfField() ?>
             <div class="row g-2">
@@ -534,20 +534,20 @@ $base = $this->url('mongo');
 <?= $this->modalEnd() ?>
 
 <?= $this->modalStart('mongo-note', 'Database note', false, '') ?>
-    <form method="post" action="<?= e($this->url('mongo.note')) ?>" data-wcp-busy>
+    <form method="post" action="<?= e($this->url('mongo.note')) ?>" data-nim-busy>
         <div class="p-3">
             <?= $this->csrfField() ?>
             <input type="hidden" name="name" id="mnote-db">
             <label class="form-label" for="mnote-text">Note for <code data-mongo-note-db></code></label>
             <textarea class="form-control" id="mnote-text" name="note" rows="3" maxlength="500" placeholder="A short reminder about this database (purpose, owner, …)"></textarea>
-            <div class="form-text">Stored in WhaCP, visible to administrators only. Leave empty to clear.</div>
+            <div class="form-text">Stored in NimVor, visible to administrators only. Leave empty to clear.</div>
             <button class="btn btn-primary btn-sm mt-3" type="submit">Save note</button>
         </div>
     </form>
 <?= $this->modalEnd() ?>
 
 <?= $this->modalStart('mongo-remote', 'Add remote MongoDB server') ?>
-    <form method="post" action="<?= e($this->url('mongo.remote_add')) ?>" data-wcp-busy>
+    <form method="post" action="<?= e($this->url('mongo.remote_add')) ?>" data-nim-busy>
         <div class="p-3">
             <?= $this->csrfField() ?>
             <label class="form-label" for="mrm-name">Name</label>
@@ -573,7 +573,7 @@ $base = $this->url('mongo');
 <?= $this->modalEnd() ?>
 
 <?= $this->modalStart('mongo-getdb', 'Get a database from a server') ?>
-    <form method="post" action="<?= e($this->url('mongo.remote_pull')) ?>" data-wcp-busy data-mongo-getdb-form>
+    <form method="post" action="<?= e($this->url('mongo.remote_pull')) ?>" data-nim-busy data-mongo-getdb-form>
         <div class="p-3">
             <?= $this->csrfField() ?>
             <input type="hidden" name="id" data-mongo-getdb-id>
@@ -595,7 +595,7 @@ $base = $this->url('mongo');
 <?= $this->modalEnd() ?>
 
 <?= $this->modalStart('mongo-pw', 'Change password') ?>
-    <form method="post" action="<?= e($this->url('mongo.user_password')) ?>" data-wcp-busy>
+    <form method="post" action="<?= e($this->url('mongo.user_password')) ?>" data-nim-busy>
         <div class="p-3">
             <?= $this->csrfField() ?>
             <input type="hidden" name="user" id="mpw-user">

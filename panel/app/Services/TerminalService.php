@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Security\PasswordHasher;
-use WhaCP\Security\TwoFactor;
-use WhaCP\Support\UserFacingException;
+use NimVor\Agent\AgentClient;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Security\PasswordHasher;
+use NimVor\Security\TwoFactor;
+use NimVor\Support\UserFacingException;
 
 /**
  * Web terminal. The agent runs the shell (as the website account, in its
@@ -36,7 +36,7 @@ final class TerminalService
         private readonly SessionInterface $session,
         private readonly PasswordHasher $hasher,
         private readonly TwoFactor $twoFactor,
-        private readonly \WhaCP\Database\Connection $db,
+        private readonly \NimVor\Database\Connection $db,
         private readonly AuditLogger $audit,
         private readonly SettingsService $settings,
     ) {

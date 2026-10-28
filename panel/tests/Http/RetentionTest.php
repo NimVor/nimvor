@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Services\RetentionService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Services\RetentionService;
+use NimVor\Tests\Support\HttpTestCase;
 
 final class RetentionTest extends HttpTestCase
 {
@@ -22,7 +22,7 @@ final class RetentionTest extends HttpTestCase
     {
         $now = gmdate('c');
         $this->db->run(
-            "INSERT INTO websites (server_id, owner_id, domain, system_user, root, document_root, kind, created_at, updated_at) VALUES (1, NULL, ?, 'u', '/home/whacp/x', '/home/whacp/x/public_html', 'static', ?, ?)",
+            "INSERT INTO websites (server_id, owner_id, domain, system_user, root, document_root, kind, created_at, updated_at) VALUES (1, NULL, ?, 'u', '/home/nimvor/x', '/home/nimvor/x/public_html', 'static', ?, ?)",
             [$domain, $now, $now]
         );
         return (int) $this->db->scalar('SELECT id FROM websites WHERE domain = ?', [$domain]);

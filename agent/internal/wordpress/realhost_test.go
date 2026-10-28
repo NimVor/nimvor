@@ -17,27 +17,27 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/apps"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/config"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/apps"
+	"github.com/NimVor/nimvor/agent/internal/config"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/jobs"
+	"github.com/NimVor/nimvor/agent/internal/platform"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 // oldWordPress is installed in CI (network) so that a core update can be
-// tested; WHACP_WP_TARBALL (with a .sha1 next to it) replaces it offline.
+// tested; NIMVOR_WP_TARBALL (with a .sha1 next to it) replaces it offline.
 const oldWordPress = "https://wordpress.org/wordpress-6.5.5.tar.gz"
 
 // Requires root, PHP with mysqli, a local MariaDB, GitHub (WP-CLI) and
-// either WHACP_WP_TARBALL or WHACP_NETWORK=1 (WordPress.org).
+// either NIMVOR_WP_TARBALL or NIMVOR_NETWORK=1 (WordPress.org).
 func TestRealHostWordPressToolkit(t *testing.T) {
-	tarball := os.Getenv("WHACP_WP_TARBALL")
-	network := os.Getenv("WHACP_NETWORK") == "1"
+	tarball := os.Getenv("NIMVOR_WP_TARBALL")
+	network := os.Getenv("NIMVOR_NETWORK") == "1"
 	if os.Geteuid() != 0 || (tarball == "" && !network) {
-		t.Skip("needs root and WHACP_WP_TARBALL or WHACP_NETWORK=1")
+		t.Skip("needs root and NIMVOR_WP_TARBALL or NIMVOR_NETWORK=1")
 	}
 	src := apps.Sources{WordPressURL: oldWordPress, Client: &http.Client{Timeout: 5 * time.Minute}}
 	if tarball != "" {
@@ -47,10 +47,10 @@ func TestRealHostWordPressToolkit(t *testing.T) {
 	}
 	hadPhar := pharReady(&host.Env{Root: filesystem.Host()})
 
-	sitesRoot, _ := os.MkdirTemp("/tmp", "whacp-wpt-")
+	sitesRoot, _ := os.MkdirTemp("/tmp", "nimvor-wpt-")
 	os.Chmod(sitesRoot, 0o711)
 	t.Cleanup(func() { os.RemoveAll(sitesRoot) })
-	for _, u := range []string{"1781:whacpwt", "1782:whacpwt2"} {
+	for _, u := range []string{"1781:nimvorwt", "1782:nimvorwt2"} {
 		id, name, _ := strings.Cut(u, ":")
 		exec.Command("useradd", "-M", "-U", "-s", "/usr/sbin/nologin", "-u", id, name).Run()
 		t.Cleanup(func() { exec.Command("userdel", name).Run() })
@@ -59,15 +59,15 @@ func TestRealHostWordPressToolkit(t *testing.T) {
 	cfgBackup := t.TempDir()
 	os.MkdirAll(filepath.Join(root, "public_html"), 0o755)
 	os.MkdirAll(filepath.Join(root, "tmp"), 0o755)
-	exec.Command("chown", "-R", "whacpwt:whacpwt", root).Run()
+	exec.Command("chown", "-R", "nimvorwt:nimvorwt", root).Run()
 	os.Chmod(root, 0o710)
 	const dbPass = "wpt-Db-Secret-77"
-	sql := "CREATE DATABASE IF NOT EXISTS whacp_wpt; CREATE USER IF NOT EXISTS 'whacp_wpt'@'localhost' IDENTIFIED BY '" + dbPass + "'; GRANT ALL ON whacp_wpt.* TO 'whacp_wpt'@'localhost';"
+	sql := "CREATE DATABASE IF NOT EXISTS nimvor_wpt; CREATE USER IF NOT EXISTS 'nimvor_wpt'@'localhost' IDENTIFIED BY '" + dbPass + "'; GRANT ALL ON nimvor_wpt.* TO 'nimvor_wpt'@'localhost';"
 	if out, err := exec.Command("mysql", "-e", sql).CombinedOutput(); err != nil {
 		t.Fatalf("%s", out)
 	}
 	t.Cleanup(func() {
-		exec.Command("mysql", "-e", "DROP DATABASE IF EXISTS whacp_wpt; DROP USER IF EXISTS 'whacp_wpt'@'localhost'").Run()
+		exec.Command("mysql", "-e", "DROP DATABASE IF EXISTS nimvor_wpt; DROP USER IF EXISTS 'nimvor_wpt'@'localhost'").Run()
 	})
 
 	cfg := config.Default()
@@ -84,24 +84,24 @@ func TestRealHostWordPressToolkit(t *testing.T) {
 			os.Remove(WPCLIPath)
 		}
 	})
-	cred, _, err := env.Credential("whacpwt")
+	cred, _, err := env.Credential("nimvorwt")
 	if err != nil {
 		t.Fatal(err)
 	}
 	php := testhost.PHPVersion()
-	req := apps.Request{App: "wordpress", Domain: "wpt.test", User: "whacpwt", Root: root, Path: "public_html", PHPVersion: php,
-		DB: apps.DB{Name: "whacp_wpt", User: "whacp_wpt", Password: dbPass, Host: "localhost"}, URL: "https://wpt.test",
+	req := apps.Request{App: "wordpress", Domain: "wpt.test", User: "nimvorwt", Root: root, Path: "public_html", PHPVersion: php,
+		DB: apps.DB{Name: "nimvor_wpt", User: "nimvor_wpt", Password: dbPass, Host: "localhost"}, URL: "https://wpt.test",
 		Title: "Toolkit test", AdminUser: "owner", AdminEmail: "owner@wpt.test", AdminPassword: "a-long-admin-password-1"}
 	var buf strings.Builder
 	if _, err := apps.Install(context.Background(), env, src, req, cred, &buf); err != nil {
 		t.Fatalf("%v\n%s", err, buf.String())
 	}
 	ctx := context.Background()
-	site := Site{Domain: "wpt.test", User: "whacpwt", Root: root, PHPVersion: php}
+	site := Site{Domain: "wpt.test", User: "nimvorwt", Root: root, PHPVersion: php}
 
 	// Scan: found without loading WordPress, no password reported.
 	found, err := scanSite(ctx, env, site)
-	if err != nil || len(found) != 1 || found[0].Path != "public_html" || found[0].Version == "" || found[0].DBName != "whacp_wpt" || !found[0].FileEditDisabled {
+	if err != nil || len(found) != 1 || found[0].Path != "public_html" || found[0].Version == "" || found[0].DBName != "nimvor_wpt" || !found[0].FileEditDisabled {
 		t.Fatalf("scan: %+v %v", found, err)
 	}
 	if b, _ := json.Marshal(found); strings.Contains(string(b), dbPass) {
@@ -114,7 +114,7 @@ func TestRealHostWordPressToolkit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if in.Version != found[0].Version || in.SiteURL != "https://wpt.test" || in.DB.Name != "whacp_wpt" || len(in.Admins) != 1 || in.Admins[0].Login != "owner" || in.DB.Tables == 0 {
+	if in.Version != found[0].Version || in.SiteURL != "https://wpt.test" || in.DB.Name != "nimvor_wpt" || len(in.Admins) != 1 || in.Admins[0].Login != "owner" || in.DB.Tables == 0 {
 		t.Fatalf("info: %+v", in)
 	}
 	if b, _ := json.Marshal(in); strings.Contains(string(b), dbPass) {
@@ -170,7 +170,7 @@ func TestRealHostWordPressToolkit(t *testing.T) {
 	if in3.Plugins[0].Active || !in3.Plugins[0].AutoUpdate || in3.Maintenance || in3.Constants["WP_AUTO_UPDATE_CORE"] != "'minor'" || in3.SearchEngines || in3.ConfigMode != "0600" {
 		t.Fatalf("after changes: %+v", in3)
 	}
-	if b, _ := exec.Command("stat", "-c", "%U %a", cfgFile).Output(); strings.TrimSpace(string(b)) != "whacpwt 600" {
+	if b, _ := exec.Command("stat", "-c", "%U %a", cfgFile).Output(); strings.TrimSpace(string(b)) != "nimvorwt 600" {
 		t.Fatalf("wp-config.php: %s", b)
 	}
 
@@ -180,7 +180,7 @@ func TestRealHostWordPressToolkit(t *testing.T) {
 		t.Fatal(err)
 	}
 	file := filepath.Join(root, "public_html", res["file"].(string))
-	if b, _ := exec.Command("stat", "-c", "%U %a", file).Output(); strings.TrimSpace(string(b)) != "whacpwt 600" {
+	if b, _ := exec.Command("stat", "-c", "%U %a", file).Output(); strings.TrimSpace(string(b)) != "nimvorwt 600" {
 		t.Fatalf("sign-in file: %s", b)
 	}
 	phpBin := cliPHP(php)
@@ -209,7 +209,7 @@ func TestRealHostWordPressToolkit(t *testing.T) {
 	}
 
 	// Another account cannot read or manage this website.
-	other := Target{Site: Site{Domain: "wpt.test", User: "whacpwt2", Root: root, PHPVersion: php}, Path: "public_html"}
+	other := Target{Site: Site{Domain: "wpt.test", User: "nimvorwt2", Root: root, PHPVersion: php}, Path: "public_html"}
 	if _, err := info(ctx, env, other, false); err == nil {
 		t.Fatal("another account read the installation")
 	}
@@ -231,7 +231,7 @@ func TestRealHostWordPressToolkit(t *testing.T) {
 	}
 	logFile := filepath.Join(root, "public_html/wp-content/debug.log")
 	os.WriteFile(logFile, []byte("PHP Notice: one\nPHP Warning: two\n"), 0o644)
-	exec.Command("chown", "whacpwt:whacpwt", logFile).Run()
+	exec.Command("chown", "nimvorwt:nimvorwt", logFile).Run()
 	if r := do("debug_log", nil, ""); r["exists"] != true || r["path"] != "public_html/wp-content/debug.log" || !strings.Contains(fmt.Sprint(r["lines"]), "PHP Warning: two") {
 		t.Fatalf("debug log: %v", r)
 	}
@@ -247,7 +247,7 @@ func TestRealHostWordPressToolkit(t *testing.T) {
 	if !strings.Contains(cmd, " --path="+filepath.Join(root, "public_html")+" cron event run --due-now") || wpEval(t, root, "var_export(DISABLE_WP_CRON);") != "true" {
 		t.Fatalf("takeover: %v", r)
 	}
-	if out, err := exec.Command("runuser", "-u", "whacpwt", "--", "sh", "-c", cmd).CombinedOutput(); err != nil {
+	if out, err := exec.Command("runuser", "-u", "nimvorwt", "--", "sh", "-c", cmd).CombinedOutput(); err != nil {
 		t.Fatalf("the cron command fails: %v %s", err, out)
 	}
 	do("cron_takeover_off", nil, "")
@@ -278,10 +278,10 @@ func TestRealHostWordPressToolkit(t *testing.T) {
 	if _, err := secret("db_password", nil, newDB); err != nil {
 		t.Fatal(err)
 	}
-	if out, err := exec.Command("mysql", "-uwhacp_wpt", "-p"+newDB, "-e", "SELECT 1").CombinedOutput(); err != nil {
+	if out, err := exec.Command("mysql", "-unimvor_wpt", "-p"+newDB, "-e", "SELECT 1").CombinedOutput(); err != nil {
 		t.Fatalf("the new database password does not work: %s", out)
 	}
-	if err := exec.Command("mysql", "-uwhacp_wpt", "-p"+dbPass, "-e", "SELECT 1").Run(); err == nil {
+	if err := exec.Command("mysql", "-unimvor_wpt", "-p"+dbPass, "-e", "SELECT 1").Run(); err == nil {
 		t.Fatal("the old database password still works")
 	}
 	if _, err := info(ctx, env, target, false); err != nil {
@@ -343,16 +343,16 @@ func TestRealHostWordPressToolkit(t *testing.T) {
 	stgRoot := filepath.Join(sitesRoot, "stg.wpt.test")
 	os.MkdirAll(filepath.Join(stgRoot, "public_html"), 0o755)
 	os.MkdirAll(filepath.Join(stgRoot, "tmp"), 0o755)
-	exec.Command("chown", "-R", "whacpwt2:whacpwt2", stgRoot).Run()
+	exec.Command("chown", "-R", "nimvorwt2:nimvorwt2", stgRoot).Run()
 	os.Chmod(stgRoot, 0o710)
 	const stgPass = "stg-Db-Secret-88"
-	if out, err := exec.Command("mysql", "-e", "CREATE DATABASE whacp_wpt_stg; CREATE USER 'whacp_wpt_stg'@'localhost' IDENTIFIED BY '"+stgPass+"'; GRANT ALL ON whacp_wpt_stg.* TO 'whacp_wpt_stg'@'localhost';").CombinedOutput(); err != nil {
+	if out, err := exec.Command("mysql", "-e", "CREATE DATABASE nimvor_wpt_stg; CREATE USER 'nimvor_wpt_stg'@'localhost' IDENTIFIED BY '"+stgPass+"'; GRANT ALL ON nimvor_wpt_stg.* TO 'nimvor_wpt_stg'@'localhost';").CombinedOutput(); err != nil {
 		t.Fatalf("%s", out)
 	}
 	t.Cleanup(func() {
-		exec.Command("mysql", "-e", "DROP DATABASE IF EXISTS whacp_wpt_stg; DROP USER IF EXISTS 'whacp_wpt_stg'@'localhost'").Run()
+		exec.Command("mysql", "-e", "DROP DATABASE IF EXISTS nimvor_wpt_stg; DROP USER IF EXISTS 'nimvor_wpt_stg'@'localhost'").Run()
 	})
-	stg := Target{Site: Site{Domain: "stg.wpt.test", User: "whacpwt2", Root: stgRoot, PHPVersion: php}, Path: "public_html"}
+	stg := Target{Site: Site{Domain: "stg.wpt.test", User: "nimvorwt2", Root: stgRoot, PHPVersion: php}, Path: "public_html"}
 	runCopy := func(in CopyRequest) map[string]any {
 		t.Helper()
 		if err := in.validate(env); err != nil {
@@ -372,8 +372,8 @@ func TestRealHostWordPressToolkit(t *testing.T) {
 		}
 		return res.(map[string]any)
 	}
-	runCopy(CopyRequest{Source: target, Dest: stg, Mode: "clone", SourceDB: "whacp_wpt", URL: "https://stg.wpt.test", Staging: true,
-		DB: &DBTarget{Name: "whacp_wpt_stg", User: "whacp_wpt_stg", Password: stgPass, Host: "localhost"}})
+	runCopy(CopyRequest{Source: target, Dest: stg, Mode: "clone", SourceDB: "nimvor_wpt", URL: "https://stg.wpt.test", Staging: true,
+		DB: &DBTarget{Name: "nimvor_wpt_stg", User: "nimvor_wpt_stg", Password: stgPass, Host: "localhost"}})
 	stgEval := func(code string) string {
 		t.Helper()
 		c := exec.Command(cliPHP(php), WPCLIPath, "--allow-root", "--skip-plugins", "--skip-themes", "--path="+filepath.Join(stgRoot, "public_html"), "eval", code)
@@ -383,10 +383,10 @@ func TestRealHostWordPressToolkit(t *testing.T) {
 		}
 		return strings.TrimSpace(string(out))
 	}
-	if got := stgEval(`echo DB_NAME, " ", get_option("home"), " ", get_option("blog_public");`); got != "whacp_wpt_stg https://stg.wpt.test 0" {
+	if got := stgEval(`echo DB_NAME, " ", get_option("home"), " ", get_option("blog_public");`); got != "nimvor_wpt_stg https://stg.wpt.test 0" {
 		t.Fatalf("clone: %s", got)
 	}
-	if b, _ := exec.Command("stat", "-c", "%U", filepath.Join(stgRoot, "public_html/wp-config.php")).Output(); strings.TrimSpace(string(b)) != "whacpwt2" {
+	if b, _ := exec.Command("stat", "-c", "%U", filepath.Join(stgRoot, "public_html/wp-config.php")).Output(); strings.TrimSpace(string(b)) != "nimvorwt2" {
 		t.Fatalf("copied files belong to %s", b)
 	}
 	if _, err := info(ctx, env, stg, false); err != nil {
@@ -395,19 +395,19 @@ func TestRealHostWordPressToolkit(t *testing.T) {
 	// Change the copy, then sync its database and a new file back.
 	stgEval(`update_option("blogname", "Changed on staging");`)
 	os.WriteFile(filepath.Join(stgRoot, "public_html/staging-only.txt"), []byte("x"), 0o644)
-	exec.Command("chown", "whacpwt2:whacpwt2", filepath.Join(stgRoot, "public_html/staging-only.txt")).Run()
-	res = runCopy(CopyRequest{Source: stg, Dest: target, Mode: "sync", Files: true, Database: true, SourceDB: "whacp_wpt_stg", TargetDB: "whacp_wpt", URL: "https://wpt.test"})
+	exec.Command("chown", "nimvorwt2:nimvorwt2", filepath.Join(stgRoot, "public_html/staging-only.txt")).Run()
+	res = runCopy(CopyRequest{Source: stg, Dest: target, Mode: "sync", Files: true, Database: true, SourceDB: "nimvor_wpt_stg", TargetDB: "nimvor_wpt", URL: "https://wpt.test"})
 	point, _ := res["restore_point"].(string)
-	if got := wpEval(t, root, `echo get_option("blogname"), " ", get_option("home"), " ", DB_NAME;`); got != "Changed on staging https://wpt.test whacp_wpt" {
+	if got := wpEval(t, root, `echo get_option("blogname"), " ", get_option("home"), " ", DB_NAME;`); got != "Changed on staging https://wpt.test nimvor_wpt" {
 		t.Fatalf("after sync: %s", got)
 	}
-	if b, _ := exec.Command("stat", "-c", "%U", filepath.Join(root, "public_html/staging-only.txt")).Output(); strings.TrimSpace(string(b)) != "whacpwt" {
+	if b, _ := exec.Command("stat", "-c", "%U", filepath.Join(root, "public_html/staging-only.txt")).Output(); strings.TrimSpace(string(b)) != "nimvorwt" {
 		t.Fatalf("synced file: %s", b)
 	}
 	if point == "" || len(ListRestorePoints(env, "wpt.test")) != 1 {
 		t.Fatalf("no restore point: %v", res)
 	}
-	runCopy(CopyRequest{Dest: target, Source: target, Mode: "restore", RestorePoint: point, TargetDB: "whacp_wpt"})
+	runCopy(CopyRequest{Dest: target, Source: target, Mode: "restore", RestorePoint: point, TargetDB: "nimvor_wpt"})
 	if got := wpEval(t, root, `echo get_option("blogname");`); got != "Toolkit test" {
 		t.Fatalf("after restore: %s", got)
 	}
@@ -415,15 +415,15 @@ func TestRealHostWordPressToolkit(t *testing.T) {
 	for _, bad := range []CopyRequest{
 		{Source: target, Dest: target, Mode: "sync", Files: true, URL: "https://wpt.test"},
 		{Source: target, Dest: Target{Site: site, Path: ""}, Mode: "sync", Files: true, URL: "https://wpt.test"},
-		{Source: target, Dest: stg, Mode: "sync", Database: true, SourceDB: "whacp_wpt", TargetDB: "whacp_wpt", URL: "https://stg.wpt.test"},
+		{Source: target, Dest: stg, Mode: "sync", Database: true, SourceDB: "nimvor_wpt", TargetDB: "nimvor_wpt", URL: "https://stg.wpt.test"},
 		{Source: target, Dest: stg, Mode: "copy", URL: "https://stg.wpt.test"},
 	} {
 		if bad.validate(env) == nil {
 			t.Errorf("accepted %+v", bad)
 		}
 	}
-	if _, err := copyJob(env, CopyRequest{Source: target, Dest: stg, Mode: "clone", SourceDB: "whacp_wpt", TargetDB: "whacp_wpt_stg", URL: "https://stg.wpt.test",
-		DB: &DBTarget{Name: "whacp_wpt_stg", User: "whacp_wpt_stg", Password: stgPass, Host: "localhost"}}); err == nil {
+	if _, err := copyJob(env, CopyRequest{Source: target, Dest: stg, Mode: "clone", SourceDB: "nimvor_wpt", TargetDB: "nimvor_wpt_stg", URL: "https://stg.wpt.test",
+		DB: &DBTarget{Name: "nimvor_wpt_stg", User: "nimvor_wpt_stg", Password: stgPass, Host: "localhost"}}); err == nil {
 		t.Fatal("cloned over an existing installation without confirmation")
 	}
 

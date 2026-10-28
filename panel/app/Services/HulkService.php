@@ -2,24 +2,24 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Database\Connection;
-use WhaCP\Security\Countries;
-use WhaCP\Support\Logger;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Database\Connection;
+use NimVor\Security\Countries;
+use NimVor\Support\Logger;
 
 /**
  * Brute force protection (Security → cPHulk Brute Force Protection).
  *
  * Failed logins come from the panel itself and, through the agent, from the
  * logs of the SSH server, Dovecot (IMAP/POP3), Postfix (SMTP AUTH), pure-ftpd
- * and webmail. Too many failures lock the user name (WhaCP sign-ins) or
- * block the address: WhaCP sign-ins, and at the server (nftables) either
+ * and webmail. Too many failures lock the user name (NimVor sign-ins) or
+ * block the address: NimVor sign-ins, and at the server (nftables) either
  * the login services' ports or, at the firewall level, every port. Blocks
  * end on their own. Blacklisted countries cannot use the login services or
- * sign in to WhaCP; whitelisted countries and addresses are never blocked.
+ * sign in to NimVor; whitelisted countries and addresses are never blocked.
  * Commands run as the panel's own account (never root), with a 15-second
  * limit and every variable shell-quoted.
  */
@@ -178,9 +178,9 @@ final class HulkService
         return $cc === '' ? '' : (string) ($this->db->scalar('SELECT status FROM hulk_countries WHERE code = ?', [$cc]) ?? '');
     }
 
-    // ---- Enforcement on WhaCP sign-ins ------------------------------------
+    // ---- Enforcement on NimVor sign-ins ------------------------------------
 
-    /** Why a WhaCP sign-in must be refused now, or null. */
+    /** Why a NimVor sign-in must be refused now, or null. */
     public function loginRefusal(string $username, string $ip): ?string
     {
         if (!$this->enabled() || $this->whitelisted($ip)) {
@@ -203,13 +203,13 @@ final class HulkService
         return null;
     }
 
-    /** A failed WhaCP sign-in: counted, and acted on at once. */
+    /** A failed NimVor sign-in: counted, and acted on at once. */
     public function recordPanelFailure(string $username, string $ip): void
     {
         if (!$this->enabled()) {
             return;
         }
-        $ev = ['id' => 'p:' . bin2hex(random_bytes(8)), 'time' => $this->now(), 'service' => 'whacp', 'authservice' => 'whacpd', 'user' => mb_substr($username, 0, 190), 'ip' => $ip, 'ok' => false];
+        $ev = ['id' => 'p:' . bin2hex(random_bytes(8)), 'time' => $this->now(), 'service' => 'nimvor', 'authservice' => 'nimvord', 'user' => mb_substr($username, 0, 190), 'ip' => $ip, 'ok' => false];
         $this->store([$ev]);
         if ($this->evaluate([$ev]) > 0) {
             $this->syncQuietly();
@@ -331,7 +331,7 @@ final class HulkService
         return $made;
     }
 
-    /** "root", and WhaCP administrator accounts (they follow the root option). */
+    /** "root", and NimVor administrator accounts (they follow the root option). */
     private function privileged(string $user): bool
     {
         if ($user === 'root') {

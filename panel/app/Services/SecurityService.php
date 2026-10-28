@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Support\UserFacingException;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Support\UserFacingException;
 
 /**
  * Firewall, SSH and fail2ban. Firewall and SSH changes are applied by the
@@ -205,7 +205,7 @@ final class SecurityService
         }
         $comment = trim((string) preg_replace('/[^A-Za-z0-9@._+-]+/', '-', $comment), '-');
         if ($comment === '') {
-            $comment = $user . '@whacp';
+            $comment = $user . '@nimvor';
         }
         $comment = substr($comment, 0, 64);
         $key = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_RSA, 'private_key_bits' => 4096]);

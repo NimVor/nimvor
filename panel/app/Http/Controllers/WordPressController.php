@@ -2,22 +2,22 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentException;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Security\Authorizer;
-use WhaCP\Security\Permissions as P;
-use WhaCP\Services\ServerContext;
-use WhaCP\Services\WordPressService;
-use WhaCP\Services\WordPressToolsService;
-use WhaCP\Support\ValidationException;
-use WhaCP\Hosting\Scope;
-use WhaCP\Support\UserFacingException;
-use WhaCP\View\View;
+use NimVor\Agent\AgentException;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Security\Authorizer;
+use NimVor\Security\Permissions as P;
+use NimVor\Services\ServerContext;
+use NimVor\Services\WordPressService;
+use NimVor\Services\WordPressToolsService;
+use NimVor\Support\ValidationException;
+use NimVor\Hosting\Scope;
+use NimVor\Support\UserFacingException;
+use NimVor\View\View;
 
 /**
  * WordPress toolkit: all installations the user may see (/wordpress) and a

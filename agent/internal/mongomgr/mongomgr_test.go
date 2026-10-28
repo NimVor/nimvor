@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 func setup(t *testing.T) (*testhost.Host, *actions.Registry) {
@@ -548,7 +548,7 @@ func TestDatabaseCreateAndDrop(t *testing.T) {
 	if _, err := call(t, r, "mongo.database_create", `{"name":"shop"}`); err != nil {
 		t.Fatal(err)
 	}
-	if len(scripts) != 1 || !strings.Contains(scripts[0], "getSiblingDB('shop')") || !strings.Contains(scripts[0], "createCollection('_whacp')") {
+	if len(scripts) != 1 || !strings.Contains(scripts[0], "getSiblingDB('shop')") || !strings.Contains(scripts[0], "createCollection('_nimvor')") {
 		t.Fatalf("create script: %v", scripts)
 	}
 	// Dangerous or malformed names are refused before mongosh runs.

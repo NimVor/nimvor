@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/mailrate"
+	"github.com/NimVor/nimvor/agent/internal/mailrate"
 )
 
 func TestWithMailRate(t *testing.T) {
@@ -80,7 +80,7 @@ func TestMailRateActions(t *testing.T) {
 		t.Fatal(err)
 	}
 	dir := h.Env.M.MailDir
-	if !strings.HasPrefix(postconf["smtpd_recipient_restrictions"], mailRateClause+", permit_mynetworks") || checked != "/var/spool/postfix/private/whacp-mailrate" {
+	if !strings.HasPrefix(postconf["smtpd_recipient_restrictions"], mailRateClause+", permit_mynetworks") || checked != "/var/spool/postfix/private/nimvor-mailrate" {
 		t.Fatalf("postfix: %q, self-test %q", postconf["smtpd_recipient_restrictions"], checked)
 	}
 	if postconf["authorized_submit_users"] != "!nobody, !texthash:"+dir+"/nosubmit, static:anyone" {
@@ -94,7 +94,7 @@ func TestMailRateActions(t *testing.T) {
 	if saved.PerHour != 200 || saved.Accounts["1003"] != 50 || saved.Names["1004"] != "blog" {
 		t.Fatalf("saved: %+v", saved)
 	}
-	unit := h.Read("etc/systemd/system/whacp-mailrate.service")
+	unit := h.Read("etc/systemd/system/nimvor-mailrate.service")
 	for _, want := range []string{"DynamicUser=yes", "CapabilityBoundingSet=\n", " mailrate-policy\n", "NoNewPrivileges=yes", "RestrictAddressFamilies=AF_UNIX\n"} {
 		if !strings.Contains(unit, want) {
 			t.Errorf("service unit lacks %q", want)

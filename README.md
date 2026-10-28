@@ -1,18 +1,18 @@
-# WhaCP
+# NimVor
 
-**WhaCP — Open-Source Linux Server & Hosting Control Panel** (WHA Control Panel)
+**NimVor — A free, open-source server control panel**
 
-WhaCP is a free, MIT-licensed control panel for VPS and dedicated servers. It is
+NimVor is a free, MIT-licensed control panel for VPS and dedicated servers. It is
 built around one rule: **a control panel has root-level consequences, so every
 privileged operation must be explicit, validated, audited and reversible.**
 
-> **Status: 1.0.0-rc1 — release candidate.** What was tested for this
-> release, and what was not, is listed in
-> [docs/release/1.0.0-rc1-audit.md](docs/release/1.0.0-rc1-audit.md). WhaCP has
-> not yet run on a wide range of production servers. Install it in read-only
+> **Status: 1.0.0 — general availability.** What was tested, and what was
+> not, is listed in [docs/release/1.0.0-ga-report.md](docs/release/1.0.0-ga-report.md)
+> and [docs/security/ga-assessment.md](docs/security/ga-assessment.md). NimVor
+> has not yet run on a wide range of production servers. Install it in read-only
 > mode first (the default): it inventories the server **without changing
 > anything**. Turn on write mode with `--enable-writes` when you are ready to
-> let WhaCP manage websites.
+> let NimVor manage websites.
 
 ## What works today
 
@@ -38,21 +38,21 @@ privileged operation must be explicit, validated, audited and reversible.**
 | Server | packages and updates, hostname, timezone, reboot |
 | Hosting | multiple servers, plans and quotas, resellers and customers |
 | Integration | REST API with personal tokens (OpenAPI), plugins, one-click WordPress and Laravel |
-| Operations | installer, upgrades with automatic rollback, `bin/whacp doctor` self-checks |
+| Operations | installer, upgrades with automatic rollback, `bin/nimvor doctor` self-checks |
 
 ## Architecture in one picture
 
 ```text
- Browser ──HTTPS/SSH tunnel──▶ WhaCP Panel (PHP 8.3+, MVC, SQLite)      REST API /api/v1 (tokens)
+ Browser ──HTTPS/SSH tunnel──▶ NimVor Panel (PHP 8.3+, MVC, SQLite)      REST API /api/v1 (tokens)
                                    │  never runs shell commands
                                    │  POST /v1/actions/<name>  (bearer token)
                     ┌──────────────┴──────────────────────────┐
                     ▼                                         ▼
-   /run/whacp/agent.sock (0660 root:whacp,        remote servers: TLS 1.3, pinned
+   /run/nimvor/agent.sock (0660 root:nimvor,        remote servers: TLS 1.3, pinned
    SO_PEERCRED check)                             public key, client IP allowlist
                     │                                         │
                     ▼                                         ▼
-                     WhaCP Agent (Go, systemd; read-only sandbox unless write mode)
+                     NimVor Agent (Go, systemd; read-only sandbox unless write mode)
                        ├─ named actions only · write gate · jobs for long work
                        ├─ Detect → Back up → Validate → Apply → Verify → Roll back
                        ├─ Nginx · PHP-FPM · SSL · MySQL/MariaDB · Redis · backups
@@ -67,7 +67,7 @@ Read more in [docs/architecture](docs/architecture/README.md).
 Requirements: Go ≥ 1.24, PHP ≥ 8.3 with `pdo_sqlite`, `curl`, `mbstring`, Composer, OpenSSL.
 
 ```bash
-git clone https://github.com/mchkhawarshahzad/WhaCP.git && cd WhaCP
+git clone https://github.com/NimVor/nimvor.git && cd nimvor
 scripts/dev.sh
 # open http://127.0.0.1:8090  —  admin / dev-password-change-me
 ```
@@ -84,8 +84,18 @@ Supported: Ubuntu 22.04 and 24.04 LTS, AlmaLinux 9, Rocky Linux 9 and RHEL 9
 Preview (tested, not yet recommended for production): Ubuntu 26.04 LTS and
 AlmaLinux, Rocky Linux and RHEL 10.
 
+One command (fetches the source from GitHub into `/usr/local/src/nimvor`, then
+runs the installer; options after `--` go to the installer):
+
 ```bash
-git clone https://github.com/mchkhawarshahzad/WhaCP.git && cd WhaCP
+curl -fsSL https://nimvor.com/install | sudo bash
+curl -fsSL https://nimvor.com/install | sudo bash -s -- --public-https
+```
+
+Or from a checkout:
+
+```bash
+git clone https://github.com/NimVor/nimvor.git && cd nimvor
 sudo ./installer/install.sh --dry-run          # see exactly what will happen
 sudo ./installer/install.sh --admin-user=admin --admin-email=you@example.com
 ssh -L 8090:127.0.0.1:8090 your-server         # then open http://127.0.0.1:8090
@@ -93,9 +103,9 @@ ssh -L 8090:127.0.0.1:8090 your-server         # then open http://127.0.0.1:8090
 sudo ./installer/install.sh --reinstall --public-https
 ```
 
-By default WhaCP is **read-only**: the installer never edits Nginx, PHP-FPM,
+By default NimVor is **read-only**: the installer never edits Nginx, PHP-FPM,
 database, firewall or SSH configuration and never reloads existing services.
-Add `--enable-writes` to let WhaCP manage the server. Missing dependencies
+Add `--enable-writes` to let NimVor manage the server. Missing dependencies
 (PHP extensions, Go, Composer, Nginx for `--public-https`) are installed from
 the distribution's repositories (`--no-install-deps` only lists them).
 
@@ -140,9 +150,9 @@ storage/      notes on where runtime state lives
 - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - [CHANGELOG.md](CHANGELOG.md)
 
-WhaCP is an original implementation. It contains no code, assets, branding or
+NimVor is an original implementation. It contains no code, assets, branding or
 terminology taken from other control panels.
 
 ## License
 
-[MIT](LICENSE)
+NimVor is free and open source, released under the [MIT license](LICENSE). Copyright (c) 2026 NimVor.

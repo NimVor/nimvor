@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/actions"
 )
 
 // Archive limits protect the server from archive bombs.
@@ -69,7 +69,7 @@ func (s *Site) Compress(ctx context.Context, paths []string, dest string, log io
 		return 0, actions.InvalidParams("paths: nothing to compress")
 	}
 	base := path.Dir(dest)
-	tmp := path.Join(base, fmt.Sprintf(".whacp-tmp-%d", time.Now().UnixNano()))
+	tmp := path.Join(base, fmt.Sprintf(".nimvor-tmp-%d", time.Now().UnixNano()))
 	f, err := s.root.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		return 0, friendly(err)
@@ -142,7 +142,7 @@ func (s *Site) Compress(ctx context.Context, paths []string, dest string, log io
 		switch {
 		case info.Mode()&fs.ModeSymlink != 0, !info.IsDir() && !info.Mode().IsRegular():
 			return nil
-		case strings.HasPrefix(path.Base(rel), ".whacp-"):
+		case strings.HasPrefix(path.Base(rel), ".nimvor-"):
 			return nil
 		}
 		if err := add(rel, info); err != nil {
@@ -248,7 +248,7 @@ func (s *Site) Extract(ctx context.Context, archive, dest string, overwrite bool
 			return actions.InvalidParams(fmt.Sprintf("the archive has more than %d entries", maxArchiveEntries))
 		}
 		clean := path.Clean(strings.TrimPrefix(strings.ReplaceAll(name, "\\", "/"), "./"))
-		if clean == "." || strings.HasPrefix(clean, "/") || clean == ".." || strings.HasPrefix(clean, "../") || strings.Contains(clean, "/../") || strings.HasPrefix(path.Base(clean), ".whacp-") {
+		if clean == "." || strings.HasPrefix(clean, "/") || clean == ".." || strings.HasPrefix(clean, "../") || strings.Contains(clean, "/../") || strings.HasPrefix(path.Base(clean), ".nimvor-") {
 			res.Skipped = append(res.Skipped, name)
 			return nil
 		}

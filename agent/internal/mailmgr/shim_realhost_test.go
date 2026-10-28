@@ -13,13 +13,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/sendmail"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/sendmail"
 )
 
 // This test binary stands in for the agent binary: started as sendmail
-// (bind-mounted in a unit), it runs WhaCP's sendmail.
+// (bind-mounted in a unit), it runs NimVor's sendmail.
 func TestMain(m *testing.M) {
 	if strings.HasPrefix(filepath.Base(os.Args[0]), "sendmail") {
 		os.Exit(sendmail.Main(os.Args[1:], os.Stdin, os.Stderr))
@@ -41,7 +41,7 @@ func testSendmailShim(t *testing.T, env *host.Env, must func(string, any) map[st
 	execx.SendmailShim = exe
 	t.Cleanup(func() { execx.SendmailShim = old })
 
-	name := "whacpsm" + strconv.Itoa(os.Getpid()%100000)
+	name := "nimvorsm" + strconv.Itoa(os.Getpid()%100000)
 	home := "/home/" + name
 	if out, err := exec.Command("useradd", "-m", "-d", home, "-s", "/usr/sbin/nologin", name).CombinedOutput(); err != nil {
 		t.Fatalf("useradd: %v %s", err, out)
@@ -81,7 +81,7 @@ func testSendmailShim(t *testing.T, env *host.Env, must func(string, any) map[st
 	// The distribution's sendmail itself is unchanged outside the unit.
 	for _, p := range []string{"/usr/sbin/sendmail"} {
 		if real, err := filepath.EvalSymlinks(p); err == nil {
-			if b, _ := os.ReadFile(real); strings.Contains(string(b), "sendmail (WhaCP)") {
+			if b, _ := os.ReadFile(real); strings.Contains(string(b), "sendmail (NimVor)") {
 				t.Errorf("%s was replaced on the host", p)
 			}
 		}

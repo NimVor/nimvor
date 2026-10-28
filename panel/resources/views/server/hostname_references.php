@@ -1,5 +1,5 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var string $old */
 /** @var array<string, mixed>|null $report */
 /** @var string|null $error */
@@ -20,13 +20,13 @@ $meta = [
 ?>
 <?php $this->start(); ?>Find the old host name left in DNS zones, Nginx and mail after a rename<?php $this->end('subtitle'); ?>
 
-<div class="wcp-crumbs mb-3"><a href="<?= e($this->url('server')) ?>">Server</a> <span>/</span> Host-name references</div>
+<div class="nim-crumbs mb-3"><a href="<?= e($this->url('server')) ?>">Server</a> <span>/</span> Host-name references</div>
 
 <div class="card mb-3">
     <div class="card-body">
         <p class="small text-body-secondary">Changing the server host name updates <code>/etc/hosts</code> and the mail server, but names recorded earlier — DNS zone records and Nginx server names — keep the old value until edited. Enter the <strong>previous</strong> host name to find where it still appears. This only reads configuration; it changes nothing.</p>
-        <form method="get" action="<?= e($this->url('server.hostname_references')) ?>" class="d-flex flex-wrap gap-2 align-items-end" data-wcp-busy>
-            <div class="flex-grow-1 wcp-minw-0" style="max-width:28rem">
+        <form method="get" action="<?= e($this->url('server.hostname_references')) ?>" class="d-flex flex-wrap gap-2 align-items-end" data-nim-busy>
+            <div class="flex-grow-1 nim-minw-0" style="max-width:28rem">
                 <label class="form-label" for="old">Previous host name</label>
                 <input class="form-control" id="old" name="old" value="<?= e($old) ?>" placeholder="vmi123.example-provider.net" required pattern="[A-Za-z0-9.-]+" maxlength="253">
             </div>
@@ -47,7 +47,7 @@ $meta = [
             <div class="card mb-3 border-warning">
                 <div class="card-body d-flex flex-wrap gap-2 align-items-center">
                     <div class="flex-grow-1 small"><i class="bi bi-envelope me-1"></i>The mail server still greets as <code><?= e((string) $report['mail_hostname']) ?></code>. Re-apply it to use <code><?= e($current) ?></code>, then re-publish each mail domain's DNS.</div>
-                    <form method="post" action="<?= e($this->url('server.hostname_references.mail')) ?>" data-wcp-busy data-wcp-confirm="Re-apply the mail server with the host name <?= e($current) ?>?">
+                    <form method="post" action="<?= e($this->url('server.hostname_references.mail')) ?>" data-nim-busy data-nim-confirm="Re-apply the mail server with the host name <?= e($current) ?>?">
                         <?= $this->csrfField() ?>
                         <button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Re-apply mail server</button>
                     </form>
@@ -59,7 +59,7 @@ $meta = [
             <div class="card mb-3 border-warning">
                 <div class="card-body d-flex flex-wrap gap-2 align-items-center">
                     <div class="flex-grow-1 small"><i class="bi bi-window me-1"></i>Webmail still answers on <code><?= e((string) $webmailHostname) ?></code> with a self-signed certificate for that name. Re-apply it on <code><?= e($current) ?></code> to use the Let's Encrypt certificate you issued for the host name.</div>
-                    <form method="post" action="<?= e($this->url('server.hostname_references.webmail')) ?>" data-wcp-busy data-wcp-confirm="Re-apply webmail on <?= e($current) ?>?">
+                    <form method="post" action="<?= e($this->url('server.hostname_references.webmail')) ?>" data-nim-busy data-nim-confirm="Re-apply webmail on <?= e($current) ?>?">
                         <?= $this->csrfField() ?>
                         <button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Re-apply webmail</button>
                     </form>
@@ -70,14 +70,14 @@ $meta = [
         <?php foreach (['dns', 'nginx', 'mail', 'hosts'] as $cat): ?>
             <?php if (empty($byCat[$cat])) { continue; } $m = $meta[$cat]; ?>
             <div class="card mb-3">
-                <div class="card-header wcp-toolbar">
-                    <h2 class="wcp-toolbar-title"><i class="bi bi-<?= e($m['icon']) ?> me-1"></i><?= e($m['label']) ?> <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($byCat[$cat]) ?></span></h2>
+                <div class="card-header nim-toolbar">
+                    <h2 class="nim-toolbar-title"><i class="bi bi-<?= e($m['icon']) ?> me-1"></i><?= e($m['label']) ?> <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($byCat[$cat]) ?></span></h2>
                     <?php if ($m['link'] !== null): ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($m['link']['url']) ?>"><?= e($m['link']['text']) ?></a><?php endif; ?>
                 </div>
                 <div class="card-body small">
                     <p class="text-body-secondary mb-2"><?= e($m['hint']) ?></p>
                     <div class="table-responsive">
-                        <table class="table table-sm wcp-table mb-0">
+                        <table class="table table-sm nim-table mb-0">
                             <thead><tr><th>File</th><th>Line</th></tr></thead>
                             <tbody>
                                 <?php foreach ($byCat[$cat] as $f): $f = (array) $f; ?>

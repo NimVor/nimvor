@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Database;
+namespace NimVor\Database;
 
 use RuntimeException;
 

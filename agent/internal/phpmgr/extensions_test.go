@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/jobs"
+	"github.com/NimVor/nimvor/agent/internal/platform"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 func write(t *testing.T, h *testhost.Host, p, content string) {
@@ -179,7 +179,7 @@ func TestExtensionsRHEL(t *testing.T) {
 	if _, err := call(t, r, "php.extension_set", map[string]any{"version": "8.3", "name": "redis", "enabled": false}); err != nil {
 		t.Fatal(err)
 	}
-	if got := h.Read("etc/opt/remi/php83/php.d/50-redis.ini"); got != "; Enable redis extension module\n; whacp-disabled: extension=redis.so\n" {
+	if got := h.Read("etc/opt/remi/php83/php.d/50-redis.ini"); got != "; Enable redis extension module\n; nimvor-disabled: extension=redis.so\n" {
 		t.Fatalf("disabled file: %q", got)
 	}
 	if moduleEnabled(h.Env, "8.3", "redis") {
@@ -190,7 +190,7 @@ func TestExtensionsRHEL(t *testing.T) {
 		t.Fatal("rejected change accepted")
 	}
 	delete(h.Fail, "php-fpm8.3 -t")
-	if got := h.Read("etc/opt/remi/php83/php.d/50-redis.ini"); !strings.Contains(got, "; whacp-disabled: extension=redis.so") {
+	if got := h.Read("etc/opt/remi/php83/php.d/50-redis.ini"); !strings.Contains(got, "; nimvor-disabled: extension=redis.so") {
 		t.Fatalf("rejected change not undone: %q", got)
 	}
 	if _, err := call(t, r, "php.extension_set", map[string]any{"version": "8.3", "name": "redis", "enabled": true}); err != nil {

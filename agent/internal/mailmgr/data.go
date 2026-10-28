@@ -1,12 +1,12 @@
 // Package mailmgr hosts email for domains: Postfix receives and sends,
 // Dovecot stores mailboxes (IMAP) and OpenDKIM signs outgoing mail.
 //
-// WhaCP keeps its data in one JSON file and renders from it the lookup
+// NimVor keeps its data in one JSON file and renders from it the lookup
 // tables Postfix reads (texthash, no postmap needed), Dovecot's user list
 // and OpenDKIM's key and signing tables, all in its own folder. The
 // distribution's packages are configured once, after confirmation:
 // Postfix with postconf, Dovecot with a drop-in file (plus disabling its
-// system-account login), OpenDKIM from WhaCP's own unit and configuration.
+// system-account login), OpenDKIM from NimVor's own unit and configuration.
 package mailmgr
 
 import (
@@ -24,7 +24,7 @@ import (
 	"strings"
 )
 
-// Data is WhaCP's mail configuration.
+// Data is NimVor's mail configuration.
 type Data struct {
 	Hostname string `json:"hostname"`
 	// Dovecot24 selects Dovecot 2.4's user-file fields.
@@ -146,7 +146,7 @@ func sortedKeys[V any](m map[string]V) []string {
 // Rendered files, relative to the mail folder.
 type files map[string]string
 
-const header = "# Managed by WhaCP (email). Do not edit: changes are overwritten.\n"
+const header = "# Managed by NimVor (email). Do not edit: changes are overwritten.\n"
 
 // render produces every derived file.
 func (d Data) render(dir, vmail string) files {

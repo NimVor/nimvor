@@ -8,14 +8,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
 // FPMGlobal are server-wide PHP-FPM settings of a version, written to
-// WhaCP's own whacp-global.conf in the pool folder (php-fpm.conf includes
+// NimVor's own nimvor-global.conf in the pool folder (php-fpm.conf includes
 // it; an included [global] section applies like php-fpm.conf's own).
 // Zero values are left out, so PHP-FPM's defaults apply.
 type FPMGlobal struct {
@@ -61,7 +61,7 @@ func (g FPMGlobal) check() error {
 	return nil
 }
 
-// Render produces whacp-global.conf ("" when nothing is set).
+// Render produces nimvor-global.conf ("" when nothing is set).
 func (g FPMGlobal) Render(v string) string {
 	var lines []string
 	if g.EmergencyRestartThreshold > 0 {
@@ -80,7 +80,7 @@ func (g FPMGlobal) Render(v string) string {
 	if len(lines) == 0 {
 		return ""
 	}
-	return "; Managed by WhaCP (PHP → " + v + " → PHP-FPM). Do not edit: changes are overwritten.\n[global]\n" + strings.Join(lines, "\n") + "\n"
+	return "; Managed by NimVor (PHP → " + v + " → PHP-FPM). Do not edit: changes are overwritten.\n[global]\n" + strings.Join(lines, "\n") + "\n"
 }
 
 // ParseFPMGlobal reads back what Render wrote.
@@ -108,9 +108,9 @@ func ParseFPMGlobal(content string) FPMGlobal {
 	return g
 }
 
-// FPMGlobalFile is WhaCP's global PHP-FPM file for version v.
+// FPMGlobalFile is NimVor's global PHP-FPM file for version v.
 func FPMGlobalFile(env *host.Env, v string) string {
-	return filepath.Join(env.M.PoolDir(v), "whacp-global.conf")
+	return filepath.Join(env.M.PoolDir(v), "nimvor-global.conf")
 }
 
 func registerFPMGlobal(r *actions.Registry, env *host.Env) {
@@ -118,7 +118,7 @@ func registerFPMGlobal(r *actions.Registry, env *host.Env) {
 		Version string `json:"version"`
 		FPMGlobal
 	}
-	r.Register(actions.Action{Name: "php.fpm_get", Description: "Server-wide PHP-FPM settings WhaCP set for a PHP version (zero: PHP-FPM's default).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "php.fpm_get", Description: "Server-wide PHP-FPM settings NimVor set for a PHP version (zero: PHP-FPM's default).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in req
 		if err := host.Decode(p, &in); err != nil {
 			return nil, err

@@ -1,5 +1,5 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var array<string, mixed> $site */
 /** @var list<array<string, mixed>> $subdomains */
 /** @var bool $hasZone */
@@ -13,12 +13,12 @@ $subError = $open ? ($errors['subdomain'] ?? $errors['domain'] ?? $errors['syste
 <p class="small text-body-secondary">A subdomain like <code>blog.<?= e($site['domain']) ?></code> is a website of its own (its own folder, PHP, SSL, databases…) that runs under this website's account <code><?= e($site['system_user']) ?></code>. Manage each one like any website; delete it from its own Advanced page.</p>
 
 <div class="card" id="subdomains">
-    <div class="card-header wcp-toolbar">
-        <h2 class="wcp-toolbar-title"><i class="bi bi-diagram-3 me-1"></i>Subdomains <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($subdomains) ?></span></h2>
+    <div class="card-header nim-toolbar">
+        <h2 class="nim-toolbar-title"><i class="bi bi-diagram-3 me-1"></i>Subdomains <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($subdomains) ?></span></h2>
         <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#new-subdomain"><i class="bi bi-plus-lg me-1"></i>Create subdomain</button>
     </div>
     <?= $this->modalStart('new-subdomain', 'Create subdomain', $open) ?>
-        <form class="p-3" method="post" action="<?= e($this->url('sites.subdomains.store', ['id' => $id])) ?>" data-wcp-busy>
+        <form class="p-3" method="post" action="<?= e($this->url('sites.subdomains.store', ['id' => $id])) ?>" data-nim-busy>
             <?= $this->csrfField() ?><input type="hidden" name="type" value="subdomain">
             <div class="row g-2 align-items-end">
                 <div class="col-md-6">
@@ -39,17 +39,17 @@ $subError = $open ? ($errors['subdomain'] ?? $errors['domain'] ?? $errors['syste
         </form>
     <?= $this->modalEnd() ?>
     <?php if ($subdomains === []): ?>
-        <div class="wcp-empty-state"><i class="bi bi-diagram-3" aria-hidden="true"></i><div class="small">No subdomains yet. A subdomain like blog.<?= e($site['domain']) ?> can host a separate site.</div></div>
+        <div class="nim-empty-state"><i class="bi bi-diagram-3" aria-hidden="true"></i><div class="small">No subdomains yet. A subdomain like blog.<?= e($site['domain']) ?> can host a separate site.</div></div>
     <?php else: ?>
         <div class="table-responsive">
-            <table class="table align-middle mb-0 wcp-table">
+            <table class="table align-middle mb-0 nim-table">
                 <thead><tr><th>Domain</th><th>Folder</th><th>Status</th><th>HTTPS</th><th class="text-end">Actions</th></tr></thead>
                 <tbody>
                 <?php foreach ($subdomains as $c): ?>
                     <tr>
                         <td class="fw-semibold"><?= e($c['domain']) ?></td>
                         <td class="small"><code><?= e($c['document_root']) ?></code></td>
-                        <td class="small"><?= $c['enabled'] ? '<span class="wcp-state is-ok">Active</span>' : '<span class="wcp-state is-off">Disabled</span>' ?></td>
+                        <td class="small"><?= $c['enabled'] ? '<span class="nim-state is-ok">Active</span>' : '<span class="nim-state is-off">Disabled</span>' ?></td>
                         <td class="small"><?= $c['https'] ? '<i class="bi bi-lock-fill text-success"></i> On' : '<span class="text-body-secondary">Off</span>' ?></td>
                         <td class="text-end text-nowrap">
                             <?php if ($c['enabled']): ?><a class="btn btn-sm btn-outline-secondary" href="<?= e(($c['https'] ? 'https://' : 'http://') . $c['domain']) ?>/" target="_blank" rel="noopener noreferrer" title="Visit" aria-label="Visit <?= e($c['domain']) ?>"><i class="bi bi-box-arrow-up-right"></i></a><?php endif; ?>

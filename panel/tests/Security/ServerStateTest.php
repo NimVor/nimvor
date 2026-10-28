@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Security;
+namespace NimVor\Tests\Security;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentHttpResponse;
-use WhaCP\Agent\AgentUnavailableException;
-use WhaCP\Database\Connection;
-use WhaCP\Services\ServerService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentHttpResponse;
+use NimVor\Agent\AgentUnavailableException;
+use NimVor\Database\Connection;
+use NimVor\Services\ServerService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /**
  * Multi-server failures: an agent that cannot be used is never recorded as
@@ -31,7 +31,7 @@ final class ServerStateTest extends HttpTestCase
 
     public function testStates(): void
     {
-        $version = (string) $this->app->container->get(\WhaCP\Core\Config::class)->get('app.version');
+        $version = (string) $this->app->container->get(\NimVor\Core\Config::class)->get('app.version');
         $health = fn (string $v): AgentHttpResponse => new AgentHttpResponse(200, (string) json_encode(['success' => true, 'data' => ['status' => 'ok', 'version' => $v], 'request_id' => 't']));
         self::assertSame('online', $this->state(fn () => $this->agent->responses['/v1/health'] = $health($version)));
         self::assertSame('version_mismatch', $this->state(fn () => $this->agent->responses['/v1/health'] = $health('0.1.0')));

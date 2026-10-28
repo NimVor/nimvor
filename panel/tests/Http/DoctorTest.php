@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Repositories\SettingRepository;
-use WhaCP\Services\Doctor;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Repositories\SettingRepository;
+use NimVor\Services\Doctor;
+use NimVor\Tests\Support\HttpTestCase;
 
 final class DoctorTest extends HttpTestCase
 {
@@ -18,7 +18,7 @@ final class DoctorTest extends HttpTestCase
 
     public function testReportsProblems(): void
     {
-        $this->agent->responses['/v1/health'] = new \WhaCP\Agent\AgentHttpResponse(200, (string) json_encode(['success' => true, 'data' => ['version' => '0.1.0'], 'request_id' => 't']));
+        $this->agent->responses['/v1/health'] = new \NimVor\Agent\AgentHttpResponse(200, (string) json_encode(['success' => true, 'data' => ['version' => '0.1.0'], 'request_id' => 't']));
         chmod($this->dir . '/token', 0o644);
         $r = $this->checks();
         self::assertSame(Doctor::FAIL, $r['Agent token']['status'], 'a world-readable token is a failure');
@@ -37,14 +37,14 @@ final class DoctorTest extends HttpTestCase
 
     public function testMissingKey(): void
     {
-        $this->agent->responses['/v1/health'] = new \WhaCP\Agent\AgentHttpResponse(200, (string) json_encode(['success' => true, 'data' => ['version' => '0.5.0'], 'request_id' => 't']));
-        $cfg = $this->app->container->get(\WhaCP\Core\Config::class);
+        $this->agent->responses['/v1/health'] = new \NimVor\Agent\AgentHttpResponse(200, (string) json_encode(['success' => true, 'data' => ['version' => '0.5.0'], 'request_id' => 't']));
+        $cfg = $this->app->container->get(\NimVor\Core\Config::class);
         $key = (string) $cfg->get('security.key_file');
         if (is_file($key)) {
             self::markTestSkipped('the configured key exists');
         }
         self::assertSame(Doctor::WARN, $this->checks()['Panel encryption key']['status'], 'not created yet');
-        $this->app->container->get(\WhaCP\Database\Connection::class)->run("INSERT INTO servers (name, kind, url, token_enc, created_at) VALUES ('edge', 'remote', 'https://192.0.2.1:8443', 'v1:x', '2026-01-01')");
+        $this->app->container->get(\NimVor\Database\Connection::class)->run("INSERT INTO servers (name, kind, url, token_enc, created_at) VALUES ('edge', 'remote', 'https://192.0.2.1:8443', 'v1:x', '2026-01-01')");
         self::assertSame(Doctor::FAIL, $this->checks()['Panel encryption key']['status'], 'secrets stored without their key');
     }
 
@@ -63,7 +63,7 @@ final class DoctorTest extends HttpTestCase
 
     public function testServerChecks(): void
     {
-        $this->agent->responses['/v1/health'] = new \WhaCP\Agent\AgentHttpResponse(200, (string) json_encode(['success' => true, 'data' => ['version' => '1.0.0-rc1'], 'request_id' => 't']));
+        $this->agent->responses['/v1/health'] = new \NimVor\Agent\AgentHttpResponse(200, (string) json_encode(['success' => true, 'data' => ['version' => '1.0.0-rc1'], 'request_id' => 't']));
         $this->agent->succeed('system.metrics', ['disks' => [
             ['mount_point' => '/', 'used_percent' => 42.0, 'free_bytes' => 50 * 1024 ** 3],
             ['mount_point' => '/var', 'used_percent' => 88.5, 'free_bytes' => 2 * 1024 ** 3],

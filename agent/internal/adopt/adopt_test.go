@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/sites"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/sites"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 func setup(t *testing.T) (*testhost.Host, Service) {
@@ -77,10 +77,10 @@ func TestRunAndUndo(t *testing.T) {
 	if !h.Exists("etc/nginx/sites-available/shop.example.com") {
 		t.Fatal("the old configuration file must be kept")
 	}
-	if !h.Exists("etc/nginx/sites-enabled/whacp-shop.example.com.conf") {
+	if !h.Exists("etc/nginx/sites-enabled/nimvor-shop.example.com.conf") {
 		t.Fatal("new site not enabled")
 	}
-	docroot := filepath.Join(h.Base, "home/whacp/shop.example.com/public_html")
+	docroot := filepath.Join(h.Base, "home/nimvor/shop.example.com/public_html")
 	info, err := os.Stat(filepath.Join(docroot, "index.php"))
 	if err != nil || info.Mode()&os.ModeSetuid != 0 {
 		t.Fatalf("index.php: %v %v", info, err)
@@ -94,7 +94,7 @@ func TestRunAndUndo(t *testing.T) {
 	if _, err := os.Lstat(filepath.Join(docroot, "secret")); err == nil {
 		t.Error("a link escaping the website was copied")
 	}
-	if h.Exists("home/whacp/shop.example.com/public_html/index.html") {
+	if h.Exists("home/nimvor/shop.example.com/public_html/index.html") {
 		t.Error("placeholder page left behind")
 	}
 	if !h.Exists("var/www/shop.example.com/public/index.php") {
@@ -110,7 +110,7 @@ func TestRunAndUndo(t *testing.T) {
 	if err := s.Undo(ctx, spec); err != nil {
 		t.Fatal(err)
 	}
-	if !h.Exists("etc/nginx/sites-enabled/shop.example.com") || h.Exists("etc/nginx/sites-enabled/whacp-shop.example.com.conf") {
+	if !h.Exists("etc/nginx/sites-enabled/shop.example.com") || h.Exists("etc/nginx/sites-enabled/nimvor-shop.example.com.conf") {
 		t.Fatal("undo did not switch back")
 	}
 	if l, _ := os.Readlink(filepath.Join(h.Base, "etc/nginx/sites-enabled/shop.example.com")); l != "/etc/nginx/sites-available/shop.example.com" {

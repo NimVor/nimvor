@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/tlsprofile"
+	"github.com/NimVor/nimvor/agent/internal/tlsprofile"
 )
 
 // smtpServer answers like Postfix: STARTTLS either works or is refused
@@ -77,14 +77,14 @@ func TestStartTLSCheck(t *testing.T) {
 
 // Postfix before 3.6 rejects ">=TLSv1.2" and then disables TLS entirely.
 func TestPostfixProtocolsWorkOnPostfix35(t *testing.T) {
-	for _, kv := range postfixSettings("/etc/whacp-mail", "mail.test", tls{}, false, true, tlsprofile.MailDefault) {
+	for _, kv := range postfixSettings("/etc/nimvor-mail", "mail.test", tls{}, false, true, tlsprofile.MailDefault) {
 		if strings.Contains(kv[1], ">=") {
 			t.Errorf("%s = %s needs Postfix 3.6", kv[0], kv[1])
 		}
 	}
 }
 
-// RHEL's Roundcube hard-codes its configuration folder; WhaCP then defines
+// RHEL's Roundcube hard-codes its configuration folder; NimVor then defines
 // it first (auto_prepend_file) instead of editing the package's files.
 func TestRoundcubeConfigDirOnHardcodedPackages(t *testing.T) {
 	h, _ := setup(t)
@@ -110,7 +110,7 @@ func TestRoundcubeConfigDirOnHardcodedPackages(t *testing.T) {
 	}
 }
 
-// RHEL's defaults.inc.php is root:apache 0640: WhaCP copies it rather than
+// RHEL's defaults.inc.php is root:apache 0640: NimVor copies it rather than
 // including a file the webmail account cannot read.
 func TestRoundcubeDefaultsReadableByWebmail(t *testing.T) {
 	h, _ := setup(t)
@@ -144,7 +144,7 @@ func TestRoundcubeServerSettingsPerVersion(t *testing.T) {
 		if got := e.roundcubeLegacy(); got != c.legacy {
 			t.Errorf("%s: legacy = %v", c.version, got)
 		}
-		cfg := renderRoundcube("/var/lib/whacp-webmail", "k", e.roundcubeLegacy())
+		cfg := renderRoundcube("/var/lib/nimvor-webmail", "k", e.roundcubeLegacy())
 		if !strings.Contains(cfg, "$config['imap_host'] = 'ssl://127.0.0.1:993';") {
 			t.Errorf("%s: imap_host missing", c.version)
 		}

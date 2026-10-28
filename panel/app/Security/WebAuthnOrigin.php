@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Security;
+namespace NimVor\Security;
 
-use WhaCP\Http\Request;
-use WhaCP\Services\SettingsService;
+use NimVor\Http\Request;
+use NimVor\Services\SettingsService;
 
 /**
  * The origin and relying-party ID security keys are bound to: the public

@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
 )
 
 // OSInfo describes the detected operating system (from /etc/os-release).
@@ -85,23 +85,23 @@ type Platform interface {
 	Info() OSInfo
 	// PackageManager is "apt" or "dnf".
 	PackageManager() string
-	// PackageName maps a package name as WhaCP knows it (Debian's) to this
+	// PackageName maps a package name as NimVor knows it (Debian's) to this
 	// distribution's; ok is false when it has no equivalent.
 	PackageName(name string) (pkg string, ok bool)
 	Paths() Paths
-	// CoreServices returns systemd units WhaCP monitors by default.
+	// CoreServices returns systemd units NimVor monitors by default.
 	// Units that do not exist on the host are filtered out later.
 	CoreServices() []string
 	// PHPFPMUnitPatterns returns globs for per-version PHP-FPM unit files.
 	PHPFPMUnitPatterns() []string
-	// Managed returns where WhaCP writes the files it owns.
+	// Managed returns where NimVor writes the files it owns.
 	Managed() Managed
 	// PHPPackages returns packages that install PHP-FPM version v with the
 	// given extensions (e.g. "mysql", "curl").
 	PHPPackages(v string, exts []string) []string
 }
 
-// Managed describes the layout of WhaCP-owned configuration.
+// Managed describes the layout of NimVor-owned configuration.
 type Managed struct {
 	// NginxAvailable holds generated site files; NginxEnabled holds the
 	// symlinks Nginx actually includes.
@@ -111,7 +111,7 @@ type Managed struct {
 	PHPPoolDir string `json:"php_pool_dir"`
 	// PHPSocketDir is where per-site FPM sockets are created.
 	PHPSocketDir string `json:"php_socket_dir"`
-	// PHPSocketTmpfiles, when set, is WhaCP's tmpfiles.d entry that
+	// PHPSocketTmpfiles, when set, is NimVor's tmpfiles.d entry that
 	// recreates PHPSocketDir at boot (no PHP package does on RHEL with
 	// Remi's parallel versions).
 	PHPSocketTmpfiles string `json:"php_socket_tmpfiles,omitempty"`
@@ -135,29 +135,29 @@ type Managed struct {
 	// Memcached: Debian's option file (-m 64 …) or RHEL's sysconfig file.
 	MemcachedConfig string `json:"memcached_config"`
 	MemcachedUnit   string `json:"memcached_unit"`
-	// FTPDir holds WhaCP's own pure-ftpd configuration, account list and
+	// FTPDir holds NimVor's own pure-ftpd configuration, account list and
 	// certificate (the distribution's pure-ftpd configuration is not used).
 	FTPDir string `json:"ftp_dir"`
 	// SFTPDropIn holds the per-website SFTP Match blocks; SFTPKeysDir the
 	// root-owned authorized keys of website accounts.
 	SFTPDropIn  string `json:"sftp_drop_in"`
 	SFTPKeysDir string `json:"sftp_keys_dir"`
-	// DNS (BIND): DNSConfFile is the package file that gets WhaCP's one
+	// DNS (BIND): DNSConfFile is the package file that gets NimVor's one
 	// include line (after confirmation); zones and their list live in
 	// DNSZoneDir. DNSUser is the account named runs as.
 	DNSConfFile string `json:"dns_conf_file"`
 	DNSZoneDir  string `json:"dns_zone_dir"`
 	DNSUser     string `json:"dns_user"`
 	DNSUnit     string `json:"dns_unit"`
-	// Email: WhaCP's own files (MailDir), mail storage (VmailDir), the
+	// Email: NimVor's own files (MailDir), mail storage (VmailDir), the
 	// Postfix and Dovecot package files changed after confirmation, and
-	// WhaCP's Dovecot drop-in.
+	// NimVor's Dovecot drop-in.
 	MailDir         string `json:"mail_dir"`
 	VmailDir        string `json:"vmail_dir"`
 	PostfixDir      string `json:"postfix_dir"`
 	DovecotAuthConf string `json:"dovecot_auth_conf"`
 	DovecotDropIn   string `json:"dovecot_drop_in"`
-	// Webmail (Roundcube from the distribution's packages): WhaCP keeps
+	// Webmail (Roundcube from the distribution's packages): NimVor keeps
 	// its own configuration (WebmailDir) and data (WebmailData) and never
 	// edits the package's files. RoundcubeDir holds SQL/ and bin/,
 	// RoundcubePublic is the web root, RoundcubeDefaults the package's
@@ -172,7 +172,7 @@ type Managed struct {
 	RoundcubeDefaults string            `json:"roundcube_defaults"`
 }
 
-// supportedUbuntu lists the Ubuntu releases WhaCP officially targets;
+// supportedUbuntu lists the Ubuntu releases NimVor officially targets;
 // previewUbuntu those among them not yet recommended for production.
 var (
 	supportedUbuntu = map[string]bool{"22.04": true, "24.04": true, "26.04": true}
@@ -180,7 +180,7 @@ var (
 )
 
 // supportedRHEL lists the RHEL-compatible distributions and major
-// releases WhaCP targets.
+// releases NimVor targets.
 var (
 	supportedRHEL      = map[string]bool{"almalinux": true, "rocky": true, "rhel": true}
 	supportedRHELMajor = map[string]bool{"9": true, "10": true}

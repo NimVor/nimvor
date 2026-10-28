@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\View;
+namespace NimVor\View;
 
-use WhaCP\Security\Permissions as P;
+use NimVor\Security\Permissions as P;
 
 /**
  * The website menu: one list for the sidebar, the section header and the
@@ -39,11 +39,15 @@ final class SiteMenu
         ['security', 'Security', 'shield-check', 'sites.security', P::WEBSITES_VIEW],
         ['malware', 'Malware scan', 'bug', 'sites.malware', P::WEBSITES_VIEW],
         ['firewall', 'Web firewall', 'shield-shaded', 'sites.firewall', P::WEBSITES_VIEW],
+        ['access', 'Site access', 'person-lock', 'sites.access', P::WEBSITES_MANAGE],
+        ['headers', 'Headers & cache', 'shield-check', 'sites.web_policy', P::WEBSITES_MANAGE],
         ['redis', 'Redis', 'lightning', 'sites.redis', P::WEBSITES_MANAGE],
         ['memcached', 'Memcached', 'hdd-stack', 'sites.memcached', P::WEBSITES_VIEW],
         ['nodejs', 'Runtime', 'hexagon', 'sites.nodejs', P::WEBSITES_MANAGE],
         ['python', 'Runtime', 'filetype-py', 'sites.python', P::WEBSITES_MANAGE],
-        ['settings', 'PHP & settings', 'sliders', 'sites.edit', P::WEBSITES_MANAGE],
+        ['php', 'PHP settings', 'filetype-php', 'sites.php', P::WEBSITES_MANAGE],
+        ['redirects', 'Redirects', 'signpost-split', 'sites.redirects', P::WEBSITES_MANAGE],
+        ['settings', 'Settings', 'sliders', 'sites.edit', P::WEBSITES_MANAGE],
         ['advanced', 'Advanced', 'tools', 'sites.advanced', P::WEBSITES_MANAGE],
     ];
 
@@ -56,10 +60,13 @@ final class SiteMenu
     public static function items(View $view, array $site): array
     {
         // The Node.js/Python "Runtime" entry only applies to that app type.
-        $appType = \WhaCP\Services\WebsiteService::appType($site);
+        $appType = \NimVor\Services\WebsiteService::appType($site);
         $out = [];
         foreach (self::ITEMS as [$key, $label, $icon, $route, $perm]) {
             if (($key === 'nodejs' || $key === 'python') && $key !== $appType) {
+                continue;
+            }
+            if ($key === 'php' && ($site['kind'] ?? '') !== 'php') {
                 continue;
             }
             if ($view->hasRoute($route) && $view->can($perm) && $view->routeAllowed($route)) {

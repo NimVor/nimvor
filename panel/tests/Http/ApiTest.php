@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Services\ApiTokenService;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Services\ApiTokenService;
+use NimVor\Services\WebsiteService;
+use NimVor\Repositories\UserRepository;
+use NimVor\Tests\Support\HttpTestCase;
 
 final class ApiTest extends HttpTestCase
 {
@@ -43,7 +43,7 @@ final class ApiTest extends HttpTestCase
         $read = $this->token($admin, 'read');
 
         self::assertSame(401, $this->api('GET', '/api/v1/me', null)->status());
-        self::assertSame(401, $this->api('GET', '/api/v1/me', 'whacp_' . str_repeat('0', 40))->status());
+        self::assertSame(401, $this->api('GET', '/api/v1/me', 'nimvor_' . str_repeat('0', 40))->status());
         $res = $this->api('GET', '/api/v1/me', $write);
         self::assertSame(200, $res->status());
         self::assertSame('admin', self::json($res)['data']['username']);
@@ -65,7 +65,7 @@ final class ApiTest extends HttpTestCase
         self::assertArrayHasKey('domain', self::json($res)['error']['fields']);
         self::assertSame(200, $this->api('GET', '/api/v1/websites/' . $site['id'], $read)->status());
         self::assertSame(404, $this->api('GET', '/api/v1/websites/999', $read)->status());
-        self::assertSame(404, $this->api('GET', '/api/v1/me', $write, [], ['x-whacp-server' => '42'])->status());
+        self::assertSame(404, $this->api('GET', '/api/v1/me', $write, [], ['x-nimvor-server' => '42'])->status());
 
         // Expired tokens stop working.
         $this->app->container->get(Connection::class)->run("UPDATE api_tokens SET expires_at = '2000-01-01T00:00:00+00:00'");
@@ -121,7 +121,7 @@ final class ApiTest extends HttpTestCase
         $this->login('admin');
         $this->post('/profile/tokens', ['name' => 'ci', 'ability' => 'read', 'expires_days' => '30']);
         $token = (string) $this->session->pullFlash('api_token');
-        self::assertMatchesRegularExpression('/^whacp_[a-f0-9]{40}$/', $token);
+        self::assertMatchesRegularExpression('/^nimvor_[a-f0-9]{40}$/', $token);
         $db = $this->app->container->get(Connection::class);
         self::assertSame(hash('sha256', $token), $db->scalar('SELECT token_hash FROM api_tokens'));
         self::assertStringNotContainsString($token, (string) json_encode($db->fetchAll('SELECT * FROM api_tokens')));

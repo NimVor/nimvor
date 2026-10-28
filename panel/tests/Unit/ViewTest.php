@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Unit;
+namespace NimVor\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use WhaCP\Http\Router;
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Security\Csrf;
-use WhaCP\View\View;
+use NimVor\Http\Router;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Security\Csrf;
+use NimVor\View\View;
 
 final class ViewTest extends TestCase
 {

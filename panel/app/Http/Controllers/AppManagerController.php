@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Services\AppCatalogService;
-use WhaCP\Services\AuditLogger;
-use WhaCP\Services\ServerContext;
-use WhaCP\View\View;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Services\AppCatalogService;
+use NimVor\Services\AuditLogger;
+use NimVor\Services\ServerContext;
+use NimVor\View\View;
 
 /**
  * Administration → Application Manager: control the Softaculous-style
@@ -62,7 +62,11 @@ final class AppManagerController extends Controller
         if ($this->catalog->find($slug) === null) {
             return $this->redirectWithError('/apps-manager', 'Unknown application.');
         }
-        $this->catalog->setAppFlag($slug, $field, $on);
+        try {
+            $this->catalog->setAppFlag($slug, $field, $on);
+        } catch (\NimVor\Support\UserFacingException $e) {
+            return $this->redirectWithFailure('/apps-manager', $e);
+        }
         $this->audit->record('apps.app', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['app' => $slug, 'field' => $field, 'on' => $on], $this->userId($request));
         return $this->redirectWithSuccess('/apps-manager', 'Application updated.');
     }

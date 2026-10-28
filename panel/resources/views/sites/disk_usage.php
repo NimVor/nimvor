@@ -1,5 +1,5 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var array<string, mixed> $site */
 /** @var string $path */
 /** @var string $sort */
@@ -23,8 +23,8 @@ $link = fn (array $q): string => $this->url('sites.disk', ['id' => $id], array_f
 ?>
 <?= $this->partial('sites/header', ['site' => $site, 'tab' => 'disk']) ?>
 <?php if ($agentError !== null): ?><?= $this->partial('partials/agent_error', ['error' => $agentError]) ?><?php endif; ?>
-<div class="wcp-panel">
-    <div class="wcp-actionbar">
+<div class="nim-panel">
+    <div class="nim-actionbar">
         <nav aria-label="Folder">
             <ol class="breadcrumb mb-0">
                 <li class="breadcrumb-item"><a href="<?= e($this->url('sites.disk', ['id' => $id])) ?>"><?= e((string) $site['domain']) ?></a></li>
@@ -33,27 +33,27 @@ $link = fn (array $q): string => $this->url('sites.disk', ['id' => $id], array_f
                 <?php endforeach; ?>
             </ol>
         </nav>
-        <div class="wcp-actionbar-end">
+        <div class="nim-actionbar-end">
             <?php if ($scan !== null): ?><span class="small text-body-secondary">Measured <?= e(time_ago((string) $scan['finished_at'])) ?></span><?php endif; ?>
             <?php if ($running !== null): ?>
-                <a class="btn btn-sm btn-outline-secondary" href="#" data-wcp-job-open="<?= e((string) $running['job_id']) ?>"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Measuring…</a>
+                <a class="btn btn-sm btn-outline-secondary" href="#" data-nim-job-open="<?= e((string) $running['job_id']) ?>"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Measuring…</a>
             <?php else: ?>
-                <form method="post" action="<?= e($this->url('sites.disk.scan', ['id' => $id])) ?>" data-wcp-busy><?= $this->csrfField() ?><input type="hidden" name="path" value="<?= e($path) ?>"><button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><i class="bi bi-arrow-repeat me-1"></i><?= $scan === null ? 'Measure' : 'Measure again' ?></button></form>
+                <form method="post" action="<?= e($this->url('sites.disk.scan', ['id' => $id])) ?>" data-nim-busy><?= $this->csrfField() ?><input type="hidden" name="path" value="<?= e($path) ?>"><button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><i class="bi bi-arrow-repeat me-1"></i><?= $scan === null ? 'Measure' : 'Measure again' ?></button></form>
             <?php endif; ?>
         </div>
     </div>
     <?php if ($scan === null): ?>
-        <div class="wcp-empty-state"><i class="bi bi-pie-chart" aria-hidden="true"></i><div class="fw-medium"><?= $running !== null ? 'Measuring this folder…' : 'Not measured yet' ?></div><div class="small">See which folders use the most space<?= $path === '' ? ', including the domain\'s mailboxes' : '' ?>. The measurement runs in the background.</div></div>
+        <div class="nim-empty-state"><i class="bi bi-pie-chart" aria-hidden="true"></i><div class="fw-medium"><?= $running !== null ? 'Measuring this folder…' : 'Not measured yet' ?></div><div class="small">See which folders use the most space<?= $path === '' ? ', including the domain\'s mailboxes' : '' ?>. The measurement runs in the background.</div></div>
     <?php elseif ($scan['status'] === 'failed'): ?>
         <div class="alert alert-danger mt-3 mb-0">The measurement failed: <?= e((string) $scan['error']) ?></div>
     <?php else: ?>
-        <div class="wcp-dtable table-responsive">
+        <div class="nim-dtable table-responsive">
             <table class="table align-middle">
                 <thead><tr>
                     <?php foreach (['name' => 'Folder', 'size' => 'Size', 'files' => 'Files'] as $k => $l): ?>
                         <th class="<?= $k === 'name' ? '' : 'text-end' ?>"<?= $sort === $k ? ' aria-sort="' . ($k === 'name' ? 'ascending' : 'descending') . '"' : '' ?>><a class="link-body-emphasis text-decoration-none" href="<?= e($link(['sort' => $k === 'size' ? '' : $k])) ?>"><?= e($l) ?><?= $sort === $k ? ' <i class="bi bi-caret-' . ($k === 'name' ? 'up' : 'down') . '-fill" aria-hidden="true"></i>' : '' ?></a></th>
                     <?php endforeach; ?>
-                    <th class="wcp-w-30"><span class="visually-hidden">Share</span></th>
+                    <th class="nim-w-30"><span class="visually-hidden">Share</span></th>
                 </tr></thead>
                 <tbody>
                 <?php foreach ($entries as $e): $share = (int) round(100 * (int) $e['bytes'] / $total); ?>
@@ -65,7 +65,7 @@ $link = fn (array $q): string => $this->url('sites.disk', ['id' => $id], array_f
                         </td>
                         <td class="text-end text-nowrap fw-medium"><?= e(format_bytes((int) $e['bytes'])) ?></td>
                         <td class="text-end text-nowrap"><?= number_format((int) $e['files']) ?></td>
-                        <td><progress class="wcp-du-bar" value="<?= (int) $e['bytes'] ?>" max="<?= $total ?>" aria-label="<?= $share ?>% of the total"><?= $share ?>%</progress> <span class="small text-body-secondary"><?= $share ?>%</span></td>
+                        <td><progress class="nim-du-bar" value="<?= (int) $e['bytes'] ?>" max="<?= $total ?>" aria-label="<?= $share ?>% of the total"><?= $share ?>%</progress> <span class="small text-body-secondary"><?= $share ?>%</span></td>
                     </tr>
                 <?php endforeach; ?>
                 <?php if ($entries === []): ?><tr><td colspan="4" class="text-center text-body-secondary py-4">This folder is empty.</td></tr><?php endif; ?>

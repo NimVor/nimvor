@@ -15,10 +15,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
 // Request describes one deployment.
@@ -75,7 +75,7 @@ func (r *Request) validate(env *host.Env) error {
 	return nil
 }
 
-func keyPath(root string) string { return filepath.Join(root, ".ssh", "whacp_deploy_ed25519") }
+func keyPath(root string) string { return filepath.Join(root, ".ssh", "nimvor_deploy_ed25519") }
 
 // gitEnv makes git use the site's deploy key and never prompt.
 func gitEnv(root string) []string {
@@ -113,7 +113,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		pub := keyPath(req.Root) + ".pub"
 		if !env.Root.Exists(pub) {
 			script := fmt.Sprintf("umask 077 && mkdir -p %s/.ssh && ssh-keygen -q -t ed25519 -N '' -C %s -f %s",
-				dir, "whacp-deploy@"+req.Domain, keyPath(dir))
+				dir, "nimvor-deploy@"+req.Domain, keyPath(dir))
 			if out, err := env.Runner.RunWith(ctx, "sh", execx.Opts{As: cred, Dir: dir}, "-c", script); err != nil {
 				return nil, actions.Failed("The deploy key could not be created.", host.Output(out))
 			}

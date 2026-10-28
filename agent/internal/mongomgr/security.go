@@ -9,17 +9,17 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
-// adminUser is the dedicated MongoDB account WhaCP authenticates as once
+// adminUser is the dedicated MongoDB account NimVor authenticates as once
 // authentication is enabled. Its password is never stored by the panel; the
 // connection string (with the password) lives only in AdminURIFile, root-only.
-const adminUser = "whacpAdmin"
+const adminUser = "nimvorAdmin"
 
-// adminURI builds the connection string WhaCP uses to reach MongoDB as the
+// adminURI builds the connection string NimVor uses to reach MongoDB as the
 // admin user, with the password percent-encoded so any character is safe.
 func adminURI(env *host.Env, password string) string {
 	port := parseConfig(string(readFileOrEmpty(env, ConfigFile))).Port
@@ -31,7 +31,7 @@ func adminURI(env *host.Env, password string) string {
 }
 
 func registerSecurity(r *actions.Registry, env *host.Env, c Client) {
-	r.Register(actions.Action{Name: "mongo.admin_password", Mutating: true, Description: "Create or reset the WhaCP MongoDB admin user and store its connection string.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "mongo.admin_password", Mutating: true, Description: "Create or reset the NimVor MongoDB admin user and store its connection string.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			Password string `json:"password"`
 		}

@@ -11,13 +11,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
-// Jails WhaCP can enable (all shipped with fail2ban's default filters).
+// Jails NimVor can enable (all shipped with fail2ban's default filters).
 var Jails = map[string]string{
 	"sshd":            "SSH login failures",
 	"recidive":        "Repeat offenders (bans for a week)",
@@ -86,7 +86,7 @@ func Fail2ban(ctx context.Context, env *host.Env) Fail2banStatus {
 	return st
 }
 
-// Fail2banSettings configure the WhaCP jail file.
+// Fail2banSettings configure the NimVor jail file.
 type Fail2banSettings struct {
 	Jails         []string `json:"jails"`
 	BanMinutes    int      `json:"ban_minutes"`
@@ -97,7 +97,7 @@ type Fail2banSettings struct {
 	Journal bool `json:"-"`
 }
 
-// Render produces jail.d/whacp.local.
+// Render produces jail.d/nimvor.local.
 func (s Fail2banSettings) Render() (string, error) {
 	if s.BanMinutes < 1 || s.BanMinutes > 525600 || s.FindMinutes < 1 || s.FindMinutes > 10080 || s.MaxRetry < 1 || s.MaxRetry > 100 {
 		return "", fmt.Errorf("ban time, find time and retries are out of range")
@@ -115,7 +115,7 @@ func (s Fail2banSettings) Render() (string, error) {
 	jails := append([]string{}, s.Jails...)
 	sort.Strings(jails)
 	var b strings.Builder
-	b.WriteString("# Managed by WhaCP (Security → Fail2ban). Do not edit: changes are overwritten.\n")
+	b.WriteString("# Managed by NimVor (Security → Fail2ban). Do not edit: changes are overwritten.\n")
 	fmt.Fprintf(&b, "[DEFAULT]\nbantime = %dm\nfindtime = %dm\nmaxretry = %d\nignoreip = %s\n", s.BanMinutes, s.FindMinutes, s.MaxRetry, strings.Join(ignore, " "))
 	if s.Journal {
 		b.WriteString("backend = systemd\n")

@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Database\Connection;
-use WhaCP\Hosting\Scope;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Support\UserFacingException;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Database\Connection;
+use NimVor\Hosting\Scope;
+use NimVor\Repositories\UserRepository;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Support\UserFacingException;
 
 /**
  * Hosting account suspension. A suspended account (and every customer of a
@@ -158,8 +158,8 @@ final class SuspensionService
             $fn();
         } catch (AgentException $e) {
             if (in_array($e->errorCode(), ['not_found', 'invalid_params'], true) && str_starts_with($what, 'SSH/FTP')) {
-                // Not a WhaCP website account (e.g. an imported website run by
-                // www-data): it has no WhaCP SSH/SFTP or FTP access to turn off,
+                // Not a NimVor website account (e.g. an imported website run by
+                // www-data): it has no NimVor SSH/SFTP or FTP access to turn off,
                 // and a shared system account must not be expired.
                 return;
             }

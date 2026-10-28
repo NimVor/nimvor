@@ -10,13 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/spf"
+	"github.com/NimVor/nimvor/agent/internal/spf"
 )
 
 // The checker and the SPF evaluator against real, published DNS.
 func TestRealHostAuthCheckNetwork(t *testing.T) {
-	if os.Getenv("WHACP_NETWORK") != "1" {
-		t.Skip("needs WHACP_NETWORK=1 (public DNS)")
+	if os.Getenv("NIMVOR_NETWORK") != "1" {
+		t.Skip("needs NIMVOR_NETWORK=1 (public DNS)")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -39,7 +39,7 @@ func TestRealHostAuthCheckNetwork(t *testing.T) {
 	if res, _ := spf.Check(ctx, net.DefaultResolver, netip.MustParseAddr("192.0.2.1"), "someone@gmail.com", ""); res == spf.Pass {
 		t.Fatal("192.0.2.1 passes gmail.com's SPF")
 	}
-	got := statuses(CheckAuth(ctx, net.DefaultResolver, AuthCheckInput{Domain: "gmail.com", Hostname: "whacp-check.invalid", IPs: []string{"192.0.2.1"}}))
+	got := statuses(CheckAuth(ctx, net.DefaultResolver, AuthCheckInput{Domain: "gmail.com", Hostname: "nimvor-check.invalid", IPs: []string{"192.0.2.1"}}))
 	t.Logf("gmail.com as seen from 192.0.2.1: %v", got)
 	if got["host"] != CheckMissing || got["mx"] != CheckFail || (got["spf"] != CheckWarn && got["spf"] != CheckFail) || (got["dmarc"] != CheckPass && got["dmarc"] != CheckWarn) || got["rdns"] == CheckPass {
 		t.Fatalf("unexpected results: %v", got)

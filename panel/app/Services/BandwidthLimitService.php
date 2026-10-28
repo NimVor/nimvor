@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Repositories\WebsiteRepository;
+use NimVor\Database\Connection;
+use NimVor\Repositories\UserRepository;
+use NimVor\Repositories\WebsiteRepository;
 
 /**
  * Enforces the plans' monthly bandwidth (data transfer).

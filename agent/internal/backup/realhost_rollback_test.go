@@ -19,12 +19,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/config"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
+	"github.com/NimVor/nimvor/agent/internal/config"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/jobs"
+	"github.com/NimVor/nimvor/agent/internal/platform"
 )
 
 // A website-file restore that fails part-way (a corrupt or truncated
@@ -41,7 +41,7 @@ func TestRealHostSiteRestoreRollback(t *testing.T) {
 	if _, err := exec.LookPath("tar"); err != nil {
 		t.Skip("needs tar")
 	}
-	const user = "whacp-roll"
+	const user = "nimvor-roll"
 	exec.Command("useradd", "-M", "-U", "-s", "/usr/sbin/nologin", user).Run()
 	t.Cleanup(func() { exec.Command("userdel", user).Run() })
 	cfg := config.Default()
@@ -57,7 +57,7 @@ func TestRealHostSiteRestoreRollback(t *testing.T) {
 
 	// The website tree, owned by the unprivileged account and reachable by
 	// it (tar runs as that account, not root).
-	sitesRoot, err := os.MkdirTemp("/tmp", "whacp-roll-")
+	sitesRoot, err := os.MkdirTemp("/tmp", "nimvor-roll-")
 	if err != nil {
 		t.Fatal(err)
 	}

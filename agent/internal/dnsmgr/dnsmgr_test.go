@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 func zone() Zone {
@@ -174,7 +174,7 @@ func TestConfigureAndZones(t *testing.T) {
 		t.Fatal(err)
 	}
 	conf := f.h.Read("etc/bind/named.conf.local")
-	if !strings.HasPrefix(conf, "//\n// Do any local configuration here") || strings.Count(conf, `include "/etc/bind/whacp/zones.conf";`) != 1 {
+	if !strings.HasPrefix(conf, "//\n// Do any local configuration here") || strings.Count(conf, `include "/etc/bind/nimvor/zones.conf";`) != 1 {
 		t.Fatalf("named.conf.local = %q", conf)
 	}
 	// Idempotent: no second include and no confirmation needed.
@@ -190,10 +190,10 @@ func TestConfigureAndZones(t *testing.T) {
 	if err != nil || res["serial"].(float64) != 2026090101 || res["loaded"] != true {
 		t.Fatalf("apply = %v %v", res, err)
 	}
-	if !strings.Contains(f.h.Read("etc/bind/whacp/db.example.com"), "www\t\tIN\tCNAME\texample.com.") {
+	if !strings.Contains(f.h.Read("etc/bind/nimvor/db.example.com"), "www\t\tIN\tCNAME\texample.com.") {
 		t.Fatal("zone file not written")
 	}
-	list := f.h.Read("etc/bind/whacp/zones.conf")
+	list := f.h.Read("etc/bind/nimvor/zones.conf")
 	if !strings.Contains(list, `zone "example.com" {`) || !strings.Contains(list, "allow-transfer { none; };") {
 		t.Fatalf("zones.conf = %s", list)
 	}
@@ -204,7 +204,7 @@ func TestConfigureAndZones(t *testing.T) {
 	if res, err = f.call(t, "dns.zone_apply", z); err != nil || res["serial"].(float64) != 2026090102 {
 		t.Fatalf("second apply = %v %v", res, err)
 	}
-	if list := f.h.Read("etc/bind/whacp/zones.conf"); !strings.Contains(list, "allow-transfer { 198.51.100.2; };") || !strings.Contains(list, "also-notify { 198.51.100.2; };") {
+	if list := f.h.Read("etc/bind/nimvor/zones.conf"); !strings.Contains(list, "allow-transfer { 198.51.100.2; };") || !strings.Contains(list, "also-notify { 198.51.100.2; };") {
 		t.Fatalf("secondaries: %s", list)
 	}
 	st, _ := f.call(t, "dns.status", nil)
@@ -212,19 +212,19 @@ func TestConfigureAndZones(t *testing.T) {
 		t.Fatalf("status = %v", st)
 	}
 	// BIND keeps serving the old serial → rolled back.
-	before := f.h.Read("etc/bind/whacp/db.example.com")
+	before := f.h.Read("etc/bind/nimvor/db.example.com")
 	f.served = 2026090102
 	if _, err := f.call(t, "dns.zone_apply", zone()); code(err) != "failed" {
 		t.Fatalf("expected failure, got %v", err)
 	}
-	if f.h.Read("etc/bind/whacp/db.example.com") != before {
+	if f.h.Read("etc/bind/nimvor/db.example.com") != before {
 		t.Fatal("zone not restored")
 	}
 	// A zone the checker rejects is not kept.
 	f.h.Fail["named-checkzone"] = "zone example.org/IN: loading from master file failed"
 	z2 := zone()
 	z2.Name = "example.org"
-	if _, err := f.call(t, "dns.zone_apply", z2); err == nil || f.h.Exists("etc/bind/whacp/db.example.org") || strings.Contains(f.h.Read("etc/bind/whacp/zones.conf"), "example.org") {
+	if _, err := f.call(t, "dns.zone_apply", z2); err == nil || f.h.Exists("etc/bind/nimvor/db.example.org") || strings.Contains(f.h.Read("etc/bind/nimvor/zones.conf"), "example.org") {
 		t.Fatalf("invalid zone kept: %v", err)
 	}
 	delete(f.h.Fail, "named-checkzone")
@@ -235,7 +235,7 @@ func TestConfigureAndZones(t *testing.T) {
 	if _, err := f.call(t, "dns.zone_delete", map[string]any{"zone": "example.com", "confirm": "example.com"}); err != nil {
 		t.Fatal(err)
 	}
-	if f.h.Exists("etc/bind/whacp/db.example.com") || strings.Contains(f.h.Read("etc/bind/whacp/zones.conf"), "example.com") {
+	if f.h.Exists("etc/bind/nimvor/db.example.com") || strings.Contains(f.h.Read("etc/bind/nimvor/zones.conf"), "example.com") {
 		t.Fatal("zone not removed")
 	}
 }

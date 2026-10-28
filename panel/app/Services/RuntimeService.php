@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
+use NimVor\Agent\AgentClient;
 
 /**
  * Node.js and Python runtimes on the server. The agent installs Node.js
@@ -39,7 +39,7 @@ final class RuntimeService
     /**
      * The runtimes a worker (or a Node.js/Python site) may select, as
      * selection strings ("node:20.17.0", "python:3.12"). This includes the
-     * WhaCP-managed runtimes and the system's own Python interpreters (which
+     * NimVor-managed runtimes and the system's own Python interpreters (which
      * come from the distribution or Packages), since there is no managed
      * Python install path. The system Node is offered as "system" instead.
      *
@@ -49,7 +49,7 @@ final class RuntimeService
     {
         try {
             $s = $this->status();
-        } catch (\WhaCP\Agent\AgentException) {
+        } catch (\NimVor\Agent\AgentException) {
             return [];
         }
         $out = [];

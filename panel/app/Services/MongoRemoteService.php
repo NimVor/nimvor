@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Database\Connection;
-use WhaCP\Security\Crypto;
-use WhaCP\Support\UserFacingException;
+use NimVor\Agent\AgentClient;
+use NimVor\Database\Connection;
+use NimVor\Security\Crypto;
+use NimVor\Support\UserFacingException;
 
 /**
  * Remote MongoDB servers: saved connections to other MongoDB servers, used to

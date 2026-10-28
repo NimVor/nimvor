@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Hosting\Scope;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Services\AccountBackupService;
-use WhaCP\Services\JobTracker;
-use WhaCP\Services\ServerContext;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
-use WhaCP\View\View;
+use NimVor\Hosting\Scope;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Services\AccountBackupService;
+use NimVor\Services\JobTracker;
+use NimVor\Services\ServerContext;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
+use NimVor\View\View;
 
 /**
  * Account backups (Backups → Accounts): back up a whole hosting account to
@@ -67,7 +67,7 @@ final class AccountBackupsController extends Controller
             return $this->redirectWithFailure('/backups#accounts', $e);
         }
         $service = $this->service;
-        $name = preg_replace('/[^A-Za-z0-9._-]/', '_', basename($path)) ?: 'account.whacp-account';
+        $name = preg_replace('/[^A-Za-z0-9._-]/', '_', basename($path)) ?: 'account.nimvor-account';
         return Response::stream(static function () use ($first, $service, $path): void {
             if (session_status() === PHP_SESSION_ACTIVE) {
                 session_write_close();

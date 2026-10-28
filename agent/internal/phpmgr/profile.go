@@ -8,10 +8,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/pkgs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/pkgs"
+	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
 // A PHP profile is the set of PHP versions the server should have and the
@@ -75,7 +75,7 @@ func (p *Profile) normalize() error {
 	var es []string
 	for _, e := range p.Extensions {
 		if _, ok := findExtension(e); !ok {
-			return fmt.Errorf("extensions: %s is not an extension WhaCP manages", e)
+			return fmt.Errorf("extensions: %s is not an extension NimVor manages", e)
 		}
 		if !seenE[e] {
 			seenE[e] = true
@@ -87,7 +87,7 @@ func (p *Profile) normalize() error {
 	return nil
 }
 
-// versionPackages are the packages of version v WhaCP would remove with it
+// versionPackages are the packages of version v NimVor would remove with it
 // (only those installed are removed).
 func versionPackages(env *host.Env, v string) []string {
 	var base []string
@@ -224,7 +224,7 @@ func ProfilePlan(ctx context.Context, env *host.Env, p Profile) (PlanResult, err
 	for _, v := range others {
 		switch users := SitesUsing(ctx, env, v); {
 		case panelVersion(env, v):
-			add(Item{Action: ActBlocked, Version: v, Detail: "Kept: WhaCP's panel runs on PHP " + v + "."})
+			add(Item{Action: ActBlocked, Version: v, Detail: "Kept: NimVor's panel runs on PHP " + v + "."})
 		case len(users) > 0:
 			add(Item{Action: ActBlocked, Version: v, Detail: "Kept: used by " + strings.Join(users, ", ") + ". Move those websites to another version first."})
 		default:
@@ -356,7 +356,7 @@ func applyProfile(ctx context.Context, env *host.Env, log io.Writer, plan PlanRe
 }
 
 func registerProfile(r *actions.Registry, env *host.Env) {
-	r.Register(actions.Action{Name: "php.catalog", Description: "The PHP extensions WhaCP manages (name, description) and those a new version gets by default.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "php.catalog", Description: "The PHP extensions NimVor manages (name, description) and those a new version gets by default.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		list := make([]map[string]string, 0, len(Extensions))
 		for _, e := range Extensions {
 			list = append(list, map[string]string{"name": e.Name, "description": e.Description})

@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Integration;
+namespace NimVor\Tests\Integration;
 
-use WhaCP\Repositories\DatabaseRepository;
-use WhaCP\Services\DatabaseService;
-use WhaCP\Services\PlanLimits;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
-use WhaCP\Tests\Support\PanelHarness;
+use NimVor\Repositories\DatabaseRepository;
+use NimVor\Services\DatabaseService;
+use NimVor\Services\PlanLimits;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
+use NimVor\Tests\Support\PanelHarness;
 
 final class DatabaseServiceTest extends PanelHarness
 {

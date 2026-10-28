@@ -1,5 +1,9 @@
 # AGENT_HANDOFF.md — Verified development status
 
+> **Historical.** This is the handoff written for 1.0.0-rc1 (2026-10-19) and is
+> kept for reference; the branch and version facts below are out of date.
+> Current status: `CHANGELOG.md`, `docs/release/1.0.0-ga-report.md`, `AGENTS.md`.
+
 **Prepared:** 2026-10-19 · **Branch:** `claude/sleepy-ptolemy-bdv6ib` (the
 remote's default branch; there is no `main`) · **HEAD:** `2ad3bc3` · **Version
 (`VERSION`):** `1.0.0-rc1`
@@ -27,7 +31,7 @@ something is inferred rather than observed, it says so.
 | Commit | Summary |
 |---|---|
 | `2ad3bc3` | **App installer: choose main domain or a subdomain as the install target.** Adds an "Install on" selector to the app-install modal; install runs against the chosen site's own document root. |
-| `03d5c32` | **Move inline page scripts to `whacp.js` (fixes CSP block).** Inline `<script>` on the Apps page (and the Website-Settings PHP-profile toggle and MongoDB password modal) was blocked by `script-src 'self'`; moved to delegated handlers. Added `ViewTest::testNoViewUsesInlineScripts` guard. |
+| `03d5c32` | **Move inline page scripts to `nimvor.js` (fixes CSP block).** Inline `<script>` on the Apps page (and the Website-Settings PHP-profile toggle and MongoDB password modal) was blocked by `script-src 'self'`; moved to delegated handlers. Added `ViewTest::testNoViewUsesInlineScripts` guard. |
 | `e714a2c` | **Count addon domains against the website plan limit.** Addon domains + primaries now count toward the `websites` cap; subdomains keep their own separate limit. |
 | `9d59d81` | runtimes: offer and resolve the system's Python versions. |
 | `41ea349` | docs: changelog for the customer-portal feature program. |

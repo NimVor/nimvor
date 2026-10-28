@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Services\DiskQuotaService;
-use WhaCP\Services\PlanLimits;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Services\DiskQuotaService;
+use NimVor\Services\PlanLimits;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Plans' disk space enforced with the agent's user quotas. */
 final class DiskQuotaTest extends HttpTestCase
@@ -30,7 +30,7 @@ final class DiskQuotaTest extends HttpTestCase
         $this->db->run("INSERT INTO plans (name, disk_quota_mb, created_at, updated_at) VALUES ('Small', 100, 'x', 'x')");
         $this->db->run('UPDATE users SET plan_id = ? WHERE id IN (?, ?)', [(int) $this->db->lastInsertId(), $this->cust, $admin]);
         foreach ([['a.test', 'web1', $this->cust], ['b.test', 'web2', $this->cust], ['sub.test', 'web3', $this->sub], ['admin.test', 'web4', $admin]] as [$d, $u, $o]) {
-            $this->db->run("INSERT INTO websites (server_id, domain, kind, php_version, root, document_root, system_user, owner_id, status, created_at, updated_at) VALUES (1, ?, 'php', '8.3', ?, ?, ?, ?, 'active', 'x', 'x')", [$d, '/home/whacp/' . $d, '/home/whacp/' . $d . '/public_html', $u, $o]);
+            $this->db->run("INSERT INTO websites (server_id, domain, kind, php_version, root, document_root, system_user, owner_id, status, created_at, updated_at) VALUES (1, ?, 'php', '8.3', ?, ?, ?, ?, 'active', 'x', 'x')", [$d, '/home/nimvor/' . $d, '/home/nimvor/' . $d . '/public_html', $u, $o]);
         }
     }
 
@@ -70,7 +70,7 @@ final class DiskQuotaTest extends HttpTestCase
 
     public function testReconcileSetsWhatChangedAndCountsTheQuotaUse(): void
     {
-        $this->agent->succeed('quota.status', ['state' => 'on', 'mount_point' => '/', 'fstype' => 'ext4', 'path' => '/home/whacp']);
+        $this->agent->succeed('quota.status', ['state' => 'on', 'mount_point' => '/', 'fstype' => 'ext4', 'path' => '/home/nimvor']);
         $this->agent->succeed('quota.report', ['mount_point' => '/', 'users' => [
             'web1' => ['used_kb' => 40 * 1024, 'hard_kb' => 0], 'web2' => ['used_kb' => 20 * 1024, 'hard_kb' => 0],
             'web3' => ['used_kb' => 5, 'hard_kb' => 0], 'web4' => ['used_kb' => 999999, 'hard_kb' => 0],
@@ -91,7 +91,7 @@ final class DiskQuotaTest extends HttpTestCase
 
     public function testNothingHappensWhileQuotasAreOff(): void
     {
-        $this->agent->succeed('quota.status', ['state' => 'off', 'mount_point' => '/', 'fstype' => 'ext4', 'path' => '/home/whacp']);
+        $this->agent->succeed('quota.status', ['state' => 'off', 'mount_point' => '/', 'fstype' => 'ext4', 'path' => '/home/nimvor']);
         self::assertSame([], $this->service()->reconcile());
         self::assertSame([], $this->agentCalls('quota.report'));
         self::assertSame([], $this->agentCalls('quota.set'));
@@ -99,7 +99,7 @@ final class DiskQuotaTest extends HttpTestCase
 
     public function testOnlyAdministratorsTurnQuotasOn(): void
     {
-        $this->agent->succeed('quota.status', ['state' => 'off', 'mount_point' => '/', 'fstype' => 'ext4', 'device' => '/dev/vda1', 'path' => '/home/whacp']);
+        $this->agent->succeed('quota.status', ['state' => 'off', 'mount_point' => '/', 'fstype' => 'ext4', 'device' => '/dev/vda1', 'path' => '/home/nimvor']);
         $this->agent->succeed('quota.enable', ['job_id' => '0123456789abcdef', 'status' => 'queued']);
         $this->login('admin');
         $page = $this->request('GET', '/limits')->body();
@@ -109,7 +109,7 @@ final class DiskQuotaTest extends HttpTestCase
         self::assertCount(1, $this->agentCalls('quota.enable'));
         self::assertSame(1, (int) $this->db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'quota.enable'"));
         self::assertSame('0123456789abcdef', $this->db->scalar("SELECT job_id FROM agent_jobs WHERE kind = 'Turn on disk quotas'"));
-        self::assertStringContainsString('data-wcp-job-open="0123456789abcdef"', $this->request('GET', '/limits')->body());
+        self::assertStringContainsString('data-nim-job-open="0123456789abcdef"', $this->request('GET', '/limits')->body());
 
         foreach (['resell', 'cust'] as $who) {
             $this->session = new ArraySession();

@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
 // hostnameRef is one place a host name still appears.
@@ -44,7 +44,7 @@ func firstMatch(data []byte, needle string) string {
 }
 
 // scanDir adds a finding for every file directly under dir that mentions
-// needle (non-recursive is enough for WhaCP's flat config layouts; one
+// needle (non-recursive is enough for NimVor's flat config layouts; one
 // level of sub-directories is also scanned for DNS zones).
 func scanDir(env *host.Env, dir, category, needle string, findings *[]hostnameRef) {
 	entries, err := env.Root.ReadDir(dir)
@@ -82,7 +82,7 @@ func mailHostname(env *host.Env) string {
 }
 
 func registerHostnameRefs(r *actions.Registry, env *host.Env) {
-	r.Register(actions.Action{Name: "server.hostname_references", Description: "Find where a previous host name still appears in the server's managed configuration: /etc/hosts, WhaCP's Nginx sites, the mail server (Postfix myhostname) and the hosted DNS zones. Read-only.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "server.hostname_references", Description: "Find where a previous host name still appears in the server's managed configuration: /etc/hosts, NimVor's Nginx sites, the mail server (Postfix myhostname) and the hosted DNS zones. Read-only.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			Old string `json:"old"`
 		}
@@ -102,7 +102,7 @@ func registerHostnameRefs(r *actions.Registry, env *host.Env) {
 		}
 		scanDir(env, env.M.NginxAvailable, "nginx", old, &findings)
 		scanDir(env, env.M.DNSZoneDir, "dns", old, &findings)
-		// Mail: Postfix main.cf and WhaCP's mail config tree.
+		// Mail: Postfix main.cf and NimVor's mail config tree.
 		if b, err := env.Root.ReadFile(filepath.Join(env.M.PostfixDir, "main.cf")); err == nil {
 			if s := firstMatch(b, old); s != "" {
 				findings = append(findings, hostnameRef{Category: "mail", Path: filepath.Join(env.M.PostfixDir, "main.cf"), Sample: s})

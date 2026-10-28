@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
 use PHPUnit\Framework\TestCase;
-use WhaCP\Agent\AgentTransport;
-use WhaCP\Core\Application;
-use WhaCP\Core\Config;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Repositories\RoleRepository;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Security\Csrf;
-use WhaCP\Security\PasswordHasher;
-use WhaCP\Tests\Support\FakeTransport;
+use NimVor\Agent\AgentTransport;
+use NimVor\Core\Application;
+use NimVor\Core\Config;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Repositories\RoleRepository;
+use NimVor\Repositories\UserRepository;
+use NimVor\Security\Csrf;
+use NimVor\Security\PasswordHasher;
+use NimVor\Tests\Support\FakeTransport;
 
 /**
  * Drives the full HTTP kernel (middleware, routing, controllers, views).
@@ -29,7 +29,7 @@ final class ApplicationTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->dir = sys_get_temp_dir() . '/whacp-http-' . bin2hex(random_bytes(4));
+        $this->dir = sys_get_temp_dir() . '/nimvor-http-' . bin2hex(random_bytes(4));
         mkdir($this->dir);
         file_put_contents($this->dir . '/token', 'test-token');
         $this->session = new ArraySession();
@@ -74,7 +74,7 @@ final class ApplicationTest extends TestCase
         $app->container->instance(SessionInterface::class, $this->session);
         $app->container->instance(AgentTransport::class, $this->agent);
         $app->migrate();
-        $app->container->get(\WhaCP\Services\SettingsService::class)->update(['setup_wizard_seen' => true, 'setup_wizard_done' => true], null);
+        $app->container->get(\NimVor\Services\SettingsService::class)->update(['setup_wizard_seen' => true, 'setup_wizard_done' => true], null);
         return $app;
     }
 
@@ -217,7 +217,7 @@ final class ApplicationTest extends TestCase
         self::assertSame(403, $this->request($app, 'POST', '/discovery/run', ['_token' => $this->token($app)])->status());
         self::assertSame(403, $this->request($app, 'POST', '/users/1/delete', ['_token' => $this->token($app)])->status());
 
-        $denied = $app->container->get(\WhaCP\Database\Connection::class)->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'security.access_denied'");
+        $denied = $app->container->get(\NimVor\Database\Connection::class)->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'security.access_denied'");
         self::assertSame(4, (int) $denied);
     }
 
@@ -250,7 +250,7 @@ final class ApplicationTest extends TestCase
         $app = $this->app();
         $this->seedUser($app, 'admin', 'admin');
         $this->login($app, 'admin');
-        $this->agent->responses['/v1/actions/system.info'] = new \WhaCP\Agent\AgentHttpResponse(500, '{"success":false,"error":{"code":"internal_error","message":"The agent could not complete the action."},"request_id":"r1"}');
+        $this->agent->responses['/v1/actions/system.info'] = new \NimVor\Agent\AgentHttpResponse(500, '{"success":false,"error":{"code":"internal_error","message":"The agent could not complete the action."},"request_id":"r1"}');
         $res = $this->request($app, 'GET', '/server');
         self::assertStringNotContainsString('SQLSTATE', $res->body());
         self::assertStringNotContainsString('/home/', $res->body());

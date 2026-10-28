@@ -13,14 +13,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/config"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/sites"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/config"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/jobs"
+	"github.com/NimVor/nimvor/agent/internal/platform"
+	"github.com/NimVor/nimvor/agent/internal/sites"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 // systemctl is simulated (containers lack systemd); everything else is real.
@@ -40,43 +40,43 @@ func (h hybrid) RunWith(ctx context.Context, id string, o execx.Opts, args ...st
 	return h.real.RunWith(ctx, id, o, args...)
 }
 
-// Imports a hand-written Nginx site into WhaCP with the real nginx -t,
+// Imports a hand-written Nginx site into NimVor with the real nginx -t,
 // php-fpm8.3 -t and useradd, then undoes it.
 func TestRealHostImport(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("needs root")
 	}
 	// Debian: sites-available plus a link; RHEL: a file in conf.d.
-	avail, link := "/etc/nginx/sites-available/imp.whacp.test", "/etc/nginx/sites-enabled/imp.whacp.test"
+	avail, link := "/etc/nginx/sites-available/imp.nimvor.test", "/etc/nginx/sites-enabled/imp.nimvor.test"
 	if _, err := os.Stat("/etc/nginx/sites-enabled"); err != nil {
-		avail, link = "/etc/nginx/conf.d/imp.whacp.test.conf", ""
+		avail, link = "/etc/nginx/conf.d/imp.nimvor.test.conf", ""
 	}
-	os.MkdirAll("/var/www/imp.whacp.test/public", 0o755)
-	os.WriteFile("/var/www/imp.whacp.test/public/index.php", []byte("<?php echo 'imported';"), 0o644)
-	os.WriteFile(avail, []byte("server {\n    listen 80;\n    server_name imp.whacp.test;\n    root /var/www/imp.whacp.test/public;\n    index index.php;\n}\n"), 0o644)
+	os.MkdirAll("/var/www/imp.nimvor.test/public", 0o755)
+	os.WriteFile("/var/www/imp.nimvor.test/public/index.php", []byte("<?php echo 'imported';"), 0o644)
+	os.WriteFile(avail, []byte("server {\n    listen 80;\n    server_name imp.nimvor.test;\n    root /var/www/imp.nimvor.test/public;\n    index index.php;\n}\n"), 0o644)
 	if link != "" {
 		os.Symlink(avail, link)
 	}
 	cfg := config.Default()
-	cfg.SitesRoot = "/home/whacp-imp"
+	cfg.SitesRoot = "/home/nimvor-imp"
 	cfg.StateDir = t.TempDir()
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	jm, _ := jobs.NewManager(t.TempDir(), 1, time.Minute, log)
 	root := filesystem.Host()
 	env := host.New(cfg, root, platform.Detect(root), hybrid{execx.NewSystemRunner(30 * time.Second)}, jm, log)
 	s := Service{Env: env, Sites: &sites.Manager{Env: env}}
-	req := Request{Spec: sites.Spec{Domain: "imp.whacp.test", User: "whacpimp", Kind: "php", PHPVersion: testhost.PHPVersion(), Enabled: true}, Source: "/var/www/imp.whacp.test/public"}
+	req := Request{Spec: sites.Spec{Domain: "imp.nimvor.test", User: "nimvorimp", Kind: "php", PHPVersion: testhost.PHPVersion(), Enabled: true}, Source: "/var/www/imp.nimvor.test/public"}
 	t.Cleanup(func() {
 		if link != "" {
 			os.Remove(link)
 		}
 		os.Remove(avail)
-		os.RemoveAll("/var/www/imp.whacp.test")
-		os.Remove(filepath.Join(env.M.NginxEnabled, "whacp-imp.whacp.test.conf"))
-		os.Remove(filepath.Join(env.M.NginxAvailable, "whacp-imp.whacp.test.conf"))
-		os.Remove(filepath.Join(env.M.PoolDir(testhost.PHPVersion()), "whacp-imp.whacp.test.conf"))
-		exec.Command("userdel", "whacpimp").Run()
-		os.RemoveAll("/home/whacp-imp")
+		os.RemoveAll("/var/www/imp.nimvor.test")
+		os.Remove(filepath.Join(env.M.NginxEnabled, "nimvor-imp.nimvor.test.conf"))
+		os.Remove(filepath.Join(env.M.NginxAvailable, "nimvor-imp.nimvor.test.conf"))
+		os.Remove(filepath.Join(env.M.PoolDir(testhost.PHPVersion()), "nimvor-imp.nimvor.test.conf"))
+		exec.Command("userdel", "nimvorimp").Run()
+		os.RemoveAll("/home/nimvor-imp")
 	})
 	ctx := context.Background()
 	p, err := s.Plan(ctx, req)
@@ -95,8 +95,8 @@ func TestRealHostImport(t *testing.T) {
 	if _, err := os.Lstat(avail); link == "" && err == nil {
 		t.Fatal("old site still enabled")
 	}
-	st, _ := exec.Command("stat", "-c", "%U", "/home/whacp-imp/imp.whacp.test/public_html/index.php").Output()
-	if strings.TrimSpace(string(st)) != "whacpimp" {
+	st, _ := exec.Command("stat", "-c", "%U", "/home/nimvor-imp/imp.nimvor.test/public_html/index.php").Output()
+	if strings.TrimSpace(string(st)) != "nimvorimp" {
 		t.Fatalf("copied file owned by %q", st)
 	}
 	if err := s.Undo(ctx, req.Spec); err != nil {

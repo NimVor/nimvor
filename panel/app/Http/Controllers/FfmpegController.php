@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Database\Connection;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Services\AuditLogger;
-use WhaCP\Services\FfmpegService;
-use WhaCP\Services\JobTracker;
-use WhaCP\Services\ServerContext;
-use WhaCP\Support\UserFacingException;
-use WhaCP\View\View;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Database\Connection;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Services\AuditLogger;
+use NimVor\Services\FfmpegService;
+use NimVor\Services\JobTracker;
+use NimVor\Services\ServerContext;
+use NimVor\Support\UserFacingException;
+use NimVor\View\View;
 
 /** FFmpeg: installation, version, and access per hosting plan. */
 final class FfmpegController extends Controller
@@ -35,7 +35,7 @@ final class FfmpegController extends Controller
 
     private function denied(Request $request): ?Response
     {
-        return \WhaCP\Hosting\Scope::isAll($this->user($request)) ? null : $this->render('errors/error', ['title' => 'Access denied', 'message' => 'FFmpeg is managed by server administrators.', 'status' => 403], 403);
+        return \NimVor\Hosting\Scope::isAll($this->user($request)) ? null : $this->render('errors/error', ['title' => 'Access denied', 'message' => 'FFmpeg is managed by server administrators.', 'status' => 403], 403);
     }
 
     public function index(Request $request): Response

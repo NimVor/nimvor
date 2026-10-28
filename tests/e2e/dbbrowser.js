@@ -47,50 +47,50 @@ const ROWS = [['1', 'apple', null, { hex: '00ff', size: 2, truncated: false }], 
 
     // Browse: rendering of special values is text, never HTML.
     await page.click('[data-table="orders"]');
-    await page.waitForSelector('.wcp-db-grid tbody tr');
-    if (await page.locator('.wcp-db-grid tbody tr').count() !== 3) { throw new Error('expected 3 rows'); }
-    if (await page.locator('.wcp-db-grid .wcp-db-null').count() !== 3) { throw new Error('NULL cells (and only real NULLs) must be marked'); }
-    if (!(await page.textContent('.wcp-db-grid')).includes('0x00ff')) { throw new Error('binary not shown as hex'); }
-    if (await page.locator('.wcp-db-grid b').count() !== 0) { throw new Error('HTML was rendered'); }
-    if (!(await page.textContent('.wcp-db-bar')).includes('1–3 of 120')) { throw new Error('pager text'); }
+    await page.waitForSelector('.nim-db-grid tbody tr');
+    if (await page.locator('.nim-db-grid tbody tr').count() !== 3) { throw new Error('expected 3 rows'); }
+    if (await page.locator('.nim-db-grid .nim-db-null').count() !== 3) { throw new Error('NULL cells (and only real NULLs) must be marked'); }
+    if (!(await page.textContent('.nim-db-grid')).includes('0x00ff')) { throw new Error('binary not shown as hex'); }
+    if (await page.locator('.nim-db-grid b').count() !== 0) { throw new Error('HTML was rendered'); }
+    if (!(await page.textContent('.nim-db-bar')).includes('1–3 of 120')) { throw new Error('pager text'); }
     await page.screenshot({ path: OUT + '/db-browser-grid.png' });
     step('grid rendered');
 
     // Sorting, filtering, paging.
-    await page.click('.wcp-db-grid th button:has-text("name")');
-    await page.waitForFunction(() => document.querySelector('.wcp-db-grid th[aria-sort]'));
+    await page.click('.nim-db-grid th button:has-text("name")');
+    await page.waitForFunction(() => document.querySelector('.nim-db-grid th[aria-sort]'));
     if (last('rows').order !== 'name' || last('rows').desc) { throw new Error('sort asc: ' + JSON.stringify(last('rows'))); }
-    await page.click('.wcp-db-grid th button:has-text("name")');
-    await page.waitForSelector('.wcp-db-grid th[aria-sort="descending"]');
+    await page.click('.nim-db-grid th button:has-text("name")');
+    await page.waitForSelector('.nim-db-grid th[aria-sort="descending"]');
     if (!last('rows').desc) { throw new Error('sort desc'); }
-    await page.selectOption('.wcp-db-filter select >> nth=0', 'name');
-    await page.selectOption('.wcp-db-filter select >> nth=1', 'like');
-    await page.fill('.wcp-db-filter input', 'ap%');
-    await page.click('.wcp-db-filter button[type=submit]');
-    await page.waitForFunction(() => document.querySelectorAll('.wcp-db-filter button').length === 2);
+    await page.selectOption('.nim-db-filter select >> nth=0', 'name');
+    await page.selectOption('.nim-db-filter select >> nth=1', 'like');
+    await page.fill('.nim-db-filter input', 'ap%');
+    await page.click('.nim-db-filter button[type=submit]');
+    await page.waitForFunction(() => document.querySelectorAll('.nim-db-filter button').length === 2);
     const f = last('rows').filter;
     if (!f || f.column !== 'name' || f.op !== 'like' || f.value !== 'ap%') { throw new Error('filter: ' + JSON.stringify(f)); }
     await page.click('[aria-label="Next page"]');
-    await page.waitForFunction(() => (document.querySelector('.wcp-db-bar') || { textContent: '' }).textContent.includes('51–53'));
+    await page.waitForFunction(() => (document.querySelector('.nim-db-bar') || { textContent: '' }).textContent.includes('51–53'));
     if (last('rows').offset !== 50) { throw new Error('paging'); }
     step('sort, filter and paging requests');
 
     // Edit: only changed columns are sent; NULL checkbox sends null.
-    await page.dblclick('.wcp-db-grid tbody tr >> nth=0');
-    await page.waitForSelector('.wcp-db-editor');
+    await page.dblclick('.nim-db-grid tbody tr >> nth=0');
+    await page.waitForSelector('.nim-db-editor');
     if (JSON.stringify(last('row').key) !== '{"id":"1"}') { throw new Error('row key'); }
-    const nameInput = page.locator('.wcp-db-editor .row').nth(1).locator('input.form-control, textarea');
+    const nameInput = page.locator('.nim-db-editor .row').nth(1).locator('input.form-control, textarea');
     await nameInput.fill('apricot');
-    await page.locator('.wcp-db-editor .row').nth(3).locator('.form-control').fill('cafe');
-    await page.click('.wcp-db-editor button[type=submit]');
-    await page.waitForSelector('.wcp-db-grid');
+    await page.locator('.nim-db-editor .row').nth(3).locator('.form-control').fill('cafe');
+    await page.click('.nim-db-editor button[type=submit]');
+    await page.waitForSelector('.nim-db-grid');
     const saved = last('save');
     if (JSON.stringify(saved.values) !== '{"name":"apricot","data":{"hex":"cafe"}}' || JSON.stringify(saved.key) !== '{"id":"1"}') { throw new Error('save: ' + JSON.stringify(saved)); }
     step('row edited: ' + JSON.stringify(saved.values));
 
     // Delete two selected rows after confirmation.
-    await page.check('.wcp-db-grid tbody tr >> nth=0 >> input[type=checkbox]');
-    await page.check('.wcp-db-grid tbody tr >> nth=2 >> input[type=checkbox]');
+    await page.check('.nim-db-grid tbody tr >> nth=0 >> input[type=checkbox]');
+    await page.check('.nim-db-grid tbody tr >> nth=2 >> input[type=checkbox]');
     await page.click('[data-db-delete]');
     await page.waitForSelector('#db-dialog.show');
     await page.click('[data-db-dialog-ok]');
@@ -101,30 +101,30 @@ const ROWS = [['1', 'apple', null, { hex: '00ff', size: 2, truncated: false }], 
 
     // Insert: the auto-increment column is left to the database.
     await page.click('[data-db-tab="insert"]');
-    await page.waitForSelector('.wcp-db-editor');
-    await page.locator('.wcp-db-editor .row').nth(1).locator('.form-control').fill('cherry');
-    await page.click('.wcp-db-editor button[type=submit]');
-    await page.waitForSelector('.wcp-db-grid');
+    await page.waitForSelector('.nim-db-editor');
+    await page.locator('.nim-db-editor .row').nth(1).locator('.form-control').fill('cherry');
+    await page.click('.nim-db-editor button[type=submit]');
+    await page.waitForSelector('.nim-db-grid');
     const ins = last('save');
     if (!ins.insert || JSON.stringify(ins.values) !== '{"name":"cherry"}') { throw new Error('insert: ' + JSON.stringify(ins)); }
     step('row inserted');
 
     // Structure.
     await page.click('[data-db-tab="structure"]');
-    await page.waitForSelector('.wcp-db-create');
-    if (!(await page.textContent('.wcp-db-create')).includes('CREATE TABLE `orders`')) { throw new Error('create statement'); }
+    await page.waitForSelector('.nim-db-create');
+    if (!(await page.textContent('.nim-db-create')).includes('CREATE TABLE `orders`')) { throw new Error('create statement'); }
     step('structure shown');
 
     // SQL console: results and messages; destructive SQL asks first.
     await page.click('[data-db-tab="sql"]');
-    await page.fill('.wcp-db-sqltext', 'SELECT 1; UPDATE orders SET name = name WHERE id < 3');
-    await page.press('.wcp-db-sqltext', 'Control+Enter');
-    await page.waitForSelector('.wcp-db-result');
-    const out = await page.textContent('.wcp-db-sql');
+    await page.fill('.nim-db-sqltext', 'SELECT 1; UPDATE orders SET name = name WHERE id < 3');
+    await page.press('.nim-db-sqltext', 'Control+Enter');
+    await page.waitForSelector('.nim-db-result');
+    const out = await page.textContent('.nim-db-sql');
     if (!out.includes('2 row(s) affected') || !out.includes('Statement 1: 1 row(s)')) { throw new Error('query output: ' + out); }
     const before = calls.length;
-    await page.fill('.wcp-db-sqltext', 'DROP TABLE orders');
-    await page.click('.wcp-db-sql button:has-text("Run")');
+    await page.fill('.nim-db-sqltext', 'DROP TABLE orders');
+    await page.click('.nim-db-sql button:has-text("Run")');
     await page.waitForSelector('#db-dialog.show');
     await page.click('#db-dialog [data-bs-dismiss="modal"] >> nth=1');
     await page.waitForFunction(() => !document.querySelector('#db-dialog.show'));

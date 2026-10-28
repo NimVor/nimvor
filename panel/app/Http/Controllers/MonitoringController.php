@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Services\MonitoringService;
-use WhaCP\View\View;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Services\MonitoringService;
+use NimVor\View\View;
 
 final class MonitoringController extends Controller
 {
@@ -18,8 +18,8 @@ final class MonitoringController extends Controller
         View $view,
         SessionInterface $session,
         private readonly MonitoringService $monitoring,
-        private readonly \WhaCP\Agent\AgentClient $agent,
-        private readonly ?\WhaCP\Services\AuditLogger $audit = null,
+        private readonly \NimVor\Agent\AgentClient $agent,
+        private readonly ?\NimVor\Services\AuditLogger $audit = null,
     ) {
         parent::__construct($view, $session);
     }
@@ -41,7 +41,7 @@ final class MonitoringController extends Controller
     /** Live statistics (server administrators: all accounts' processes). */
     public function live(Request $request): Response
     {
-        if (!\WhaCP\Hosting\Scope::isAll($this->user($request))) {
+        if (!\NimVor\Hosting\Scope::isAll($this->user($request))) {
             return $this->render('errors/error', ['title' => 'Access denied', 'message' => 'Live statistics are for server administrators.', 'status' => 403], 403);
         }
         return $this->render('monitoring/live', []);
@@ -49,19 +49,19 @@ final class MonitoringController extends Controller
 
     public function liveData(Request $request): Response
     {
-        if (!\WhaCP\Hosting\Scope::isAll($this->user($request))) {
+        if (!\NimVor\Hosting\Scope::isAll($this->user($request))) {
             return Response::json(['error' => 'Access denied.'], 403);
         }
         try {
             return Response::json((array) json_decode((string) json_encode($this->agent->call('system.live', [], 20)), true));
-        } catch (\WhaCP\Agent\AgentException $e) {
+        } catch (\NimVor\Agent\AgentException $e) {
             return Response::json(['error' => $e->getMessage()], 502);
         }
     }
 
     private function admin(Request $request): bool
     {
-        return \WhaCP\Hosting\Scope::isAll($this->user($request));
+        return \NimVor\Hosting\Scope::isAll($this->user($request));
     }
 
     /** Process manager: every process, suspicious ones flagged. */
@@ -74,7 +74,7 @@ final class MonitoringController extends Controller
         $error = null;
         try {
             $snap = (array) json_decode((string) json_encode($this->agent->call('processes.list', [], 60)), true);
-        } catch (\WhaCP\Agent\AgentException $e) {
+        } catch (\NimVor\Agent\AgentException $e) {
             $error = $e;
         }
         $show = (string) $request->query('show', '');
@@ -91,7 +91,7 @@ final class MonitoringController extends Controller
         $start = (int) $request->query('start', '0');
         try {
             $trace = (array) json_decode((string) json_encode($this->agent->call('processes.trace', ['pid' => $pid, 'start' => $start], 60)), true);
-        } catch (\WhaCP\Agent\AgentException $e) {
+        } catch (\NimVor\Agent\AgentException $e) {
             return $this->redirectWithFailure('/monitoring/processes', $e);
         }
         $this->audit?->record('processes.trace', 'process', (string) $pid);
@@ -108,11 +108,11 @@ final class MonitoringController extends Controller
         $sig = $request->string('signal');
         try {
             $this->agent->call('processes.signal', ['pid' => $pid, 'start' => (int) $request->input('start', '0'), 'signal' => $sig]);
-        } catch (\WhaCP\Support\UserFacingException $e) {
-            $this->audit?->record('processes.signal', 'process', (string) $pid, \WhaCP\Services\AuditLogger::FAILURE, ['signal' => $sig, 'command' => mb_substr($request->string('command'), 0, 200), 'error' => $e->getMessage()]);
+        } catch (\NimVor\Support\UserFacingException $e) {
+            $this->audit?->record('processes.signal', 'process', (string) $pid, \NimVor\Services\AuditLogger::FAILURE, ['signal' => $sig, 'command' => mb_substr($request->string('command'), 0, 200), 'error' => $e->getMessage()]);
             return $this->redirectWithFailure($back, $e);
         }
-        $this->audit?->record('processes.signal', 'process', (string) $pid, \WhaCP\Services\AuditLogger::SUCCESS, ['signal' => $sig, 'command' => mb_substr($request->string('command'), 0, 200)]);
+        $this->audit?->record('processes.signal', 'process', (string) $pid, \NimVor\Services\AuditLogger::SUCCESS, ['signal' => $sig, 'command' => mb_substr($request->string('command'), 0, 200)]);
         $verb = ['TERM' => 'asked to stop', 'KILL' => 'killed', 'HUP' => 'sent HUP', 'STOP' => 'paused', 'CONT' => 'resumed'][$sig] ?? 'signalled';
         return $this->redirectWithSuccess($back, 'Process ' . $pid . ' ' . $verb . '.');
     }
@@ -126,11 +126,11 @@ final class MonitoringController extends Controller
         $sig = $request->string('signal') === 'KILL' ? 'KILL' : 'TERM';
         try {
             $res = (array) $this->agent->call('processes.kill_user', ['user' => $user, 'signal' => $sig]);
-        } catch (\WhaCP\Support\UserFacingException $e) {
-            $this->audit?->record('processes.kill_user', 'account', $user, \WhaCP\Services\AuditLogger::FAILURE, ['signal' => $sig, 'error' => $e->getMessage()]);
+        } catch (\NimVor\Support\UserFacingException $e) {
+            $this->audit?->record('processes.kill_user', 'account', $user, \NimVor\Services\AuditLogger::FAILURE, ['signal' => $sig, 'error' => $e->getMessage()]);
             return $this->redirectWithFailure('/monitoring/processes', $e);
         }
-        $this->audit?->record('processes.kill_user', 'account', $user, \WhaCP\Services\AuditLogger::SUCCESS, ['signal' => $sig, 'signalled' => $res['signalled'] ?? 0]);
+        $this->audit?->record('processes.kill_user', 'account', $user, \NimVor\Services\AuditLogger::SUCCESS, ['signal' => $sig, 'signalled' => $res['signalled'] ?? 0]);
         return $this->redirectWithSuccess('/monitoring/processes', (int) ($res['signalled'] ?? 0) . ' process(es) of ' . $user . ($sig === 'KILL' ? ' killed.' : ' asked to stop.'));
     }
 }

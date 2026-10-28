@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Live statistics: server administrators only; the page polls JSON. */
 final class MonitoringLiveTest extends HttpTestCase
@@ -21,7 +21,7 @@ final class MonitoringLiveTest extends HttpTestCase
     {
         $this->login('admin');
         $page = $this->request('GET', '/monitoring/live')->body();
-        self::assertStringContainsString('data-wcp-live="/monitoring/live.json"', $page);
+        self::assertStringContainsString('data-nim-live="/monitoring/live.json"', $page);
         self::assertStringContainsString('href="/monitoring/live"', $this->request('GET', '/monitoring')->body(), 'tab on the monitoring page');
         $json = json_decode($this->request('GET', '/monitoring/live.json', [], ['accept' => 'application/json'])->body(), true);
         self::assertSame(12.5, $json['cpu']['percent']);

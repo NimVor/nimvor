@@ -30,12 +30,12 @@ func TestRealHostRulesLoad(t *testing.T) {
 	if out, err := exec.Command("nft", "-f", f).CombinedOutput(); err != nil {
 		t.Fatalf("load: %s\n%s", out, rules(s, []int{22}, now))
 	}
-	t.Cleanup(func() { exec.Command("nft", "delete", "table", "inet", "whacp_hulk").Run() })
+	t.Cleanup(func() { exec.Command("nft", "delete", "table", "inet", "nimvor_hulk").Run() })
 	// Loading again replaces the table.
 	if out, err := exec.Command("nft", "-f", f).CombinedOutput(); err != nil {
 		t.Fatalf("reload: %s", out)
 	}
-	out, _ := exec.Command("nft", "list", "table", "inet", "whacp_hulk").CombinedOutput()
+	out, _ := exec.Command("nft", "list", "table", "inet", "nimvor_hulk").CombinedOutput()
 	for _, want := range []string{"192.0.2.77", "2001:db8::77", "198.51.100.0/24", "203.0.113.0/24"} {
 		if !strings.Contains(string(out), want) {
 			t.Errorf("missing %s:\n%s", want, out)

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
 // Every package operation goes through transact: it runs the package
@@ -24,7 +24,7 @@ import (
 //
 // Anything else (a package that does not exist, unsatisfiable
 // dependencies, a failed signature check, a package script that fails, a
-// full disk) is reported at once with its cause. WhaCP never disables
+// full disk) is reported at once with its cause. NimVor never disables
 // signature checks, forces dependencies (--nodeps, --force-all) or removes
 // packages to recover. At most maxAttempts runs.
 
@@ -38,7 +38,7 @@ var retryDelays = []time.Duration{10 * time.Second, 30 * time.Second}
 var aptLockWait = []string{"-o", "DPkg::Lock::Timeout=300"}
 
 // packageEnv: needrestart (Ubuntu) only lists services to restart; it must
-// not restart services (WhaCP's own agent among them) during a job.
+// not restart services (NimVor's own agent among them) during a job.
 var packageEnv = []string{"NEEDRESTART_MODE=l", "NEEDRESTART_SUSPEND=1", "APT_LISTCHANGES_FRONTEND=none"}
 
 func managerName(env *host.Env) string {
@@ -225,7 +225,7 @@ func unavailable(ctx context.Context, env *host.Env, pkgs []string) (missing []s
 	}
 	// Missing: no candidate, "Unable to locate package", or not listed at
 	// all (apt-cache policy prints nothing for a name no repository has).
-	// Output WhaCP does not recognise counts as available.
+	// Output NimVor does not recognise counts as available.
 	cands := parsePolicy(string(out))
 	// Empty output means "none of these exists" only where apt has package
 	// lists to search (it prints nothing for unknown names).
@@ -328,7 +328,7 @@ func enabledRepos(ctx context.Context, env *host.Env) []string {
 
 var remiPHPRe = regexp.MustCompile(`^php[0-9]{2}-php-`)
 
-// prepareRHELRepos enables, for missing packages, the repositories WhaCP
+// prepareRHELRepos enables, for missing packages, the repositories NimVor
 // installs from on RHEL: EPEL (and CRB, which EPEL needs) for general
 // packages, Remi for PHP versions. Only what is missing triggers it, and
 // only these well-known repositories; it reports whether it changed

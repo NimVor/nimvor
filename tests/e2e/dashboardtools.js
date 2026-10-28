@@ -21,8 +21,8 @@ const OUT = process.env.E2E_OUT || '/tmp';
     await Promise.all([page.waitForNavigation(), page.click('button[type=submit]')]);
 
     const security = await page.evaluate(() => {
-      const head = [...document.querySelectorAll('.wcp-tools-group')].find(h => h.textContent.trim() === 'Security');
-      return head ? [...head.nextElementSibling.querySelectorAll('.wcp-tool-card .fw-semibold')].map(e => e.textContent.trim()) : [];
+      const head = [...document.querySelectorAll('.nim-tools-group')].find(h => h.textContent.trim() === 'Security');
+      return head ? [...head.nextElementSibling.querySelectorAll('.nim-tool-card .fw-semibold')].map(e => e.textContent.trim()) : [];
     });
     for (const want of ['Security overview', 'Firewall', 'SSH', 'ModSecurity', 'SMTP Restrictions', 'Outgoing Connections', 'Traceroute Enable/Disable']) {
       if (!security.includes(want)) { throw new Error('Security cards: ' + want + ' missing in ' + JSON.stringify(security)); }
@@ -30,7 +30,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
     step('tools: one card per Security page (' + security.length + ')');
 
     await page.waitForSelector('[data-services] > li:not(:has(.placeholder))', { timeout: 20000 });
-    if (await page.locator('[data-services] .wcp-service-btn').count() === 0) {
+    if (await page.locator('[data-services] .nim-service-btn').count() === 0) {
       // The development instance simulates systemd: no services to list.
       step('services widget: no services here (simulated system)');
       if (errors.length) { throw new Error(errors.join('\n')); }

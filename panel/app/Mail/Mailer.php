@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Mail;
+namespace NimVor\Mail;
 
 /**
  * Sends plain-text email (alerts, password resets).

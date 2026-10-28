@@ -1,6 +1,6 @@
 <?php
 /**
- * @var \WhaCP\View\View $this
+ * @var \NimVor\View\View $this
  * @var list<array<string, mixed>> $installs
  * @var list<array<string, mixed>>|null $all
  * @var string $filter
@@ -15,7 +15,7 @@ $tabs = ['' => ['All', count($every)], 'outdated' => ['Updates available', $outd
 <?php $this->start(); ?>Installations in the websites you manage: versions, updates and security checks<?php $this->end('subtitle'); ?>
 <?php $this->start(); ?>
 <?php if ($canManage): ?>
-    <form method="post" action="<?= e($this->url('wordpress.scan')) ?>" data-wcp-busy data-wcp-confirm="Scan every website folder for WordPress? It reads files only and may take a minute.">
+    <form method="post" action="<?= e($this->url('wordpress.scan')) ?>" data-nim-busy data-nim-confirm="Scan every website folder for WordPress? It reads files only and may take a minute.">
         <?= $this->csrfField() ?>
         <button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><i class="bi bi-search me-1" aria-hidden="true"></i>Scan all websites</button>
     </form>
@@ -28,30 +28,30 @@ $tabs = ['' => ['All', count($every)], 'outdated' => ['Updates available', $outd
     <?php endforeach; ?>
 </ul>
 
-<div class="wcp-panel" data-wcp-dt>
-    <div class="wcp-actionbar">
+<div class="nim-panel" data-nim-dt>
+    <div class="nim-actionbar">
         <div class="fw-semibold">Installations</div>
-        <div class="wcp-actionbar-end"><div class="wcp-search"><input class="form-control form-control-sm" type="search" placeholder="Search" aria-label="Search installations" data-wcp-dt-search><i class="bi bi-search" aria-hidden="true"></i></div></div>
+        <div class="nim-actionbar-end"><div class="nim-search"><input class="form-control form-control-sm" type="search" placeholder="Search" aria-label="Search installations" data-nim-dt-search><i class="bi bi-search" aria-hidden="true"></i></div></div>
     </div>
     <?php if ($installs === []): ?>
-        <div class="wcp-empty-state">
+        <div class="nim-empty-state">
             <i class="bi bi-wordpress" aria-hidden="true"></i>
             <div class="fw-medium"><?= $every === [] ? 'No WordPress found yet' : 'Nothing in this list' ?></div>
             <div class="small"><?= $every === [] ? 'Scan the websites to find their WordPress installations.' : 'Every installation is up to date here.' ?></div>
         </div>
     <?php else: ?>
-    <div class="wcp-dtable table-responsive"><table class="table align-middle">
+    <div class="nim-dtable table-responsive"><table class="table align-middle">
         <thead><tr><th>Website</th><th>Folder</th><th>Version</th><th>PHP</th><th>HTTPS</th><th>Updates</th><th>Checks</th><th></th></tr></thead>
         <tbody>
         <?php foreach ($installs as $i): ?>
             <tr>
                 <td><div class="fw-medium"><?= e($i['domain']) ?></div><?php if ($i['owner_name'] !== null): ?><div class="small text-body-secondary"><?= e($i['owner_name']) ?></div><?php endif; ?></td>
                 <td><code><?= e($i['path'] === '' ? '/' : $i['path']) ?></code></td>
-                <td><?= e($i['version'] ?: '?') ?><?php if ($i['outdated']): ?><div><span class="wcp-state is-warn"><?= e($i['latest']) ?> available</span></div><?php endif; ?></td>
+                <td><?= e($i['version'] ?: '?') ?><?php if ($i['outdated']): ?><div><span class="nim-state is-warn"><?= e($i['latest']) ?> available</span></div><?php endif; ?></td>
                 <td class="small"><?= e($i['php_version']) ?></td>
                 <td><?= $i['https'] ? '<i class="bi bi-lock-fill text-success" title="HTTPS"></i>' : '<i class="bi bi-unlock text-warning" title="No HTTPS"></i>' ?></td>
                 <td class="small"><?= $i['checked_at'] === null ? '<span class="text-body-secondary">not checked</span>' : (int) $i['plugin_updates'] . ' plugin(s), ' . (int) $i['theme_updates'] . ' theme(s)' ?></td>
-                <td><?= (int) $i['issues'] > 0 ? '<span class="wcp-state is-warn">' . (int) $i['issues'] . '</span>' : ($i['checked_at'] === null ? '—' : '<span class="wcp-state is-ok">OK</span>') ?></td>
+                <td><?= (int) $i['issues'] > 0 ? '<span class="nim-state is-warn">' . (int) $i['issues'] . '</span>' : ($i['checked_at'] === null ? '—' : '<span class="nim-state is-ok">OK</span>') ?></td>
                 <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="<?= e($this->url('sites.wordpress.show', ['id' => (int) $i['website_id'], 'wp' => (int) $i['id']])) ?>">Manage</a></td>
             </tr>
         <?php endforeach; ?>

@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
 // firewalld (AlmaLinux, Rocky Linux, RHEL). Rules are the default zone's
@@ -65,7 +65,7 @@ func firewalldStatus(ctx context.Context, env *host.Env) (FirewallStatus, error)
 		}
 		tool = "firewall-offline-cmd"
 	} else {
-		// The permanent configuration is what survives; WhaCP keeps both equal.
+		// The permanent configuration is what survives; NimVor keeps both equal.
 		perm = []string{"--permanent"}
 	}
 	list := func(what string) ([]string, error) {

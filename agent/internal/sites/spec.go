@@ -1,7 +1,7 @@
-// Package sites manages WhaCP-owned websites: Nginx server blocks, per-site
+// Package sites manages NimVor-owned websites: Nginx server blocks, per-site
 // PHP-FPM pools, site directories and site system users.
 //
-// WhaCP only ever writes files named whacp-<domain>.conf; configuration
+// NimVor only ever writes files named nimvor-<domain>.conf; configuration
 // created by hand or by another panel is never modified. A site cannot be
 // created for a hostname that an unmanaged configuration already serves.
 package sites
@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
 // PHPSettings are per-site PHP-FPM pool settings.
@@ -75,12 +75,17 @@ type Spec struct {
 	HSTS         bool        `json:"hsts"`
 	// SecurityHeaders adds Referrer-Policy, X-Frame-Options and
 	// Permissions-Policy (and upgrade-insecure-requests over HTTPS).
-	SecurityHeaders bool       `json:"security_headers,omitempty"`
-	CertFile        string     `json:"cert_file"`
-	KeyFile         string     `json:"key_file"`
-	Enabled         bool       `json:"enabled"`
-	Redirects       []Redirect `json:"redirects"`
-	ClientMaxBodyMB int        `json:"client_max_body_mb"`
+	SecurityHeaders bool `json:"security_headers,omitempty"`
+	// Headers, when set, are the customer's security headers and replace the
+	// SecurityHeaders bundle and the HSTS flag (see HeaderPolicy); Cache is
+	// the customer's browser-cache rules (see CachePolicy).
+	Headers         *HeaderPolicy `json:"headers,omitempty"`
+	Cache           *CachePolicy  `json:"cache,omitempty"`
+	CertFile        string        `json:"cert_file"`
+	KeyFile         string        `json:"key_file"`
+	Enabled         bool          `json:"enabled"`
+	Redirects       []Redirect    `json:"redirects"`
+	ClientMaxBodyMB int           `json:"client_max_body_mb"`
 	// Autoindex lists the files of folders without an index page (nginx
 	// autoindex); off by default.
 	Autoindex bool `json:"autoindex,omitempty"`
@@ -249,11 +254,21 @@ func (s *Spec) Normalize(sitesRoot, stateDir string) error {
 				}
 			}
 			if !ok {
-				return fail(field, "must be a certificate managed by certbot or WhaCP")
+				return fail(field, "must be a certificate managed by certbot or NimVor")
 			}
 		}
 	} else {
 		s.ForceHTTPS, s.HSTS, s.CertFile, s.KeyFile = false, false, "", ""
+	}
+	if s.Headers != nil {
+		if err := s.Headers.normalize(s.HTTPS); err != nil {
+			return err
+		}
+	}
+	if s.Cache != nil {
+		if err := s.Cache.normalize(); err != nil {
+			return err
+		}
 	}
 	if len(s.Redirects) > 100 {
 		return fail("redirects", "at most 100 redirects are allowed")

@@ -15,8 +15,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 func pythonTarball(t *testing.T) []byte {
@@ -38,8 +38,8 @@ func TestAvailableListsStableNodeAndPython(t *testing.T) {
 		t.Skip("no build for this architecture")
 	}
 	h := testhost.New(t)
-	os.MkdirAll(filepath.Join(h.Base, "opt/whacp/runtimes/node/22.9.0/bin"), 0o755)
-	os.WriteFile(filepath.Join(h.Base, "opt/whacp/runtimes/node/22.9.0/bin/node"), []byte("x"), 0o755)
+	os.MkdirAll(filepath.Join(h.Base, "opt/nimvor/runtimes/node/22.9.0/bin"), 0o755)
+	os.WriteFile(filepath.Join(h.Base, "opt/nimvor/runtimes/node/22.9.0/bin/node"), []byte("x"), 0o755)
 
 	file := "linux-" + nodeArch()
 	index := fmt.Sprintf(`[
@@ -133,7 +133,7 @@ func TestInstallPythonVerifiesAndUnpacks(t *testing.T) {
 			t.Fatal(err)
 		}
 		job, _ := h.Env.Jobs.Wait(context.Background(), res.(map[string]any)["job_id"].(string))
-		installed := h.Exists("opt/whacp/runtimes/python/3.12.7/bin/python3")
+		installed := h.Exists("opt/nimvor/runtimes/python/3.12.7/bin/python3")
 		if good && (job.Status != "succeeded" || !installed) {
 			t.Fatalf("good install: %+v installed=%v", job, installed)
 		}
@@ -141,7 +141,7 @@ func TestInstallPythonVerifiesAndUnpacks(t *testing.T) {
 			t.Fatalf("bad checksum must fail: %+v installed=%v", job, installed)
 		}
 		if good {
-			if bin, err := BinDir(h.Env, "python:3.12.7"); err != nil || bin != "/opt/whacp/runtimes/python/3.12.7/bin" {
+			if bin, err := BinDir(h.Env, "python:3.12.7"); err != nil || bin != "/opt/nimvor/runtimes/python/3.12.7/bin" {
 				t.Fatalf("BinDir: %q %v", bin, err)
 			}
 			if _, err := inst.Handler(context.Background(), json.RawMessage(`{"kind":"python","version":"3.12.7"}`)); err == nil {
@@ -150,7 +150,7 @@ func TestInstallPythonVerifiesAndUnpacks(t *testing.T) {
 		}
 		srv.Close()
 		if good {
-			os.RemoveAll(filepath.Join(h.Base, "opt/whacp/runtimes/python"))
+			os.RemoveAll(filepath.Join(h.Base, "opt/nimvor/runtimes/python"))
 		}
 	}
 }

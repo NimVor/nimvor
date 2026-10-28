@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Core\Config;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Security\AuthService;
-use WhaCP\Security\Csrf;
-use WhaCP\View\View;
+use NimVor\Core\Config;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Security\AuthService;
+use NimVor\Security\Csrf;
+use NimVor\View\View;
 
 final class AuthController extends Controller
 {
@@ -20,8 +20,8 @@ final class AuthController extends Controller
         private readonly AuthService $auth,
         private readonly Csrf $csrf,
         private readonly Config $config,
-        private readonly \WhaCP\Services\SettingsService $settings,
-        private readonly \WhaCP\Services\TerminalService $terminal,
+        private readonly \NimVor\Services\SettingsService $settings,
+        private readonly \NimVor\Services\TerminalService $terminal,
     ) {
         parent::__construct($view, $session);
     }
@@ -116,7 +116,7 @@ final class AuthController extends Controller
     /** Options for the browser's security-key prompt (JSON). */
     public function securityKeyOptions(Request $request): Response
     {
-        $o = \WhaCP\Security\WebAuthnOrigin::of($request, $this->settings);
+        $o = \NimVor\Security\WebAuthnOrigin::of($request, $this->settings);
         $options = $this->auth->securityKeyOptions($o['rp_id']);
         if ($options === null) {
             return Response::json(['success' => false, 'error' => ['message' => 'Your sign-in expired. Enter your password again.']], 401);
@@ -129,7 +129,7 @@ final class AuthController extends Controller
     {
         /** @var list<string> $proxies */
         $proxies = (array) $this->config->get('security.trusted_proxies', []);
-        $o = \WhaCP\Security\WebAuthnOrigin::of($request, $this->settings);
+        $o = \NimVor\Security\WebAuthnOrigin::of($request, $this->settings);
         $error = $this->auth->completeWithSecurityKey($o['origin'], $o['rp_id'], $request->all(), $request->ip($proxies));
         if ($error !== null) {
             return Response::json(['success' => false, 'error' => ['message' => $error], 'restart' => !$this->auth->pendingTwoFactor()], 400);
@@ -144,14 +144,14 @@ final class AuthController extends Controller
     /** Step-up: confirm the password before a sensitive change. */
     public function confirmForm(Request $request): Response
     {
-        return $this->render('auth/confirm_password', ['return' => \WhaCP\Http\Middleware\Authenticate::safePath($request->string('return'))]);
+        return $this->render('auth/confirm_password', ['return' => \NimVor\Http\Middleware\Authenticate::safePath($request->string('return'))]);
     }
 
     public function confirm(Request $request): Response
     {
         /** @var list<string> $proxies */
         $proxies = (array) $this->config->get('security.trusted_proxies', []);
-        $return = \WhaCP\Http\Middleware\Authenticate::safePath($request->string('return'));
+        $return = \NimVor\Http\Middleware\Authenticate::safePath($request->string('return'));
         $password = $request->input('password', '');
         if (!$this->auth->confirmPassword(is_string($password) ? $password : '', $request->ip($proxies))) {
             $this->session->flash('error', 'That password is not correct.');

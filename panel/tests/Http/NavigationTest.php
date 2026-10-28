@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Sidebar, global search (Ctrl+K) and dashboards: each role sees what it may open. */
 final class NavigationTest extends HttpTestCase
@@ -24,11 +24,19 @@ final class NavigationTest extends HttpTestCase
         $this->agent->succeed('system.info', ['system' => ['hostname' => 'srv1', 'uptime_seconds' => 60], 'os' => ['pretty_name' => 'Ubuntu 24.04', 'supported' => true]]);
         $this->login('admin');
         $page = $this->request('GET', '/')->body();
-        foreach (['id="wcp-palette"', 'data-wcp-palette-item', 'Tools &amp; settings', 'Create website', 'wcp-hero', 'srv1', 'System accounts', 'data-wcp-nav-toggle="Hosting"', 'AutoSSL'] as $want) {
+        foreach (['id="nim-palette"', 'data-nim-palette-item', 'Tools &amp; settings', 'Create website', 'nim-hero', 'srv1', 'System accounts', 'data-nim-nav-toggle="Hosting"', 'AutoSSL'] as $want) {
             self::assertStringContainsString($want, $page, $want);
         }
         // The account menu is in the top bar only.
-        self::assertStringNotContainsString('wcp-sidebar-account', $page);
+        self::assertStringNotContainsString('nim-sidebar-account', $page);
+    }
+
+    public function testResourceLimitsAreUnderAdministration(): void
+    {
+        $groups = \NimVor\View\Navigation::groups();
+        $keys = static fn (string $g): array => array_map(static fn (array $i): string => (string) $i[2], $groups[$g]);
+        self::assertContains('limits', $keys('Administration'));
+        self::assertNotContains('limits', $keys('Server'));
     }
 
     public function testResellersSeeTheirAccountNotTheServer(): void
@@ -38,7 +46,7 @@ final class NavigationTest extends HttpTestCase
         $cust = $this->seedUser('cust', 'customer');
         $db = $this->app->container->get(Connection::class);
         $db->run('UPDATE users SET parent_id = ? WHERE id = ?', [$res, $cust]);
-        $db->run("INSERT INTO websites (server_id, domain, kind, php_version, https, root, document_root, system_user, owner_id, status, created_at, updated_at) VALUES (1, 'cust.test', 'php', '8.3', 1, '/home/whacp/cust.test', '/home/whacp/cust.test/public_html', 'cust', ?, 'active', 'x', 'x')", [$cust]);
+        $db->run("INSERT INTO websites (server_id, domain, kind, php_version, https, root, document_root, system_user, owner_id, status, created_at, updated_at) VALUES (1, 'cust.test', 'php', '8.3', 1, '/home/nimvor/cust.test', '/home/nimvor/cust.test/public_html', 'cust', ?, 'active', 'x', 'x')", [$cust]);
         $this->agent->succeed('system.info', ['system' => ['hostname' => 'secret-host'], 'os' => []]);
         $this->as('res');
         $page = $this->request('GET', '/')->body();
@@ -57,7 +65,7 @@ final class NavigationTest extends HttpTestCase
         $this->seedUser('cust', 'customer');
         $this->login('cust');
         self::assertSame('/websites', $this->request('GET', '/')->header('Location'));
-        self::assertStringNotContainsString('wcp-palette', $this->request('GET', '/websites')->body());
+        self::assertStringNotContainsString('nim-palette', $this->request('GET', '/websites')->body());
     }
 
     public function testSectionMenusMarkTheCurrentPage(): void
@@ -71,11 +79,11 @@ final class NavigationTest extends HttpTestCase
             '/databases/server/connections' => ['databases', 'Database connections'],
         ] as $path => [$menu, $label]) {
             $body = $this->request('GET', $path)->body();
-            self::assertMatchesRegularExpression('#data-wcp-section-menu="' . $menu . '".*?class="wcp-subnav-link active"[^>]*aria-current="page"><span>' . preg_quote($label, '#') . '</span>#s', $body, $path);
+            self::assertMatchesRegularExpression('#data-nim-section-menu="' . $menu . '".*?class="nim-subnav-link active"[^>]*aria-current="page"><span>' . preg_quote($label, '#') . '</span>#s', $body, $path);
         }
         $stats = $this->request('GET', '/mail/admin/reports', [], [], '', ['view' => 'stats'])->body();
-        self::assertMatchesRegularExpression('#wcp-subnav-link active"[^>]*><span>Statistics</span>#', $stats);
-        self::assertDoesNotMatchRegularExpression('#wcp-subnav-link active"[^>]*><span>Delivery reports</span>#', $stats);
-        self::assertStringNotContainsString('wcp-pagetabs', $this->request('GET', '/security/ssh')->body(), 'no tab bar: the sidebar menu replaces it');
+        self::assertMatchesRegularExpression('#nim-subnav-link active"[^>]*><span>Statistics</span>#', $stats);
+        self::assertDoesNotMatchRegularExpression('#nim-subnav-link active"[^>]*><span>Delivery reports</span>#', $stats);
+        self::assertStringNotContainsString('nim-pagetabs', $this->request('GET', '/security/ssh')->body(), 'no tab bar: the sidebar menu replaces it');
     }
 }

@@ -7,15 +7,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
 // A component is installed when it works, not when the package manager
-// is done: after installing, each component WhaCP can check is verified,
-// and the services WhaCP runs as such (the web server, the database, the
+// is done: after installing, each component NimVor can check is verified,
+// and the services NimVor runs as such (the web server, the database, the
 // caches) are enabled and started (Debian starts them on installation,
 // RHEL does not). Mail, FTP and DNS servers are only checked for a valid
-// configuration: WhaCP starts them when they are set up.
+// configuration: NimVor starts them when they are set up.
 
 type componentCheck struct {
 	// unit returns the service to enable and start ("" none).

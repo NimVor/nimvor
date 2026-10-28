@@ -40,17 +40,17 @@ jobs:
         run: scripts/release.sh
       - name: Installer test on the built archive
         run: |
-          mkdir -p /tmp/rel && tar -xzf dist/release/whacp-$(cat VERSION)-linux-amd64.tar.gz -C /tmp/rel
-          /tmp/rel/whacp-$(cat VERSION)/dist/whacp-agent -version
-          test -f /tmp/rel/whacp-$(cat VERSION)/panel/vendor/autoload.php
-          sudo bash /tmp/rel/whacp-$(cat VERSION)/installer/install.sh --dry-run --yes --profile=none --admin-user=admin --admin-email=admin@example.com
+          mkdir -p /tmp/rel && tar -xzf dist/release/nimvor-$(cat VERSION)-linux-amd64.tar.gz -C /tmp/rel
+          /tmp/rel/nimvor-$(cat VERSION)/dist/nimvor-agent -version
+          test -f /tmp/rel/nimvor-$(cat VERSION)/panel/vendor/autoload.php
+          sudo bash /tmp/rel/nimvor-$(cat VERSION)/installer/install.sh --dry-run --yes --profile=none --admin-user=admin --admin-email=admin@example.com
       - uses: actions/attest-build-provenance@v2
         with:
-          subject-path: dist/release/whacp-*.tar.gz
+          subject-path: dist/release/nimvor-*.tar.gz
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           pre=()
           [[ $(cat VERSION) == *-* ]] && pre=(--prerelease) # e.g. 1.0.0-rc1
-          gh release create "$GITHUB_REF_NAME" dist/release/whacp-*.tar.gz dist/release/SHA256SUMS --title "WhaCP $(cat VERSION)" --generate-notes --verify-tag "${pre[@]}"
+          gh release create "$GITHUB_REF_NAME" dist/release/nimvor-*.tar.gz dist/release/SHA256SUMS --title "NimVor $(cat VERSION)" --generate-notes --verify-tag "${pre[@]}"

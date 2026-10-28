@@ -16,13 +16,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
 // The host scan looks for what an intruder or a careless change leaves
 // behind: set-user-ID programs and file capabilities that no package
 // installed, world-writable system files, and scheduled tasks or services
-// no package or WhaCP created. It only reports; nothing is changed. It
+// no package or NimVor created. It only reports; nothing is changed. It
 // walks the file system, so it runs in the background at most once a day
 // and the audit shows its latest result.
 
@@ -215,7 +215,7 @@ func Scan(ctx context.Context, env *host.Env, owned map[string]bool, now time.Ti
 }
 
 // persistence lists scheduled tasks, services and preloaded libraries no
-// package or WhaCP created.
+// package or NimVor created.
 func persistence(env *host.Env, owned map[string]bool, now time.Time) []Finding {
 	var out []Finding
 	check := func(logical, what string) {
@@ -231,12 +231,12 @@ func persistence(env *host.Env, owned map[string]bool, now time.Time) []Finding 
 			return
 		}
 		base := filepath.Base(logical)
-		if strings.HasPrefix(base, "whacp") || strings.HasPrefix(base, "wcp-") {
+		if strings.HasPrefix(base, "nimvor") || strings.HasPrefix(base, "nim-") {
 			return
 		}
 		if b, err := os.ReadFile(real); err == nil && len(b) > 0 {
 			head := string(b[:min(len(b), 512)])
-			if strings.Contains(head, "Managed by WhaCP") {
+			if strings.Contains(head, "Managed by NimVor") {
 				return
 			}
 		}
@@ -420,14 +420,14 @@ func hostScanChecks(env *host.Env, r *HostScan, running bool) []Check {
 		c.Remedy = "Remove the write permission for others (chmod o-w PATH), or add the sticky bit to shared folders (chmod +t)."
 	}
 	out = append(out, c)
-	c = Check{ID: "host_persistence", Title: "Scheduled tasks and services", Severity: "medium", Status: "pass", Detail: "Every system cron job, systemd unit and boot script was installed by a package or WhaCP" + suffix + "."}
+	c = Check{ID: "host_persistence", Title: "Scheduled tasks and services", Severity: "medium", Status: "pass", Detail: "Every system cron job, systemd unit and boot script was installed by a package or NimVor" + suffix + "."}
 	persist, knownN := unknownPersist(env, r.Persist)
 	if knownN > 0 {
-		c.Detail = fmt.Sprintf("Every system cron job, systemd unit and boot script was installed by a package or WhaCP, or marked as known (%d unchanged since)%s.", knownN, suffix)
+		c.Detail = fmt.Sprintf("Every system cron job, systemd unit and boot script was installed by a package or NimVor, or marked as known (%d unchanged since)%s.", knownN, suffix)
 		c.Fix = "undo"
 	}
 	if len(persist) > 0 {
-		c.Status, c.Detail = "info", "Not installed by a package or WhaCP (review that you know them): "+listPaths(persist)+suffix+"."
+		c.Status, c.Detail = "info", "Not installed by a package or NimVor (review that you know them): "+listPaths(persist)+suffix+"."
 		for _, p := range persist {
 			if p.Recent || p.Path == "/etc/ld.so.preload" {
 				c.Status = "warn"

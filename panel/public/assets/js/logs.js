@@ -2,7 +2,7 @@
 // journal cursors, so only new lines are transferred).
 (function () {
     'use strict';
-    var root = document.getElementById('wcp-logs');
+    var root = document.getElementById('nim-logs');
     if (!root) { return; }
     var out = root.querySelector('[data-log-output]');
     var status = root.querySelector('[data-log-status]');
@@ -34,7 +34,7 @@
         dl.href = root.getAttribute('data-download') + '?source=' + encodeURIComponent(srcSel.value);
         dl.classList.toggle('disabled', srcSel.value === 'panel' || srcSel.value.indexOf('journal:') === 0);
         status.textContent = 'Loading…';
-        WhaCP.fetchJson(url(false)).then(function (res) {
+        NimVor.fetchJson(url(false)).then(function (res) {
             state.offset = res.data.offset || 0;
             state.cursor = res.data.cursor || '';
             append(res.data.lines || [], true);
@@ -47,7 +47,7 @@
         if (!live.checked) { return; }
         state.timer = setTimeout(function () {
             if (document.hidden) { poll(); return; }
-            WhaCP.fetchJson(url(true)).then(function (res) {
+            NimVor.fetchJson(url(true)).then(function (res) {
                 if (res.data.rotated) { load(); return; }
                 state.offset = res.data.offset || state.offset;
                 state.cursor = res.data.cursor || state.cursor;

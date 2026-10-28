@@ -6,7 +6,7 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 func TestAccessLogReadableByTheAccountOnly(t *testing.T) {
@@ -14,7 +14,7 @@ func TestAccessLogReadableByTheAccountOnly(t *testing.T) {
 		t.Skip("needs root (changes file groups)")
 	}
 	h := testhost.New(t)
-	root := filepath.Join(h.Base, "home/whacp/a.test")
+	root := filepath.Join(h.Base, "home/nimvor/a.test")
 	logs := filepath.Join(root, "logs")
 	os.MkdirAll(logs, 0o750)
 	stat := func(p string) (os.FileMode, uint32) {
@@ -29,7 +29,7 @@ func TestAccessLogReadableByTheAccountOnly(t *testing.T) {
 	log := filepath.Join(logs, "access.log")
 	os.WriteFile(log, []byte("x\n"), 0o640)
 	os.Chmod(log, 0o600)
-	if err := AccessLogReadable(h.Env, "/home/whacp/a.test", h.GID); err != nil {
+	if err := AccessLogReadable(h.Env, "/home/nimvor/a.test", h.GID); err != nil {
 		t.Fatal(err)
 	}
 	if mode, gid := stat(log); mode != 0o640 || int(gid) != h.GID {
@@ -45,14 +45,14 @@ func TestAccessLogReadableByTheAccountOnly(t *testing.T) {
 	os.WriteFile(secret, []byte("s"), 0o600)
 	os.Remove(log)
 	os.Symlink(secret, log)
-	if err := AccessLogReadable(h.Env, "/home/whacp/a.test", h.GID); err != nil {
+	if err := AccessLogReadable(h.Env, "/home/nimvor/a.test", h.GID); err != nil {
 		t.Log(err) // refusing is fine too
 	}
 	os.Remove(log)
 	if err := os.Link(secret, log); err != nil {
 		t.Fatal(err)
 	}
-	AccessLogReadable(h.Env, "/home/whacp/a.test", h.GID)
+	AccessLogReadable(h.Env, "/home/nimvor/a.test", h.GID)
 	if mode, gid := stat(secret); mode != 0o600 || gid != 0 {
 		t.Fatalf("followed a link: %o gid %d", mode, gid)
 	}
@@ -62,7 +62,7 @@ func TestAccessLogReadableByTheAccountOnly(t *testing.T) {
 	os.RemoveAll(logs)
 	os.Symlink(filepath.Join(h.Base, "etc"), logs)
 	os.Rename(secret, filepath.Join(h.Base, "etc/access.log"))
-	AccessLogReadable(h.Env, "/home/whacp/a.test", h.GID)
+	AccessLogReadable(h.Env, "/home/nimvor/a.test", h.GID)
 	if mode, gid := stat(filepath.Join(h.Base, "etc/access.log")); mode != 0o600 || gid != 0 {
 		t.Fatalf("left the website: %o gid %d", mode, gid)
 	}

@@ -1,6 +1,6 @@
-// Package config loads the WhaCP agent configuration.
+// Package config loads the NimVor agent configuration.
 //
-// Configuration is read from a JSON file (default /etc/whacp/agent.json).
+// Configuration is read from a JSON file (default /etc/nimvor/agent.json).
 // Every field has a safe default so the agent can start with an empty or
 // missing file during development.
 package config
@@ -18,7 +18,7 @@ import (
 )
 
 // DefaultPath is the default configuration file location.
-const DefaultPath = "/etc/whacp/agent.json"
+const DefaultPath = "/etc/nimvor/agent.json"
 
 // Config holds all agent settings.
 type Config struct {
@@ -49,7 +49,7 @@ type Config struct {
 	// AllowWriteActions gates every action that modifies the server.
 	// It is false by default: the current release is read-only.
 	AllowWriteActions bool `json:"allow_write_actions"`
-	// SitesRoot is where WhaCP-managed websites live (<sites_root>/<domain>).
+	// SitesRoot is where NimVor-managed websites live (<sites_root>/<domain>).
 	SitesRoot string `json:"sites_root"`
 	// StateDir holds configuration backups, job logs and keys.
 	StateDir string `json:"state_dir"`
@@ -57,7 +57,7 @@ type Config struct {
 	BackupDir string `json:"backup_dir"`
 	// WebUser is the account Nginx workers run as (default from the OS).
 	WebUser string `json:"web_user"`
-	// ListenTCP optionally exposes the API over TLS for a remote WhaCP
+	// ListenTCP optionally exposes the API over TLS for a remote NimVor
 	// master (multi-server). Empty disables it.
 	ListenTCP string `json:"listen_tcp"`
 	// TLSCert / TLSKey are used for ListenTCP (generated when missing).
@@ -106,21 +106,21 @@ func (d Duration) MarshalJSON() ([]byte, error) {
 // Default returns the built-in configuration.
 func Default() Config {
 	return Config{
-		SocketPath:      "/run/whacp/agent.sock",
+		SocketPath:      "/run/nimvor/agent.sock",
 		SocketMode:      "0660",
-		SocketGroup:     "whacp",
-		TokenFile:       "/etc/whacp/agent.token",
+		SocketGroup:     "nimvor",
+		TokenFile:       "/etc/nimvor/agent.token",
 		RootDir:         "/",
 		ProcDir:         "/proc",
 		LogLevel:        "info",
 		MetricsInterval: Duration{5 * time.Second},
 		MetricsHistory:  180,
 		ActionTimeout:   Duration{30 * time.Second},
-		SitesRoot:       "/home/whacp",
-		StateDir:        "/var/lib/whacp-agent",
-		BackupDir:       "/var/backups/whacp",
-		TLSCert:         "/etc/whacp/agent-tls.crt",
-		TLSKey:          "/etc/whacp/agent-tls.key",
+		SitesRoot:       "/home/nimvor",
+		StateDir:        "/var/lib/nimvor-agent",
+		BackupDir:       "/var/backups/nimvor",
+		TLSCert:         "/etc/nimvor/agent-tls.crt",
+		TLSKey:          "/etc/nimvor/agent-tls.key",
 		MaxJobs:         2,
 	}
 }

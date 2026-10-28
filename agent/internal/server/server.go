@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/actions"
 )
 
 // maxBody bounds request bodies (4 MiB: file-manager upload chunks).

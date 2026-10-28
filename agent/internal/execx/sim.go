@@ -97,7 +97,7 @@ func (s *SimRunner) addUser(name string) {
 		return
 	}
 	defer f.Close()
-	fmt.Fprintf(f, "%s:x:%d:%d:simulated:/home/whacp:/usr/sbin/nologin\n", name, uid, gid)
+	fmt.Fprintf(f, "%s:x:%d:%d:simulated:/home/nimvor:/usr/sbin/nologin\n", name, uid, gid)
 }
 
 func (s *SimRunner) delUser(name string) {
@@ -131,10 +131,10 @@ func simWordPress(o Opts, args []string) (string, bool) {
 		}
 		return ""
 	}
-	const m = "\nWHACP-JSON "
+	const m = "\nNIMVOR-JSON "
 	switch {
 	case strings.Contains(code, "wp-includes/version.php") && strings.Contains(code, "installs"):
-		root := env("WHACP_ROOT")
+		root := env("NIMVOR_ROOT")
 		if _, err := os.Stat(filepath.Join(root, "public_html", "wp-settings.php")); err != nil {
 			return m + `{"installs":[]}` + "\n", true
 		}
@@ -156,7 +156,7 @@ func simWordPress(o Opts, args []string) (string, bool) {
 		return m + `{"constants":{"DISALLOW_FILE_EDIT":{"defined":false,"raw":""},"CONCATENATE_SCRIPTS":{"defined":false,"raw":""},"WP_DEBUG":{"defined":true,"raw":"false"}},` +
 			`"options":{"default_ping_status":"open","default_pingback_flag":"1"},"config_mode":"0644","config_path":"` + filepath.Join(dir, "wp-config.php") + `","keys_set":true}` + "\n", true
 	case strings.Contains(code, "debug.log"):
-		return m + `{"path":"` + env("WHACP_ROOT") + `/public_html/wp-content/debug.log","exists":true,"lines":["[01-Sep-2026 12:00:00 UTC] PHP Notice: simulated notice"],"size":64}` + "\n", true
+		return m + `{"path":"` + env("NIMVOR_ROOT") + `/public_html/wp-content/debug.log","exists":true,"lines":["[01-Sep-2026 12:00:00 UTC] PHP Notice: simulated notice"],"size":64}` + "\n", true
 	case strings.Contains(code, "wp_set_password"):
 		return m + `{"ok":true,"login":"owner"}` + "\n", true
 	case strings.Contains(code, "SET PASSWORD"):

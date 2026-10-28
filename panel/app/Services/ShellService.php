@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Database\Connection;
-use WhaCP\Support\UserFacingException;
+use NimVor\Agent\AgentClient;
+use NimVor\Database\Connection;
+use NimVor\Support\UserFacingException;
 
 /**
  * Shell access of website accounts (administrators only): disabled (SFTP
@@ -24,7 +24,7 @@ final class ShellService
         private readonly ServerContext $server,
         private readonly AuditLogger $audit,
         private readonly FeatureService $features,
-        private readonly \WhaCP\Repositories\UserRepository $users,
+        private readonly \NimVor\Repositories\UserRepository $users,
     ) {
     }
 

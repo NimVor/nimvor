@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Database\Connection;
-use WhaCP\Support\UserFacingException;
+use NimVor\Database\Connection;
+use NimVor\Support\UserFacingException;
 
 /**
  * IP address → country, from DB-IP's "IP to Country Lite" database
@@ -139,7 +139,7 @@ final class GeoIpService
         $fetch ??= static function (string $url): ?string {
             $ch = curl_init($url);
             curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 120, CURLOPT_CONNECTTIMEOUT => 10, CURLOPT_FOLLOWLOCATION => false,
-                CURLOPT_PROTOCOLS => CURLPROTO_HTTPS, CURLOPT_USERAGENT => 'WhaCP brute force protection', CURLOPT_MAXFILESIZE => self::MAX_BYTES]);
+                CURLOPT_PROTOCOLS => CURLPROTO_HTTPS, CURLOPT_USERAGENT => 'NimVor brute force protection', CURLOPT_MAXFILESIZE => self::MAX_BYTES]);
             $body = curl_exec($ch);
             $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
@@ -149,7 +149,7 @@ final class GeoIpService
         if ($body === null) {
             return null;
         }
-        $tmp = tempnam(sys_get_temp_dir(), 'whacp-geo');
+        $tmp = tempnam(sys_get_temp_dir(), 'nimvor-geo');
         try {
             file_put_contents($tmp, $body);
             return $this->import($tmp);

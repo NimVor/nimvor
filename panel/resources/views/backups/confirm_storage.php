@@ -1,6 +1,6 @@
 <?php
 /**
- * @var \WhaCP\View\View $this
+ * @var \NimVor\View\View $this
  * @var string $name
  * @var string $where
  * @var array<string, string> $trust
@@ -26,9 +26,9 @@ $ssh = isset($trust['host_key']);
                         <dt class="col-sm-3">Certificate</dt><dd class="col-sm-9"><code><?= e($trust['tls_subject'] ?? '') ?></code></dd>
                         <dt class="col-sm-3">Public key pin</dt><dd class="col-sm-9"><code id="trust-fp"><?= e($trust['tls_pin'] ?? '') ?></code></dd>
                     </dl>
-                    <p class="small text-body-secondary">The certificate is not signed by a trusted authority (for example it is self-signed), so WhaCP pins its public key: backups stop if the server ever presents a different key.</p>
+                    <p class="small text-body-secondary">The certificate is not signed by a trusted authority (for example it is self-signed), so NimVor pins its public key: backups stop if the server ever presents a different key.</p>
                 <?php endif; ?>
-                <form method="post" action="<?= e($this->url('backups.storages.trust')) ?>" class="d-flex gap-2" data-wcp-busy>
+                <form method="post" action="<?= e($this->url('backups.storages.trust')) ?>" class="d-flex gap-2" data-nim-busy>
                     <?= $this->csrfField() ?>
                     <button class="btn btn-primary" name="trust" value="1"><i class="bi bi-shield-check me-1"></i>Trust and save</button>
                     <button class="btn btn-outline-secondary" name="cancel" value="1" formnovalidate>Cancel</button>

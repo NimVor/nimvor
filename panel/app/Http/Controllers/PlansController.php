@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Services\PlanService;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
-use WhaCP\View\View;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Services\PlanService;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
+use NimVor\View\View;
 
 final class PlansController extends Controller
 {
@@ -18,11 +18,11 @@ final class PlansController extends Controller
         View $view,
         SessionInterface $session,
         private readonly PlanService $plans,
-        private readonly \WhaCP\Services\FeatureService $features,
-        private readonly \WhaCP\Services\FfmpegService $ffmpeg,
-        private readonly \WhaCP\Services\ResourceLimitService $limits,
-        private readonly \WhaCP\Services\BandwidthLimitService $bandwidth,
-        private readonly \WhaCP\Services\DiskQuotaService $quotas,
+        private readonly \NimVor\Services\FeatureService $features,
+        private readonly \NimVor\Services\FfmpegService $ffmpeg,
+        private readonly \NimVor\Services\ResourceLimitService $limits,
+        private readonly \NimVor\Services\BandwidthLimitService $bandwidth,
+        private readonly \NimVor\Services\DiskQuotaService $quotas,
     ) {
         parent::__construct($view, $session);
     }
@@ -33,7 +33,7 @@ final class PlansController extends Controller
         return $this->render('plans/index', [
             'plans' => $this->plans->visible($this->user($request)),
             'edit' => $edit > 0 ? $this->plans->find($this->user($request), $edit) : null,
-            'featureLists' => \WhaCP\Hosting\Scope::isAll($this->user($request)) ? $this->features->lists() : [],
+            'featureLists' => \NimVor\Hosting\Scope::isAll($this->user($request)) ? $this->features->lists() : [],
         ]);
     }
 
@@ -50,7 +50,7 @@ final class PlansController extends Controller
         // FFmpeg access follows the plan at once (else the scheduler does).
         try {
             $this->ffmpeg->reconcile();
-        } catch (\WhaCP\Agent\AgentException) {
+        } catch (\NimVor\Agent\AgentException) {
         }
         // Monthly bandwidth blocks and disk quotas follow the new limits at once.
         try {
@@ -64,7 +64,7 @@ final class PlansController extends Controller
         // Resource limits apply to the plan's accounts at once.
         try {
             $changed = $this->limits->reconcile();
-        } catch (\WhaCP\Agent\AgentException $e) {
+        } catch (\NimVor\Agent\AgentException $e) {
             return $this->redirectWithFailure('/plans', new UserFacingException('Plan saved, but its resource limits were not applied: ' . $e->getMessage(), '', 'They are applied again by the scheduler within minutes; check the agent.'));
         }
         return $this->redirectWithSuccess('/plans', 'Plan saved. Limits apply to new websites, databases, cron jobs and workers' . ($changed !== [] ? '; resource limits applied to ' . count($changed) . ' account(s)' : '') . '.');

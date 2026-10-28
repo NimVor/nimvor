@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Security\Crypto;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Database\Connection;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Security\Crypto;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
 
 /**
  * The WordPress toolkit's switches and tools for one installation:
@@ -161,7 +161,7 @@ final class WordPressToolsService
         if ($on) {
             $res = $this->manage($site, $install, 'cron_takeover_on');
             $cmd = (string) ($res['command'] ?? '');
-            if (!preg_match('#^/[A-Za-z0-9/._-]+ /usr/local/lib/whacp/wp-cli\.phar --path=/[A-Za-z0-9/._~-]+ cron event run --due-now --quiet$#', $cmd)) {
+            if (!preg_match('#^/[A-Za-z0-9/._-]+ /usr/local/lib/nimvor/wp-cli\.phar --path=/[A-Za-z0-9/._~-]+ cron event run --due-now --quiet$#', $cmd)) {
                 throw new UserFacingException('The agent returned an unexpected cron command.');
             }
             if ($jobId === null || $this->cron->find($site, $jobId) === null) {
@@ -544,7 +544,7 @@ final class WordPressToolsService
     {
         $out = [];
         $due = $this->db->fetchAll(
-            "SELECT i.*, w.domain, w.system_user, w.root, w.php_version, w.owner_id, " . \WhaCP\Repositories\UserRepository::SUSPENDED . " AS account_suspended FROM wordpress_installs i JOIN websites w ON w.id = i.website_id LEFT JOIN users u ON u.id = w.owner_id
+            "SELECT i.*, w.domain, w.system_user, w.root, w.php_version, w.owner_id, " . \NimVor\Repositories\UserRepository::SUSPENDED . " AS account_suspended FROM wordpress_installs i JOIN websites w ON w.id = i.website_id LEFT JOIN users u ON u.id = w.owner_id
              WHERE i.server_id = ? AND i.vuln_protection = 1 AND (i.vulns_checked_at IS NULL OR i.vulns_checked_at < ?) ORDER BY i.vulns_checked_at LIMIT 20",
             [$this->server->id(), gmdate('c', time() - 20 * 3600)]
         );

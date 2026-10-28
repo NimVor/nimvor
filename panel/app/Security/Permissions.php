@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Security;
+namespace NimVor\Security;
 
 /**
  * Canonical permission catalogue and default role grants.
  *
  * Permissions are code-defined; the database mirrors them so roles can be
- * assigned in the UI. Add new permissions here and run `bin/whacp migrate`.
+ * assigned in the UI. Add new permissions here and run `bin/nimvor migrate`.
  *
  * Roles have a scope: "all" roles see every object on a server, "own" roles
  * (resellers and hosting customers) only see objects they own or, for

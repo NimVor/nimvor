@@ -1,11 +1,11 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var string $tab */
 $tabs = [['addresses', 'Addresses and usage', 'ips'], ['ranges', 'IPv6 ranges', 'ips.ranges'], ['migrate', 'Migration wizard', 'ips.migrate']];
 ?>
 <?php $this->start(); ?>IP addresses<?php $this->end('title'); ?>
 <?php $this->start(); ?>The addresses websites listen on<?php $this->end('subtitle'); ?>
-<nav class="wcp-pagetabs" aria-label="IP addresses">
+<nav class="nim-pagetabs" aria-label="IP addresses">
     <?php foreach ($tabs as [$key, $label, $route]): ?>
         <a class="<?= $tab === $key ? 'active' : '' ?>" href="<?= e($this->url($route)) ?>"<?= $tab === $key ? ' aria-current="page"' : '' ?>><?= e($label) ?></a>
     <?php endforeach; ?>

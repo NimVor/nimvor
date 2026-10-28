@@ -1,6 +1,6 @@
 // Package components reports, for each part of a hosting server (web
 // server, PHP, databases, email, DNS, FTP, caches, security), every step
-// it needs: its packages installed, WhaCP's setup done, its services
+// it needs: its packages installed, NimVor's setup done, its services
 // running and starting at boot, and its ports open in the firewall. The
 // panel's Components page shows them with a Fix action per step; the
 // actions themselves are the existing ones (packages.install,
@@ -14,15 +14,15 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/avmgr"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/dnsmgr"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/ftpmgr"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/mailmgr"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/pkgs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/security"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/systemd"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/avmgr"
+	"github.com/NimVor/nimvor/agent/internal/dnsmgr"
+	"github.com/NimVor/nimvor/agent/internal/ftpmgr"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/mailmgr"
+	"github.com/NimVor/nimvor/agent/internal/pkgs"
+	"github.com/NimVor/nimvor/agent/internal/security"
+	"github.com/NimVor/nimvor/agent/internal/systemd"
 )
 
 // Step states.
@@ -49,7 +49,7 @@ type Component struct {
 	Description string `json:"description"`
 	// Installed: its main package (or, for PHP, one version with PHP-FPM).
 	Installed bool     `json:"installed"`
-	Packages  []string `json:"packages"` // WhaCP package names (packages.install)
+	Packages  []string `json:"packages"` // NimVor package names (packages.install)
 	Units     []string `json:"units"`
 	Steps     []Step   `json:"steps"`
 	// Ready: every step that applies is done.
@@ -59,10 +59,10 @@ type Component struct {
 // def describes a component.
 type def struct {
 	id, name, desc string
-	packages       []string // WhaCP names; the first is the main one
+	packages       []string // NimVor names; the first is the main one
 	units          func(env *host.Env, installed map[string]bool) []string
 	ports          func(env *host.Env) []security.PortSpec
-	// setup: done (ok) and what to do when not; nil when WhaCP needs no
+	// setup: done (ok) and what to do when not; nil when NimVor needs no
 	// setup step.
 	setup func(env *host.Env) (bool, string)
 }
@@ -220,7 +220,7 @@ func Status(ctx context.Context, env *host.Env) []Component {
 			}
 			c.Steps = append(c.Steps, st)
 		}
-		// Units that exist (a unit WhaCP writes at setup only after it).
+		// Units that exist (a unit NimVor writes at setup only after it).
 		var present []string
 		for _, u := range unitsOf[d.id] {
 			if s, ok := units[u]; ok && s.LoadState != "not-found" {

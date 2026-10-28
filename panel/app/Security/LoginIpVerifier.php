@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Security;
+namespace NimVor\Security;
 
-use WhaCP\Database\Connection;
-use WhaCP\Mail\Mailer;
-use WhaCP\Mail\MailException;
-use WhaCP\Services\SettingsService;
+use NimVor\Database\Connection;
+use NimVor\Mail\Mailer;
+use NimVor\Mail\MailException;
+use NimVor\Services\SettingsService;
 
 /**
  * Security policy "Limit logins to verified IP addresses": a sign-in from
@@ -99,6 +99,6 @@ final class LoginIpVerifier
 
     public static function hash(string $code): string
     {
-        return hash('sha256', 'whacp-login-ip|' . $code);
+        return hash('sha256', 'nimvor-login-ip|' . $code);
     }
 }

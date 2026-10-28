@@ -1,0 +1,35 @@
+name: App catalog
+
+# Downloads every application the installer offers and unpacks it the way the
+# agent does, so a vendor changing a download is found in minutes, not in the
+# long real-host job. Needs the network and no root.
+on:
+  pull_request:
+    paths:
+      - 'agent/internal/apps/**'
+      - '.github/workflows/app-catalog.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '17 5 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  downloads:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: agent/go.mod
+      - name: Download and unpack every catalog application
+        working-directory: agent
+        run: |
+          set +e
+          NIMVOR_NETWORK=1 go test -tags realhost -run 'RealHostCatalogDownloads' -count=1 -v ./internal/apps 2>&1 | tee catalog.log
+          status=${PIPESTATUS[0]}
+          echo '--- failures'
+          grep -n -- '--- FAIL\|_test.go:[0-9]*:' catalog.log | cut -c1-400 | head -60
+          exit $status

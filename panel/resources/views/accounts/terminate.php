@@ -1,5 +1,5 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var list<array<string, mixed>> $accounts */
 /** @var string $word */
 /** @var list<array{username: string, ok: bool, message: string}>|null $results */
@@ -28,11 +28,11 @@ $selected = array_column($accounts, 'id');
     <strong>This cannot be undone.</strong> For each account below, its websites (with their files and system accounts), mailboxes and the mail in them, databases and DNS zones are deleted, then the account itself. Backups stored elsewhere are not touched. Take a backup first if you may need anything.
 </div>
 
-<form method="post" action="<?= e($this->url('accounts.terminate')) ?>" data-wcp-busy id="terminate-confirm">
+<form method="post" action="<?= e($this->url('accounts.terminate')) ?>" data-nim-busy id="terminate-confirm">
     <?= $this->csrfField() ?>
     <input type="hidden" name="count" value="<?= count($accounts) ?>">
     <div class="card mb-3">
-        <div class="wcp-dtable table-responsive">
+        <div class="nim-dtable table-responsive">
             <table class="table align-middle mb-0">
                 <thead><tr><th>Account</th><th>Websites</th><th class="text-end">Mailboxes</th><th class="text-end">Databases</th><th class="text-end">DNS zones</th></tr></thead>
                 <tbody>
@@ -41,8 +41,8 @@ $selected = array_column($accounts, 'id');
                         <td>
                             <input type="hidden" name="ids[]" value="<?= (int) $a['id'] ?>">
                             <span class="fw-semibold"><?= e($a['username']) ?></span> <span class="small text-body-secondary"><?= e($a['role']) ?></span>
-                            <?php if ($a['scope'] !== 'own'): ?><div class="small wcp-bad">Not a hosting account: it will be skipped.</div><?php endif; ?>
-                            <?php if ($left !== []): ?><div class="small wcp-bad">Has <?= count($left) ?> customer(s) not selected: it will be skipped.</div><?php endif; ?>
+                            <?php if ($a['scope'] !== 'own'): ?><div class="small nim-bad">Not a hosting account: it will be skipped.</div><?php endif; ?>
+                            <?php if ($left !== []): ?><div class="small nim-bad">Has <?= count($left) ?> customer(s) not selected: it will be skipped.</div><?php endif; ?>
                         </td>
                         <td class="small"><?= $a['websites'] === [] ? '—' : e(implode(', ', $a['websites'])) ?></td>
                         <td class="text-end"><?= (int) $a['mailboxes'] ?></td>

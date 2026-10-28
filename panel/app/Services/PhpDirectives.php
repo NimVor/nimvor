@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Support\ValidationException;
+use NimVor\Support\ValidationException;
 
 /**
  * php.ini directives a website's owner may set for the website (its

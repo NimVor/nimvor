@@ -3,17 +3,18 @@
  * Website → Apps: a Softaculous-style installer — categories on the left, the
  * selected category's applications on the right, each with an install modal.
  *
- * @var \WhaCP\View\View $this
+ * @var \NimVor\View\View $this
  * @var array<string, mixed> $site
  * @var list<array<string, mixed>> $installs
  * @var list<array<string, mixed>> $catalog   categories, each with 'apps'
  * @var bool $installerEnabled
  * @var list<array{id: int, domain: string, docroot: string, is_php: bool}> $targets
  */
-use WhaCP\Services\AppInstallerService as A;
+use NimVor\Services\AppInstallerService as A;
 
 $id = (int) $site['id'];
 $isPhp = $site['kind'] === 'php';
+$can = static fn (array $s, string $slug): bool => A::compatible($s, $slug);
 $catalog ??= [];
 $installerEnabled ??= true;
 $targets ??= [['id' => $id, 'domain' => (string) $site['domain'], 'docroot' => $docroot ?? 'public_html', 'is_php' => $isPhp]];
@@ -22,14 +23,14 @@ $targets ??= [['id' => $id, 'domain' => (string) $site['domain'], 'docroot' => $
 <?= $this->partial('partials/secret', ['secret' => $secret]) ?>
 
 <?php if (!$installerEnabled): ?>
-    <div class="card"><div class="wcp-empty-state"><i class="bi bi-box" aria-hidden="true"></i><div class="fw-medium">The application installer is turned off</div><div class="small">Ask your hosting provider to enable it.</div></div></div>
+    <div class="card"><div class="nim-empty-state"><i class="bi bi-box" aria-hidden="true"></i><div class="fw-medium">The application installer is turned off</div><div class="small">Ask your hosting provider to enable it.</div></div></div>
     <?php return; ?>
 <?php endif; ?>
-<?php if (!$isPhp): ?>
-    <div class="alert alert-info small">Applications need a PHP website. Change the type under <a href="<?= e($this->url('sites.edit', ['id' => $id])) ?>">Settings</a>.</div>
+<?php if (!$isPhp && $site['kind'] !== 'proxy'): ?>
+    <div class="alert alert-info small">Applications need a PHP, reverse-proxy or Python website. Change the type under <a href="<?= e($this->url('sites.edit', ['id' => $id])) ?>">Settings</a>.</div>
 <?php endif; ?>
 <?php if ($catalog === []): ?>
-    <div class="card"><div class="wcp-empty-state"><i class="bi bi-box" aria-hidden="true"></i><div class="fw-medium">No applications are available</div></div></div>
+    <div class="card"><div class="nim-empty-state"><i class="bi bi-box" aria-hidden="true"></i><div class="fw-medium">No applications are available</div></div></div>
     <?php return; ?>
 <?php endif; ?>
 
@@ -56,9 +57,18 @@ $targets ??= [['id' => $id, 'domain' => (string) $site['domain'], 'docroot' => $
                                     <div class="d-flex align-items-center gap-2 mb-2">
                                         <i class="bi <?= e((string) $app['icon']) ?> fs-4" aria-hidden="true"></i>
                                         <span class="fw-semibold"><?= e((string) $app['name']) ?></span>
+                                        <?php if (($app['status'] ?? 'enabled') === 'testing'): ?><span class="badge text-bg-warning" title="Still being tested: only administrators see it">Testing</span><?php endif; ?>
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-1 mb-2">
+                                        <span class="badge text-bg-light border" title="What it runs on"><?= e(['php' => 'PHP', 'python' => 'Python', 'binary' => 'Program', 'node' => 'Node.js'][(string) ($app['runtime'] ?? 'php')] ?? 'PHP') ?></span>
+                                        <span class="badge text-bg-light border" title="Database"><?= e(['mysql' => 'MySQL/MariaDB', 'sqlite' => 'SQLite', 'none' => 'No database'][(string) ($app['db_type'] ?? '')] ?? 'MySQL/MariaDB') ?></span>
+                                        <span class="badge text-bg-light border" title="How it is deployed">Native</span>
+                                        <?php if (($app['kind'] ?? 'application') === 'extension'): ?><span class="badge text-bg-info" title="A new WordPress website with this plugin installed and activated">WordPress + plugin</span><?php endif; ?>
                                     </div>
                                     <p class="small text-body-secondary flex-grow-1"><?= e((string) $app['description']) ?></p>
-                                    <button class="btn btn-sm btn-primary align-self-start" type="button" data-bs-toggle="modal" data-bs-target="#app-<?= e($slug) ?>"<?= $isPhp ? '' : ' disabled' ?>><i class="bi bi-download me-1"></i>Install</button>
+                                    <?php if (!$can($site, $slug)): ?><p class="small text-warning-emphasis mb-1"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>Needs <?= e(A::needs($slug)) ?>.</p><?php endif; ?>
+                                    <button class="btn btn-sm btn-primary align-self-start" type="button" data-bs-toggle="modal" data-bs-target="#app-<?= e($slug) ?>"<?= $can($site, $slug) ? '' : ' disabled' ?>><i class="bi bi-download me-1"></i>Install</button>
+                                    <a class="small mt-1" href="<?= e($this->url('sites.apps.plan', ['id' => $id, 'app' => $slug])) ?>"><i class="bi bi-list-check me-1" aria-hidden="true"></i>Review what it will do</a>
                                 </div>
                             </div>
                         </div>
@@ -78,7 +88,7 @@ foreach ($catalog as $cat):
         $action = $this->url('sites.apps.install', ['id' => $id, 'app' => $slug]);
         ?>
         <?= $this->modalStart('app-' . $slug, 'Install ' . (string) $app['name']) ?>
-            <form method="post" action="<?= e($action) ?>" data-wcp-busy>
+            <form method="post" action="<?= e($action) ?>" data-nim-busy>
                 <div class="p-3">
                     <?= $this->csrfField() ?>
                     <p class="small text-body-secondary"><?= e((string) $app['description']) ?></p>
@@ -88,19 +98,28 @@ foreach ($catalog as $cat):
                             <label class="form-label" for="tgt-<?= e($slug) ?>">Install on</label>
                             <select class="form-select" id="tgt-<?= e($slug) ?>" name="target_id">
                                 <?php foreach ($targets as $t): ?>
-                                    <option value="<?= (int) $t['id'] ?>"<?= $t['is_php'] ? '' : ' disabled' ?>><?= e((string) $t['domain']) ?><?= (int) $t['id'] === (int) $site['id'] ? ' — main domain' : ' — subdomain' ?><?= $t['is_php'] ? '' : ' (not a PHP site)' ?></option>
+                                    <option value="<?= (int) $t['id'] ?>"<?= $can($t, $slug) ? '' : ' disabled' ?>><?= e((string) $t['domain']) ?><?= (int) $t['id'] === (int) $site['id'] ? ' — main domain' : ' — subdomain' ?><?= $can($t, $slug) ? '' : ' (needs ' . e(A::needs($slug)) . ')' ?></option>
                                 <?php endforeach; ?>
                             </select>
                             <div class="form-text">Choose this website or one of its subdomains; the application installs into the chosen site's document root.</div>
                         </div>
                     <?php endif; ?>
-                    <?php if ($slug === 'wordpress'): ?>
+                    <?php if ($slug === 'wordpress' || isset(\NimVor\Services\AppInstallerService::WORDPRESS_BASED[$slug])): ?>
                         <?= $this->partial('partials/field', ['name' => 'title', 'label' => 'Site title', 'value' => (string) $site['domain']]) ?>
                         <div class="row g-2">
                             <div class="col-sm-5"><?= $this->partial('partials/field', ['name' => 'admin_user', 'label' => 'Admin user', 'value' => 'admin']) ?></div>
                             <div class="col-sm-7"><?= $this->partial('partials/field', ['name' => 'admin_email', 'label' => 'Admin email', 'type' => 'email', 'value' => (string) $email]) ?></div>
                         </div>
                         <div class="form-text mb-2"><?php if ($multi): ?>Installed into the selected website's document root (must be empty).<?php else: ?>Installed into <code><?= e($docroot) ?></code> (must be empty).<?php endif; ?> A database and a strong admin password are created; the password is shown once.</div>
+                    <?php elseif (isset(A::NATIVE[$slug])): ?>
+                        <?= $this->partial('partials/field', ['name' => 'path', 'label' => 'Folder', 'value' => 'app', 'help' => 'A new folder inside the website for the program and its data.']) ?>
+                        <?php if (!empty(A::NATIVE[$slug]['admin'])): ?>
+                            <div class="row g-2">
+                                <div class="col-sm-5"><?= $this->partial('partials/field', ['name' => 'admin_user', 'label' => 'Admin user', 'value' => 'admin']) ?></div>
+                                <div class="col-sm-7"><?= $this->partial('partials/field', ['name' => 'admin_email', 'label' => 'Admin email', 'type' => 'email', 'value' => (string) $email]) ?></div>
+                            </div>
+                        <?php endif; ?>
+                        <div class="form-text mb-2">Runs as a service under this website's account, behind its reverse proxy (it listens only on the website's local port). The newest stable release is installed and its version recorded. <?= !empty(A::NATIVE[$slug]['admin']) ? 'A strong admin password is created and shown once.' : '' ?> Back up the website before changing it later.</div>
                     <?php elseif ($slug === 'laravel'): ?>
                         <?= $this->partial('partials/field', ['name' => 'path', 'label' => 'Folder', 'value' => 'app', 'help' => 'A new folder inside the website; served from <folder>/public.']) ?>
                         <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="migrate" value="1" id="mig-<?= e($slug) ?>" checked><label class="form-check-label" for="mig-<?= e($slug) ?>">Run database migrations</label></div>
@@ -110,7 +129,7 @@ foreach ($catalog as $cat):
                             <?php if ($needsDb): ?>The database credentials appear under Databases; finish setup in the application's own installer (a “Finish setup” link appears below once ready).<?php endif; ?>
                         </div>
                     <?php endif; ?>
-                    <button class="btn btn-primary btn-sm" type="submit"<?= $isPhp ? '' : ' disabled' ?>><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Install <?= e((string) $app['name']) ?></button>
+                    <button class="btn btn-primary btn-sm" type="submit"<?= $can($site, $slug) ? '' : ' disabled' ?>><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Install <?= e((string) $app['name']) ?></button>
                 </div>
             </form>
         <?= $this->modalEnd() ?>
@@ -120,15 +139,16 @@ foreach ($catalog as $cat):
     <div class="card mt-3">
         <div class="card-header"><i class="bi bi-clock-history me-1"></i>Installations</div>
         <div class="table-responsive"><table class="table table-sm align-middle mb-0">
-            <thead><tr><th>Application</th><th>Folder</th><th>Database</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Application</th><th>Version</th><th>Folder</th><th>Database</th><th>Status</th><th></th></tr></thead>
             <tbody>
             <?php foreach ($installs as $i): ?>
                 <tr>
                     <td><?= e(A::APPS[$i['app']]['title'] ?? $i['app']) ?><?= $i['admin_user'] !== '' ? ' <span class="small text-body-secondary">admin: ' . e($i['admin_user']) . '</span>' : '' ?></td>
+                    <td class="small"><?= e((string) ($i['version'] ?? '') !== '' ? (string) $i['version'] : '—') ?></td>
                     <td><code><?= e($i['path']) ?></code></td>
                     <td class="small"><?= e((string) ($i['database_name'] ?? '—')) ?></td>
                     <td><?= $this->statusBadge($i['status'] === 'running' ? 'activating' : (string) $i['status'], (string) $i['status']) ?><?php if ($i['error'] !== ''): ?><div class="small text-danger"><?= e($i['error']) ?></div><?php endif; ?></td>
-                    <td class="text-end"><?php if ($i['job_id'] !== ''): ?><button type="button" class="btn btn-sm btn-outline-secondary" data-wcp-job-open="<?= e($i['job_id']) ?>" title="Log"><i class="bi bi-terminal"></i></button><?php endif; ?>
+                    <td class="text-end"><?php if ($i['job_id'] !== ''): ?><button type="button" class="btn btn-sm btn-outline-secondary" data-nim-job-open="<?= e($i['job_id']) ?>" title="Log"><i class="bi bi-terminal"></i></button><?php endif; ?>
                         <?php if ($i['status'] === 'succeeded' && $i['app'] === 'wordpress'): ?><a class="btn btn-sm btn-outline-primary" href="<?= e(($site['https'] ? 'https://' : 'http://') . $site['domain']) ?>/wp-admin/" target="_blank" rel="noopener noreferrer">Log in</a><?php endif; ?>
                         <?php if ($i['status'] === 'succeeded' && ($f = A::finishUrl($site, (string) $i['app'])) !== ''): ?><a class="btn btn-sm btn-primary" href="<?= e($f) ?>" target="_blank" rel="noopener noreferrer">Finish setup</a><?php endif; ?></td>
                 </tr>

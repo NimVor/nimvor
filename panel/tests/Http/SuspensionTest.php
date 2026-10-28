@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Http\Request;
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\ApiTokenService;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Http\Request;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\ApiTokenService;
+use NimVor\Services\WebsiteService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Account suspension: sign-in, websites, cron, workers, mail, databases, SSH/FTP. */
 final class SuspensionTest extends HttpTestCase
@@ -153,7 +153,7 @@ final class SuspensionTest extends HttpTestCase
         self::assertCount(2, array_filter($this->all('mail.suspend'), static fn (array $c): bool => $c['suspended'] === true));
     }
 
-    public function testAWebsiteRunByAnAccountWhaCPDidNotCreateIsSkippedForSshAndFtp(): void
+    public function testAWebsiteRunByAnAccountNimVorDidNotCreateIsSkippedForSshAndFtp(): void
     {
         $this->site($this->cust, 'shop.test');
         $this->agent->fail('account.suspend', 400, 'invalid_params', 'www-data is not a website account');

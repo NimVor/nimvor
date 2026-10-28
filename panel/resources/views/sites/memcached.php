@@ -4,7 +4,7 @@
  * local, unauthenticated cache, so this page is informational — there is no
  * per-site isolation to manage and no global flush from here.
  *
- * @var \WhaCP\View\View $this
+ * @var \NimVor\View\View $this
  * @var array<string, mixed> $site
  * @var array<string, mixed>|null $status
  */
@@ -24,7 +24,7 @@ $running = $installed && !empty($status['active']) && empty($status['error']);
 <p class="small text-body-secondary">Memcached is a fast in-memory cache your application can use (for sessions, query caches and the like). It runs locally on this server and is shared by the sites hosted here.</p>
 
 <?php if (!$installed): ?>
-    <div class="card"><div class="wcp-empty-state">
+    <div class="card"><div class="nim-empty-state">
         <i class="bi bi-hdd-stack" aria-hidden="true"></i>
         <div class="fw-medium">Memcached is not available on this server</div>
         <div class="small">Ask your administrator to enable Memcached if your application needs it.</div>
@@ -32,7 +32,7 @@ $running = $installed && !empty($status['active']) && empty($status['error']);
     <?php return; ?>
 <?php endif; ?>
 
-<div class="wcp-infobar mb-3">
+<div class="nim-infobar mb-3">
     <i class="bi bi-hdd-stack" aria-hidden="true"></i>
     <span class="me-auto">Memcached is <strong><?= $running ? 'running' : 'not running' ?></strong>.</span>
     <?= $running ? $this->statusBadge('active', 'running') : $this->statusBadge('failed', 'stopped') ?>

@@ -29,7 +29,7 @@ func TestRaceTOCTOUFileManager(t *testing.T) {
 
 	// The victims outside the website.
 	secret := filepath.Join(h.Base, "etc/secret") // seeded by setup: mode 0600, "root only"
-	outside := filepath.Join(h.Base, "home/whacp/other.test")
+	outside := filepath.Join(h.Base, "home/nimvor/other.test")
 	os.MkdirAll(outside, 0o755)
 	os.WriteFile(filepath.Join(outside, "data.txt"), []byte("other-site-data"), 0o600)
 

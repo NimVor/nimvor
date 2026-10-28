@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\SettingsService;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\SettingsService;
+use NimVor\Services\WebsiteService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /**
  * Hosting-customer fixes: automatic backups are the administrator's, DNS
@@ -40,7 +40,7 @@ final class HostingFixesTest extends HttpTestCase
 
     private function switchTo(string $user): void
     {
-        $this->session = new \WhaCP\Http\Session\ArraySession();
+        $this->session = new \NimVor\Http\Session\ArraySession();
         $this->app = $this->makeApp();
         $this->login($user);
     }
@@ -77,7 +77,7 @@ final class HostingFixesTest extends HttpTestCase
         $this->agent->succeed('dns.status', ['installed' => true, 'configured' => true, 'running' => true, 'zones' => []]);
         $this->agent->succeed('dns.zone_apply', ['serial' => 2026090101, 'loaded' => true]);
         $this->agent->succeed('mail.status', ['installed' => ['postfix' => true], 'configured' => true, 'hostname' => 'mail.host.test', 'running' => ['postfix' => true], 'mailboxes' => []]);
-        $this->agent->succeed('mail.domain_add', ['domain' => 'shop.test', 'dkim_selector' => 'whacp202609', 'dkim_txt' => 'v=DKIM1; k=rsa; p=MIIB']);
+        $this->agent->succeed('mail.domain_add', ['domain' => 'shop.test', 'dkim_selector' => 'nimvor202609', 'dkim_txt' => 'v=DKIM1; k=rsa; p=MIIB']);
 
         $this->login('admin');
         $this->post('/dns/zones', ['website_id' => (string) $this->siteId, 'template' => '1']);
@@ -110,7 +110,7 @@ final class HostingFixesTest extends HttpTestCase
     {
         $this->app->container->get(SettingsService::class)->update(['dns_nameservers' => 'ns1.host.test', 'dns_default_ipv4' => '203.0.113.10'], null);
         $this->agent->succeed('dns.zone_apply', ['serial' => 2026090101, 'loaded' => true]);
-        $this->agent->succeed('mail.domain_add', ['domain' => 'x', 'dkim_selector' => 'whacp202609', 'dkim_txt' => 'v=DKIM1; k=rsa; p=MIIB']);
+        $this->agent->succeed('mail.domain_add', ['domain' => 'x', 'dkim_selector' => 'nimvor202609', 'dkim_txt' => 'v=DKIM1; k=rsa; p=MIIB']);
         $this->login('admin');
         // The administrator types the domain on the DNS and Email pages
         // without choosing the website.
@@ -203,7 +203,7 @@ final class HostingFixesTest extends HttpTestCase
         $this->login('cust');
         $page = $this->request('GET', '/databases')->body();
         self::assertStringNotContainsString('value="any"', $page, 'no remote choice offered');
-        self::assertStringNotContainsString('data-wcp-remote', $page);
+        self::assertStringNotContainsString('data-nim-remote', $page);
         $before = $this->calls('db.user_create');
         $this->post('/database-users', ['username' => 'far', 'host_choice' => 'any', 'return_to' => '/databases']);
         self::assertSame($before, $this->calls('db.user_create'), 'refused');
@@ -251,8 +251,8 @@ final class HostingFixesTest extends HttpTestCase
         self::assertStringContainsString('/databases/' . $mine . '/import', $this->request('GET', '/sites/' . $this->siteId . '/databases')->body());
 
         // An upload the panel named is removed afterwards; any other file is not.
-        $this->post('/databases/' . $mine . '/import', ['path' => 'tmp/whacp-import-abcdefghij012345.sql', 'uploaded' => '1']);
-        self::assertSame(['name' => 'cust_shop', 'domain' => 'shop.test', 'path' => 'tmp/whacp-import-abcdefghij012345.sql', 'remove_after' => true], $this->lastCall('db.import_site'));
+        $this->post('/databases/' . $mine . '/import', ['path' => 'tmp/nimvor-import-abcdefghij012345.sql', 'uploaded' => '1']);
+        self::assertSame(['name' => 'cust_shop', 'domain' => 'shop.test', 'path' => 'tmp/nimvor-import-abcdefghij012345.sql', 'remove_after' => true], $this->lastCall('db.import_site'));
         self::assertSame('dddddddddddddddd', $this->flash('job'));
         $this->post('/databases/' . $mine . '/import', ['path' => 'backups/site.sql.gz', 'uploaded' => '1']);
         self::assertFalse($this->lastCall('db.import_site')['remove_after'], 'only the panel\'s own upload is removed');
@@ -268,10 +268,10 @@ final class HostingFixesTest extends HttpTestCase
 
     public function testCronRunsAreParsedFromTheLog(): void
     {
-        $log = "old output\n### whacp-run start 2026-09-27T10:00:00Z\nhello\n### whacp-run end 2026-09-27T10:00:05Z exit=0\n"
-            . "### whacp-run start 2026-09-27T11:00:00Z manual\nboom\nline 2\n### whacp-run end 2026-09-27T11:02:00Z exit=3\n"
-            . "### whacp-run start 2026-09-27T12:00:00Z\nstill going\n";
-        $runs = \WhaCP\Services\CronService::parseRuns($log);
+        $log = "old output\n### nimvor-run start 2026-09-27T10:00:00Z\nhello\n### nimvor-run end 2026-09-27T10:00:05Z exit=0\n"
+            . "### nimvor-run start 2026-09-27T11:00:00Z manual\nboom\nline 2\n### nimvor-run end 2026-09-27T11:02:00Z exit=3\n"
+            . "### nimvor-run start 2026-09-27T12:00:00Z\nstill going\n";
+        $runs = \NimVor\Services\CronService::parseRuns($log);
         self::assertCount(4, $runs);
         self::assertSame(['start' => '2026-09-27T12:00:00Z', 'end' => null, 'exit' => null, 'manual' => false, 'output' => 'still going'], $runs[0], 'newest first, unfinished');
         self::assertSame(['start' => '2026-09-27T11:00:00Z', 'end' => '2026-09-27T11:02:00Z', 'exit' => 3, 'manual' => true, 'output' => "boom\nline 2"], $runs[1]);
@@ -295,12 +295,12 @@ final class HostingFixesTest extends HttpTestCase
         $this->post($base, ['job_id' => (string) $job, 'schedule' => '@hourly', 'command' => 'php x.php', 'enabled' => '1', 'email_output' => '0']);
         self::assertSame('', $this->lastCall('cron.apply')['jobs'][0]['email']);
 
-        $this->agent->succeed('cron.log', ['content' => "### whacp-run start 2026-09-27T10:00:00Z\nDone <b>\n### whacp-run end 2026-09-27T10:01:30Z exit=0\n", 'size' => 90, 'truncated' => false]);
+        $this->agent->succeed('cron.log', ['content' => "### nimvor-run start 2026-09-27T10:00:00Z\nDone <b>\n### nimvor-run end 2026-09-27T10:01:30Z exit=0\n", 'size' => 90, 'truncated' => false]);
         $page = $this->request('GET', $base . '/' . $job . '/log')->body();
         foreach (['2026-09-27 10:00:00 UTC', '1 min 30 s', 'Success', 'Scheduled', 'Done &lt;b&gt;'] as $want) {
             self::assertStringContainsString($want, $page, $want);
         }
-        self::assertSame(['domain' => 'shop.test', 'root' => '/home/whacp/shop.test', 'id' => $job], $this->lastCall('cron.log'));
+        self::assertSame(['domain' => 'shop.test', 'root' => '/home/nimvor/shop.test', 'id' => $job], $this->lastCall('cron.log'));
         // Not for another customer's website.
         $this->switchTo('mallory');
         self::assertSame(404, $this->request('GET', $base . '/' . $job . '/log')->status());

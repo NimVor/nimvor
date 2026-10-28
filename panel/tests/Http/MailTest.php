@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\SettingsService;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\SettingsService;
+use NimVor\Services\WebsiteService;
+use NimVor\Tests\Support\HttpTestCase;
 
 final class MailTest extends HttpTestCase
 {
@@ -27,7 +27,7 @@ final class MailTest extends HttpTestCase
         $this->otherId = $sites->create(['domain' => 'other.test', 'kind' => 'static'], (array) $users->find($admin));
         $this->db = $this->app->container->get(Connection::class);
         $this->agent->succeed('mail.status', ['installed' => ['postfix' => true, 'dovecot' => true, 'imap' => true, 'lmtp' => true, 'opendkim' => true], 'configured' => true, 'hostname' => 'mail.host.test', 'running' => ['postfix' => true, 'dovecot' => true, 'opendkim' => true], 'domains' => [], 'mailboxes' => [['address' => 'info@shop.test', 'quota_mb' => 500, 'bytes' => 2048]], 'aliases' => []]);
-        $this->agent->succeed('mail.domain_add', ['domain' => 'shop.test', 'dkim_selector' => 'whacp202609', 'dkim_txt' => 'v=DKIM1; k=rsa; p=MIIBIjAN']);
+        $this->agent->succeed('mail.domain_add', ['domain' => 'shop.test', 'dkim_selector' => 'nimvor202609', 'dkim_txt' => 'v=DKIM1; k=rsa; p=MIIBIjAN']);
         $this->agent->succeed('mail.mailbox_save', ['created' => true]);
         $this->agent->succeed('mail.mailbox_delete', ['deleted' => true]);
         $this->agent->succeed('mail.alias_save', ['ok' => true]);
@@ -37,7 +37,7 @@ final class MailTest extends HttpTestCase
 
     private function switchTo(string $user): void
     {
-        $this->session = new \WhaCP\Http\Session\ArraySession();
+        $this->session = new \NimVor\Http\Session\ArraySession();
         $this->app = $this->makeApp();
         $this->login($user);
     }
@@ -50,7 +50,7 @@ final class MailTest extends HttpTestCase
         $id = (int) $this->db->scalar("SELECT id FROM mail_domains WHERE domain = 'shop.test'");
         self::assertSame('/mail/domains/' . $id, $res->header('Location'));
         $page = $this->request('GET', '/mail/domains/' . $id)->body();
-        foreach (['whacp202609._domainkey', 'v=DKIM1; k=rsa; p=MIIBIjAN', 'mail.host.test.', 'v=spf1 a mx ~all', 'v=DMARC1'] as $want) {
+        foreach (['nimvor202609._domainkey', 'v=DKIM1; k=rsa; p=MIIBIjAN', 'mail.host.test.', 'v=spf1 a mx ~all', 'v=DMARC1'] as $want) {
             self::assertStringContainsString($want, $page);
         }
 
@@ -118,7 +118,7 @@ final class MailTest extends HttpTestCase
         self::assertStringContainsString('added', (string) $this->flash('success'));
         $records = array_map(static fn (array $r): string => $r['name'] . ' ' . $r['type'] . ' ' . $r['value'], $this->lastCall('dns.zone_apply')['records']);
         self::assertContains('@ MX mail.host.test.', $records);
-        self::assertContains('whacp202609._domainkey TXT v=DKIM1; k=rsa; p=MIIBIjAN', $records);
+        self::assertContains('nimvor202609._domainkey TXT v=DKIM1; k=rsa; p=MIIBIjAN', $records);
         self::assertSame(1, count(array_filter($records, static fn (string $r): bool => str_contains($r, 'v=spf1'))), 'the template SPF record is kept, not duplicated');
         // Publishing again adds nothing.
         $calls = $this->calls('dns.zone_apply');

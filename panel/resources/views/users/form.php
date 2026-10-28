@@ -1,5 +1,5 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var array<string, mixed>|null $editUser */
 $isNew = $editUser === null;
 $val = static fn (string $k, mixed $default = '') => $old[$k] ?? ($editUser[$k] ?? $default);
@@ -13,7 +13,7 @@ $active = $isNew ? ($old['is_active'] ?? '1') === '1' : (isset($old['is_active']
     <div class="col-lg-7 col-xl-6">
         <div class="card">
             <div class="card-body">
-                <form method="post" action="<?= e($isNew ? $this->url('users.store') : $this->url('users.update', ['id' => (int) $editUser['id']])) ?>" data-wcp-busy novalidate>
+                <form method="post" action="<?= e($isNew ? $this->url('users.store') : $this->url('users.update', ['id' => (int) $editUser['id']])) ?>" data-nim-busy novalidate>
                     <?= $this->csrfField() ?>
                     <?php if ($isNew): ?>
                         <?= $this->partial('partials/field', ['name' => 'username', 'label' => 'Username', 'type' => 'text', 'value' => (string) $val('username'), 'help' => '3–32 characters: lowercase letters, digits, dot, dash, underscore.', 'attrs' => ['required' => 'required', 'autocomplete' => 'off', 'maxlength' => '32']]) ?>
@@ -68,7 +68,7 @@ $active = $isNew ? ($old['is_active'] ?? '1') === '1' : (isset($old['is_active']
                 <div class="card-body small">
                     <?php if (!empty($twoFactor)): ?>
                         <p>On since <?= e(substr((string) $twoFactor['enabled_at'], 0, 10)) ?> · <?= (int) $twoFactor['recovery_left'] ?> recovery codes left.</p>
-                        <form method="post" action="<?= e($this->url('users.2fa.reset', ['id' => $editUser['id']])) ?>" data-wcp-confirm="Turn off two-factor sign-in for <?= e($editUser['username']) ?>? Do this only after confirming their identity, e.g. when they lost their phone and recovery codes.">
+                        <form method="post" action="<?= e($this->url('users.2fa.reset', ['id' => $editUser['id']])) ?>" data-nim-confirm="Turn off two-factor sign-in for <?= e($editUser['username']) ?>? Do this only after confirming their identity, e.g. when they lost their phone and recovery codes.">
                             <?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger">Reset two-factor sign-in</button>
                         </form>
                     <?php else: ?>
@@ -77,22 +77,22 @@ $active = $isNew ? ($old['is_active'] ?? '1') === '1' : (isset($old['is_active']
                 </div>
             </div>
     <?php endif; ?>
-    <?php if (!$isNew && ($editUser['role_scope'] ?? 'all') === 'own' && $this->serverScope() && $this->can(\WhaCP\Security\Permissions::USERS_MANAGE)): $own = $editUser['suspended_at'] !== null; ?>
+    <?php if (!$isNew && ($editUser['role_scope'] ?? 'all') === 'own' && $this->serverScope() && $this->can(\NimVor\Security\Permissions::USERS_MANAGE)): $own = $editUser['suspended_at'] !== null; ?>
             <div class="card mb-3<?= !empty($editUser['suspended']) ? ' border-danger' : '' ?>" id="account-suspension">
                 <div class="card-header"><i class="bi bi-pause-circle me-1"></i>Account status</div>
                 <div class="card-body small">
                     <?php if ($own): ?>
-                        <p class="mb-2"><span class="wcp-state is-error">Suspended</span> since <?= e(str_replace('T', ' ', substr((string) $editUser['suspended_at'], 0, 16))) ?> UTC<?= $editUser['suspend_reason'] !== '' ? ' — ' . e($editUser['suspend_reason']) : '' ?></p>
-                        <form method="post" action="<?= e($this->url('users.unsuspend', ['id' => (int) $editUser['id']])) ?>" data-wcp-busy data-wcp-confirm="Resume <?= e($editUser['username']) ?>? Its websites, email, databases, FTP/SFTP, cron jobs and workers are turned back on<?= $editUser['role_name'] === 'reseller' ? ', for its customers too (except customers suspended on their own)' : '' ?>.">
+                        <p class="mb-2"><span class="nim-state is-error">Suspended</span> since <?= e(str_replace('T', ' ', substr((string) $editUser['suspended_at'], 0, 16))) ?> UTC<?= $editUser['suspend_reason'] !== '' ? ' — ' . e($editUser['suspend_reason']) : '' ?></p>
+                        <form method="post" action="<?= e($this->url('users.unsuspend', ['id' => (int) $editUser['id']])) ?>" data-nim-busy data-nim-confirm="Resume <?= e($editUser['username']) ?>? Its websites, email, databases, FTP/SFTP, cron jobs and workers are turned back on<?= $editUser['role_name'] === 'reseller' ? ', for its customers too (except customers suspended on their own)' : '' ?>.">
                             <?= $this->csrfField() ?><button class="btn btn-sm btn-success"><i class="bi bi-play-circle me-1"></i>Unsuspend</button>
                         </form>
-                        <form class="mt-2" method="post" action="<?= e($this->url('users.suspend', ['id' => (int) $editUser['id']])) ?>" data-wcp-busy>
+                        <form class="mt-2" method="post" action="<?= e($this->url('users.suspend', ['id' => (int) $editUser['id']])) ?>" data-nim-busy>
                             <?= $this->csrfField() ?><input type="hidden" name="reason" value="<?= e($editUser['suspend_reason']) ?>"><button class="btn btn-sm btn-link p-0">Apply the suspension again (retry services that failed)</button>
                         </form>
                     <?php elseif (!empty($editUser['suspended'])): ?>
-                        <p class="mb-0"><span class="wcp-state is-error">Suspended</span> through its reseller.</p>
+                        <p class="mb-0"><span class="nim-state is-error">Suspended</span> through its reseller.</p>
                     <?php else: ?>
-                        <p class="mb-2"><span class="wcp-state is-ok">Active</span></p>
+                        <p class="mb-2"><span class="nim-state is-ok">Active</span></p>
                         <button class="btn btn-sm btn-outline-danger" type="button" data-bs-toggle="modal" data-bs-target="#suspend-modal"><i class="bi bi-pause-circle me-1"></i>Suspend account</button>
                     <?php endif; ?>
                 </div>
@@ -100,7 +100,7 @@ $active = $isNew ? ($old['is_active'] ?? '1') === '1' : (isset($old['is_active']
             <?php if (!$own && empty($editUser['suspended'])): ?>
             <div class="modal fade" id="suspend-modal" tabindex="-1" aria-labelledby="suspend-title" aria-hidden="true">
                 <div class="modal-dialog">
-                    <form class="modal-content" method="post" action="<?= e($this->url('users.suspend', ['id' => (int) $editUser['id']])) ?>" data-wcp-busy>
+                    <form class="modal-content" method="post" action="<?= e($this->url('users.suspend', ['id' => (int) $editUser['id']])) ?>" data-nim-busy>
                         <?= $this->csrfField() ?>
                         <div class="modal-header"><h2 class="modal-title fs-5" id="suspend-title">Suspend <?= e($editUser['username']) ?></h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
                         <div class="modal-body small">
@@ -139,14 +139,14 @@ $active = $isNew ? ($old['is_active'] ?? '1') === '1' : (isset($old['is_active']
                     </table></div>
                     <div class="card-footer d-flex flex-wrap gap-2">
                         <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#limits-modal"><i class="bi bi-pencil me-1"></i>Override limits</button>
-                        <form method="post" action="<?= e($this->url('users.bandwidth.reset', ['id' => (int) $editUser['id']])) ?>" data-wcp-confirm="Reset <?= e($editUser['username']) ?>'s bandwidth for this month to 0? Earlier months are not affected."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary">Reset this month's bandwidth</button></form>
+                        <form method="post" action="<?= e($this->url('users.bandwidth.reset', ['id' => (int) $editUser['id']])) ?>" data-nim-confirm="Reset <?= e($editUser['username']) ?>'s bandwidth for this month to 0? Earlier months are not affected."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary">Reset this month's bandwidth</button></form>
                     </div>
                 <?php endif; ?>
             </div>
             <?php if ($hasPlan): ?>
             <div class="modal fade" id="limits-modal" tabindex="-1" aria-labelledby="limits-title" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-scrollable">
-                    <form class="modal-content" method="post" action="<?= e($this->url('users.limits', ['id' => (int) $editUser['id']])) ?>" data-wcp-busy>
+                    <form class="modal-content" method="post" action="<?= e($this->url('users.limits', ['id' => (int) $editUser['id']])) ?>" data-nim-busy>
                         <?= $this->csrfField() ?>
                         <div class="modal-header"><h2 class="modal-title fs-5" id="limits-title">Limits of <?= e($editUser['username']) ?></h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
                         <div class="modal-body small">
@@ -154,7 +154,7 @@ $active = $isNew ? ($old['is_active'] ?? '1') === '1' : (isset($old['is_active']
                             <?php foreach ($limitRows as $r): ?>
                                 <div class="row g-2 align-items-center mb-2">
                                     <label class="col-7 col-form-label col-form-label-sm" for="lim-<?= e($r['column']) ?>"><?= e($r['label']) ?> <span class="text-body-secondary">(plan: <?= e($fmtL($r['plan'])) ?>)</span></label>
-                                    <div class="col-5"><input class="form-control form-control-sm" type="number" min="0" max="<?= \WhaCP\Services\AccountAdminService::MAX_VALUE ?>" step="1" id="lim-<?= e($r['column']) ?>" name="limits[<?= e($r['column']) ?>]" value="<?= $r['override'] === null ? '' : (int) $r['override'] ?>" placeholder="plan"></div>
+                                    <div class="col-5"><input class="form-control form-control-sm" type="number" min="0" max="<?= \NimVor\Services\AccountAdminService::MAX_VALUE ?>" step="1" id="lim-<?= e($r['column']) ?>" name="limits[<?= e($r['column']) ?>]" value="<?= $r['override'] === null ? '' : (int) $r['override'] ?>" placeholder="plan"></div>
                                 </div>
                             <?php endforeach; ?>
                         </div>
@@ -168,7 +168,7 @@ $active = $isNew ? ($old['is_active'] ?? '1') === '1' : (isset($old['is_active']
             <div class="card mb-3" id="hosting-options">
                 <div class="card-header"><i class="bi bi-sliders me-1"></i>Hosting options</div>
                 <div class="card-body small">
-                    <form method="post" action="<?= e($this->url('users.options', ['id' => (int) $editUser['id']])) ?>" data-wcp-busy>
+                    <form method="post" action="<?= e($this->url('users.options', ['id' => (int) $editUser['id']])) ?>" data-nim-busy>
                         <?= $this->csrfField() ?>
                         <div class="fw-semibold mb-1">DNS for new websites</div>
                         <?= $sw('dns_dkim', 'DKIM') . $sw('dns_spf', 'SPF') . $sw('dns_dmarc', 'DMARC (needs DKIM and SPF)') . $sw('dns_registrar_ns', 'Use the registrar\'s name servers (no zone here)') . $sw('dns_overwrite', 'Overwrite an existing zone') ?>

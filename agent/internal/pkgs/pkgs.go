@@ -1,6 +1,6 @@
 // Package pkgs installs, lists and updates distribution packages with the
 // system's package manager: apt on Debian and Ubuntu, dnf on AlmaLinux,
-// Rocky Linux and RHEL. Callers use WhaCP's (Debian) package names; the
+// Rocky Linux and RHEL. Callers use NimVor's (Debian) package names; the
 // platform maps them.
 package pkgs
 
@@ -15,9 +15,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
 // Upgrade is one pending update.
@@ -56,7 +56,7 @@ func Available(env *host.Env) bool {
 	return env.Runner.Available("apt-get")
 }
 
-// Install refreshes the package lists and installs packages (WhaCP names),
+// Install refreshes the package lists and installs packages (NimVor names),
 // streaming the output to log. Configuration files already present are
 // kept.
 func Install(ctx context.Context, env *host.Env, log io.Writer, names []string) error {
@@ -164,7 +164,7 @@ func ExtraRemovals(simulation string, asked []string) []string {
 	return extra
 }
 
-// Installed returns WhaCP name → version for installed packages among names.
+// Installed returns NimVor name → version for installed packages among names.
 func Installed(ctx context.Context, env *host.Env, names []string) map[string]string {
 	return installed(ctx, env, names, false)
 }

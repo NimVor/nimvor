@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/execx"
 )
 
 // TestAdminPasswordAndAuthToggle covers the guarded authentication flow: set an
@@ -39,7 +39,7 @@ func TestAdminPasswordAndAuthToggle(t *testing.T) {
 		t.Fatalf("admin script not fed on stdin: %v", h.Runner.Stdins)
 	}
 	uri := strings.TrimSpace(readHostFile(t, h, AdminURIFile))
-	if !strings.Contains(uri, "whacpAdmin:s3cr3t-admin-pw@127.0.0.1:27017") || !strings.Contains(uri, "authSource=admin") {
+	if !strings.Contains(uri, "nimvorAdmin:s3cr3t-admin-pw@127.0.0.1:27017") || !strings.Contains(uri, "authSource=admin") {
 		t.Fatalf("admin URI: %q", uri)
 	}
 	for _, c := range h.Runner.Calls {

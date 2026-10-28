@@ -240,7 +240,7 @@ func RenderSieve(address string, filters []Filter, r *Responder) string {
 			exts = append(exts, sieveString(x))
 		}
 	}
-	head := "# Managed by WhaCP (email filters and autoresponder). Do not edit: changes are overwritten.\n"
+	head := "# Managed by NimVor (email filters and autoresponder). Do not edit: changes are overwritten.\n"
 	if exts != nil {
 		head += "require [" + strings.Join(exts, ", ") + "];\n"
 	}

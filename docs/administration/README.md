@@ -23,10 +23,10 @@ whole group.
 Built-in roles can be changed too (Operator, Viewer, Reseller, Hosting
 customer):
 
-- The change is kept when WhaCP is updated. The role shows *changed*.
+- The change is kept when NimVor is updated. The role shows *changed*.
 - If an update adds default permissions the role lacks, the editor lists
   them.
-- **Reset to WhaCP defaults** brings back the defaults.
+- **Reset to NimVor defaults** brings back the defaults.
 
 Three limits keep this safe:
 
@@ -41,7 +41,7 @@ Three limits keep this safe:
   because they would reach beyond the account's own objects.
 
 Permissions are defined in code (`panel/app/Security/Permissions.php`) and
-synchronised into the database by `bin/whacp migrate`. At least one active
+synchronised into the database by `bin/nimvor migrate`. At least one active
 administrator must always exist: the panel refuses to delete, disable or
 demote the last one. Users cannot delete or disable themselves.
 
@@ -60,7 +60,7 @@ demote the last one. Users cannot delete or disable themselves.
   are shown once. Five wrong codes end the attempt and count towards the
   sign-in throttle. Administrators can reset a user's two-factor sign-in on
   the user's edit page (after verifying who is asking), or with
-  `bin/whacp user:2fa-reset <username>`.
+  `bin/nimvor user:2fa-reset <username>`.
 - **Security keys and passkeys (WebAuthn):** under *Profile → Security keys*
   a user adds hardware keys (YubiKey, Titan…) or platform passkeys; up to
   ten per user. A key counts as two-factor sign-in, also for roles that
@@ -79,7 +79,7 @@ whether or not the account exists; the link is single-use, valid for 30
 minutes, limited to three per account and ten per address per hour, and
 never built from the request's host name. Two-factor sign-in is still
 required afterwards. Without email, reset passwords with
-`bin/whacp user:password`.
+`bin/nimvor user:password`.
 
 ## Email
 
@@ -93,13 +93,13 @@ checks the settings.
 
 | Setting | Default | Notes |
 |---------|---------|-------|
-| Panel name | WhaCP | header and title |
+| Panel name | NimVor | header and title |
 | Session idle timeout | 30 min | 5–1440 |
 | Discovery cache | 300 s | 0 = always ask the agent |
 | Dashboard refresh | 10 s | 3–300 |
 | Certificate warning | 14 days | highlight threshold |
 
-Infrastructure settings (paths, cookies, proxies) are in `/etc/whacp/panel.php`.
+Infrastructure settings (paths, cookies, proxies) are in `/etc/nimvor/panel.php`.
 
 ### Basic WebHost Settings
 
@@ -160,7 +160,7 @@ result, IP, user agent and redacted details. Filter by action prefix
 (e.g. `user.`), user, result or free text.
 
 The scheduler keeps the audit log for 365 days; set
-`'audit' => ['retention_days' => N]` in `/etc/whacp/panel.php` to change
+`'audit' => ['retention_days' => N]` in `/etc/nimvor/panel.php` to change
 that (`0` keeps it forever). Each removal is itself recorded
 (`audit.pruned`, with the count). Job history is kept 90 days after a job
 finished, deployment history 90 days (always the latest 20 per website).
@@ -211,17 +211,17 @@ server configuration changed.
 ## CLI
 
 ```bash
-export WHACP_CONFIG=/etc/whacp/panel.php
-sudo -u whacp -E php /opt/whacp/panel/bin/whacp migrate
-sudo -u whacp -E php /opt/whacp/panel/bin/whacp user:create alice alice@example.com --role=operator
-sudo -u whacp -E php /opt/whacp/panel/bin/whacp user:password alice
-sudo -u whacp -E php /opt/whacp/panel/bin/whacp user:2fa-reset alice
-sudo -u whacp -E php /opt/whacp/panel/bin/whacp user:verify-ip alice 203.0.113.5
-sudo -u whacp -E php /opt/whacp/panel/bin/whacp hulk:unblock 203.0.113.5
-sudo -u whacp -E php /opt/whacp/panel/bin/whacp agent:check
-sudo -u whacp -E php /opt/whacp/panel/bin/whacp discovery:run
-sudo -u whacp -E php /opt/whacp/panel/bin/whacp schedule:run   # normally run by whacp-scheduler.timer
-sudo -u whacp -E php /opt/whacp/panel/bin/whacp doctor
+export NIMVOR_CONFIG=/etc/nimvor/panel.php
+sudo -u nimvor -E php /opt/nimvor/panel/bin/nimvor migrate
+sudo -u nimvor -E php /opt/nimvor/panel/bin/nimvor user:create alice alice@example.com --role=operator
+sudo -u nimvor -E php /opt/nimvor/panel/bin/nimvor user:password alice
+sudo -u nimvor -E php /opt/nimvor/panel/bin/nimvor user:2fa-reset alice
+sudo -u nimvor -E php /opt/nimvor/panel/bin/nimvor user:verify-ip alice 203.0.113.5
+sudo -u nimvor -E php /opt/nimvor/panel/bin/nimvor hulk:unblock 203.0.113.5
+sudo -u nimvor -E php /opt/nimvor/panel/bin/nimvor agent:check
+sudo -u nimvor -E php /opt/nimvor/panel/bin/nimvor discovery:run
+sudo -u nimvor -E php /opt/nimvor/panel/bin/nimvor schedule:run   # normally run by nimvor-scheduler.timer
+sudo -u nimvor -E php /opt/nimvor/panel/bin/nimvor doctor
 ```
 
 ## Navigation and dashboards
@@ -281,12 +281,69 @@ Administrators see the same cards through the cards/list switch on
 Opening a website shows its details (site user, root directory, IPv4,
 PHP handler and version, site and database size, SSL, last backup) and
 **Site managing**: tiles for FTP accounts, Files, Databases, Domains (DNS),
-SSL, Scheduler (cron), Mail, Backup copies, Site access (SFTP), Settings,
-PHP settings, Applications, Git, Workers, Redis, Logs, Statistics,
+SSL, Scheduler (cron), Mail, Backup copies, Site access (SFTP), Headers & cache, Settings,
+PHP settings, Redirects, Applications, Git, Workers, Redis, Logs, Statistics,
 Subdomains, Addon domains and Manual settings (Advanced), plus
 **Search…** (press `/`). *Delete the website* leads to the typed
-confirmation under Advanced; *Disable the website* asks first.
+confirmation under Advanced and removes everything that belongs to the
+website: its databases (and the database users only they used), its email
+domain with all mailboxes and aliases, cron jobs, workers and statistics. The
+system user stays unless its option is ticked, and if one removal fails the
+website is left in place. *Disable the website* asks first.
 Administrators also have the website's menu in the sidebar.
+
+**Redirects** (website → *Redirects*) lists the website's redirects, one record
+each, with *Add redirect* (a window asking for the type — permanent 301 or
+temporary 302 —, the address to redirect and where it goes) and *Delete*.
+A redirect matches that exact address; each is checked (no loops, no duplicates,
+at most 100) and applied with the website's configuration, which is undone if the
+agent refuses it. **PHP settings** holds everything PHP: the PHP version, the
+process limits and security profile, and the website's own `php.ini` directives.
+**Settings** keeps domains, application type, the document root and request
+limits.
+
+### Security headers and cache rules (per website)
+
+**Headers & cache** (website → *Headers & cache*, permission
+`websites.manage`; the owner of a website or an administrator) lets the owner
+choose, per website, which security headers browsers receive and how they may
+cache the website. It is the only place customers influence Nginx
+configuration, and they never write directives: every setting is a choice from
+a fixed list or a value checked against a strict grammar, rendered by NimVor's
+own template. The agent checks the same rules again, runs `nginx -t` and keeps
+the previous working file if anything fails; the panel keeps the previous
+choices too.
+
+Security headers: framing protection (`X-Frame-Options` together with CSP
+`frame-ancestors`: off, same origin, deny, or a list of https:// sites),
+Content Security Policy (validated directive and source grammar, optional
+report-only mode, no `frame-ancestors`, which the framing option owns),
+Referrer-Policy presets, Permissions-Policy presets or validated custom
+directives, and HSTS (lifetime, include subdomains, preload). HSTS is
+available only for a website with a certificate and plain HTTP redirected to
+HTTPS, and is dropped from the configuration if that stops being true.
+`X-Content-Type-Options: nosniff` is always sent by the server and is not a
+setting. Saving a headers policy replaces the older "recommended security
+headers" switch and HSTS flag of the SSL page, so no header is sent twice.
+
+Cache rules: a browser-cache lifetime for static assets (`expires`, 1 minute
+to 1 year), a policy for application-generated pages (leave to the
+application — the default —, always revalidate, never store, or a short public
+cache of 30 seconds to 1 hour) and extra paths that are never cached
+publicly. Whenever a cache rule applies, these always get
+`Cache-Control: private, no-store`, whatever the website chooses: sign-in and
+administration paths, accounts, carts and checkouts, API endpoints, requests
+with an `Authorization` header or a session/sign-in cookie, responses that set
+a cookie, and every request other than GET and HEAD. A `Cache-Control` the
+application sends itself is never doubled or overridden for ordinary pages.
+This is browser/HTTP cache policy; NimVor does not run a shared server-side
+page cache.
+
+*Restore defaults* removes the saved choices of a section. Server-level rules
+(sensitive-file blocking, PHP restrictions, request limits, ModSecurity, site
+passwords) are separate and are not affected. Implementation:
+`agent/internal/sites/webpolicy.go` (grammar and rendering),
+`panel/app/Services/WebPolicyService.php`, migration `0062_web_policy`.
 
 **Advanced** holds the server details (system user, folders, PHP-FPM
 limits, generated Nginx configuration, recent tasks) and the Danger
@@ -311,7 +368,7 @@ such as `…/databases#new-database`, and again after a validation error).
   gives an existing user another host: a separate login with a new
   password, shown once, and the same database access. Remote connections
   also need MariaDB/MySQL to listen on the network (`bind-address`) and
-  port 3306 open in the firewall; WhaCP does not change either. Users are
+  port 3306 open in the firewall; NimVor does not change either. Users are
   assigned to the account's databases with *Assign to database*.
 - **SQL import:** each website database has an Import action. It uploads
   a `.sql` or `.sql.gz` file into the website's `tmp/` folder (removed
@@ -332,8 +389,8 @@ such as `…/databases#new-database`, and again after a validation error).
   uses it.
 - **Statistics:** install AWStats under Packages. Each website turns it
   on under Statistics. AWStats then runs every 6 hours as the website's
-  account (`/etc/cron.d/whacp-awstats-*`, configuration in
-  `/etc/awstats/awstats.whacp-<domain>.conf`) and keeps its data in
+  account (`/etc/cron.d/nimvor-awstats-*`, configuration in
+  `/etc/awstats/awstats.nimvor-<domain>.conf`) and keeps its data in
   `<website>/.awstats`. The panel draws the report (visitors, pages, days,
   hours, referrers, search engines, browsers, systems, countries, errors)
   from AWStats' data file; AWStats' own HTML is not shown.
@@ -342,7 +399,7 @@ such as `…/databases#new-database`, and again after a validation error).
   scan. Scans run `clamscan` as the website's account, so they read only
   what that account can read; files it cannot read are counted as errors.
   With quarantine on, infected files move to
-  `<website>/.whacp-quarantine/<time>/` with mode 0000, and the owner can
+  `<website>/.nimvor-quarantine/<time>/` with mode 0000, and the owner can
   delete them in the File manager. Owners can also scan their website
   from its Malware scan page.
 
@@ -468,30 +525,30 @@ limited. *Server → Resource limits* lists the limited accounts with their
 current memory use, processes, CPU time lost to the limit and
 out-of-memory kills; *Apply the plans now* re-applies everything.
 
-WhaCP uses systemd and cgroup v2 (Ubuntu 22.04+, Debian 11+, RHEL/AlmaLinux
-9): each limited account gets a slice, `whacp-acct<ID>.slice` (under
-`whacp.slice`), with the plan's limits. It is shared by everything the
+NimVor uses systemd and cgroup v2 (Ubuntu 22.04+, Debian 11+, RHEL/AlmaLinux
+9): each limited account gets a slice, `nimvor-acct<ID>.slice` (under
+`nimvor.slice`), with the plan's limits. It is shared by everything the
 account runs:
 
 - PHP: the account's websites get their own PHP-FPM master per PHP version,
-  `whacp-fpm-<user>-<version>.service` (configuration in
-  `/etc/whacp-fpm/`), which runs in the slice; each PHP process and
+  `nimvor-fpm-<user>-<version>.service` (configuration in
+  `/etc/nimvor-fpm/`), which runs in the slice; each PHP process and
   whatever it starts is counted. Accounts without limits keep using the
   distribution's PHP-FPM service.
 - Cron jobs run through `systemd-run` in the slice, as the account. Root's
-  cron line only names the job's script, `/etc/whacp-cron/…`, which only
+  cron line only names the job's script, `/etc/nimvor-cron/…`, which only
   root and the account can read. Personal crontabs and `at` jobs of limited
   accounts are refused (`/etc/cron.deny`, `/etc/at.deny`), because they
   would run outside the slice.
 - Workers and commands run for the account from the panel (such as
   *Run now*, deployments and installers) run in the slice.
 - SSH and SFTP logins are placed by systemd-logind in `user-<uid>.slice`;
-  WhaCP gives it the same limits (a separate budget from the websites').
+  NimVor gives it the same limits (a separate budget from the websites').
 
 An account cannot leave its slice: moving a process to another cgroup
 needs permissions (cgroup delegation) that accounts do not get. The limits
-are unit files (`/etc/systemd/system/whacp-acct*.slice` and
-`user-*.slice.d/50-whacp-limits.conf`), so they apply after a reboot, and
+are unit files (`/etc/systemd/system/nimvor-acct*.slice` and
+`user-*.slice.d/50-nimvor-limits.conf`), so they apply after a reboot, and
 they are also applied to the running slices at once. They follow the
 account when its plan or the plan's limits change (upgrade or downgrade),
 when websites are added or removed and when it is suspended or restored,
@@ -500,7 +557,7 @@ plans. Removing the limits moves PHP back to the shared service.
 
 Network speed is not limited this way: cgroup v2 has no network
 controller, and shaping by account would need changes to the network
-interface's queueing that WhaCP does not make. The plans' monthly
+interface's queueing that NimVor does not make. The plans' monthly
 bandwidth (data transfer) is enforced instead; see *Plans, limits and
 bandwidth*.
 
@@ -524,7 +581,7 @@ from the checks the panel already has, grouped into sections:
 
 | Section | Checks |
 |---|---|
-| WhaCP and the server | the `bin/whacp doctor` checks: PHP, the panel's files and database, the agent, the scheduler, core services, backups configured |
+| NimVor and the server | the `bin/nimvor doctor` checks: PHP, the panel's files and database, the agent, the scheduler, core services, backups configured |
 | Resources | each disk, memory, swap and load (the Monitoring alert thresholds) |
 | Components | each component this server should have that is not ready |
 | Security | the security audit's failures and high-severity items; other recommendations counted |
@@ -549,7 +606,7 @@ scanner, Let's Encrypt) with every step it needs and a fix per step:
 | Step | Checked | Fix |
 |---|---|---|
 | Packages | its packages are installed | **Install** (the Packages queue; job log) |
-| Set up | WhaCP's setup was done (email, DNS hosting, FTP server) | **Set up** opens that page |
+| Set up | NimVor's setup was done (email, DNS hosting, FTP server) | **Set up** opens that page |
 | Running | its services run | **Start** |
 | Starts at boot | its services are enabled (RHEL packages do not enable them) | **Start at boot** |
 | Ports open | the firewall allows its ports (when the firewall is on) | **Open ports**: all of them in one change, undone after 2 minutes unless you click **Keep change** |
@@ -576,7 +633,7 @@ update packages*), in the manner of cPanel's EasyApache:
    possible* and *no change*. Nothing has changed yet.
 4. **Apply**: one job (see its log). Removals need a tick to confirm. The
    agent computes the plan again when the job starts; a version websites
-   use, and the PHP version WhaCP's panel runs on, are never removed.
+   use, and the PHP version NimVor's panel runs on, are never removed.
    Each version is tested (`php-fpm -t`) and started at boot afterwards.
 
 The applied selection is kept as the server's **PHP profile**: it is the
@@ -620,7 +677,7 @@ means the administrator role.
 ## Server setup
 
 The installer's server profiles (**Full**, **Web only**, **Minimal**; see
-the installation guide) run `bin/whacp setup:apply`, which uses the same
+the installation guide) run `bin/nimvor setup:apply`, which uses the same
 actions as the panel's pages, one step after another: install the
 components' packages, PHP versions and extensions (PHP Manager), email,
 DNS, FTP, a Redis memory limit, start the services and enable them at
@@ -628,7 +685,7 @@ boot, the firewall and the components' ports, firewall protections,
 Fail2ban, hardening, automatic security updates, hosting plans with
 feature lists, weekly backups, and the server profile on the Components
 page. Steps leave alone what is already in place and can run again at any
-time; `bin/whacp setup:status` shows the last run, step by step.
+time; `bin/nimvor setup:status` shows the last run, step by step.
 
 | Plan | Websites | Disk | Email accounts | Databases | Feature list |
 |---|---|---|---|---|---|
@@ -645,7 +702,7 @@ under Plans like any other plan.
 
 All under **Security** in the sidebar (administrators).
 
-- **Firewall**: the page lists the ports WhaCP keeps open. *Turn on
+- **Firewall**: the page lists the ports NimVor keeps open. *Turn on
   firewall* adds allow rules for SSH and the panel's HTTPS port (always),
   the running services' ports (option) and every port from your current
   address (option; it is also added to the cPHulk whitelist), then turns
@@ -661,44 +718,44 @@ All under **Security** in the sidebar (administrators).
   with a TCP reset), new connections per minute per address and port
   (PORTFLOOD) and pings per second per address (ICMP_IN_RATE). Exempt
   addresses skip them (your own is added when you apply). They live in the
-  nftables table `inet whacp_flood`, loaded at boot by
-  `whacp-flood.service` from `/etc/whacp/flood.nft`; it only drops or
+  nftables table `inet nimvor_flood`, loaded at boot by
+  `nimvor-flood.service` from `/etc/nimvor/flood.nft`; it only drops or
   rejects, so it never opens what the firewall closes. Every change is
   undone after 2 minutes unless you click **Keep change**. The page shows
   how many packets each protection dropped since it was loaded.
 - **Configure Security Policies**: *Limit logins to verified IP
-  addresses* (a WhaCP sign-in from a new address needs a 6-digit code sent
+  addresses* (a NimVor sign-in from a new address needs a 6-digit code sent
   to the user's email; addresses already used count as verified;
-  `bin/whacp user:verify-ip <user> <ip>` verifies one from the shell),
+  `bin/nimvor user:verify-ip <user> <ip>` verifies one from the shell),
   two-factor authentication required per role, password strength on/off
   and password age (days; 0 = off).
 - **Password Strength Configuration**: minimum strength (0–100, 65 or more
   is reported as strong) and minimum numbers of total, special, numeric,
-  alphabet, upper case and lower case characters. It applies to WhaCP
+  alphabet, upper case and lower case characters. It applies to NimVor
   users, mailbox passwords typed in (webmail) and the root password.
 - **cPHulk Brute Force Protection**: failed logins are read every minute
   from the journal (sshd, Dovecot, Postfix SMTP AUTH, pure-ftpd) and
-  Roundcube's log, and counted at once for WhaCP sign-ins. Too many for an
-  account lock its WhaCP sign-ins; too many from an address block it from
-  WhaCP and the login ports (SSH, 21, 110, 143, 465, 587, 993, 995, 4190),
+  Roundcube's log, and counted at once for NimVor sign-ins. Too many for an
+  account lock its NimVor sign-ins; too many from an address block it from
+  NimVor and the login ports (SSH, 21, 110, 143, 465, 587, 993, 995, 4190),
   or from every port with the firewall-level options. Blocks live in the
-  nftables table `inet whacp_hulk` and expire by themselves; the scheduler
+  nftables table `inet nimvor_hulk` and expire by themselves; the scheduler
   restores the table after a restart. Commands run as the panel's account
   (not root) with a 15-second limit and shell-quoted variables. Countries
   use DB-IP's IP to Country Lite database (CC BY 4.0), downloaded monthly;
-  blacklisted countries are blocked from WhaCP and the login ports, or
+  blacklisted countries are blocked from NimVor and the login ports, or
   from every port when you choose so on the Countries tab (CSF's CC_DENY);
-  without Internet access import it with `bin/whacp hulk:geo-import FILE`.
-  If you block yourself: `bin/whacp hulk:unblock <ip|user|all>`. When
+  without Internet access import it with `bin/nimvor hulk:geo-import FILE`.
+  If you block yourself: `bin/nimvor hulk:unblock <ip|user|all>`. When
   protection is first turned on with an empty whitelist, your own address
   is added to it.
 - **Compiler Access**: compilers and the assembler become mode 0750, group
-  `whacp-compiler`, with the accounts you allow as members (ModSecurity
+  `nimvor-compiler`, with the accounts you allow as members (ModSecurity
   source builds keep working). Restored exactly when turned off.
-- **SMTP Restrictions**: nftables table `inet whacp_smtp` (loaded at boot
-  by `whacp-smtp-restrict.service`) lets only root, the MTA, Mailman and
+- **SMTP Restrictions**: nftables table `inet nimvor_smtp` (loaded at boot
+  by `nimvor-smtp-restrict.service`) lets only root, the MTA, Mailman and
   the panel connect to remote ports 25, 465 and 587.
-- **Shell Fork Bomb Protection**: `/etc/security/limits.d/90-whacp-forkbomb.conf`
+- **Shell Fork Bomb Protection**: `/etc/security/limits.d/90-nimvor-forkbomb.conf`
   caps processes of accounts (UID 1000 and up) in login sessions.
 - **Traceroute Enable/Disable**: traceroute and tracepath for root only
   (mode 0700) or everyone.
@@ -709,7 +766,7 @@ Security → Shell access (administrators) sets each website account to:
 
 - **Disabled** (default): SFTP only, chrooted to the websites folder.
 - **Jailed:** SSH commands and interactive logins run in a bubblewrap
-  sandbox (`/usr/local/sbin/whacp-jailsh` is the login shell and sshd's
+  sandbox (`/usr/local/sbin/nimvor-jailsh` is the login shell and sshd's
   ForceCommand): `/usr` and a short list of `/etc` files read-only
   (no `/etc/shadow`, no service configuration), a generated passwd with
   only root and the account, the account's website folder writable,
@@ -720,16 +777,16 @@ Security → Shell access (administrators) sets each website account to:
   accounts.
 
 A mode applies only while the account's SSH/SFTP login is on (FTP / SFTP
-page: keys in `/etc/ssh/whacp-keys`, optional password); turning that
+page: keys in `/etc/ssh/nimvor-keys`, optional password); turning that
 login off takes the shell away first. Accounts whose plan's feature list
 leaves out "SSH shell & web terminal" cannot get a shell, and the
 scheduler removes shells a plan no longer includes. A suspended account
 cannot log in at all.
 
 On Ubuntu 23.10 and later, AppArmor stops unprivileged programs from
-creating user namespaces. The installer then loads the `whacp-bwrap`
-profile for `/usr/local/lib/whacp/bwrap`, a copy of bubblewrap that only
-members of the `whacp-jail` group (jailed accounts) can run; the agent
+creating user namespaces. The installer then loads the `nimvor-bwrap`
+profile for `/usr/local/lib/nimvor/bwrap`, a copy of bubblewrap that only
+members of the `nimvor-jail` group (jailed accounts) can run; the agent
 refreshes the copy whenever shell access changes. Other accounts and
 programs keep the restriction.
 
@@ -740,7 +797,7 @@ customers' website pages). It is available when:
 
 - the panel is served by Nginx over HTTPS (`install.sh --public-https`),
   which proxies `/terminal/ws` to the agent's loopback listener
-  (`terminal_listen` in `/etc/whacp/agent.json`, `127.0.0.1:8091`); with
+  (`terminal_listen` in `/etc/nimvor/agent.json`, `127.0.0.1:8091`); with
   only the SSH tunnel to the panel there is no web terminal;
 - the agent is in write mode;
 - the website's account has shell access (jailed or normal, above) with
@@ -751,7 +808,7 @@ customers' website pages). It is available when:
 account (for example `shop`) with the account's own password: the one in
 `/etc/shadow`, which is also its SSH and SFTP password (set on the FTP /
 SFTP page, *Also allow password login*). There is no separate terminal or
-SFTP password: WhaCP hashes the password into `/etc/shadow` with
+SFTP password: NimVor hashes the password into `/etc/shadow` with
 `chpasswd -e` and never stores it, and a password changed on the server
 (`passwd`) works too.
 
@@ -777,7 +834,7 @@ terminals. An account that belongs to a privileged group (`sudo`,
 `wheel`, `adm`, `shadow`, `docker`, `lxd`, `disk`, `systemd-journal`,
 `root`…) gets no terminal until it is removed from the group.
 
-Each session is its own systemd unit (`whacp-term-<id>.service`) as the
+Each session is its own systemd unit (`nimvor-term-<id>.service`) as the
 account, with the sandbox of other commands run as the account
 (no_new_privs, no capabilities, read-only system folders), in its
 resource limits slice, with at most 512 processes. A jailed account gets
@@ -794,7 +851,7 @@ passwords typed at prompts.
 **Root shells** are off. A root shell in the browser means that whoever
 takes over an administrator's sign-in controls the server, so only the
 server's root user can allow it: `"terminal_root": true` in
-`/etc/whacp/agent.json`, then `systemctl restart whacp-agent`. The root
+`/etc/nimvor/agent.json`, then `systemctl restart nimvor-agent`. The root
 shell (Server → Web terminal) has no sandbox and, since root usually has
 no password, asks for the administrator's panel password (and
 authenticator code) again instead; hosting accounts can never open it.
@@ -820,7 +877,7 @@ Rule Set.
 The connector is *missing*, *installed but not usable* (not loaded, a
 library missing, built for another Nginx — the page says which) or
 *working*, whether it came from a package, an rpm, a module built from
-source or a file copied by hand. WhaCP reads `nginx -V` (version,
+source or a file copied by hand. NimVor reads `nginx -V` (version,
 modules folder, `--with-compat`, modules built in), the active
 configuration's `load_module` lines, resolves the module's libraries like
 the dynamic linker (RUNPATH, `/etc/ld.so.conf`) and test-loads a module that
@@ -831,12 +888,12 @@ a package is never installed for something that already works.
 **Install ModSecurity** (one background job, one transaction):
 
 1. Detects the OS, Nginx and an existing connector. A working connector is
-   left alone (*Upgrade connector* replaces one WhaCP built; a packaged one
+   left alone (*Upgrade connector* replaces one NimVor built; a packaged one
    is updated with the package manager).
 2. Before any change, copies `/etc/nginx`, `/etc/modsecurity`, the CRS
    setup folder, `/etc/ld.so.conf(.d)`, `/usr/share/nginx/modules` and
-   WhaCP's ModSecurity state into the transaction's folder
-   (`/var/lib/whacp-agent/transactions/modsec/<id>/snapshot`), and records
+   NimVor's ModSecurity state into the transaction's folder
+   (`/var/lib/nimvor-agent/transactions/modsec/<id>/snapshot`), and records
    Nginx's version and build options, package versions and every file it
    will change.
 3. Uses the distribution's package when a dry run (`apt-get -s` /
@@ -849,14 +906,14 @@ a package is never installed for something that already works.
    with libmodsecurity from its package or built from the pinned 3.0.14
    release (both releases SHA-256 verified). Compilers and development
    packages are installed; the build runs as a temporary unprivileged
-   account (`whacp-build`), removed afterwards. Nginx must be built with
+   account (`nimvor-build`), removed afterwards. Nginx must be built with
    `--with-compat`. **The Nginx binary is never installed, replaced or
    upgraded.**
 4. Installs new, versioned files only
-   (`/usr/local/lib/whacp/nginx-modules/`,
-   `/usr/local/lib/whacp/modsecurity/<version>/`), checks that the
+   (`/usr/local/lib/nimvor/nginx-modules/`,
+   `/usr/local/lib/nimvor/modsecurity/<version>/`), checks that the
    module's libraries resolve and that Nginx loads it, then switches the
-   `load_module` line (`modules-enabled/50-whacp-modsecurity.conf`, the
+   `load_module` line (`modules-enabled/50-nimvor-modsecurity.conf`, the
    folder nginx.conf includes; nginx.conf only gets an include line when it
    has no module folder), runs `nginx -t`, reloads, and checks again.
 5. If **any** step fails — dependencies, download, build, libraries, module
@@ -874,7 +931,7 @@ effect (the newest; roll back in order) as a transaction of its own: its
 files are put back, packages it added removed, then `nginx -t` and a
 reload; if Nginx would not accept the result (for example while
 ModSecurity is on and the connector would go), nothing changes. From the
-command line: `whacp modsec:installs` and `whacp modsec:rollback <id>`.
+command line: `nimvor modsec:installs` and `nimvor modsec:rollback <id>`.
 Records are kept for *Settings → ModSecurity installation backups*
 (default 30 days); the one in effect is always kept. If a rollback itself
 was incomplete, the page names the snapshot folder for manual recovery.
@@ -882,7 +939,7 @@ was incomplete, the page names the snapshot folder for manual recovery.
 **Install Core Rule Set** (separately, also a transaction): the
 distribution's `modsecurity-crs` package, or the pinned CRS 4.18.0
 release (SHA-256 verified; only rule and data files are unpacked, into
-`/usr/local/lib/whacp/coreruleset/<version>/`). It is turned on in
+`/usr/local/lib/nimvor/coreruleset/<version>/`). It is turned on in
 **detection only**: websites set to *On* only log what they would block
 until you turn *Detection only* off in the server-wide settings. New
 installations start in detection only; configurations from before this
@@ -891,7 +948,7 @@ setting keep blocking.
 - **Server-wide:** ModSecurity on/off; the Core Rule Set with its paranoia
   level (1–4) and inbound/outbound anomaly thresholds; custom rules on/off.
   The rules are loaded once at the http level
-  (`whacp-00-modsecurity.conf`, `/etc/nginx/whacp-modsec/`) with
+  (`nimvor-00-modsecurity.conf`, `/etc/nginx/nimvor-modsec/`) with
   `modsecurity off`, so nothing is filtered until a website turns it on.
 - **Rule vendors:** the OWASP Core Rule Set (IDs 900000–999999, updated
   with its package: *Update rules* runs the package update, checks Nginx
@@ -904,11 +961,11 @@ setting keep blocking.
 - **Per website:** off, detection only (log, do not block) or on (block
   with 403); which vendors apply (a vendor is left out by removing its ID
   range); single rules turned off. The website's vhost includes
-  `/etc/nginx/whacp-modsec/sites/<domain>.conf` through a glob, which
+  `/etc/nginx/nimvor-modsec/sites/<domain>.conf` through a glob, which
   matches nothing while ModSecurity is off for it; existing vhosts get
   the include line when ModSecurity is first turned on.
 - **Events:** blocked and detected requests from the audit log
-  (`/var/log/nginx/whacp-modsec-audit.json`, parts `ABHZ`: no request or
+  (`/var/log/nginx/nimvor-modsec-audit.json`, parts `ABHZ`: no request or
   response bodies; the panel shows only time, host, address, request line,
   result and matched rules). From an event an administrator can turn a
   rule off for that website. The scheduler keeps the log under 50 MiB.
@@ -1013,7 +1070,7 @@ tool strip (**File Manager** opened at the installation's folder,
   same owner (the target keeps its wp-config.php and address): open the
   staging copy and sync it to the live site to publish. Before anything is
   replaced a **restore point** (files and database) is saved in
-  `/var/backups/whacp/wordpress/<domain>/`; the newest five are kept and
+  `/var/backups/nimvor/wordpress/<domain>/`; the newest five are kept and
   can be put back from the tab. Databases are always the panel's records
   of the owner's databases, never what a wp-config.php names.
 - **Logs:** the end of WordPress's debug log, with a link to the website's
@@ -1027,7 +1084,7 @@ installation job has finished.
 How commands run:
 - **WP-CLI:** commands use WP-CLI 2.12.0. The agent downloads it once from
   GitHub, verifies it against a SHA-512 written into the agent, and keeps it
-  at `/usr/local/lib/whacp/wp-cli.phar` (root-owned, 0644). A changed copy is
+  at `/usr/local/lib/nimvor/wp-cli.phar` (root-owned, 0644). A changed copy is
   not used.
 - **Where they run:** as the website account in its slice, with the site's
   plugins and themes not loaded (`--skip-plugins --skip-themes`), so their
@@ -1042,16 +1099,16 @@ How commands run:
 ## Email filters, autoresponders and routing
 
 - **Filters and autoresponder** (Email → domain → the funnel button of a
-  mailbox): WhaCP renders them to the mailbox's personal Sieve script
+  mailbox): NimVor renders them to the mailbox's personal Sieve script
   `<vmail>/<domain>/<mailbox>/.dovecot.sieve` (owned by vmail) and compiles
   it with `sievec`. The first save adds
-  `/etc/dovecot/conf.d/99-whacp-sieve.conf`, which turns on personal Sieve
+  `/etc/dovecot/conf.d/99-nimvor-sieve.conf`, which turns on personal Sieve
   scripts for Dovecot 2.3 (`sieve = file:~/sieve;active=~/.dovecot.sieve`)
   and 2.4 (`sieve_script personal`), validated with `doveconf -n` and
   followed by a Dovecot reload. The spam filter's script runs first.
 - **Routing** (Email → domain → Mail routing): *local* delivers to the
   mailboxes here; *backup* removes the domain from local delivery and lists
-  it in `/etc/whacp-mail/relay_domains` (Postfix `relay_domains`), so this
+  it in `/etc/nimvor-mail/relay_domains` (Postfix `relay_domains`), so this
   server queues its mail for the primary MX; *remote* removes it from local
   delivery and from the alias map, so mail sent from this server to the
   domain goes to the domain's MX.
@@ -1065,23 +1122,23 @@ Email → Email administration (administrators with server permissions).
   permission); the results of `postfix check` and `doveconf -n`; the latest
   100 mail log lines. The settings form covers a fixed list of Postfix
   parameters (set with `postconf -e`) and Dovecot settings (written to
-  `/etc/dovecot/conf.d/99-whacp-tuning.conf`). Only changed Postfix values
+  `/etc/dovecot/conf.d/99-nimvor-tuning.conf`). Only changed Postfix values
   are sent. Postfix values are checked with `postfix check` and Dovecot's
   with `doveconf -n` before either service reloads; a refusal or failed
   reload restores the previous values. The settings are kept in
-  `/etc/whacp-mail/mail.json`, so setting up email again keeps them. There
+  `/etc/nimvor-mail/mail.json`, so setting up email again keeps them. There
   is no free-form configuration editing.
-- **Greylisting**: WhaCP's policy service is the agent binary in its
-  `greylist-policy` mode, run by `whacp-greylist.service` as a dynamic
+- **Greylisting**: NimVor's policy service is the agent binary in its
+  `greylist-policy` mode, run by `nimvor-greylist.service` as a dynamic
   unprivileged user without capabilities and started by
-  `whacp-greylist.socket` (`<queue_directory>/private/whacp-greylist`,
+  `nimvor-greylist.socket` (`<queue_directory>/private/nimvor-greylist`,
   owned by postfix, mode 0600). Its configuration
-  (`/etc/whacp-mail/greylist.json`, root 0600) reaches it as a systemd
+  (`/etc/nimvor-mail/greylist.json`, root 0600) reaches it as a systemd
   credential; changing it restarts the service (the socket keeps Postfix's
-  requests waiting). Triplets are kept in `/var/lib/whacp-greylist`
+  requests waiting). Triplets are kept in `/var/lib/nimvor-greylist`
   (at most 200,000; expired ones are removed hourly). The agent reads the
-  report over `/run/whacp-greylist/control` (0600). Postfix gets
-  `check_policy_service { unix:private/whacp-greylist, default_action=DUNNO }`
+  report over `/run/nimvor-greylist/control` (0600). Postfix gets
+  `check_policy_service { unix:private/nimvor-greylist, default_action=DUNNO }`
   at the end of `smtpd_recipient_restrictions`, after
   `permit_mynetworks`, `permit_sasl_authenticated` and
   `reject_unauth_destination`: authenticated users and local mail are
@@ -1092,7 +1149,7 @@ Email → Email administration (administrators with server permissions).
   provider's SPF record (`ip4`, `ip6`, `a`, `mx`, `include`, `redirect`).
   Not verified yet: SELinux on AlmaLinux (Postfix's smtpd connecting to the
   socket); a denial there shows as Postfix warnings, and mail is accepted.
-- **Tools**: the troubleshooter follows WhaCP's mail data (domains,
+- **Tools**: the troubleshooter follows NimVor's mail data (domains,
   routing, mailboxes, forwarders, catch-all) and, for other domains, their
   MX records or the smart host. The permission repair walks each domain's
   folder under the mailbox storage with directory file descriptors
@@ -1110,9 +1167,9 @@ Email → Email administration (administrators with server permissions).
 
 ## FFmpeg
 
-The agent's `ffmpeg.access` sets the members of the group `whacp-ffmpeg`
+The agent's `ffmpeg.access` sets the members of the group `nimvor-ffmpeg`
 (exactly the list the panel sends, with `gpasswd --members`) and gives
-`/usr/bin/ffmpeg` and `/usr/bin/ffprobe` to `root:whacp-ffmpeg` with mode
+`/usr/bin/ffmpeg` and `/usr/bin/ffprobe` to `root:nimvor-ffmpeg` with mode
 0750 (opened with `O_NOFOLLOW`; a link at those paths is refused). On
 Debian and Ubuntu `dpkg-statoverride` keeps these modes through package
 updates; on RHEL-family systems the agent applies them again after every
@@ -1123,8 +1180,8 @@ reseller's plan has it too), not suspended; an account shared with an
 owner without FFmpeg is left out. Members removed from the group get the
 PHP-FPM service of their websites' PHP version reloaded, so no running
 worker keeps the group. Limitation: this controls the server's FFmpeg; a
-user who uploads a program of their own can run it (WhaCP does not mount
-website folders `noexec`). Uninstalling WhaCP gives the programs back to
+user who uploads a program of their own can run it (NimVor does not mount
+website folders `noexec`). Uninstalling NimVor gives the programs back to
 root with mode 0755 and removes the group.
 
 ## Website files: disk usage, directory listing, permissions
@@ -1151,20 +1208,20 @@ root with mode 0755 and removes the group.
 tabs (permission: manage PHP).
 
 - **Extensions:** install, remove, switch on or off. Install and remove use
-  the package manager as a job; before removing, WhaCP simulates it and
+  the package manager as a job; before removing, NimVor simulates it and
   refuses when other packages would be removed with it. Switching uses
   `phpenmod`/`phpdismod` (Debian, Ubuntu) or comments the module's line in
   `php.d` (RHEL family), for PHP-FPM and the command line alike. Extensions
   the panel itself needs are protected on the PHP version the panel runs on.
 - **php.ini:** a form for common settings and a text editor for the same
-  file. Settings are written to WhaCP's own `99-whacp.ini` (in `conf.d` of
+  file. Settings are written to NimVor's own `99-nimvor.ini` (in `conf.d` of
   PHP-FPM and the command line, or in `php.d`), loaded after the
   distribution's `php.ini`, which is never changed. Only listed settings are
   accepted (no `extension`, `auto_prepend_file`, `open_basedir`,
   `disable_functions` and similar); values are type-checked. Settings each
   website sets itself (memory limit, upload size, …) stay per website.
 - **PHP-FPM:** server-wide settings (emergency restart, process control
-  timeout, `process.max`, log level) in `whacp-global.conf` in the pool
+  timeout, `process.max`, log level) in `nimvor-global.conf` in the pool
   folder.
 
 Every change is checked with `php-fpm -t` (PHP's warnings count as errors)
@@ -1187,7 +1244,7 @@ bits, is limited to 50,000 entries and 8 GiB, and keeps existing files
 unless *Replace files that already exist* is ticked.
 
 **Trash.** Deleting moves files and folders into the website's trash
-(`.whacp-trash` in the website folder, owned by the website's account),
+(`.nimvor-trash` in the website folder, owned by the website's account),
 unless *Delete permanently instead* is ticked. *Trash* in the toolbar lists
 what was deleted, from where and when; *Restore* puts items back where they
 were (as "name (restored).ext" when that name is taken, recreating missing
@@ -1197,7 +1254,7 @@ a confirmation. Items are deleted automatically after the number of days in
 emptied), checked daily after 03:00. Trashed files still count towards the
 account's disk space, are not included in backups and cannot be reached
 from the web (they are outside the document root). The file manager itself
-never shows or accepts paths inside `.whacp-*` folders, and restores
+never shows or accepts paths inside `.nimvor-*` folders, and restores
 re-check the recorded location, which must stay inside the website folder.
 
 ## Email
@@ -1207,21 +1264,21 @@ and OpenDKIM. An administrator installs the packages and sets email up once
 with the mail server's host name (the name MX records point to; its reverse
 DNS should match). Setting up changes Postfix's `main.cf` and `master.cf`
 with `postconf` and turns off Dovecot's sign-in for system accounts (only
-WhaCP mailboxes can sign in), after confirmation and with backups; WhaCP's
-own Dovecot settings are a drop-in file and OpenDKIM runs from WhaCP's own
+NimVor mailboxes can sign in), after confirmation and with backups; NimVor's
+own Dovecot settings are a drop-in file and OpenDKIM runs from NimVor's own
 unit and configuration. Postfix is checked with `postfix check`, Dovecot
 with `doveconf`, the services are restarted and ports 25, 587 and 993 must
 answer, otherwise everything is restored. A Let's Encrypt certificate for
 the host name is used when present, otherwise a self-signed one.
 
-For a domain (customers: their own websites' domains) WhaCP creates a DKIM
+For a domain (customers: their own websites' domains) NimVor creates a DKIM
 key and lists the DNS records to publish — MX, SPF, DKIM and DMARC — which
 can be added to the domain's zone on this panel with one click. Mailboxes
 have a password (stored as a SHA-512 crypt hash; a generated one is shown
 once) and an optional quota; aliases forward to one or more addresses, and
 `*` catches all other addresses of the domain. Deleting a mailbox moves its
-mail to `/var/vmail/.whacp-trash` (deleted websites' files go to
-`.whacp-trash` in the websites folder): root-only folders on the same disk
+mail to `/var/vmail/.nimvor-trash` (deleted websites' files go to
+`.nimvor-trash` in the websites folder): root-only folders on the same disk
 as the data, emptied by the administrator.
 
 Mail apps use the full address as user name, IMAP on port 993 (TLS) and
@@ -1235,7 +1292,7 @@ milter in front of Postfix. Mail scoring above the *Junk* score gets
 `X-Spam: Yes` and is filed into the mailbox's Junk folder by a Sieve rule
 that runs before personal filters; mail above the *Refuse* score is
 rejected while the sender is connected, so it bounces rather than
-disappearing. Senders cannot set the spam header themselves. WhaCP writes
+disappearing. Senders cannot set the spam header themselves. NimVor writes
 only its own files in `/etc/rspamd/local.d` (existing files there are
 replaced only after confirmation), validates with `rspamadm configtest`
 and restores everything if Rspamd or Postfix does not come back.
@@ -1246,12 +1303,12 @@ name, e.g. `webmail.example.com` or the mail host name; point its DNS at
 this server. Users sign in with their full address and mailbox password;
 Roundcube reads mail from Dovecot (993) and sends through Postfix's
 submission port (587) as the signed-in user, so the usual sender checks
-and DKIM signing apply. WhaCP does not edit Roundcube's package files: its
-configuration lives in `/etc/whacp-webmail` (read through
+and DKIM signing apply. NimVor does not edit Roundcube's package files: its
+configuration lives in `/etc/nimvor-webmail` (read through
 `ROUNDCUBE_CONFIG_DIR`), its SQLite database and temporary files in
-`/var/lib/whacp-webmail`, and it runs in its own PHP-FPM pool under its own
-account (`whacp-webmail`), restricted with `open_basedir`. The Nginx site
-(`whacp-webmail.conf`) serves only Roundcube's public folder over HTTPS and
+`/var/lib/nimvor-webmail`, and it runs in its own PHP-FPM pool under its own
+account (`nimvor-webmail`), restricted with `open_basedir`. The Nginx site
+(`nimvor-webmail.conf`) serves only Roundcube's public folder over HTTPS and
 runs only `index.php`. A Let's Encrypt certificate for the host name is used
 when one exists, otherwise a self-signed one; issue the certificate and save
 again to switch. Every change is checked with `nginx -t` and `php-fpm -t`,
@@ -1261,18 +1318,18 @@ previous configuration is restored. Turning webmail off removes the site
 and the pool but keeps users' settings and address books. The domain page
 lists the settings for mail apps (IMAP 993, SMTP 587) and the webmail
 address. Roundcube 1.6.11 as packaged in Ubuntu 26.04 declares its own
-`array_first()`, which PHP 8.5 has built in; on PHP 8.5 and later WhaCP
+`array_first()`, which PHP 8.5 has built in; on PHP 8.5 and later NimVor
 turns the built-in off for Roundcube's pool only (`disable_functions`), so
 Roundcube's own, equivalent function is used. Websites' PHP is not changed.
 
  Dovecot 2.3 (Ubuntu 22.04 and 24.04) and 2.4
-(Ubuntu 26.04) are supported; WhaCP writes the matching configuration
+(Ubuntu 26.04) are supported; NimVor writes the matching configuration
 syntax, and mail is stored the same way (Maildir, INBOX at its root).
 
 ## DNS
 
 *DNS* serves zones from this server's BIND. An administrator installs BIND
-and sets it up once: WhaCP adds a single `include` line for its own zone
+and sets it up once: NimVor adds a single `include` line for its own zone
 list to BIND's configuration (`/etc/bind/named.conf.local`, after
 confirmation, with a backup), validates with `named-checkconf`, starts
 BIND and opens port 53 when the firewall is on. Set *DNS name servers*
@@ -1307,7 +1364,7 @@ can be turned on, turned off or deleted at once (with confirmation).
 zone file (pasted or uploaded, up to 1 MB) as most DNS hosts export it; the
 agent parses it (`$ORIGIN`, `$TTL`, parentheses and quoted strings are
 understood; `$INCLUDE` and `$GENERATE` are not). Records that are not in
-the zone yet are added. The SOA and the name servers at @ stay as WhaCP
+the zone yet are added. The SOA and the name servers at @ stay as NimVor
 manages them. Lines that are unsupported, outside the zone, invalid or in
 conflict with the zone's records are listed with the reason and left out.
 
@@ -1327,7 +1384,7 @@ page, *IP addresses*). Its Nginx configuration then listens on those
 addresses only, and is checked with `nginx -t` before the reload.
 Certificates are unaffected: HTTPS is served by name.
 
-WhaCP does not change the operating system's network configuration
+NimVor does not change the operating system's network configuration
 (netplan, NetworkManager, ifcfg), because a mistake there can cut the
 server off and providers set it up in different ways. An IPv4 address
 must already be configured on an interface before it is added to the
@@ -1345,9 +1402,9 @@ does not have is refused before anything is written.
   are missing, and re-applies the IPv6 ranges. It removes nothing:
   addresses the server no longer has are listed.
 - **IPv6 ranges**: a range the provider *routes* to the server (not the
-  on-link prefix of its interface), /48 to /128. WhaCP makes its addresses
+  on-link prefix of its interface), /48 to /128. NimVor makes its addresses
   local with a local route on the loopback interface, kept at boot by
-  `whacp-ipv6-ranges.service`. It refuses ranges that overlap an
+  `nimvor-ipv6-ranges.service`. It refuses ranges that overlap an
   interface's prefix or contain a gateway, since such a route would cut
   the server off from its network. Addresses are allocated from a range
   (the next free one from `::10`, or one given), optionally straight to a
@@ -1392,9 +1449,9 @@ SSL/TLS section:
   - **Logs:** the websites still waiting, the AutoSSL log of every attempt,
     and certbot's renewal log (`/var/log/letsencrypt`, the relevant lines).
 - **Certificates**: every certificate on the server (Let's Encrypt, the ones
-  installed through WhaCP, and those other Nginx configurations use, shown
+  installed through NimVor, and those other Nginx configurations use, shown
   read only) with names, issuer, validity, SHA-256 fingerprint, chain length
-  and the Nginx files that use it. Unused Let's Encrypt and WhaCP
+  and the Nginx files that use it. Unused Let's Encrypt and NimVor
   certificates can be deleted. A private key readable by everyone is
   flagged.
 - **Keys and CSRs**: a private key (ECDSA P-256 by default, or P-384, RSA
@@ -1409,16 +1466,16 @@ SSL/TLS section:
   configuration backups.
 - **TLS configuration**: the protocol versions (TLS 1.2 and 1.3, or TLS 1.3
   only), the TLS 1.2 ciphers (Nginx's default, or Mozilla's
-  "intermediate" list), and session tickets for every WhaCP website and
-  webmail. They live in one Nginx snippet (`/etc/nginx/whacp-tls.conf`) that
+  "intermediate" list), and session tickets for every NimVor website and
+  webmail. They live in one Nginx snippet (`/etc/nginx/nimvor-tls.conf`) that
   each of those virtual hosts includes. A change is checked with `nginx -t`
   and reloaded, and restored if either step fails. Website configurations
   written by earlier versions carry their own TLS lines; the first change
   moves them to the snippet. OCSP stapling is not offered (Let's Encrypt no
   longer runs OCSP). The panel's own HTTPS follows this configuration once
   a certificate is chosen for it under *Services*. The snippet stays when
-  WhaCP is uninstalled, because the websites still use it.
-- **Services**: the certificates of WhaCP's own services.
+  NimVor is uninstalled, because the websites still use it.
+- **Services**: the certificates of NimVor's own services.
   - **Host name:** a Let's Encrypt certificate for the server's host name,
     as a job whose window shows certbot's output. Nginx answers the
     challenge on port 80 when no website uses the name.
@@ -1437,11 +1494,11 @@ SSL/TLS section:
     - "Apache SSL ciphers" is the TLS configuration (Nginx serves every
       website).
     - "Web Services" is the panel.
-    - WhaCP has no Web Disk (WebDAV) service.
+    - NimVor has no Web Disk (WebDAV) service.
 
 Renewal: Let's Encrypt certificates are renewed by certbot's timer
 (`certbot.timer` on Debian/Ubuntu, `certbot-renew.timer` from EPEL, which
-the package leaves off). WhaCP turns the timer on after issuing a
+the package leaves off). NimVor turns the timer on after issuing a
 certificate and when the agent starts with certificates present. *SSL
 hosts* also offers a *Turn on renewal* button.
 
@@ -1452,10 +1509,10 @@ next, and it covers the website's domain.
 
 ## FTP and SFTP
 
-*Server → FTP server* installs pure-ftpd and runs it from WhaCP's own unit
-(`whacp-ftpd.service`) and configuration (`/etc/whacp-ftp`); the
+*Server → FTP server* installs pure-ftpd and runs it from NimVor's own unit
+(`nimvor-ftpd.service`) and configuration (`/etc/nimvor-ftp`); the
 distribution's pure-ftpd configuration is never edited. If another FTP
-server (the distribution's pure-ftpd, vsftpd or ProFTPD) is running, WhaCP
+server (the distribution's pure-ftpd, vsftpd or ProFTPD) is running, NimVor
 stops and disables it only after you confirm. TLS is required by default
 (a self-signed certificate is created; clients check its SHA-256
 fingerprint, shown in the panel); plain FTP can be allowed explicitly. With
@@ -1473,7 +1530,7 @@ transfer only: OpenSSH confines it to the websites folder (made `0711`, so
 other websites cannot be listed) starting in its own folder, with no shell,
 forwarding or TTY. Public keys are kept in root-owned files outside the
 website; password login is optional. The SSH configuration is validated
-with `sshd -t`, and WhaCP verifies with `sshd -T` that the change applies to
+with `sshd -t`, and NimVor verifies with `sshd -T` that the change applies to
 that user only before reloading; otherwise it is rolled back.
 
 ## Database server
@@ -1485,21 +1542,21 @@ numbers of databases and users, the InnoDB buffer pool (use and hit rate),
 temporary tables written to disk, open tables and traffic. It also shows
 where clients connect (socket, port, listening address, data directory, error log,
 TLS). Where the server listens is left to the distribution's option files;
-WhaCP does not open the database server to the network.
+NimVor does not open the database server to the network.
 
 *Settings* lists a fixed set of options: connections and timeouts, the
 largest packet, thread cache, host name lookups, InnoDB buffer pool, redo
 log size and flush at commit, temporary and heap table sizes, open tables
 cache, slow query log and time, and the default character set and
 collation. Values are checked (types, ranges, a collation that belongs
-to the character set) and written to WhaCP's own option file
-(`zz-whacp.cnf` in `/etc/mysql/mariadb.conf.d`, `/etc/mysql/mysql.conf.d`
+to the character set) and written to NimVor's own option file
+(`zz-nimvor.cnf` in `/etc/mysql/mariadb.conf.d`, `/etc/mysql/mysql.conf.d`
 or `/etc/my.cnf.d`, read after the distribution's files). Then the server
 program itself reads all option files (`mariadbd --help --verbose`); if
 it reports an error, the previous file comes back. Options marked *now* are
 applied at once with `SET GLOBAL` (if the server refuses one, the file and
 the values applied before it are restored); the others take effect at the
-next restart. An empty field removes WhaCP's value, so the server's own
+next restart. An empty field removes NimVor's value, so the server's own
 applies again.
 
 *Restart* first checks the option files (it is refused while they have an
@@ -1522,7 +1579,7 @@ CSV export), a row editor (NULL, defaults and binary values as
 hexadecimal), insert and multi-row delete, the table structure with its
 indexes and `CREATE` statement, and an SQL console that runs several
 statements and shows each result. Customers can browse the databases of
-their own websites; administrators can also open databases WhaCP does not
+their own websites; administrators can also open databases NimVor does not
 manage.
 
 Rows can also be searched in every column at once (the text is matched
@@ -1556,7 +1613,7 @@ CSV. The whole database is exported and imported as SQL on the
 *Databases* page.
 
 Nothing runs as the database root user. Each database has its own browser
-account (`whacp_b_…@localhost`) with privileges on that database only; it
+account (`nimvor_b_…@localhost`) with privileges on that database only; it
 is locked between requests and gets a new random password for each one, so
 SQL typed in the console cannot read other databases, change server
 settings or read files. Statements are limited to 30 seconds and results to
@@ -1577,13 +1634,13 @@ prefix (`<account>:`), which is also what its Redis ACL user may access.
 
 RHEL 10, AlmaLinux 10 and Rocky Linux 10 ship Valkey instead of Redis
 (package `valkey`, `valkey.service`, `/etc/valkey/valkey.conf`). It speaks
-the same protocol, so WhaCP manages it on the *Redis* pages and websites
+the same protocol, so NimVor manages it on the *Redis* pages and websites
 use it like Redis. On Redis before 6.2 (Ubuntu 22.04) ACL users cannot be
-limited to Pub/Sub channels; WhaCP says so when it creates one.
+limited to Pub/Sub channels; NimVor says so when it creates one.
 
 *Memcached* installs the package, shows hits, memory, items, evictions and
 connections, flushes the cache, and changes memory, connection limit and
-listen addresses. The configuration file belongs to the package, so WhaCP
+listen addresses. The configuration file belongs to the package, so NimVor
 edits it only after you tick the confirmation; it keeps a backup, restarts
 Memcached, checks it answers and otherwise restores the old file. Only
 loopback addresses are accepted: Memcached has no authentication.
@@ -1629,10 +1686,10 @@ Several storages can be connected:
 | Type | Notes |
 |------|-------|
 | S3-compatible | AWS S3, Backblaze B2, Wasabi, Cloudflare R2, MinIO… Use keys limited to the bucket. |
-| SFTP | Password or unencrypted private key. On the first connection WhaCP shows the server's host key fingerprint; after you confirm it the key is pinned and backups refuse any other key. |
+| SFTP | Password or unencrypted private key. On the first connection NimVor shows the server's host key fingerprint; after you confirm it the key is pinned and backups refuse any other key. |
 | FTP | Explicit TLS (FTPS) by default, implicit TLS on port 990, or plain FTP only when chosen explicitly. Certificates are verified; a self-signed certificate is shown for confirmation and its public key is pinned. |
-| Google Drive | Needs the panel on `https://` (set *Public panel URL*) and an OAuth client (*Web application*) with the Drive API enabled and `https://<panel>/backups/storages/google/callback` as redirect URI. WhaCP asks only for the `drive.file` scope (files it created) and stores backups in a "WhaCP backups" folder. |
-| Local folder | `/backups`, `/backup`, `/srv/backup(s)` or a folder in them: created when missing (root only, mode 0700) when the storage is tested. Or a folder of a mounted disk or NAS share under `/mnt` or `/media`, which must exist: WhaCP never creates one there, so backups do not fill the system disk while that disk is not mounted. Owned by root, not world-writable, no symbolic links. A folder on the server's own disk is not off the server. |
+| Google Drive | Needs the panel on `https://` (set *Public panel URL*) and an OAuth client (*Web application*) with the Drive API enabled and `https://<panel>/backups/storages/google/callback` as redirect URI. NimVor asks only for the `drive.file` scope (files it created) and stores backups in a "NimVor backups" folder. |
+| Local folder | `/backups`, `/backup`, `/srv/backup(s)` or a folder in them: created when missing (root only, mode 0700) when the storage is tested. Or a folder of a mounted disk or NAS share under `/mnt` or `/media`, which must exist: NimVor never creates one there, so backups do not fill the system disk while that disk is not mounted. Owned by root, not world-writable, no symbolic links. A folder on the server's own disk is not off the server. |
 
 The optional sub-folder separates servers that share one destination.
 
@@ -1643,7 +1700,7 @@ MySQL's disks have room for the restored data (estimated from the sizes
 before compression, which backups record since 1.0.0), changing nothing
 otherwise.
 
-Server backups contain `/etc/whacp` (agent token, panel key) and TLS
+Server backups contain `/etc/nimvor` (agent token, panel key) and TLS
 private keys, so they are always encrypted with the backup key, also when
 kept only on this server. Without that key they cannot be restored: keep a
 copy off the server. Server backups made unencrypted by earlier versions
@@ -1655,7 +1712,7 @@ can still be restored.
 
 - **Download the key.** Administrators only. Re-enter your panel password
   and choose a passphrase of at least 12 characters. You get
-  `whacp-backup-key-<id>.json`: the key encrypted with the passphrase by
+  `nimvor-backup-key-<id>.json`: the key encrypted with the passphrase by
   the agent (PBKDF2-SHA256 with 600,000 iterations, AES-256-GCM). The
   file alone decrypts nothing.
 - **Keep them apart.** Keep the file and the passphrase in separate safe
@@ -1682,7 +1739,7 @@ administrators.
 ### Account backups
 
 *Backups → Account backups → Back up an account* writes one
-`.whacp-account` file per hosting account. It holds:
+`.nimvor-account` file per hosting account. It holds:
 
 - every website's files and databases, as encrypted website backups;
 - the account's description: profile, plan, reseller, websites
@@ -1737,29 +1794,29 @@ Redis, certificates, Fail2ban and system cron jobs. The backup's checksum is
 verified, a safety backup of the current configuration is taken, each part
 replaces its folder as a whole, Nginx and PHP-FPM are validated before
 anything reloads, and the previous folders come back if validation or a
-service restart fails. Firewall, SSH, systemd units and `/etc/whacp` are
+service restart fails. Firewall, SSH, systemd units and `/etc/nimvor` are
 never restored automatically; *Extract for review only* unpacks the whole
-backup into `/var/lib/whacp-agent/restore/` (root only) to copy from by
+backup into `/var/lib/nimvor-agent/restore/` (root only) to copy from by
 hand.
 
 **Recovering on a new server.** Keep a copy of the backup key off the
-server (*Download the key*, or `/var/lib/whacp-agent/backup.key` as root):
+server (*Download the key*, or `/var/lib/nimvor-agent/backup.key` as root):
 nothing can be recovered without it.
 
-1. Install the same (or a newer) WhaCP version with `--enable-writes`.
+1. Install the same (or a newer) NimVor version with `--enable-writes`.
 2. Before making any backup there, import the old key (*Backups → Server
    configuration → Import a key*), or copy it to
-   `/var/lib/whacp-agent/backup.key` (owner root, mode 0600). Account
+   `/var/lib/nimvor-agent/backup.key` (owner root, mode 0600). Account
    backup files can then be restored directly (*Account backups*).
 3. Add the same remote storage (same sub-folder) and press **Find
-   backups** on it. WhaCP lists the storage and adds the backups it can
+   backups** on it. NimVor lists the storage and adds the backups it can
    trust; it says which it skipped and why.
 4. Restore the server backup (configuration) if you want it, then create
    each website again (same domain) and press **Find backups** once more:
    website backups are added for websites that exist. Restore them from the
    website's *Backups* tab.
 
-Only backups encrypted with this key and made by WhaCP 1.0.0 or later are
+Only backups encrypted with this key and made by NimVor 1.0.0 or later are
 added: their manifest is authenticated with the key, so someone who can
 write to the storage cannot plant a backup, move one to another website or
 change its files. Unencrypted backups and older ones are listed as
@@ -1767,12 +1824,12 @@ skipped.
 
 ## Importing existing websites
 
-Discovery lists websites WhaCP did not create. With the *Import existing
-websites* permission, open one and choose **Import into WhaCP**. The preview
+Discovery lists websites NimVor did not create. With the *Import existing
+websites* permission, open one and choose **Import into NimVor**. The preview
 shows every step, blockers, warnings and both Nginx configurations. The
 import:
 
-1. creates a WhaCP website and account and copies the files (links that
+1. creates a NimVor website and account and copies the files (links that
    point outside the website are skipped, set-uid and world-writable bits
    are dropped);
 2. disables the old configuration — removes the `sites-enabled` link, or
@@ -1783,21 +1840,21 @@ import:
    or `.env` (the database itself is not changed).
 
 The original files and configuration file are kept. **Undo import** on the
-website's overview restores the old configuration and removes the WhaCP
+website's overview restores the old configuration and removes the NimVor
 copy. Imports are refused when the configuration file also serves other
 domains, the site is a catch-all, or the account or folder already exists.
 
 ## Top bar, processes and server tools
 
 For server administrators, the top bar shows:
-- the host name, the operating system and the WhaCP version;
+- the host name, the operating system and the NimVor version;
 - the load averages for 1, 5 and 15 minutes, refreshed every 5 seconds (on the dashboard, with its Load card).
   Clicking them opens *Monitoring → Live*.
 
 The dashboard's *Server* card has three buttons:
 
 - **Restart all services** (needs *Manage services*):
-  - Restarts every running service WhaCP manages, in this order:
+  - Restarts every running service NimVor manages, in this order:
     1. databases and caches;
     2. PHP-FPM;
     3. mail, DNS and FTP;
@@ -1810,12 +1867,12 @@ The dashboard's *Server* card has three buttons:
 - **Update** (needs *Manage server*), shown only when a newer version
   exists:
   - **Finding updates:** the installer records its source folder in
-    `/etc/whacp/source.json`. Every six hours the scheduler asks GitHub for
+    `/etc/nimvor/source.json`. Every six hours the scheduler asks GitHub for
     the newest commit of the checkout's branch. A private repository or a
     remote outside GitHub shows "unknown", never "up to date".
-  - **When the panel runs the update:** *WhaCP updates* runs
-    `installer/update.sh` in its own unit (`whacp-update.service`; output in
-    `/var/log/whacp-update.log`), after a recent password confirmation.
+  - **When the panel runs the update:** *NimVor updates* runs
+    `installer/update.sh` in its own unit (`nimvor-update.service`; output in
+    `/var/log/nimvor-update.log`), after a recent password confirmation.
   - **Ownership check:** it runs only when root owns the checkout, its
     `.git`, `installer` folder and scripts, and no other account can write
     to them, because the script runs as root. Otherwise the page shows the
@@ -1829,7 +1886,7 @@ time and command line.
     connections, plus five seconds of system calls when `strace` is
     installed (Packages → System call tracer).
   - **Stop** sends TERM; **Kill** sends KILL.
-  - **End all processes of an account** never accepts root or WhaCP's own
+  - **End all processes of an account** never accepts root or NimVor's own
     account.
   - PID 1, kernel threads and the agent itself cannot be signalled.
   - A signal is sent only if the process still has the start time the
@@ -1846,7 +1903,7 @@ time and command line.
 - **How other accounts' processes are read:** reading another account's
   program, folder and open files needs `CAP_SYS_PTRACE`, which the agent
   does not hold. For those details the agent runs its own binary in a
-  read-only scan mode (`whacp-agent -proc-scan` / `-proc-detail <pid>`), or
+  read-only scan mode (`nimvor-agent -proc-scan` / `-proc-detail <pid>`), or
   `strace -p <pid>`. Each runs as a transient unit with only
   `CAP_SYS_PTRACE` and `CAP_DAC_READ_SEARCH`, and only with exactly those
   arguments.

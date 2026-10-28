@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Http\Session\SessionInterface;
+use NimVor\Http\Session\SessionInterface;
 
 /**
  * The server the current user is working on (multi-server). Defaults to

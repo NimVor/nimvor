@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Mail;
+namespace NimVor\Mail;
 
-use WhaCP\Support\Logger;
+use NimVor\Support\Logger;
 
 /**
  * Minimal SMTP client (RFC 5321): implicit TLS or STARTTLS with certificate
@@ -134,7 +134,7 @@ final class SmtpMailer implements Mailer
         $domain = substr((string) strrchr($from, '@'), 1) ?: 'localhost';
         $headers = [
             'Date: ' . date(DATE_RFC2822),
-            'From: WhaCP <' . $from . '>',
+            'From: NimVor <' . $from . '>',
             'To: ' . implode(', ', $to),
             'Subject: ' . mb_encode_mimeheader($subject, 'UTF-8', 'Q', "\r\n"),
             'Message-ID: <' . bin2hex(random_bytes(12)) . '@' . $domain . '>',

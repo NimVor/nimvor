@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Server → Components: steps per component and their fixes. */
 final class ComponentsTest extends HttpTestCase
@@ -81,14 +81,14 @@ final class ComponentsTest extends HttpTestCase
         $this->post('/components/mail/boot');
         self::assertSame(1, $this->calls('services.control'));
         $this->post('/components/profile', ['expected' => ['dns']]);
-        self::assertSame('', $this->app->container->get(\WhaCP\Services\SettingsService::class)->string('components_expected'), 'operators cannot change the profile');
+        self::assertSame('', $this->app->container->get(\NimVor\Services\SettingsService::class)->string('components_expected'), 'operators cannot change the profile');
     }
 
     public function testProfile(): void
     {
         $this->login('admin');
         $this->post('/components/profile', ['expected' => ['web', 'dns', 'nope']]);
-        self::assertSame('web,dns', $this->app->container->get(\WhaCP\Services\SettingsService::class)->string('components_expected'));
+        self::assertSame('web,dns', $this->app->container->get(\NimVor\Services\SettingsService::class)->string('components_expected'));
         $page = $this->request('GET', '/components')->body();
         self::assertStringContainsString('0 of 2 components ready', $page);
         self::assertMatchesRegularExpression('#id="cp-dns" checked#', $page);

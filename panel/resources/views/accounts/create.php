@@ -1,5 +1,5 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var list<array<string, mixed>> $plans */
 /** @var list<string> $phpVersions */
 /** @var bool $canReseller */
@@ -30,7 +30,7 @@ $routing = $v('mail_routing', (string) $defaults['mail_routing']);
 <?php $this->start(); ?>A hosting account with its first website, DNS, email and SSL<?php $this->end('subtitle'); ?>
 
 
-<form method="post" action="<?= e($this->url('accounts.store')) ?>" data-wcp-busy novalidate id="new-account">
+<form method="post" action="<?= e($this->url('accounts.store')) ?>" data-nim-busy novalidate id="new-account">
     <?= $this->csrfField() ?>
     <div class="row g-3">
         <div class="col-xl-7">
@@ -53,8 +53,8 @@ $routing = $v('mail_routing', (string) $defaults['mail_routing']);
                         <div class="col-md-6">
                             <label class="form-label" for="a-password">Password</label>
                             <div class="input-group">
-                                <input class="form-control font-monospace<?= $cls('password') ?>" type="password" id="a-password" name="password" autocomplete="new-password" required data-wcp-password>
-                                <button class="btn btn-outline-secondary" type="button" data-wcp-genpass="#a-password" data-wcp-genpass-confirm="#a-password2" title="Generate a strong password"><i class="bi bi-magic"></i> Generate</button>
+                                <input class="form-control font-monospace<?= $cls('password') ?>" type="password" id="a-password" name="password" autocomplete="new-password" required data-nim-password>
+                                <button class="btn btn-outline-secondary" type="button" data-nim-genpass="#a-password" data-nim-genpass-confirm="#a-password2" title="Generate a strong password"><i class="bi bi-magic"></i> Generate</button>
                             </div>
                             <?= $err('password') ?>
                         </div>

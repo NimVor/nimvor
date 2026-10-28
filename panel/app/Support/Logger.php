@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Support;
+namespace NimVor\Support;
 
 /**
  * JSON-lines logger with secret redaction.

@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\WebsiteService;
+use NimVor\Tests\Support\HttpTestCase;
 
 final class AppsTest extends HttpTestCase
 {
@@ -48,9 +48,34 @@ final class AppsTest extends HttpTestCase
         self::assertStringNotContainsString($secret['password'], (string) json_encode($this->db->fetchAll('SELECT * FROM audit_logs')));
         self::assertSame(1, (int) $this->db->scalar("SELECT COUNT(*) FROM app_installs WHERE app = 'wordpress'"));
 
-        // A second WordPress gets its own database name.
+        // The same folder cannot be installed into twice at once: the repeat is
+        // refused without creating a second database or starting a second job.
+        $dbs = (int) $this->db->scalar('SELECT COUNT(*) FROM databases');
+        $jobs = $this->calls('apps.install');
+        $this->post($base . '/wordpress', ['title' => 'Shop', 'admin_user' => 'owner', 'admin_email' => 'owner@shop.test']);
+        self::assertStringContainsString('already in progress', (string) $this->flash('error'));
+        self::assertSame($dbs, (int) $this->db->scalar('SELECT COUNT(*) FROM databases'), 'no second database');
+        self::assertSame($jobs, $this->calls('apps.install'), 'no second job');
+        self::assertSame(1, (int) $this->db->scalar("SELECT COUNT(*) FROM app_installs WHERE app = 'wordpress'"));
+
+        // Once the first has finished, a second WordPress gets its own database name.
+        $this->db->run("UPDATE app_installs SET status = 'succeeded' WHERE status = 'running'");
         $this->post($base . '/wordpress', ['title' => 'Shop', 'admin_user' => 'owner', 'admin_email' => 'owner@shop.test']);
         self::assertSame('shop_wp1', $this->lastCall('apps.install')['db']['name']);
+    }
+
+    public function testWooCommerceIsWordPressWithThePlugin(): void
+    {
+        $this->agent->succeed('apps.install', ['job_id' => 'cccccccccccccccc']);
+        $base = '/sites/' . $this->siteId . '/apps';
+        self::assertStringContainsString('Install WooCommerce', $this->request('GET', $base)->body());
+        $this->post($base . '/woocommerce', ['title' => 'Shop', 'admin_user' => 'owner', 'admin_email' => 'owner@shop.test']);
+        $call = $this->lastCall('apps.install');
+        self::assertSame('wordpress', $call['app']);
+        self::assertSame(['woocommerce'], $call['plugins']);
+        self::assertSame('shop_wp', $call['db']['name']);
+        // Recorded as WordPress, so the WordPress tools and login link apply.
+        self::assertSame(1, (int) $this->db->scalar("SELECT COUNT(*) FROM app_installs WHERE app = 'wordpress'"));
     }
 
     public function testStagedInstallCreatesDatabaseAndOffersFinish(): void
@@ -99,7 +124,7 @@ final class AppsTest extends HttpTestCase
         self::assertTrue($this->lastCall('apps.install')['migrate']);
         $this->agent->succeed('jobs.get', ['id' => 'bbbbbbbbbbbbbbbb', 'status' => 'succeeded', 'result' => ['document_root' => 'app/public']]);
         $this->request('GET', $base);
-        self::assertSame('/home/whacp/shop.test/app/public', $this->db->scalar('SELECT document_root FROM websites WHERE id = ?', [$this->siteId]));
+        self::assertSame('/home/nimvor/shop.test/app/public', $this->db->scalar('SELECT document_root FROM websites WHERE id = ?', [$this->siteId]));
         self::assertSame('succeeded', $this->db->scalar('SELECT status FROM app_installs'));
     }
 
@@ -108,7 +133,7 @@ final class AppsTest extends HttpTestCase
         // A subdomain of the website: the Apps page offers it as an install
         // target, and the install runs against the subdomain's own root.
         $sub = $this->app->container->get(WebsiteService::class)->createChild(
-            $this->app->container->get(\WhaCP\Repositories\WebsiteRepository::class)->find(1, $this->siteId, null),
+            $this->app->container->get(\NimVor\Repositories\WebsiteRepository::class)->find(1, $this->siteId, null),
             'subdomain',
             ['subdomain' => 'blog'],
             (array) $this->app->container->get(UserRepository::class)->find($this->adminId)

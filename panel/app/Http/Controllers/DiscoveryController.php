@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentException;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Repositories\DiscoverySnapshotRepository;
-use WhaCP\Services\DiscoveryService;
-use WhaCP\Services\SettingsService;
-use WhaCP\View\View;
+use NimVor\Agent\AgentException;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Repositories\DiscoverySnapshotRepository;
+use NimVor\Services\DiscoveryService;
+use NimVor\Services\SettingsService;
+use NimVor\View\View;
 
 /**
  * Read-only inventory pages: PHP, databases, certificates, cron, and the
@@ -25,9 +25,9 @@ final class DiscoveryController extends Controller
         private readonly DiscoveryService $discovery,
         private readonly DiscoverySnapshotRepository $snapshots,
         private readonly SettingsService $settings,
-        private readonly \WhaCP\Agent\AgentClient $agent,
-        private readonly \WhaCP\Services\ServerContext $server,
-        private readonly \WhaCP\Repositories\WebsiteRepository $websites,
+        private readonly \NimVor\Agent\AgentClient $agent,
+        private readonly \NimVor\Services\ServerContext $server,
+        private readonly \NimVor\Repositories\WebsiteRepository $websites,
     ) {
         parent::__construct($view, $session);
     }
@@ -45,7 +45,7 @@ final class DiscoveryController extends Controller
         $available = [];
         $services = [];
         $repository = null;
-        if ($this->view->can(\WhaCP\Security\Permissions::PHP_MANAGE)) {
+        if ($this->view->can(\NimVor\Security\Permissions::PHP_MANAGE)) {
             try {
                 $available = (array) $this->agent->call('php.available');
                 foreach ((array) $this->agent->call('services.status') as $svc) {
@@ -55,7 +55,7 @@ final class DiscoveryController extends Controller
             }
         }
         $this->view->share('php_available', $available);
-        if ($this->view->can(\WhaCP\Security\Permissions::PHP_MANAGE)) {
+        if ($this->view->can(\NimVor\Security\Permissions::PHP_MANAGE)) {
             try {
                 $repository = (array) $this->agent->call('php.repository');
             } catch (AgentException) {
@@ -86,7 +86,7 @@ final class DiscoveryController extends Controller
     public function ssl(Request $request): Response
     {
         // Administrators manage SSL/TLS in its own section; others see their certificates here.
-        if (\WhaCP\Hosting\Scope::isAll($this->user($request))) {
+        if (\NimVor\Hosting\Scope::isAll($this->user($request))) {
             return Response::redirect('/ssl/hosts');
         }
         $warn = $this->settings->int('ssl_warning_days');
@@ -142,7 +142,7 @@ final class DiscoveryController extends Controller
     private function scoped(Request $request, array $inventory): array
     {
         $user = $this->user($request);
-        if (\WhaCP\Hosting\Scope::isAll($user)) {
+        if (\NimVor\Hosting\Scope::isAll($user)) {
             return $inventory;
         }
         $domains = array_map(static fn (array $w): string => (string) $w['domain'], $this->websites->all($this->server->id(), $user));

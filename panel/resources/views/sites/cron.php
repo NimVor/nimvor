@@ -1,11 +1,11 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var array<string, mixed> $site */
 /** @var list<array<string, mixed>> $jobs */
 /** @var array<string, mixed>|null $edit */
-use WhaCP\Services\CronService;
+use NimVor\Services\CronService;
 
-$canManage = $this->can(\WhaCP\Security\Permissions::CRON_MANAGE);
+$canManage = $this->can(\NimVor\Security\Permissions::CRON_MANAGE);
 $id = (int) $site['id'];
 $errors ??= [];
 $form = $old !== [] ? $old : ($edit ?? []);
@@ -15,8 +15,8 @@ $isPreset = isset(CronService::PRESETS[$sched]);
 <?= $this->partial('sites/header', ['site' => $site, 'tab' => 'cron']) ?>
 <?php $open = $canManage && ($edit || $errors !== []); ?>
 <div class="card" id="cron-jobs">
-    <div class="card-header wcp-toolbar">
-        <h2 class="wcp-toolbar-title"><i class="bi bi-clock-history me-1"></i>Cron jobs <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($jobs) ?></span></h2>
+    <div class="card-header nim-toolbar">
+        <h2 class="nim-toolbar-title"><i class="bi bi-clock-history me-1"></i>Cron jobs <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($jobs) ?></span></h2>
         <?php if ($canManage): ?>
             <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#new-cron"><i class="bi bi-plus-lg me-1"></i>Add cron job</button>
         <?php endif; ?>
@@ -24,7 +24,7 @@ $isPreset = isset(CronService::PRESETS[$sched]);
     <?php if ($canManage): ?>
         <?= $this->modalStart('new-cron', $edit ? 'Edit cron job' : 'Add cron job', $open) ?>
             <div class="p-3">
-                    <form method="post" action="<?= e($this->url('sites.cron.store', ['id' => $id])) ?>" data-wcp-busy>
+                    <form method="post" action="<?= e($this->url('sites.cron.store', ['id' => $id])) ?>" data-nim-busy>
                         <?= $this->csrfField() ?>
                         <?php if ($edit): ?><input type="hidden" name="job_id" value="<?= (int) $edit['id'] ?>"><?php endif; ?>
                         <label class="form-label" for="c-sched">Schedule</label>
@@ -54,7 +54,7 @@ $isPreset = isset(CronService::PRESETS[$sched]);
         <?= $this->modalEnd() ?>
     <?php endif; ?>
     <?php if ($jobs === []): ?>
-        <div class="wcp-empty-state"><i class="bi bi-clock-history" aria-hidden="true"></i><div class="fw-medium">No cron jobs yet</div><div class="small">Run a command on a schedule, e.g. WordPress or Laravel tasks every few minutes.</div></div>
+        <div class="nim-empty-state"><i class="bi bi-clock-history" aria-hidden="true"></i><div class="fw-medium">No cron jobs yet</div><div class="small">Run a command on a schedule, e.g. WordPress or Laravel tasks every few minutes.</div></div>
     <?php else: ?>
                 <div class="table-responsive">
                     <table class="table table-sm align-middle mb-0">
@@ -74,7 +74,7 @@ $isPreset = isset(CronService::PRESETS[$sched]);
                                         <form class="d-inline" method="post" action="<?= e($this->url('sites.cron.run', ['id' => $id, 'job' => (int) $j['id']])) ?>"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary" title="Run now"><i class="bi bi-play"></i></button></form>
                                         <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('sites.cron', ['id' => $id], ['edit' => (int) $j['id']])) ?>" title="Edit"><i class="bi bi-pencil"></i></a>
                                         <form class="d-inline" method="post" action="<?= e($this->url('sites.cron.toggle', ['id' => $id, 'job' => (int) $j['id']])) ?>"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary" title="<?= $j['enabled'] ? 'Pause' : 'Enable' ?>"><i class="bi bi-<?= $j['enabled'] ? 'pause' : 'check-lg' ?>"></i></button></form>
-                                        <form class="d-inline" method="post" action="<?= e($this->url('sites.cron.delete', ['id' => $id, 'job' => (int) $j['id']])) ?>" data-wcp-confirm="Delete this cron job?"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></button></form>
+                                        <form class="d-inline" method="post" action="<?= e($this->url('sites.cron.delete', ['id' => $id, 'job' => (int) $j['id']])) ?>" data-nim-confirm="Delete this cron job?"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></button></form>
                                     </td>
                                 <?php endif; ?>
                             </tr>

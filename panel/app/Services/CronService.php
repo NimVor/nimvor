@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Database\Connection;
-use WhaCP\Support\ValidationException;
+use NimVor\Agent\AgentClient;
+use NimVor\Database\Connection;
+use NimVor\Support\ValidationException;
 
 /**
  * Website cron jobs. The panel stores the jobs; after every change the
@@ -99,7 +99,7 @@ final class CronService
 
     /**
      * The end of a job's log, split into runs (newest first). Each run is
-     * framed by "### whacp-run start …" and "### whacp-run end … exit=N";
+     * framed by "### nimvor-run start …" and "### nimvor-run end … exit=N";
      * output from before the framing is kept as one earlier entry.
      *
      * @param array<string, mixed> $site
@@ -119,12 +119,12 @@ final class CronService
         $cur = null;
         $loose = '';
         foreach (preg_split('/\r?\n/', $log) ?: [] as $line) {
-            if (preg_match('/^### whacp-run start (\S+)( manual)?$/', $line, $m)) {
+            if (preg_match('/^### nimvor-run start (\S+)( manual)?$/', $line, $m)) {
                 if ($cur !== null) {
                     $runs[] = $cur;
                 }
                 $cur = ['start' => $m[1], 'end' => null, 'exit' => null, 'manual' => isset($m[2]), 'output' => ''];
-            } elseif (preg_match('/^### whacp-run end (\S+) exit=(\d+)$/', $line, $m) && $cur !== null) {
+            } elseif (preg_match('/^### nimvor-run end (\S+) exit=(\d+)$/', $line, $m) && $cur !== null) {
                 $cur['end'] = $m[1];
                 $cur['exit'] = (int) $m[2];
                 $runs[] = $cur;
@@ -237,7 +237,7 @@ final class CronService
     public function run(array $site, array $job): string
     {
         if (!empty($site['account_suspended'])) {
-            throw new \WhaCP\Support\UserFacingException('The account is suspended; its cron jobs do not run.');
+            throw new \NimVor\Support\UserFacingException('The account is suspended; its cron jobs do not run.');
         }
         $res = (array) $this->agent->call('cron.run', ['domain' => $site['domain'], 'user' => $site['system_user'], 'root' => $site['root'], 'id' => (int) $job['id'], 'command' => $job['command']]);
         $this->db->run('UPDATE cron_jobs SET last_run_job = ? WHERE id = ?', [(string) $res['job_id'], (int) $job['id']]);

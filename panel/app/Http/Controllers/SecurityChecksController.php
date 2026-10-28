@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Database\Connection;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Security\Permissions as P;
-use WhaCP\Services\AuditLogger;
-use WhaCP\Services\MailService;
-use WhaCP\Services\ServerContext;
-use WhaCP\View\View;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Database\Connection;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Security\Permissions as P;
+use NimVor\Services\AuditLogger;
+use NimVor\Services\MailService;
+use NimVor\Services\ServerContext;
+use NimVor\View\View;
 
 /**
  * On-demand security checks that are too slow to run on every page load:
@@ -69,7 +69,7 @@ final class SecurityChecksController extends Controller
             return $this->redirectWithError('/security/integrity', 'The baseline could not be recorded: ' . $e->getMessage());
         }
         $this->audit->record('security.integrity_baseline', 'server', 'integrity', AuditLogger::SUCCESS, ['files' => (int) ($res['baselined'] ?? 0)]);
-        return $this->redirectWithSuccess('/security/integrity', 'Integrity baseline recorded for ' . (int) ($res['baselined'] ?? 0) . ' WhaCP-owned file(s). Run the check after an update to refresh it.');
+        return $this->redirectWithSuccess('/security/integrity', 'Integrity baseline recorded for ' . (int) ($res['baselined'] ?? 0) . ' NimVor-owned file(s). Run the check after an update to refresh it.');
     }
 
     // ---- TLS configuration audit (items 70–71) ---------------------------

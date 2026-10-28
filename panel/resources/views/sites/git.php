@@ -1,5 +1,5 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var array<string, mixed> $site */
 /** @var array<string, mixed>|null $cfg */
 /** @var list<array<string, mixed>> $history */
@@ -16,10 +16,10 @@ if (is_array($hooks)) {
         <?php if ($cfg !== null): ?>
             <div class="card mb-3">
                 <div class="card-header d-flex align-items-center"><i class="bi bi-git me-1"></i>Deployment
-                    <form class="ms-auto" method="post" action="<?= e($this->url('sites.git.deploy', ['id' => $id])) ?>" data-wcp-busy><?= $this->csrfField() ?><button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><i class="bi bi-rocket-takeoff me-1"></i>Deploy now</button></form>
+                    <form class="ms-auto" method="post" action="<?= e($this->url('sites.git.deploy', ['id' => $id])) ?>" data-nim-busy><?= $this->csrfField() ?><button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><i class="bi bi-rocket-takeoff me-1"></i>Deploy now</button></form>
                 </div>
                 <div class="card-body">
-                    <dl class="wcp-dl mb-0">
+                    <dl class="nim-dl mb-0">
                         <dt>Repository</dt><dd><code class="text-break"><?= e($cfg['repo']) ?></code></dd>
                         <dt>Branch</dt><dd><code><?= e($cfg['branch']) ?></code></dd>
                         <dt>Deployed to</dt><dd><code><?= e(rtrim((string) $site['root'], '/') . '/' . $cfg['path']) ?></code></dd>
@@ -44,7 +44,7 @@ if (is_array($hooks)) {
                                 <td class="small"><?php if ($d['commit_hash'] !== ''): ?><code><?= e(substr((string) $d['commit_hash'], 0, 10)) ?></code> <?= e($d['message']) ?><?php else: ?><span class="text-body-secondary"><?= e($d['error']) ?></span><?php endif; ?></td>
                                 <td class="small"><?= $d['trigger'] === 'webhook' ? 'webhook' : e((string) ($d['username'] ?? '')) ?></td>
                                 <td><?= $this->statusBadge((string) $d['status']) ?></td>
-                                <td class="text-end"><?php if ($d['job_id'] !== ''): ?><button type="button" class="btn btn-sm btn-outline-secondary" data-wcp-job-open="<?= e($d['job_id']) ?>" title="Log"><i class="bi bi-terminal"></i></button><?php endif; ?></td>
+                                <td class="text-end"><?php if ($d['job_id'] !== ''): ?><button type="button" class="btn btn-sm btn-outline-secondary" data-nim-job-open="<?= e($d['job_id']) ?>" title="Log"><i class="bi bi-terminal"></i></button><?php endif; ?></td>
                             </tr>
                         <?php endforeach; ?>
                         </tbody>
@@ -55,7 +55,7 @@ if (is_array($hooks)) {
         <div class="card">
             <div class="card-header"><i class="bi bi-sliders me-1"></i><?= $cfg === null ? 'Connect a repository' : 'Repository settings' ?></div>
             <div class="card-body">
-                <form method="post" action="<?= e($this->url('sites.git.configure', ['id' => $id])) ?>" data-wcp-busy>
+                <form method="post" action="<?= e($this->url('sites.git.configure', ['id' => $id])) ?>" data-nim-busy>
                     <?= $this->csrfField() ?>
                     <?= $this->partial('partials/field', ['name' => 'repo', 'label' => 'Repository URL', 'value' => (string) ($form['repo'] ?? ''), 'help' => 'https:// for public repositories, or an SSH address (git@github.com:owner/repo.git) with the deploy key below.', 'attrs' => ['required' => 'required', 'placeholder' => 'git@github.com:owner/repo.git']]) ?>
                     <div class="row g-2">
@@ -71,7 +71,7 @@ if (is_array($hooks)) {
                 </form>
             </div>
             <?php if ($cfg !== null): ?>
-                <div class="card-footer"><form method="post" action="<?= e($this->url('sites.git.remove', ['id' => $id])) ?>" data-wcp-confirm="Disconnect the repository? Deployed files stay in place."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger">Disconnect repository</button></form></div>
+                <div class="card-footer"><form method="post" action="<?= e($this->url('sites.git.remove', ['id' => $id])) ?>" data-nim-confirm="Disconnect the repository? Deployed files stay in place."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger">Disconnect repository</button></form></div>
             <?php endif; ?>
         </div>
     </div>
@@ -84,8 +84,8 @@ if (is_array($hooks)) {
                         <p class="text-warning small mb-0">The deploy key could not be created: <?= e($keyError) ?></p>
                     <?php else: ?>
                         <p class="small">Add this public key as a read-only <strong>deploy key</strong> in your repository settings (GitHub: Settings → Deploy keys; GitLab: Settings → Repository → Deploy keys).</p>
-                        <textarea class="form-control form-control-sm font-monospace mb-2" rows="3" readonly data-wcp-deploy-key><?= e($cfg['public_key']) ?></textarea>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" data-wcp-copy="[data-wcp-deploy-key]"><i class="bi bi-clipboard"></i> Copy</button>
+                        <textarea class="form-control form-control-sm font-monospace mb-2" rows="3" readonly data-nim-deploy-key><?= e($cfg['public_key']) ?></textarea>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-nim-copy="[data-nim-deploy-key]"><i class="bi bi-clipboard"></i> Copy</button>
                     <?php endif; ?>
                 </div>
             </div>
@@ -94,10 +94,10 @@ if (is_array($hooks)) {
                 <div class="card-body small">
                     <p>Add a <em>push</em> webhook with content type <code>application/json</code>:</p>
                     <label class="form-label" for="g-hook-url">Payload URL</label>
-                    <div class="input-group input-group-sm mb-2"><input class="form-control font-monospace" id="g-hook-url" value="<?= e($webhookUrl) ?>" readonly data-wcp-hook-url><button type="button" class="btn btn-outline-secondary" data-wcp-copy="[data-wcp-hook-url]"><i class="bi bi-clipboard"></i></button></div>
+                    <div class="input-group input-group-sm mb-2"><input class="form-control font-monospace" id="g-hook-url" value="<?= e($webhookUrl) ?>" readonly data-nim-hook-url><button type="button" class="btn btn-outline-secondary" data-nim-copy="[data-nim-hook-url]"><i class="bi bi-clipboard"></i></button></div>
                     <label class="form-label" for="g-hook-secret">Secret (GitHub/Gitea) or secret token (GitLab)</label>
-                    <div class="input-group input-group-sm mb-3"><input class="form-control font-monospace" id="g-hook-secret" value="<?= e($webhookSecret) ?>" readonly data-wcp-hook-secret><button type="button" class="btn btn-outline-secondary" data-wcp-copy="[data-wcp-hook-secret]"><i class="bi bi-clipboard"></i></button></div>
-                    <form method="post" action="<?= e($this->url('sites.git.rotate', ['id' => $id])) ?>" data-wcp-confirm="Generate a new webhook URL and secret? The current webhook stops working."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary">Regenerate</button></form>
+                    <div class="input-group input-group-sm mb-3"><input class="form-control font-monospace" id="g-hook-secret" value="<?= e($webhookSecret) ?>" readonly data-nim-hook-secret><button type="button" class="btn btn-outline-secondary" data-nim-copy="[data-nim-hook-secret]"><i class="bi bi-clipboard"></i></button></div>
+                    <form method="post" action="<?= e($this->url('sites.git.rotate', ['id' => $id])) ?>" data-nim-confirm="Generate a new webhook URL and secret? The current webhook stops working."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary">Regenerate</button></form>
                 </div>
             </div>
         </div>

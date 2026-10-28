@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Build release archives: dist/release/whacp-<version>-linux-<arch>.tar.gz
+# Build release archives: dist/release/nimvor-<version>-linux-<arch>.tar.gz
 # with a prebuilt agent and the panel's production dependencies, plus
 # SHA256SUMS. Archives are reproducible for a given commit (fixed owners,
 # order and timestamps). Run from a clean checkout:
@@ -20,7 +20,7 @@ export SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-$(git log -1 --format=%ct)}
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$OUT"
-rm -f "$OUT"/whacp-"$VERSION"-*.tar.gz "$OUT/SHA256SUMS"
+rm -f "$OUT"/nimvor-"$VERSION"-*.tar.gz "$OUT/SHA256SUMS"
 
 # Tracked files only, so nothing local leaks into a release.
 mkdir -p "$WORK/src"
@@ -33,14 +33,14 @@ find "$WORK/src" -name '*_test.go' -delete
 (cd "$WORK/src/panel" && composer install --no-dev --no-interaction --no-progress --optimize-autoloader -q)
 
 for arch in $ARCHES; do
-    name=whacp-$VERSION
+    name=nimvor-$VERSION
     stage=$WORK/$arch/$name
     mkdir -p "$WORK/$arch"
     cp -a "$WORK/src" "$stage"
     (cd agent && CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath -buildvcs=false \
-        -ldflags "-s -w -X main.version=$VERSION" -o "$stage/dist/whacp-agent" ./cmd/whacp-agent)
+        -ldflags "-s -w -X main.version=$VERSION" -o "$stage/dist/nimvor-agent" ./cmd/nimvor-agent)
     if [[ $arch == "$(go env GOARCH)" ]]; then
-        got=$("$stage/dist/whacp-agent" -version)
+        got=$("$stage/dist/nimvor-agent" -version)
         [[ $got == *"$VERSION"* ]] || { echo "agent reports '$got', expected $VERSION" >&2; exit 1; }
     fi
     tar -C "$WORK/$arch" --sort=name --owner=0 --group=0 --numeric-owner \
@@ -49,7 +49,7 @@ for arch in $ARCHES; do
     echo "built dist/release/$name-linux-$arch.tar.gz"
 done
 # Refuse to publish anything that looks like a secret, a test or a local file.
-for f in "$OUT"/whacp-"$VERSION"-linux-*.tar.gz; do
+for f in "$OUT"/nimvor-"$VERSION"-linux-*.tar.gz; do
     listing=$(tar -tzf "$f")
     if grep -qE '/(tests|\.dev|\.git|node_modules)/|_test\.go$|phpunit|\.sqlite$|\.env$|/dist/release/' <<<"$listing"; then
         echo "$f contains test or development files:" >&2
@@ -61,4 +61,4 @@ for f in "$OUT"/whacp-"$VERSION"-linux-*.tar.gz; do
         exit 1
     fi
 done
-(cd "$OUT" && sha256sum whacp-"$VERSION"-linux-*.tar.gz > SHA256SUMS && cat SHA256SUMS)
+(cd "$OUT" && sha256sum nimvor-"$VERSION"-linux-*.tar.gz > SHA256SUMS && cat SHA256SUMS)

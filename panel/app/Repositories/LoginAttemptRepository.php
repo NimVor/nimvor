@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Repositories;
+namespace NimVor\Repositories;
 
-use WhaCP\Database\Connection;
+use NimVor\Database\Connection;
 
 final class LoginAttemptRepository
 {

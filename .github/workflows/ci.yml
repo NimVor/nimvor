@@ -48,24 +48,6 @@ jobs:
       - name: build
         run: make build
 
-  # The Go control-panel server (PHP-to-Go migration). Mirrors the agent job:
-  # gofmt gate, go vet, race tests, and a build of both binaries.
-  server:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.24'
-      - name: gofmt
-        run: test -z "$(gofmt -l server)" || (gofmt -l server; exit 1)
-      - name: vet
-        run: cd server && go vet ./...
-      - name: test
-        run: cd server && go test -race ./...
-      - name: build
-        run: cd server && go build ./cmd/...
-
   panel:
     runs-on: ubuntu-24.04
     strategy:
@@ -101,11 +83,11 @@ jobs:
           sudo rm -rf /var/lib/mysql /etc/mysql
           sudo apt-get update -q
           echo "postfix postfix/main_mailer_type select Internet Site" | sudo debconf-set-selections
-          echo "postfix postfix/mailname string ci.whacp.test" | sudo debconf-set-selections
+          echo "postfix postfix/mailname string ci.nimvor.test" | sudo debconf-set-selections
           echo "roundcube-core roundcube/dbconfig-install boolean false" | sudo debconf-set-selections
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends \
             nginx mariadb-server mariadb-client redis-server memcached pure-ftpd bind9 bind9utils postfix dovecot-imapd dovecot-lmtpd dovecot-sieve opendkim rspamd ufw fail2ban openssh-server git \
-            roundcube-core roundcube-sqlite3 roundcube-plugins php-fpm awstats clamav ffmpeg bubblewrap \
+            roundcube-core roundcube-sqlite3 roundcube-plugins php-fpm awstats clamav ffmpeg bubblewrap python3-venv \
             php8.3-cli php8.3-fpm php8.3-mysql php8.3-sqlite3 php8.3-mbstring php8.3-xml php8.3-curl php8.3-zip php8.3-intl
           command -v composer || { curl -fsSL https://getcomposer.org/installer | sudo php -- --install-dir=/usr/local/bin --filename=composer; }
           sudo systemctl start mariadb redis-server memcached nginx php8.3-fpm ssh named
@@ -117,23 +99,26 @@ jobs:
       - name: Real-host tests (as root)
         run: |
           cd agent
-          sudo -E env "PATH=$PATH" "GOCACHE=$(go env GOCACHE)" "GOMODCACHE=$(go env GOMODCACHE)" "HOME=$HOME" WHACP_NETWORK=1 \
-            go test -tags realhost -run RealHost -count=1 -p 1 -v ./... 2>&1 | tee realhost.log
+          sudo -E env "PATH=$PATH" "GOCACHE=$(go env GOCACHE)" "GOMODCACHE=$(go env GOMODCACHE)" "HOME=$HOME" NIMVOR_NETWORK=1 \
+            go test -tags realhost -run RealHost -count=1 -p 1 -timeout 30m -v ./... 2>&1 | tee realhost.log
           test "${PIPESTATUS[0]}" -eq 0
           ! grep -q -- '--- SKIP' realhost.log || { grep -- '--- SKIP' -A1 realhost.log; exit 1; }
+      - name: Real-host failures (summary)
+        if: failure()
+        run: grep -n -- '--- FAIL\|_test.go:[0-9]*:' agent/realhost.log | cut -c1-300 | head -80 || true
       - name: Installer and post-install end-to-end (Ubuntu)
         run: |
           (cd panel && composer install --no-dev --no-interaction --no-progress --optimize-autoloader)
-          mkdir -p dist && (cd agent && CGO_ENABLED=0 go build -trimpath -o ../dist/whacp-agent ./cmd/whacp-agent)
-          sudo installer/install.sh --yes --enable-writes --profile=none --admin-user=admin --admin-email=admin@whacp.test
+          mkdir -p dist && (cd agent && CGO_ENABLED=0 go build -trimpath -o ../dist/nimvor-agent ./cmd/nimvor-agent)
+          sudo installer/install.sh --yes --enable-writes --profile=none --admin-user=admin --admin-email=admin@nimvor.test
           sudo tests/integration/postinstall.sh
           sudo tests/integration/public-https.sh
       - name: Agent sandbox diagnostics (Ubuntu)
         if: always()
         run: |
           systemctl --version | head -1; uname -r
-          systemd-analyze security whacp-agent.service --no-pager || true
-          sudo journalctl -u whacp-agent --no-pager -n 15 -o cat | grep -i 'fail\|error' || true
+          systemd-analyze security nimvor-agent.service --no-pager || true
+          sudo journalctl -u nimvor-agent --no-pager -n 15 -o cat | grep -i 'fail\|error' || true
           sudo env "PATH=$PATH" "GOCACHE=$(go env GOCACHE)" "GOMODCACHE=$(go env GOMODCACHE)" HOME=$HOME tests/integration/sandbox-probe.sh
 
   # The same real-host tests, then the installer and the post-install test,
@@ -181,37 +166,42 @@ jobs:
         run: |
           (cd panel && composer install --no-dev --no-interaction --no-progress --optimize-autoloader)
           mkdir -p dist
-          (cd agent && CGO_ENABLED=0 go build -trimpath -o ../dist/whacp-agent ./cmd/whacp-agent)
+          (cd agent && CGO_ENABLED=0 go build -trimpath -o ../dist/nimvor-agent ./cmd/nimvor-agent)
           cd agent
           for d in $(grep -rl 'go:build realhost' internal | xargs -n1 dirname | sort -u); do
             CGO_ENABLED=0 go test -c -tags realhost -o "$d/realhost.test" "./$d"
           done
-          cd .. && tar --exclude=.git --exclude=.vm -czf /tmp/whacp.tgz .
+          cd .. && tar --exclude=.git --exclude=.vm -czf /tmp/nimvor.tgz .
       - name: Install services in the VM
         run: |
-          tests/vm.sh put /tmp/whacp.tgz /root/whacp.tgz
-          tests/vm.sh ssh 'mkdir -p /root/whacp && tar -xzf /root/whacp.tgz -C /root/whacp'
-          tests/vm.sh ssh 'bash /root/whacp/${{ matrix.setup }}'
+          tests/vm.sh put /tmp/nimvor.tgz /root/nimvor.tgz
+          tests/vm.sh ssh 'mkdir -p /root/nimvor && tar -xzf /root/nimvor.tgz -C /root/nimvor'
+          tests/vm.sh ssh 'bash /root/nimvor/${{ matrix.setup }}'
       - name: Real-host tests
         run: |
-          tests/vm.sh ssh 'cd /root/whacp/agent && php=$(cat /etc/whacp-ci-php 2>/dev/null || echo 8.3) && for t in $(find internal -name realhost.test | sort); do
-              echo "=== $t"; (cd "$(dirname "$t")" && CI=1 WHACP_NETWORK=1 WHACP_TEST_PHP=$php timeout 900 ./realhost.test -test.run RealHost -test.count=1 -test.v)
+          tests/vm.sh ssh 'cd /root/nimvor/agent && php=$(cat /etc/nimvor-ci-php 2>/dev/null || echo 8.3) && for t in $(find internal -name realhost.test | sort); do
+              echo "=== $t"; (cd "$(dirname "$t")" && CI=1 NIMVOR_NETWORK=1 NIMVOR_TEST_PHP=$php timeout 900 ./realhost.test -test.run RealHost -test.count=1 -test.v)
             done > /root/realhost.log 2>&1; cat /root/realhost.log'
           tests/vm.sh ssh '! grep -E -e "--- (SKIP|FAIL)" -e "^(FAIL|panic)" /root/realhost.log'
+      - name: What the real-host tests left behind (diagnostic)
+        if: always()
+        run: |
+          # The installer reads a leftover /etc/nimvor or /opt/nimvor as an unfinished installation.
+          tests/vm.sh ssh 'for d in /etc/nimvor /opt/nimvor /usr/local/bin/nimvor-agent /etc/systemd/system/nimvor-agent.service /etc/systemd/system/nimvor-panel.service; do [ -e "$d" ] && { echo "LEFT BEHIND: $d"; ls -la "$d" 2>&1 | head -12; }; done; echo "leftover check done"'
       - name: Installer and post-install end-to-end
         if: always()
         run: |
-          tests/vm.sh ssh 'cd /root/whacp && installer/install.sh --install-deps --yes --enable-writes --profile=none --admin-user=admin --admin-email=admin@whacp.test'
-          tests/vm.sh ssh 'curl -fsS http://127.0.0.1:8090/healthz && runuser -u whacp -- env WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp agent:check'
-          tests/vm.sh ssh 'cd /root/whacp && tests/integration/postinstall.sh'
-          tests/vm.sh ssh 'cd /root/whacp && tests/integration/public-https.sh'
+          tests/vm.sh ssh 'cd /root/nimvor && installer/install.sh --install-deps --yes --enable-writes --profile=none --admin-user=admin --admin-email=admin@nimvor.test'
+          tests/vm.sh ssh 'curl -fsS http://127.0.0.1:8090/healthz && runuser -u nimvor -- env NIMVOR_CONFIG=/etc/nimvor/panel.php php /opt/nimvor/panel/bin/nimvor agent:check'
+          tests/vm.sh ssh 'cd /root/nimvor && tests/integration/postinstall.sh'
+          tests/vm.sh ssh 'cd /root/nimvor && tests/integration/public-https.sh'
       - name: SELinux denials
         if: always() && matrix.os != 'ubuntu'
         run: tests/vm.sh ssh 'getenforce; systemctl is-active auditd; grep -c denied /var/log/audit/audit.log; grep denied /var/log/audit/audit.log | grep -v "noatsecure\|rlimitinh\|siginh" | tail -80 || true'
       - name: Service logs
         if: always()
         run: |
-          for u in postfix whacp-opendkim named dovecot whacp-agent; do tests/vm.sh ssh "echo '--- $u'; journalctl --no-pager -o cat -n 25 -u $u | grep -iv 'connect from\|disconnect from' || true"; done
+          for u in postfix nimvor-opendkim named dovecot nimvor-agent; do tests/vm.sh ssh "echo '--- $u'; journalctl --no-pager -o cat -n 25 -u $u | grep -iv 'connect from\|disconnect from' || true"; done
 
   # Browser tests (Playwright/Chromium) against a write-mode dev instance.
   e2e:
@@ -258,6 +248,17 @@ jobs:
           extensions: pdo_sqlite, curl, mbstring
       - run: cd panel && composer install --no-interaction --no-progress
       - run: tests/integration/smoke.sh
+      - run: tests/integration/cli-wrapper.sh
       - run: tests/integration/upgrade.sh
       - name: Upgrade from the previous release (real code and data)
-        run: UPGRADE_FROM="$(git rev-list -1 HEAD -- VERSION)^" tests/integration/upgrade.sh
+        run: |
+          ref="$(git rev-list -1 HEAD -- VERSION)^"
+          # Releases before the rename to NimVor used other program, path and
+          # service names; there is no upgrade path from them (see
+          # docs/migration/WHACP-TO-NIMVOR.md), so this runs once a NimVor
+          # release is the previous one.
+          if git cat-file -e "$ref:agent/cmd/nimvor-agent" 2>/dev/null; then
+            UPGRADE_FROM="$ref" tests/integration/upgrade.sh
+          else
+            echo "the previous release predates the rename to NimVor: no upgrade path to test"
+          fi

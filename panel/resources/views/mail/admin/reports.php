@@ -1,5 +1,5 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var array<string, mixed>|null $report */
 /** @var string $source */
 /** @var string $range */
@@ -10,11 +10,11 @@ $t = (array) ($report['totals'] ?? []);
 ?>
 <?= $this->partial('mail/admin/_tabs', get_defined_vars()) ?>
 <?php if ($report === null) { return; } ?>
-<form class="wcp-toolbar mb-3" method="get" action="<?= e($this->url('mail.admin.reports')) ?>">
+<form class="nim-toolbar mb-3" method="get" action="<?= e($this->url('mail.admin.reports')) ?>">
     <?php if ($tab === 'stats'): ?><input type="hidden" name="view" value="stats"><?php endif; ?>
-    <select class="form-select form-select-sm w-auto" name="range" aria-label="Time range" data-wcp-autosubmit><?php foreach ($ranges as $k => $l): ?><option value="<?= e($k) ?>"<?= $range === $k ? ' selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select>
+    <select class="form-select form-select-sm w-auto" name="range" aria-label="Time range" data-nim-autosubmit><?php foreach ($ranges as $k => $l): ?><option value="<?= e($k) ?>"<?= $range === $k ? ' selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select>
     <?php if ($tab === 'reports'): ?>
-        <input class="form-control form-control-sm wcp-w-30" type="search" name="address" value="<?= e($filters['address']) ?>" placeholder="Sender or recipient contains…" aria-label="Address">
+        <input class="form-control form-control-sm nim-w-30" type="search" name="address" value="<?= e($filters['address']) ?>" placeholder="Sender or recipient contains…" aria-label="Address">
         <select class="form-select form-select-sm w-auto" name="status" aria-label="Status"><option value="">Any status</option><?php foreach ($states as $k => [$l]): ?><option value="<?= e($k) ?>"<?= $filters['status'] === $k ? ' selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select>
         <button class="btn btn-sm btn-outline-secondary">Filter</button>
     <?php endif; ?>
@@ -22,9 +22,9 @@ $t = (array) ($report['totals'] ?? []);
 </form>
 
 <?php if ($tab === 'stats'): ?>
-    <section class="wcp-site-summary mb-3" aria-label="Totals">
+    <section class="nim-site-summary mb-3" aria-label="Totals">
         <?php foreach (['received' => 'Received', 'sent' => 'Sent out', 'delivered' => 'Delivered here', 'deferred' => 'Deferred', 'bounced' => 'Bounced', 'rejected' => 'Rejected', 'auth_ok' => 'Logins', 'auth_failed' => 'Failed logins'] as $k => $l): ?>
-            <div class="wcp-sum"><div class="wcp-sum-label"><?= e($l) ?></div><div class="wcp-sum-value<?= in_array($k, ['bounced', 'rejected', 'auth_failed'], true) && ($t[$k] ?? 0) > 0 ? ' wcp-bad' : '' ?>"><?= e(number_format((int) ($t[$k] ?? 0))) ?></div></div>
+            <div class="nim-sum"><div class="nim-sum-label"><?= e($l) ?></div><div class="nim-sum-value<?= in_array($k, ['bounced', 'rejected', 'auth_failed'], true) && ($t[$k] ?? 0) > 0 ? ' nim-bad' : '' ?>"><?= e(number_format((int) ($t[$k] ?? 0))) ?></div></div>
         <?php endforeach; ?>
     </section>
     <div class="row g-3">
@@ -35,8 +35,8 @@ $t = (array) ($report['totals'] ?? []);
                 <ul class="list-group list-group-flush small">
                     <?php foreach ($series as $s): $v = (int) ($s['received'] ?? 0) + (int) ($s['sent'] ?? 0); ?>
                         <li class="list-group-item">
-                            <div class="d-flex"><span><?= e(str_replace('T', ' ', substr((string) $s['start'], 0, in_array($range, ['7d', '30d'], true) ? 10 : 16))) ?></span><span class="ms-auto"><?= (int) ($s['received'] ?? 0) ?> in · <?= (int) ($s['sent'] ?? 0) ?> out<?= ($s['bounced'] ?? 0) + ($s['rejected'] ?? 0) > 0 ? ' · <span class="wcp-bad">' . ((int) ($s['bounced'] ?? 0) + (int) ($s['rejected'] ?? 0)) . ' failed</span>' : '' ?></span></div>
-                            <div class="progress mt-1 wcp-progress-thin" role="presentation"><div class="progress-bar wcp-w-<?= (int) (ceil($v * 100 / $max / 5) * 5) ?>"></div></div>
+                            <div class="d-flex"><span><?= e(str_replace('T', ' ', substr((string) $s['start'], 0, in_array($range, ['7d', '30d'], true) ? 10 : 16))) ?></span><span class="ms-auto"><?= (int) ($s['received'] ?? 0) ?> in · <?= (int) ($s['sent'] ?? 0) ?> out<?= ($s['bounced'] ?? 0) + ($s['rejected'] ?? 0) > 0 ? ' · <span class="nim-bad">' . ((int) ($s['bounced'] ?? 0) + (int) ($s['rejected'] ?? 0)) . ' failed</span>' : '' ?></span></div>
+                            <div class="progress mt-1 nim-progress-thin" role="presentation"><div class="progress-bar nim-w-<?= (int) (ceil($v * 100 / $max / 5) * 5) ?>"></div></div>
                         </li>
                     <?php endforeach; ?>
                 </ul>
@@ -66,8 +66,8 @@ $t = (array) ($report['totals'] ?? []);
         </div>
     </div>
 <?php else: ?>
-    <div class="wcp-panel" data-wcp-dt id="deliveries">
-        <div class="wcp-dtable table-responsive">
+    <div class="nim-panel" data-nim-dt id="deliveries">
+        <div class="nim-dtable table-responsive">
             <table class="table align-middle">
                 <thead><tr><th>Time (UTC)</th><th>From</th><th>To</th><th>Status</th><th>Details</th></tr></thead>
                 <tbody>
@@ -76,11 +76,11 @@ $t = (array) ($report['totals'] ?? []);
                         <td class="small text-nowrap"><?= e(str_replace('T', ' ', substr((string) $d['time'], 0, 19))) ?></td>
                         <td class="small text-break"><?= e($d['from'] !== '' ? $d['from'] : '—') ?></td>
                         <td class="small text-break"><?= e($d['to']) ?></td>
-                        <td class="small"><span class="wcp-state <?= e($cls) ?>"><?= e($l) ?></span><div class="wcp-muted"><?= e($d['dsn']) ?></div></td>
-                        <td class="small"><div class="text-break"><?= e(mb_strimwidth((string) $d['reason'], 0, 160, '…')) ?></div><div class="wcp-muted text-break"><?= e($d['relay']) ?><?= $d['delay'] !== '' ? ' · ' . e($d['delay']) . ' s' : '' ?><?= $d['id'] !== '' ? ' · ' . e($d['id']) : '' ?></div></td>
+                        <td class="small"><span class="nim-state <?= e($cls) ?>"><?= e($l) ?></span><div class="nim-muted"><?= e($d['dsn']) ?></div></td>
+                        <td class="small"><div class="text-break"><?= e(mb_strimwidth((string) $d['reason'], 0, 160, '…')) ?></div><div class="nim-muted text-break"><?= e($d['relay']) ?><?= $d['delay'] !== '' ? ' · ' . e($d['delay']) . ' s' : '' ?><?= $d['id'] !== '' ? ' · ' . e($d['id']) : '' ?></div></td>
                     </tr>
                 <?php endforeach; ?>
-                <?php if ((array) $report['deliveries'] === []): ?><tr><td colspan="5" class="text-center py-4 wcp-muted">No deliveries match.</td></tr><?php endif; ?>
+                <?php if ((array) $report['deliveries'] === []): ?><tr><td colspan="5" class="text-center py-4 nim-muted">No deliveries match.</td></tr><?php endif; ?>
                 </tbody>
             </table>
         </div>

@@ -2,23 +2,23 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Hosting\Scope;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Mail\MailConfig;
-use WhaCP\Security\Permissions as P;
-use WhaCP\Services\AuditLogger;
-use WhaCP\Services\HulkService;
-use WhaCP\Services\PlanService;
-use WhaCP\Services\SettingsService;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Support\ValidationException;
-use WhaCP\View\View;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Hosting\Scope;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Mail\MailConfig;
+use NimVor\Security\Permissions as P;
+use NimVor\Services\AuditLogger;
+use NimVor\Services\HulkService;
+use NimVor\Services\PlanService;
+use NimVor\Services\SettingsService;
+use NimVor\Services\WebsiteService;
+use NimVor\Support\ValidationException;
+use NimVor\View\View;
 
 /**
  * Basic WebHost Settings (the essentials of a new server: contact, panel
@@ -61,7 +61,7 @@ final class WebHostSettingsController extends Controller
         private readonly AgentClient $agent,
         private readonly HulkService $hulk,
         private readonly AuditLogger $audit,
-        private readonly \WhaCP\Security\AuthService $auth,
+        private readonly \NimVor\Security\AuthService $auth,
     ) {
         parent::__construct($view, $session);
     }

@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\AccountOptions;
-use WhaCP\Services\SettingsService;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\AccountOptions;
+use NimVor\Services\SettingsService;
+use NimVor\Services\WebsiteService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /**
  * DNS (and email with DKIM) for new websites, when this server hosts DNS;
@@ -49,12 +49,12 @@ final class SiteProvisionerTest extends HttpTestCase
     public function testANewWebsiteGetsItsZoneWithMailRecords(): void
     {
         $this->agent->succeed('mail.status', ['installed' => ['postfix' => true], 'configured' => true, 'hostname' => 'mail.host.test', 'running' => ['postfix' => true], 'mailboxes' => []]);
-        $this->agent->succeed('mail.domain_add', ['domain' => 'shop.test', 'dkim_selector' => 'whacp202609', 'dkim_txt' => 'v=DKIM1; k=rsa; p=MIIB']);
+        $this->agent->succeed('mail.domain_add', ['domain' => 'shop.test', 'dkim_selector' => 'nimvor202609', 'dkim_txt' => 'v=DKIM1; k=rsa; p=MIIB']);
         $id = $this->site('shop.test', $this->cust);
         $zone = $this->db->fetch("SELECT * FROM dns_zones WHERE name = 'shop.test'");
         self::assertSame([$id, $this->cust], [(int) $zone['website_id'], (int) $zone['owner_id']]);
         $r = $this->records('shop.test');
-        foreach (['@ NS ns1.host.test.', '@ A 203.0.113.10', 'www CNAME @', '@ TXT v=spf1 +a +mx +ip4:203.0.113.10 ~all', '_dmarc TXT v=DMARC1; p=none;', '@ CAA issue letsencrypt.org', '@ MX mail.host.test.', 'whacp202609._domainkey TXT v=DKIM1; k=rsa; p=MIIB'] as $want) {
+        foreach (['@ NS ns1.host.test.', '@ A 203.0.113.10', 'www CNAME @', '@ TXT v=spf1 +a +mx +ip4:203.0.113.10 ~all', '_dmarc TXT v=DMARC1; p=none;', '@ CAA issue letsencrypt.org', '@ MX mail.host.test.', 'nimvor202609._domainkey TXT v=DKIM1; k=rsa; p=MIIB'] as $want) {
             self::assertContains($want, $r, $want);
         }
         self::assertSame(1, count(array_filter($r, static fn ($x) => str_contains($x, 'v=spf1'))), 'one SPF record');

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http;
+namespace NimVor\Http;
 
 /**
  * Immutable-ish HTTP request (attributes may be attached by middleware).

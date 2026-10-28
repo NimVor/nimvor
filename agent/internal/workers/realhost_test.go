@@ -17,13 +17,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/config"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/config"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/jobs"
+	"github.com/NimVor/nimvor/agent/internal/platform"
 )
 
 // A worker created through the agent starts under systemd as the website
@@ -37,9 +37,9 @@ func TestRealHostWorker(t *testing.T) {
 	if _, err := os.Stat("/run/systemd/system"); err != nil {
 		t.Fatal("systemd is not running: workers are systemd services")
 	}
-	const sites, name, domain, slug = "/srv/whacp-rt-workers", "rtworker", "rt-worker.test", "9-rt"
+	const sites, name, domain, slug = "/srv/nimvor-rt-workers", "rtworker", "rt-worker.test", "9-rt"
 	home := filepath.Join(sites, domain)
-	state := "/var/lib/whacp-rt-agent"
+	state := "/var/lib/nimvor-rt-agent"
 	_, hadDir := os.Stat(host.WorkersDir)
 	removeUser := func() {
 		exec.Command("systemctl", "stop", Unit(slug)).Run()

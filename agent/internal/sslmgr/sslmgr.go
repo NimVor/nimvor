@@ -1,7 +1,7 @@
 // Package sslmgr issues, renews, installs and removes TLS certificates.
 //
 // Let's Encrypt certificates are obtained with certbot's webroot method
-// using the shared ACME directory that every WhaCP site serves at
+// using the shared ACME directory that every NimVor site serves at
 // /.well-known/acme-challenge/, so Nginx is never stopped or edited by
 // certbot. Custom certificates are validated (parse, key match, expiry)
 // before they are stored.
@@ -21,16 +21,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/ssl"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/ssl"
+	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
 // DeployHook reloads Nginx after automatic renewals.
-const DeployHook = "/etc/letsencrypt/renewal-hooks/deploy/whacp-reload-nginx.sh"
+const DeployHook = "/etc/letsencrypt/renewal-hooks/deploy/nimvor-reload-nginx.sh"
 
 var emailRe = regexp.MustCompile(`^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,}$`)
 
@@ -98,7 +98,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		return ssl.Inspect(env.Root, filepath.Join(live, "fullchain.pem"), filepath.Join(live, "privkey.pem"), env.Now()), nil
 	}})
 
-	r.Register(actions.Action{Name: "ssl.delete", Mutating: true, Description: "Delete a certbot certificate that no WhaCP site uses any more.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "ssl.delete", Mutating: true, Description: "Delete a certbot certificate that no NimVor site uses any more.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			CertName string `json:"cert_name"`
 		}
@@ -172,7 +172,7 @@ func Register(r *actions.Registry, env *host.Env) {
 			return nil, err
 		}
 		if validate.Within("cert_file", "/etc/letsencrypt", in.CertFile) != nil && validate.Within("cert_file", filepath.Join(env.Cfg.StateDir, "certs"), in.CertFile) != nil {
-			return nil, actions.InvalidParams("cert_file must be a certbot or WhaCP certificate")
+			return nil, actions.InvalidParams("cert_file must be a certbot or NimVor certificate")
 		}
 		return ssl.Inspect(env.Root, in.CertFile, in.KeyFile, env.Now()), nil
 	}})
@@ -308,7 +308,7 @@ func ensureACMERoot(env *host.Env) error {
 // deployHookScript reloads what uses certificates after a renewal: Nginx
 // (only with a valid configuration) and the mail server, which keeps its
 // certificate in memory too.
-const deployHookScript = "#!/bin/sh\n# Managed by WhaCP: reload the services that use certificates after a renewal (Nginx only if its configuration is valid).\n" +
+const deployHookScript = "#!/bin/sh\n# Managed by NimVor: reload the services that use certificates after a renewal (Nginx only if its configuration is valid).\n" +
 	"nginx -t -q && systemctl reload nginx\n" +
 	"for u in postfix.service dovecot.service; do systemctl -q is-active \"$u\" && systemctl reload \"$u\"; done\nexit 0\n"
 

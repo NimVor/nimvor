@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Repositories\RoleRepository;
-use WhaCP\Services\RoleService;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
-use WhaCP\View\View;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Repositories\RoleRepository;
+use NimVor\Services\RoleService;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
+use NimVor\View\View;
 
 final class RolesController extends Controller
 {
@@ -20,7 +20,7 @@ final class RolesController extends Controller
         SessionInterface $session,
         private readonly RoleRepository $roles,
         private readonly RoleService $service,
-        private readonly \WhaCP\Http\Router $router,
+        private readonly \NimVor\Http\Router $router,
     ) {
         parent::__construct($view, $session);
     }
@@ -75,7 +75,7 @@ final class RolesController extends Controller
         } catch (UserFacingException $e) {
             return $this->redirectWithError('/roles', $e->getMessage());
         }
-        return $this->redirectWithSuccess('/roles/' . (int) $id . '/edit', 'The role has WhaCP\'s default permissions again.');
+        return $this->redirectWithSuccess('/roles/' . (int) $id . '/edit', 'The role has NimVor\'s default permissions again.');
     }
 
     /**
@@ -89,9 +89,9 @@ final class RolesController extends Controller
             'role' => $role,
             'granted' => $granted,
             'permissions' => $this->roles->allPermissions(),
-            'coverage' => \WhaCP\View\Navigation::coverage($this->router),
+            'coverage' => \NimVor\View\Navigation::coverage($this->router),
             'own' => $this->roles->permissionsFor((int) ($this->user($request)['role_id'] ?? 0)),
-            'ownScopeAllowed' => \WhaCP\Security\Permissions::ownScopeAllowed(),
+            'ownScopeAllowed' => \NimVor\Security\Permissions::ownScopeAllowed(),
             'missingDefaults' => $role !== null ? $this->service->missingDefaults($role) : [],
         ];
     }

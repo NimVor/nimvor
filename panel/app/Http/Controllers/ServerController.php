@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Services\DiscoveryService;
-use WhaCP\View\View;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Services\DiscoveryService;
+use NimVor\View\View;
 
 final class ServerController extends Controller
 {
@@ -58,13 +58,13 @@ final class ServerController extends Controller
         } catch (AgentException $e) {
             return $this->render('discovery/unavailable', ['title' => 'Services', 'error' => $e]);
         }
-        $whacp = null;
+        $nimvor = null;
         try {
-            $whacp = (array) json_decode((string) json_encode($this->agent->call('whacp.services')), true);
+            $nimvor = (array) json_decode((string) json_encode($this->agent->call('nimvor.services')), true);
         } catch (AgentException) {
             // An older agent: the table below still lists its units.
         }
-        return $this->render('server/services', ['services' => (array) $services, 'whacp' => $whacp]);
+        return $this->render('server/services', ['services' => (array) $services, 'nimvor' => $nimvor]);
     }
 
     public function systemUsers(Request $request): Response

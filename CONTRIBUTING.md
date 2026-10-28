@@ -1,6 +1,6 @@
-# Contributing to WhaCP
+# Contributing to NimVor
 
-Thank you for helping. WhaCP runs with root-level consequences on real
+Thank you for helping. NimVor runs with root-level consequences on real
 servers, so contributions are held to a high safety bar. Please read this
 whole page before opening a pull request.
 

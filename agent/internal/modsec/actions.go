@@ -13,26 +13,26 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/capability"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/pkgs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/txn"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/capability"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/pkgs"
+	"github.com/NimVor/nimvor/agent/internal/txn"
+	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
 // Packages are the ones the Packages page installs (Debian names).
 var Packages = []string{"libnginx-mod-http-modsecurity", "modsecurity-crs"}
 
-// vhostMarker is a line every WhaCP server block with content carries;
+// vhostMarker is a line every NimVor server block with content carries;
 // the website's include goes right after it.
 const vhostMarker = "    add_header X-Content-Type-Options \"nosniff\" always;\n"
 
 var mu sync.Mutex
 
 func vhostPath(e *host.Env, domain string) string {
-	return filepath.Join(e.M.NginxAvailable, "whacp-"+domain+".conf")
+	return filepath.Join(e.M.NginxAvailable, "nimvor-"+domain+".conf")
 }
 
 // Register adds the ModSecurity actions.
@@ -283,7 +283,7 @@ func orNone(v string) string {
 
 func stripHeader(s string) string { return strings.TrimPrefix(s, header) }
 
-var vhostRe = regexp.MustCompile(`^whacp-(.+)\.conf$`)
+var vhostRe = regexp.MustCompile(`^nimvor-(.+)\.conf$`)
 
 // apply writes every file for st (and custom rules when given), checks
 // with nginx -t and reloads, restoring everything on failure.
@@ -333,7 +333,7 @@ func apply(ctx context.Context, e *host.Env, st State, custom *string) error {
 			set.Write(SitePath(e, d), []byte(body), 0o644, agentfs.RootOwner)
 		}
 		// Websites created before this release: add the include line.
-		vhosts, _ := e.Root.Glob(filepath.Join(e.M.NginxAvailable, "whacp-*.conf"))
+		vhosts, _ := e.Root.Glob(filepath.Join(e.M.NginxAvailable, "nimvor-*.conf"))
 		for _, f := range vhosts {
 			m := vhostRe.FindStringSubmatch(filepath.Base(f))
 			if m == nil || validate.Domain("domain", m[1]) != nil {

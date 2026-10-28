@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Security;
+namespace NimVor\Security;
 
-use WhaCP\Http\Session\SessionInterface;
+use NimVor\Http\Session\SessionInterface;
 
 /**
  * Synchronizer-token CSRF protection (one token per session).

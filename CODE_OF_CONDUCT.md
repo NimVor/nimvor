@@ -1,6 +1,6 @@
 # Code of Conduct
 
-WhaCP is built by people with different backgrounds and levels of experience.
+NimVor is built by people with different backgrounds and levels of experience.
 We want every contributor to feel welcome and safe.
 
 ## Expected behaviour

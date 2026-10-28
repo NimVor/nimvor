@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Services\GeoIpService;
-use WhaCP\Services\HulkService;
-use WhaCP\Services\SettingsService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Services\GeoIpService;
+use NimVor\Services\HulkService;
+use NimVor\Services\SettingsService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Security → cPHulk Brute Force Protection. */
 final class HulkTest extends HttpTestCase
@@ -72,7 +72,7 @@ final class HulkTest extends HttpTestCase
         ] as $want) {
             self::assertStringContainsString($want, $page, $want);
         }
-        self::assertStringContainsString('data-wcp-section-menu="security"', $page);
+        self::assertStringContainsString('data-nim-section-menu="security"', $page);
     }
 
     public function testTablesAreSearchableAndCountriesHaveSelectAll(): void
@@ -80,10 +80,10 @@ final class HulkTest extends HttpTestCase
         $this->remoteIp = '192.0.2.10';
         $this->login('admin');
         $page = $this->request('GET', '/security/hulk')->body();
-        // The data-table search only filters rows marked data-wcp-row.
-        self::assertGreaterThan(200, substr_count($page, '<tr data-wcp-row>'));
-        self::assertStringContainsString('data-wcp-select-all="selected[]"', $page);
-        self::assertSame(2, substr_count($page, 'data-wcp-dt-pager'));
+        // The data-table search only filters rows marked data-nim-row.
+        self::assertGreaterThan(200, substr_count($page, '<tr data-nim-row>'));
+        self::assertStringContainsString('data-nim-select-all="selected[]"', $page);
+        self::assertSame(2, substr_count($page, 'data-nim-dt-pager'));
     }
 
     public function testSettingsAreValidatedAndApplied(): void
@@ -148,7 +148,7 @@ final class HulkTest extends HttpTestCase
         // Report, unblock, and "Remove Blocks and clear report".
         $page = $this->request('GET', '/security/hulk')->body();
         self::assertStringContainsString('198.51.100.20', $page);
-        self::assertStringContainsString('whacpd', $page);
+        self::assertStringContainsString('nimvord', $page);
         $id = (int) $this->db()->scalar("SELECT id FROM hulk_blocks WHERE ip = '198.51.100.20'");
         $this->post('/security/hulk/unblock', ['id' => (string) $id]);
         self::assertSame(0, (int) $this->db()->scalar('SELECT COUNT(*) FROM hulk_blocks WHERE id = ?', [$id]));
@@ -160,7 +160,7 @@ final class HulkTest extends HttpTestCase
 
     public function testServiceFailuresFromTheAgent(): void
     {
-        $out = sys_get_temp_dir() . '/whacp-hulk-cmd-' . bin2hex(random_bytes(4));
+        $out = sys_get_temp_dir() . '/nimvor-hulk-cmd-' . bin2hex(random_bytes(4));
         $pwned = $out . '-pwned';
         $this->configure(['hulk_ip_command' => 'printf "%s|%s|%s|%s" %remote_ip% %user% %current_failures% %ip_version% > ' . $out, 'hulk_oneday_command' => 'true']);
         $now = time();
@@ -204,7 +204,7 @@ final class HulkTest extends HttpTestCase
 
     public function testCountries(): void
     {
-        $csv = sys_get_temp_dir() . '/whacp-geo-' . bin2hex(random_bytes(4)) . '.csv.gz';
+        $csv = sys_get_temp_dir() . '/nimvor-geo-' . bin2hex(random_bytes(4)) . '.csv.gz';
         file_put_contents($csv, (string) gzencode("198.51.100.0,198.51.100.255,KP\n203.0.113.0,203.0.113.255,DE\n2001:db8:77::,2001:db8:77:ffff:ffff:ffff:ffff:ffff,KP\nbad,line,XX\n"));
         $geo = $this->app->container->get(GeoIpService::class);
         self::assertSame(3, $geo->import($csv));

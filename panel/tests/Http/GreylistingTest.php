@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Greylisting: settings, trusted hosts, providers, report and cleanup. */
 final class GreylistingTest extends HttpTestCase
@@ -42,6 +42,11 @@ final class GreylistingTest extends HttpTestCase
         $page = $this->request('GET', '/mail/admin/greylisting')->body();
         foreach (['Initial deferral period (minutes)', 'Resend acceptance period (minutes)', 'Record expiration time (minutes)', 'Bypass greylisting for hosts with valid SPF records', 'Automatically trust newly added mail providers', '192.0.2.0/24', 'office &lt;b&gt;', 'Google (Gmail, Workspace)', 'name="trust[]" value="google"', 'id="trusted-new"', 'id="trusted-1"'] as $want) {
             self::assertStringContainsString($want, $page, $want);
+        }
+        // Settings, trusted hosts and providers are tabs of one page (no reload).
+        foreach (['greylist-settings', 'trusted', 'providers'] as $pane) {
+            self::assertStringContainsString('data-bs-target="#' . $pane . '"', $page, $pane);
+            self::assertStringContainsString('id="' . $pane . '" role="tabpanel"', $page, $pane);
         }
     }
 

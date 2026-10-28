@@ -7,14 +7,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 const specPath = "../../api/openapi.yaml"
 
 // The API reference must list exactly the actions the agent registers.
-// Regenerate the listed blocks with: WHACP_UPDATE_OPENAPI=1 go test ./internal/modules -run OpenAPI
+// Regenerate the listed blocks with: NIMVOR_UPDATE_OPENAPI=1 go test ./internal/modules -run OpenAPI
 func TestOpenAPIListsEveryAction(t *testing.T) {
 	h := testhost.New(t)
 	r := actions.NewRegistry(true)
@@ -37,13 +37,13 @@ func TestOpenAPIListsEveryAction(t *testing.T) {
 	if want == spec {
 		return
 	}
-	if os.Getenv("WHACP_UPDATE_OPENAPI") == "1" {
+	if os.Getenv("NIMVOR_UPDATE_OPENAPI") == "1" {
 		if err := os.WriteFile(specPath, []byte(want), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		return
 	}
-	t.Fatalf("api/openapi.yaml does not match the registered actions (%d); run WHACP_UPDATE_OPENAPI=1 go test ./internal/modules -run OpenAPI", len(list))
+	t.Fatalf("api/openapi.yaml does not match the registered actions (%d); run NIMVOR_UPDATE_OPENAPI=1 go test ./internal/modules -run OpenAPI", len(list))
 }
 
 func replaceBlock(t *testing.T, spec, name, body string) string {

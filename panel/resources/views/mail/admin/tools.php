@@ -1,9 +1,9 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var string $address */
 /** @var array<string, mixed>|null $trace */
 /** @var list<string> $domains */
-$canManage = $this->can(\WhaCP\Security\Permissions::SERVER_MANAGE);
+$canManage = $this->can(\NimVor\Security\Permissions::SERVER_MANAGE);
 $icons = ['mailbox' => 'bi-inbox text-success', 'forward' => 'bi-arrow-return-right', 'catchall' => 'bi-asterisk', 'remote' => 'bi-box-arrow-up-right', 'backup' => 'bi-hdd-stack', 'external' => 'bi-globe2', 'rejected' => 'bi-x-octagon text-danger', 'loop' => 'bi-arrow-repeat text-warning'];
 ?>
 <?= $this->partial('mail/admin/_tabs', get_defined_vars()) ?>
@@ -21,7 +21,7 @@ $icons = ['mailbox' => 'bi-inbox text-success', 'forward' => 'bi-arrow-return-ri
                 <?php if ($trace !== null): ?>
                     <ol class="list-unstyled mb-0">
                         <?php foreach ((array) $trace['steps'] as $s): ?>
-                            <li class="d-flex gap-2 mb-2 wcp-trace-<?= min(5, (int) $s['depth']) ?>">
+                            <li class="d-flex gap-2 mb-2 nim-trace-<?= min(5, (int) $s['depth']) ?>">
                                 <i class="bi <?= e($icons[$s['result']] ?? 'bi-dot') ?> mt-1" aria-hidden="true"></i>
                                 <div><div class="font-monospace small fw-semibold"><?= e((string) $s['address']) ?></div><div class="small"><?= e((string) $s['detail']) ?></div></div>
                             </li>
@@ -37,7 +37,7 @@ $icons = ['mailbox' => 'bi-inbox text-success', 'forward' => 'bi-arrow-return-ri
             <div class="card-body">
                 <p class="small text-body-secondary">Gives mailbox folders back to the mail user (vmail) and removes access for other users, e.g. after files were copied in by hand. Links and special files are skipped, never followed.</p>
                 <?php if ($canManage): ?>
-                    <form class="d-flex gap-2" method="post" action="<?= e($this->url('mail.admin.repair')) ?>" data-wcp-busy data-wcp-confirm="Repair the ownership and permissions of the selected mailboxes?">
+                    <form class="d-flex gap-2" method="post" action="<?= e($this->url('mail.admin.repair')) ?>" data-nim-busy data-nim-confirm="Repair the ownership and permissions of the selected mailboxes?">
                         <?= $this->csrfField() ?>
                         <label class="visually-hidden" for="repair-domain">Domain</label>
                         <select class="form-select form-select-sm" id="repair-domain" name="domain">
@@ -54,7 +54,7 @@ $icons = ['mailbox' => 'bi-inbox text-success', 'forward' => 'bi-arrow-return-ri
             <div class="card-body small">
                 <ul class="mb-0 ps-3">
                     <li>Spam filter (Rspamd) state and restart: <a href="<?= e($this->url('mail.admin.server')) ?>">Mail server</a>; its settings: <a href="<?= e($this->url('mail')) ?>">Email</a> → spam filter.</li>
-                    <li>Mailbox format: WhaCP stores every mailbox as Maildir, so there is nothing to convert.</li>
+                    <li>Mailbox format: NimVor stores every mailbox as Maildir, so there is nothing to convert.</li>
                     <li>DNS of a domain (MX, SPF, DKIM, DMARC, reverse DNS): the domain's page under Email → Check DNS.</li>
                 </ul>
             </div>

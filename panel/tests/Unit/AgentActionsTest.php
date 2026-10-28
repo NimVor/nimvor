@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Unit;
+namespace NimVor\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 
@@ -24,8 +24,8 @@ final class AgentActionsTest extends TestCase
         $missing = [];
         $root = dirname(__DIR__, 2);
         $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root . '/app', \FilesystemIterator::SKIP_DOTS));
-        foreach ([...iterator_to_array($files), new \SplFileInfo($root . '/bin/whacp')] as $f) {
-            if (!$f->isFile() || ($f->getExtension() !== 'php' && $f->getFilename() !== 'whacp')) {
+        foreach ([...iterator_to_array($files), new \SplFileInfo($root . '/bin/nimvor')] as $f) {
+            if (!$f->isFile() || ($f->getExtension() !== 'php' && $f->getFilename() !== 'nimvor')) {
                 continue;
             }
             preg_match_all('/->call\(\'([a-z0-9_.]+)\'/', (string) file_get_contents($f->getPathname()), $calls);

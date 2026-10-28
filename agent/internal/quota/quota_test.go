@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 const mountinfo = `22 1 252:1 / / rw,relatime shared:1 - ext4 /dev/vda1 rw,errors=remount-ro
@@ -21,13 +21,13 @@ const mountinfo = `22 1 252:1 / / rw,relatime shared:1 - ext4 /dev/vda1 rw,error
 `
 
 func TestFindMountAndOptions(t *testing.T) {
-	for path, want := range map[string]string{"/home/whacp": "/", "/home data/x": "/home data", "/home data": "/home data", "/proc/1": "/proc", "/homework": "/"} {
+	for path, want := range map[string]string{"/home/nimvor": "/", "/home data/x": "/home data", "/home data": "/home data", "/proc/1": "/proc", "/homework": "/"} {
 		m, ok := FindMount(mountinfo, path)
 		if !ok || m.Point != want {
 			t.Errorf("%s: %+v", path, m)
 		}
 	}
-	m, _ := FindMount(mountinfo, "/home/whacp")
+	m, _ := FindMount(mountinfo, "/home/nimvor")
 	if m.FSType != "ext4" || m.Source != "/dev/vda1" || !HasOption(m.Options, "errors") || HasOption(m.Options, "usrquota") {
 		t.Errorf("%+v", m)
 	}
@@ -93,7 +93,7 @@ func newHost(t *testing.T, fstype string, on *bool) *testhost.Host {
 	os.WriteFile(filepath.Join(h.Base, "proc/sys/kernel/osrelease"), []byte("6.8.0-1-generic\n"), 0o644)
 	os.WriteFile(filepath.Join(h.Base, "etc/fstab"), []byte("UUID=abc / "+fstype+" defaults 0 1\n"), 0o644)
 	f, _ := os.OpenFile(filepath.Join(h.Base, "etc/passwd"), os.O_APPEND|os.O_WRONLY, 0o644)
-	f.WriteString("web1:x:1600:1600::/home/whacp/a.test:/usr/sbin/nologin\ndaemon:x:1:1::/:/usr/sbin/nologin\n")
+	f.WriteString("web1:x:1600:1600::/home/nimvor/a.test:/usr/sbin/nologin\ndaemon:x:1:1::/:/usr/sbin/nologin\n")
 	f.Close()
 	h.Respond = func(id string, args []string) (string, error, bool) {
 		switch {

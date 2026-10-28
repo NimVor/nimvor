@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Database\Connection;
+use NimVor\Agent\AgentClient;
+use NimVor\Database\Connection;
 
 /**
  * Remembers which panel user started which agent job, so job logs are
@@ -57,7 +57,7 @@ final class JobTracker
      */
     public function visibleTo(array $job, array $user): bool
     {
-        if (\WhaCP\Hosting\Scope::isAll($user) || (int) $job['user_id'] === (int) $user['id']) {
+        if (\NimVor\Hosting\Scope::isAll($user) || (int) $job['user_id'] === (int) $user['id']) {
             return true;
         }
         if ($job['user_id'] !== null
@@ -67,7 +67,7 @@ final class JobTracker
         // Jobs on a website the user may see (e.g. a restore an
         // administrator ran on it), so its notification can show the log.
         if ($job['target_type'] === 'website') {
-            [$cond, $params] = \WhaCP\Hosting\Scope::condition($user);
+            [$cond, $params] = \NimVor\Hosting\Scope::condition($user);
             $params['sid'] = (int) $job['target_id'];
             $params['srv'] = (int) $job['server_id'];
             return (int) $this->db->scalar("SELECT COUNT(*) FROM websites WHERE id = :sid AND server_id = :srv AND {$cond}", $params) > 0;
@@ -130,7 +130,7 @@ final class JobTracker
         foreach ($pending as $job) {
             try {
                 $res = (array) $this->agent->call('jobs.get', ['id' => $job['job_id']]);
-            } catch (\WhaCP\Agent\AgentException $e) {
+            } catch (\NimVor\Agent\AgentException $e) {
                 if ($e->errorCode() === 'not_found') {
                     // The agent restarted and forgot it: the outcome is unknown.
                     $this->db->run("UPDATE agent_jobs SET status = 'unknown', settled_at = ? WHERE id = ?", [gmdate('c', $now), (int) $job['id']]);

@@ -1,7 +1,7 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var array<string, mixed> $site */
-$canManage = $this->can(\WhaCP\Security\Permissions::SSL_MANAGE);
+$canManage = $this->can(\NimVor\Security\Permissions::SSL_MANAGE);
 $id = (int) $site['id'];
 $st = null;
 if ($site['https'] && $cert !== null) {
@@ -26,8 +26,8 @@ if ($site['https'] && $cert !== null) {
 <div class="card mb-3" id="certificate">
     <div class="card-body">
         <div class="d-flex flex-wrap align-items-center gap-3">
-            <span class="wcp-feature-icon" aria-hidden="true"><i class="bi bi-<?= $site['https'] ? 'shield-lock' : 'shield-exclamation' ?>"></i></span>
-            <div class="flex-grow-1 wcp-minw-0">
+            <span class="nim-feature-icon" aria-hidden="true"><i class="bi bi-<?= $site['https'] ? 'shield-lock' : 'shield-exclamation' ?>"></i></span>
+            <div class="flex-grow-1 nim-minw-0">
                 <?php if (!$site['https']): ?>
                     <div class="fw-semibold">HTTPS is not enabled</div>
                     <div class="small text-body-secondary">Visitors connect without encryption and browsers mark the site “Not secure”.</div>
@@ -36,7 +36,7 @@ if ($site['https'] && $cert !== null) {
                     <div class="small text-body-secondary">Issue or upload a certificate again below.</div>
                 <?php else: ?>
                     <div class="fw-semibold">
-                        <?php if ($st === 'valid'): ?><span class="wcp-state is-ok">Secure</span><?php elseif ($st === 'expiring'): ?><span class="wcp-state is-warn">Expires soon</span><?php else: ?><span class="wcp-state is-error"><?= $st === 'expired' ? 'Expired' : 'Certificate problem' ?></span><?php endif; ?>
+                        <?php if ($st === 'valid'): ?><span class="nim-state is-ok">Secure</span><?php elseif ($st === 'expiring'): ?><span class="nim-state is-warn">Expires soon</span><?php else: ?><span class="nim-state is-error"><?= $st === 'expired' ? 'Expired' : 'Certificate problem' ?></span><?php endif; ?>
                         <span class="fw-normal text-body-secondary small ms-2"><?= $site['ssl_mode'] === 'letsencrypt' ? "Let's Encrypt" : 'Uploaded certificate' ?> · expires <?= e(gmdate('Y-m-d', (int) strtotime((string) $cert['not_after']))) ?> (<?= (int) $cert['days_remaining'] ?> days)</span>
                     </div>
                     <div class="small text-body-secondary">Covers <?= e(implode(', ', (array) ($cert['dns_names'] ?? []))) ?></div>
@@ -45,11 +45,11 @@ if ($site['https'] && $cert !== null) {
             <?php if ($canManage && !$site['https']): ?>
                 <a class="btn btn-primary" href="#issue"><i class="bi bi-magic me-1"></i>Install free certificate</a>
             <?php elseif ($canManage && $site['ssl_mode'] === 'letsencrypt'): ?>
-                <form method="post" action="<?= e($this->url('sites.ssl.renew', ['id' => $id])) ?>" data-wcp-busy><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary"><span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span> Renew now</button></form>
+                <form method="post" action="<?= e($this->url('sites.ssl.renew', ['id' => $id])) ?>" data-nim-busy><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary"><span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span> Renew now</button></form>
             <?php endif; ?>
         </div>
         <?php if ($site['https'] && $cert !== null): ?>
-            <dl class="wcp-dl small mt-3 mb-0">
+            <dl class="nim-dl small mt-3 mb-0">
                 <dt>Issuer</dt><dd><?= e($cert['issuer'] ?? '') ?></dd>
                 <dt>Auto-renewal</dt><dd><?= $site['ssl_mode'] === 'letsencrypt' ? (!empty($renewal['timer_active']) ? $this->statusBadge('active', 'active (' . e($renewal['method']) . ')') : $this->statusBadge('warning', 'not scheduled')) : '<span class="text-body-secondary">manual (uploaded certificate)</span>' ?></dd>
             </dl>
@@ -63,7 +63,7 @@ if ($site['https'] && $cert !== null) {
         <div class="card mb-3" id="issue">
             <div class="card-header"><i class="bi bi-magic me-1"></i><?= $site['https'] ? 'Re-issue with' : 'Free certificate from' ?> Let's Encrypt</div>
             <div class="card-body">
-                <form method="post" action="<?= e($this->url('sites.ssl.issue', ['id' => $id])) ?>" data-wcp-busy>
+                <form method="post" action="<?= e($this->url('sites.ssl.issue', ['id' => $id])) ?>" data-nim-busy>
                     <?= $this->csrfField() ?>
                     <p class="small mb-2"><i class="bi bi-envelope me-1 text-body-secondary" aria-hidden="true"></i>Expiry notices from Let's Encrypt go to <?= $defaultEmail !== '' ? '<strong>' . e($defaultEmail) . '</strong>' : 'nobody (your account has no email address)' ?>, the email address of your account.</p>
                     <?php if ($site['aliases'] !== []): ?>
@@ -78,7 +78,7 @@ if ($site['https'] && $cert !== null) {
             <div class="card mb-3" id="https-options">
                 <div class="card-header"><i class="bi bi-sliders me-1"></i>HTTPS options</div>
                 <div class="card-body">
-                    <form method="post" action="<?= e($this->url('sites.ssl.options', ['id' => $id])) ?>" data-wcp-busy>
+                    <form method="post" action="<?= e($this->url('sites.ssl.options', ['id' => $id])) ?>" data-nim-busy>
                         <?= $this->csrfField() ?>
                         <div class="form-check form-switch"><input type="hidden" name="force_https" value="0"><input class="form-check-input" type="checkbox" role="switch" name="force_https" value="1" id="o-force"<?= $site['force_https'] ? ' checked' : '' ?>><label class="form-check-label" for="o-force">Redirect HTTP to HTTPS</label></div>
                         <div class="form-check form-switch mb-3"><input type="hidden" name="hsts" value="0"><input class="form-check-input" type="checkbox" role="switch" name="hsts" value="1" id="o-hsts"<?= $site['hsts'] ? ' checked' : '' ?>><label class="form-check-label" for="o-hsts">HSTS (browsers refuse plain HTTP for one year)</label></div>
@@ -90,7 +90,7 @@ if ($site['https'] && $cert !== null) {
         <div class="card mb-3" id="security-headers">
             <div class="card-header"><i class="bi bi-shield-check me-1"></i>Security headers</div>
             <div class="card-body">
-                <form method="post" action="<?= e($this->url('sites.security_headers', ['id' => $id])) ?>" data-wcp-busy>
+                <form method="post" action="<?= e($this->url('sites.security_headers', ['id' => $id])) ?>" data-nim-busy>
                     <?= $this->csrfField() ?>
                     <div class="form-check form-switch mb-2"><input type="hidden" name="security_headers" value="0"><input class="form-check-input" type="checkbox" role="switch" name="security_headers" value="1" id="o-headers"<?= !empty($site['security_headers']) ? ' checked' : '' ?>><label class="form-check-label" for="o-headers">Send recommended security headers</label></div>
                     <div class="small text-body-secondary mb-3"><code>Referrer-Policy: strict-origin-when-cross-origin</code>, <code>X-Frame-Options: SAMEORIGIN</code> (the site cannot be framed by others), <code>Permissions-Policy</code> denying camera, microphone, location, payment and USB, and over HTTPS <code>upgrade-insecure-requests</code>. <code>X-Content-Type-Options: nosniff</code> is always sent. No script policy is set, since that breaks many applications.</div>
@@ -103,7 +103,7 @@ if ($site['https'] && $cert !== null) {
         <details class="card mb-3" id="upload-certificate">
             <summary class="card-header"><i class="bi bi-upload me-1"></i>Upload your own certificate</summary>
             <div class="card-body">
-                <form method="post" action="<?= e($this->url('sites.ssl.custom', ['id' => $id])) ?>" data-wcp-busy>
+                <form method="post" action="<?= e($this->url('sites.ssl.custom', ['id' => $id])) ?>" data-nim-busy>
                     <?= $this->csrfField() ?>
                     <label class="form-label small" for="c-cert">Certificate (PEM)</label>
                     <textarea class="form-control form-control-sm font-monospace mb-2" id="c-cert" name="certificate" rows="3" placeholder="-----BEGIN CERTIFICATE-----"></textarea>
@@ -116,11 +116,11 @@ if ($site['https'] && $cert !== null) {
             </div>
         </details>
         <?php if ($site['https']): ?>
-            <div class="card wcp-danger-card">
+            <div class="card nim-danger-card">
                 <div class="card-header"><i class="bi bi-exclamation-octagon me-1"></i>Danger zone</div>
                 <div class="card-body">
                     <p class="small text-body-secondary">Turn HTTPS off. Visitors using https:// get errors until it is on again.</p>
-                    <form method="post" action="<?= e($this->url('sites.ssl.disable', ['id' => $id])) ?>" data-wcp-confirm="Disable HTTPS for <?= e($site['domain']) ?>? Visitors using https:// will get errors.">
+                    <form method="post" action="<?= e($this->url('sites.ssl.disable', ['id' => $id])) ?>" data-nim-confirm="Disable HTTPS for <?= e($site['domain']) ?>? Visitors using https:// will get errors.">
                         <?= $this->csrfField() ?>
                         <?php if ($site['ssl_mode'] === 'letsencrypt'): ?><input type="hidden" name="delete_certificate" value="1"><?php endif; ?>
                         <button class="btn btn-sm btn-outline-danger">Disable HTTPS</button>

@@ -1,5 +1,5 @@
 <?php
-/** @var \WhaCP\Agent\AgentException $error */
+/** @var \NimVor\Agent\AgentException $error */
 ?>
 <div class="alert alert-warning" role="alert">
     <div class="d-flex gap-2">

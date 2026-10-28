@@ -1,8 +1,8 @@
 // Package agentfs performs the agent's writes to the host.
 //
 // Every write goes through a Policy: an allowlist of the exact files and
-// subtrees WhaCP owns (e.g. /etc/nginx/sites-available/whacp-*.conf). A bug
-// or a malicious request can therefore never overwrite a file WhaCP does not
+// subtrees NimVor owns (e.g. /etc/nginx/sites-available/nimvor-*.conf). A bug
+// or a malicious request can therefore never overwrite a file NimVor does not
 // manage, such as a site configured by another panel or /etc/passwd.
 // Files are replaced atomically (write temp, fsync, rename).
 package agentfs
@@ -18,11 +18,11 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
 )
 
 // ErrNotPermitted is returned for paths outside the write policy.
-var ErrNotPermitted = errors.New("path is not managed by WhaCP")
+var ErrNotPermitted = errors.New("path is not managed by NimVor")
 
 // Policy lists writable host paths. A pattern ending in "/**" permits the
 // whole subtree (symlinks inside it are refused); other patterns are
@@ -184,7 +184,7 @@ func (w Writer) WriteFile(hostPath string, data []byte, mode fs.FileMode, owner 
 		}
 	}
 	dir := filepath.Dir(real)
-	tmp, err := os.CreateTemp(dir, ".whacp-tmp-*")
+	tmp, err := os.CreateTemp(dir, ".nimvor-tmp-*")
 	if err != nil {
 		return false, err
 	}
@@ -242,7 +242,7 @@ func (w Writer) Symlink(target, link string) (bool, error) {
 	if info, err := os.Lstat(real); err == nil && info.Mode()&os.ModeSymlink == 0 {
 		return false, fmt.Errorf("%s exists and is not a symbolic link", link)
 	}
-	tmp := filepath.Join(filepath.Dir(real), ".whacp-link-"+filepath.Base(real))
+	tmp := filepath.Join(filepath.Dir(real), ".nimvor-link-"+filepath.Base(real))
 	_ = os.Remove(tmp)
 	if err := os.Symlink(target, tmp); err != nil {
 		return false, err

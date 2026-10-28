@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
 use Closure;
 
@@ -28,7 +28,7 @@ final class WordPressVulnerabilities
         $this->fetch = $fetch ?? static function (string $url): ?string {
             $ch = curl_init($url);
             curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 10, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_FOLLOWLOCATION => false,
-                CURLOPT_PROTOCOLS => CURLPROTO_HTTPS, CURLOPT_USERAGENT => 'WhaCP WordPress toolkit', CURLOPT_HTTPHEADER => ['Accept: application/json']]);
+                CURLOPT_PROTOCOLS => CURLPROTO_HTTPS, CURLOPT_USERAGENT => 'NimVor WordPress toolkit', CURLOPT_HTTPHEADER => ['Accept: application/json']]);
             $body = curl_exec($ch);
             $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);

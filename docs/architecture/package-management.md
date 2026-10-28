@@ -1,6 +1,6 @@
 # Package management and component installation
 
-How the WhaCP agent installs packages and components on Ubuntu/Debian
+How the NimVor agent installs packages and components on Ubuntu/Debian
 (APT) and AlmaLinux/Rocky Linux/RHEL (DNF), what it does when that fails,
 and why it works this way.
 
@@ -19,7 +19,7 @@ All three platform failures have one cause: package managers ran inside the
 agent's systemd sandbox, which is built for the agent, not for package
 maintainer scripts. CI did not catch it because no test installed a package
 through the *installed* agent: every package was installed by the VM setup
-script before WhaCP.
+script before NimVor.
 
 ## Architecture
 
@@ -34,7 +34,7 @@ Panel ──(UNIX socket / TLS)──▶ Agent (NoNewPrivileges, narrow capabili
                      execx.RunWith ── PackageTransaction(id, args)?
                                  │ yes: one at a time (package slot, also across restarts)
                                  ▼
-               systemd-run (PID 1): whacp-pkg-<id>.service, as root,
+               systemd-run (PID 1): nimvor-pkg-<id>.service, as root,
                the environment of `sudo apt-get` / dnf-automatic.service
                                  ▼
                            apt-get / dpkg / dnf / rpm
@@ -56,7 +56,7 @@ transactions:
 - `rpm`: installs, erases (without `--test`), `--rebuilddb`, `--import`.
   Not queries.
 
-Those run in a transient unit started by PID 1 (`whacp-pkg-*.service`),
+Those run in a transient unit started by PID 1 (`nimvor-pkg-*.service`),
 as root, with the default capabilities and without `NoNewPrivileges`: the
 environment an administrator's `sudo apt-get` or RHEL's own
 `dnf-automatic.service` has. Output comes back through the same named-pipe
@@ -68,7 +68,7 @@ only for transaction verbs, and only with arguments the callers have already
 validated (package names matching `validate.Package`, fixed repository URLs).
 The agent itself keeps `NoNewPrivileges=yes` and its capability set. A
 package manager runs the signed packages' maintainer scripts as root in any
-case: confining it protects nothing, it only breaks installs. WhaCP never
+case: confining it protects nothing, it only breaks installs. NimVor never
 disables SELinux, AppArmor or signature checks, and never uses `--nogpgcheck`,
 `--allow-unauthenticated`, `--force-all` or `--nodeps`.
 
@@ -76,7 +76,7 @@ Guarantees:
 
 - **One transaction at a time.** A process-wide slot serialises every package
   transaction, whichever job starts it. Units of an earlier agent instance
-  (`whacp-pkg-*`) are waited for, with backoff and a progress line in the
+  (`nimvor-pkg-*`) are waited for, with backoff and a progress line in the
   job log. APT is also told to wait for the dpkg lock
   (`DPkg::Lock::Timeout`); DNF waits for its own lock.
 - **Never stopped half-way.** If the agent stops waiting (job timeout,
@@ -172,11 +172,11 @@ anything:
 `packages.repair` runs the repair as a job; Server → Packages shows the
 problems with **Repair** and, for duplicates, **Remove duplicates** (its own
 confirmation). When the agent starts (after an installation or update of
-WhaCP), it checks by itself and starts the repair job when something can be
+NimVor), it checks by itself and starts the repair job when something can be
 repaired without asking. The same set of problems starts it only once, and a
 package whose script fails again after its reinstall is reported ("repair
 tried") instead of being reinstalled at every start
-(`/var/lib/whacp-agent/pkgs-repair.json`). Removal scripts that failed
+(`/var/lib/nimvor-agent/pkgs-repair.json`). Removal scripts that failed
 (PREUN/POSTUN) are not repaired by installing again and are not reported.
 
 ### Idempotency and interruption
@@ -199,12 +199,12 @@ tried") instead of being reinstalled at every start
   `/usr/local/bin/composer`, `/usr/bin/composer`, `~/.local/bin/composer`).
   Each is reported with its version and path. With `--install-deps` they are
   installed from the distribution when missing.
-- A `dist/whacp-agent` older than the agent's sources (after `git pull`) is
+- A `dist/nimvor-agent` older than the agent's sources (after `git pull`) is
   rebuilt. When Go is missing the installer stops and says so (use
   `--install-deps`); it no longer installs the old build. The agent's version
   names the commit it was built from (`1.0.0-rc1+abc1234`).
 - On SELinux systems the installer loads a small policy module
-  (`installer/selinux/whacp_postfix_sockets.cil`): systemd may create the
+  (`installer/selinux/nimvor_postfix_sockets.cil`): systemd may create the
   greylisting and mail-limit sockets in Postfix's private folder. That is
   all it allows. SELinux stays enforcing.
 - APT waits for the dpkg lock instead of failing.
@@ -214,15 +214,15 @@ tried") instead of being reinstalled at every start
 
 ```bash
 # Package transactions run outside the agent's sandbox:
-journalctl -o cat -u 'whacp-pkg-*' --since -1h
-systemctl list-units 'whacp-pkg-*'        # one at a time
+journalctl -o cat -u 'nimvor-pkg-*' --since -1h
+systemctl list-units 'nimvor-pkg-*'        # one at a time
 
 # The agent's own sandbox is unchanged:
-PID=$(systemctl show -p MainPID --value whacp-agent)
+PID=$(systemctl show -p MainPID --value nimvor-agent)
 grep -E 'NoNewPrivs|CapEff' /proc/$PID/status   # NoNewPrivs: 1
 
 # A component's job log (Server → Packages → queue window), or:
-cat /var/lib/whacp-agent/jobs/<job id>.log
+cat /var/lib/nimvor-agent/jobs/<job id>.log
 
 # SELinux stays enforcing; denials, if any:
 getenforce; ausearch -m AVC -ts recent

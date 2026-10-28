@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 const ufwActive = "Status: active\nLogging: on (low)\nDefault: deny (incoming), allow (outgoing), disabled (routed)\n"
@@ -90,10 +90,10 @@ func TestAddRuleRollsBackUnlessConfirmed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !h.Runner.Called("ufw allow proto tcp from any to any port 8080 comment whacp: app") {
+	if !h.Runner.Called("ufw allow proto tcp from any to any port 8080 comment nimvor: app") {
 		t.Fatalf("calls: %v", h.Runner.Calls)
 	}
-	if !h.Exists("var/lib/whacp-agent/security-pending.json") {
+	if !h.Exists("var/lib/nimvor-agent/security-pending.json") {
 		t.Fatal("pending change not persisted")
 	}
 	if _, err := s.AddRule(ctx, RuleInput{Action: "allow", Port: "9090"}); err == nil {
@@ -103,7 +103,7 @@ func TestAddRuleRollsBackUnlessConfirmed(t *testing.T) {
 	if !h.Runner.Called("ufw --force delete allow proto tcp from any to any port 8080") {
 		t.Fatalf("not rolled back: %v", h.Runner.Calls)
 	}
-	if h.Exists("var/lib/whacp-agent/security-pending.json") || s.guard.Current() != nil {
+	if h.Exists("var/lib/nimvor-agent/security-pending.json") || s.guard.Current() != nil {
 		t.Error("pending state not cleared")
 	}
 	if err := s.guard.Confirm(p.ID); err == nil {
@@ -137,7 +137,7 @@ func TestPendingRollbackSurvivesRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Simulate an agent restart after the deadline.
-	f := filepath.Join(h.Base, "var/lib/whacp-agent/security-pending.json")
+	f := filepath.Join(h.Base, "var/lib/nimvor-agent/security-pending.json")
 	b, _ := os.ReadFile(f)
 	b = []byte(strings.Replace(string(b), `"deadline":"2026`, `"deadline":"2000`, 1))
 	os.WriteFile(f, b, 0o600)
@@ -157,7 +157,7 @@ func TestLockoutProtection(t *testing.T) {
 	if _, err := s.SetEnabled(context.Background(), true, EnableOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	if i, j := h.Runner.Index("ufw allow proto tcp from any to any port 22 comment whacp: SSH"), h.Runner.Index("ufw --force enable"); i < 0 || j < i {
+	if i, j := h.Runner.Index("ufw allow proto tcp from any to any port 22 comment nimvor: SSH"), h.Runner.Index("ufw --force enable"); i < 0 || j < i {
 		t.Fatalf("SSH not opened before enabling: %v", h.Runner.Calls)
 	}
 	s.guard.Undo(s.guard.Current().ID)
@@ -171,7 +171,7 @@ func TestLockoutProtection(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "key") {
 		t.Fatalf("expected lockout refusal, got %v", err)
 	}
-	if h.Exists("etc/ssh/sshd_config.d/00-whacp.conf") {
+	if h.Exists("etc/ssh/sshd_config.d/00-nimvor.conf") {
 		t.Error("drop-in written despite refusal")
 	}
 }
@@ -197,7 +197,7 @@ func TestConfigureSSH(t *testing.T) {
 	if _, err := s.ConfigureSSH(context.Background(), want); err == nil || !strings.Contains(err.Error(), "would not take effect") {
 		t.Fatalf("expected override detection, got %v", err)
 	}
-	if h.Exists("etc/ssh/sshd_config.d/00-whacp.conf") {
+	if h.Exists("etc/ssh/sshd_config.d/00-nimvor.conf") {
 		t.Fatal("drop-in left behind")
 	}
 
@@ -206,7 +206,7 @@ func TestConfigureSSH(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	body := h.Read("etc/ssh/sshd_config.d/00-whacp.conf")
+	body := h.Read("etc/ssh/sshd_config.d/00-nimvor.conf")
 	if !strings.Contains(body, "PasswordAuthentication no") || !strings.Contains(body, "KbdInteractiveAuthentication no") {
 		t.Fatalf("drop-in = %s", body)
 	}
@@ -217,7 +217,7 @@ func TestConfigureSSH(t *testing.T) {
 		t.Fatal(p)
 	}
 	waitRollback(t, s)
-	if h.Exists("etc/ssh/sshd_config.d/00-whacp.conf") {
+	if h.Exists("etc/ssh/sshd_config.d/00-nimvor.conf") {
 		t.Error("unconfirmed SSH change not rolled back")
 	}
 
@@ -226,7 +226,7 @@ func TestConfigureSSH(t *testing.T) {
 	if _, err := s.ConfigureSSH(context.Background(), want); err == nil {
 		t.Fatal("invalid config accepted")
 	}
-	if h.Exists("etc/ssh/sshd_config.d/00-whacp.conf") {
+	if h.Exists("etc/ssh/sshd_config.d/00-nimvor.conf") {
 		t.Error("invalid drop-in left behind")
 	}
 }
@@ -241,7 +241,7 @@ func TestFail2ban(t *testing.T) {
 	if err := s.ConfigureFail2ban(context.Background(), in); err != nil {
 		t.Fatal(err)
 	}
-	body := h.Read("etc/fail2ban/jail.d/whacp.local")
+	body := h.Read("etc/fail2ban/jail.d/nimvor.local")
 	if !strings.Contains(body, "ignoreip = 127.0.0.1/8 ::1 198.51.100.0/24") || !strings.Contains(body, "[recidive]") {
 		t.Fatalf("jail = %s", body)
 	}
@@ -253,7 +253,7 @@ func TestFail2ban(t *testing.T) {
 	if err := s.ConfigureFail2ban(context.Background(), in); err == nil {
 		t.Fatal("failed test accepted")
 	}
-	if !strings.Contains(h.Read("etc/fail2ban/jail.d/whacp.local"), "maxretry = 5") {
+	if !strings.Contains(h.Read("etc/fail2ban/jail.d/nimvor.local"), "maxretry = 5") {
 		t.Error("previous jail file not restored")
 	}
 	for _, bad := range []Fail2banSettings{{Jails: []string{"postfix"}, BanMinutes: 1, FindMinutes: 1, MaxRetry: 1}, {BanMinutes: 0, FindMinutes: 1, MaxRetry: 1}, {BanMinutes: 1, FindMinutes: 1, MaxRetry: 1, IgnoreAddress: []string{"x y"}}} {
@@ -351,19 +351,19 @@ func TestFail2banStartsWhenStopped(t *testing.T) {
 	if !errors.As(err, &ae) || !strings.Contains(ae.Details, "Have not found any log file for sshd jail") {
 		t.Fatalf("got %#v", err)
 	}
-	if !strings.Contains(h.Read("etc/fail2ban/jail.d/whacp.local"), "maxretry = 5") {
+	if !strings.Contains(h.Read("etc/fail2ban/jail.d/nimvor.local"), "maxretry = 5") {
 		t.Error("previous jail file not restored")
 	}
 }
 
-func TestEnablingOpensWhatWhaCPNeeds(t *testing.T) {
+func TestEnablingOpensWhatNimVorNeeds(t *testing.T) {
 	old := ConfirmWindow
 	ConfirmWindow = time.Hour
 	defer func() { ConfirmWindow = old }()
 	h, s := setup(t, "ufw allow 22/tcp\nufw allow 'Nginx Full'\n")
 	h.Runner.Outputs["ufw status verbose"] = "Status: inactive\n"
 	os.MkdirAll(filepath.Join(h.Base, "etc/nginx/sites-available"), 0o755)
-	os.WriteFile(filepath.Join(h.Base, "etc/nginx/sites-available/whacp-panel.conf"), []byte("server {\n    listen 8443 ssl;\n    listen [::]:8443 ssl;\n}\n"), 0o644)
+	os.WriteFile(filepath.Join(h.Base, "etc/nginx/sites-available/nimvor-panel.conf"), []byte("server {\n    listen 8443 ssl;\n    listen [::]:8443 ssl;\n}\n"), 0o644)
 	// Listening: 25 and 993 publicly, 3306 on loopback only.
 	os.MkdirAll(filepath.Join(h.Base, "proc/net"), 0o755)
 	os.WriteFile(filepath.Join(h.Base, "proc/net/tcp"), []byte("  sl  local_address rem_address   st\n   0: 00000000:0019 00000000:0000 0A\n   1: 00000000:03E1 00000000:0000 0A\n   2: 0100007F:0CEA 00000000:0000 0A\n"), 0o644)
@@ -390,19 +390,19 @@ func TestEnablingOpensWhatWhaCPNeeds(t *testing.T) {
 	}
 	enable := h.Runner.Index("ufw --force enable")
 	for _, want := range []string{
-		"ufw allow proto tcp from any to any port 8443 comment whacp: WhaCP panel HTTPS",
-		"ufw allow proto tcp from any to any port 25 comment whacp: Mail SMTP",
-		"ufw allow proto tcp from any to any port 993 comment whacp: IMAPS",
-		"ufw allow from 203.0.113.7 comment whacp: administrator",
+		"ufw allow proto tcp from any to any port 8443 comment nimvor: NimVor panel HTTPS",
+		"ufw allow proto tcp from any to any port 25 comment nimvor: Mail SMTP",
+		"ufw allow proto tcp from any to any port 993 comment nimvor: IMAPS",
+		"ufw allow from 203.0.113.7 comment nimvor: administrator",
 	} {
 		if i := h.Runner.Index(want); i < 0 || i > enable {
 			t.Errorf("%q not run before enabling: %v", want, h.Runner.Calls)
 		}
 	}
-	if h.Runner.Called("ufw allow proto tcp from any to any port 22 comment whacp: SSH") || h.Runner.Called("ufw allow proto tcp from any to any port 443 comment whacp: Websites and webmail HTTPS") {
+	if h.Runner.Called("ufw allow proto tcp from any to any port 22 comment nimvor: SSH") || h.Runner.Called("ufw allow proto tcp from any to any port 443 comment nimvor: Websites and webmail HTTPS") {
 		t.Error("ports already open (22, Nginx Full) were added again")
 	}
-	if !strings.Contains(p.Summary, "WhaCP panel") {
+	if !strings.Contains(p.Summary, "NimVor panel") {
 		t.Errorf("summary: %s", p.Summary)
 	}
 	// Undo closes the firewall and removes what it opened.
@@ -421,12 +421,12 @@ func TestEnablingOpensWhatWhaCPNeeds(t *testing.T) {
 	// The only rule opening the panel cannot be deleted while the firewall is on.
 	h.Runner.Outputs["ufw status verbose"] = ufwActive
 	h.Runner.Outputs["ufw show added"] = "ufw allow 22/tcp\nufw allow 8443/tcp\n"
-	if _, err := s.DeleteRule(context.Background(), "allow 8443/tcp"); err == nil || !strings.Contains(err.Error(), "WhaCP panel") {
+	if _, err := s.DeleteRule(context.Background(), "allow 8443/tcp"); err == nil || !strings.Contains(err.Error(), "NimVor panel") {
 		t.Fatalf("deleting the panel's only rule: %v", err)
 	}
 }
 
-func TestEnablingFirewalldOpensWhatWhaCPNeeds(t *testing.T) {
+func TestEnablingFirewalldOpensWhatNimVorNeeds(t *testing.T) {
 	old := ConfirmWindow
 	ConfirmWindow = time.Hour
 	defer func() { ConfirmWindow = old }()
@@ -437,8 +437,8 @@ func TestEnablingFirewalldOpensWhatWhaCPNeeds(t *testing.T) {
 	h.Runner.Outputs["firewall-offline-cmd --list-ports"] = ""
 	h.Runner.Outputs["firewall-offline-cmd --list-rich-rules"] = ""
 	h.Runner.Outputs["firewall-cmd --add-port=8443/tcp"] = "success"
-	os.MkdirAll(filepath.Join(h.Base, "etc/nginx/whacp-available"), 0o755)
-	os.WriteFile(filepath.Join(h.Base, "etc/nginx/whacp-available/whacp-panel.conf"), []byte("server {\n    listen 8443 ssl;\n}\n"), 0o644)
+	os.MkdirAll(filepath.Join(h.Base, "etc/nginx/nimvor-available"), 0o755)
+	os.WriteFile(filepath.Join(h.Base, "etc/nginx/nimvor-available/nimvor-panel.conf"), []byte("server {\n    listen 8443 ssl;\n}\n"), 0o644)
 	p, err := s.SetEnabled(context.Background(), true, EnableOptions{AllowFrom: "203.0.113.7"})
 	if err != nil {
 		t.Fatal(err)

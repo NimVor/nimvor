@@ -20,7 +20,7 @@ func TestLoginScriptOnlyOverHTTPS(t *testing.T) {
 	run := func(env ...string) (string, bool) {
 		dir := t.TempDir()
 		exp := time.Now().Add(time.Minute).Unix()
-		f := filepath.Join(dir, "whacp-login-x.php")
+		f := filepath.Join(dir, "nimvor-login-x.php")
 		os.WriteFile(f, []byte(fmt.Sprintf(loginScript, exp, exp, 1)), 0o600)
 		cmd := exec.Command(php, f)
 		cmd.Env = append([]string{"PATH=" + os.Getenv("PATH")}, env...)

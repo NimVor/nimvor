@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Integration;
+namespace NimVor\Tests\Integration;
 
 use PHPUnit\Framework\TestCase;
-use WhaCP\Agent\AgentClient;
-use WhaCP\Support\Logger;
-use WhaCP\Services\UpdateCheckService;
-use WhaCP\Tests\Support\FakeTransport;
+use NimVor\Agent\AgentClient;
+use NimVor\Support\Logger;
+use NimVor\Services\UpdateCheckService;
+use NimVor\Tests\Support\FakeTransport;
 
 final class UpdateCheckTest extends TestCase
 {
@@ -17,7 +17,7 @@ final class UpdateCheckTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->dir = sys_get_temp_dir() . '/whacp-update-' . bin2hex(random_bytes(4));
+        $this->dir = sys_get_temp_dir() . '/nimvor-update-' . bin2hex(random_bytes(4));
         mkdir($this->dir);
         file_put_contents($this->dir . '/token', str_repeat('a', 64));
         $this->transport = new FakeTransport();
@@ -38,17 +38,17 @@ final class UpdateCheckTest extends TestCase
 
     public function testGithubRemotes(): void
     {
-        self::assertSame('acme/whacp', UpdateCheckService::githubRepo('https://github.com/acme/whacp.git'));
-        self::assertSame('acme/whacp', UpdateCheckService::githubRepo('git@github.com:acme/whacp.git'));
-        self::assertSame('acme/WhaCP', UpdateCheckService::githubRepo('https://github.com/acme/WhaCP'));
-        self::assertNull(UpdateCheckService::githubRepo('https://gitlab.com/acme/whacp.git'));
-        self::assertNull(UpdateCheckService::githubRepo('https://github.com/acme/whacp/../../x'));
+        self::assertSame('acme/nimvor', UpdateCheckService::githubRepo('https://github.com/acme/nimvor.git'));
+        self::assertSame('acme/nimvor', UpdateCheckService::githubRepo('git@github.com:acme/nimvor.git'));
+        self::assertSame('acme/NimVor', UpdateCheckService::githubRepo('https://github.com/acme/NimVor'));
+        self::assertNull(UpdateCheckService::githubRepo('https://gitlab.com/acme/nimvor.git'));
+        self::assertNull(UpdateCheckService::githubRepo('https://github.com/acme/nimvor/../../x'));
     }
 
     public function testNewerCommitIsAnUpdate(): void
     {
         $current = str_repeat('a', 40);
-        $this->transport->succeed('whacp.update_status', ['git' => true, 'commit' => $current, 'branch' => 'main', 'remote' => 'https://github.com/acme/whacp.git', 'updatable' => true]);
+        $this->transport->succeed('nimvor.update_status', ['git' => true, 'commit' => $current, 'branch' => 'main', 'remote' => 'https://github.com/acme/nimvor.git', 'updatable' => true]);
         $asked = [];
         $svc = $this->service(function (string $url) use (&$asked): array {
             $asked[] = $url;
@@ -57,7 +57,7 @@ final class UpdateCheckTest extends TestCase
         self::assertTrue($svc->due());
         $res = $svc->check();
         self::assertTrue($res['available']);
-        self::assertSame(['https://api.github.com/repos/acme/whacp/commits/main'], $asked);
+        self::assertSame(['https://api.github.com/repos/acme/nimvor/commits/main'], $asked);
         self::assertTrue($svc->available());
         self::assertFalse($svc->due());
         // The same commit: up to date.
@@ -68,7 +68,7 @@ final class UpdateCheckTest extends TestCase
 
     public function testPrivateRepositoryIsUnknownNotCurrent(): void
     {
-        $this->transport->succeed('whacp.update_status', ['git' => true, 'commit' => str_repeat('a', 40), 'branch' => 'main', 'remote' => 'https://github.com/acme/private.git']);
+        $this->transport->succeed('nimvor.update_status', ['git' => true, 'commit' => str_repeat('a', 40), 'branch' => 'main', 'remote' => 'https://github.com/acme/private.git']);
         $res = $this->service(fn (string $url): array => [404, '{"message":"Not Found"}'])->check();
         self::assertFalse($res['available']);
         self::assertSame('unknown', $res['state']);

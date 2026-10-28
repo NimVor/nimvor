@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\AppCatalogService;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\AppCatalogService;
+use NimVor\Services\WebsiteService;
+use NimVor\Support\UserFacingException;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Administration → Application Manager, and catalog enforcement on install. */
 final class AppManagerTest extends HttpTestCase
@@ -19,6 +19,22 @@ final class AppManagerTest extends HttpTestCase
         parent::setUp();
         $this->seedUser('admin', 'admin');
         $this->seedUser('cust', 'customer');
+    }
+
+    public function testEveryInstallerAppIsInTheCatalogAndStagedConsistently(): void
+    {
+        $db = $this->app->container->get(Connection::class);
+        foreach (\NimVor\Services\AppInstallerService::APPS as $slug => $def) {
+            self::assertSame(1, (int) $db->scalar('SELECT COUNT(*) FROM app_catalog WHERE slug = ?', [$slug]), $slug . ' is not in the catalog');
+            if (!empty($def['staged'])) {
+                self::assertTrue(isset(\NimVor\Services\AppInstallerService::STAGED[$slug]) || isset(\NimVor\Services\AppInstallerService::NATIVE[$slug]), $slug . ' is staged or native');
+            }
+        }
+        foreach (['backdrop', 'processwire', 'bludit', 'dolibarr', 'akaunting', 'flarum', 'typo3', 'concrete', 'bagisto', 'shopware', 'symfony', 'codeigniter', 'yii', 'cakephp', 'slim', 'kirby', 'craft', 'invoiceninja', 'facturascripts', 'tutor', 'bbpress', 'wp-statistics', 'piwigo', 'mautic'] as $slug) {
+            self::assertArrayHasKey($slug, \NimVor\Services\AppInstallerService::APPS);
+        }
+        self::assertSame(0, (int) $db->scalar("SELECT needs_db FROM app_catalog WHERE slug = 'bludit'"));
+        self::assertSame(2, (int) $db->scalar("SELECT COUNT(*) FROM app_categories WHERE slug IN ('business','finance')"));
     }
 
     public function testManagerTogglesCategoriesAppsAndInstaller(): void
@@ -56,7 +72,7 @@ final class AppManagerTest extends HttpTestCase
         $this->login('owner');
         $site = $this->app->container->get(WebsiteService::class)->create(['domain' => 'shop.test', 'kind' => 'php', 'php_version' => '8.3'], $admin);
         $siteRow = (array) $this->app->container->get(Connection::class)->fetch('SELECT * FROM websites WHERE id = ?', [$site]);
-        $apps = $this->app->container->get(\WhaCP\Services\AppInstallerService::class);
+        $apps = $this->app->container->get(\NimVor\Services\AppInstallerService::class);
         $catalog = $this->app->container->get(AppCatalogService::class);
 
         // Hidden-from-customers app: a customer cannot install it.

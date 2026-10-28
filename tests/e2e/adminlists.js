@@ -33,30 +33,33 @@ const OUT = process.env.E2E_OUT || '/tmp';
 
     // ---- Websites table
     await page.goto(BASE + '/websites');
-    await page.waitForSelector('#wcp-sites-dt [data-wcp-dt-pager] .wcp-pager-total');
-    const total = async () => (await page.textContent('#wcp-sites-dt .wcp-pager-total')).trim();
+    await page.waitForSelector('#nim-sites-dt [data-nim-dt-pager] .nim-pager-total');
+    const total = async () => (await page.textContent('#nim-sites-dt .nim-pager-total')).trim();
     const all = await total();
-    await page.fill('#wcp-sites-dt [data-wcp-dt-search]', 'alpha' + stamp);
+    await page.fill('#nim-sites-dt [data-nim-dt-search]', 'alpha' + stamp);
     if (await total() !== 'Total 1') { throw new Error('search: ' + await total()); }
-    const visible = await page.$$eval('#wcp-sites tr[data-wcp-row]:not(.d-none)', r => r.map(x => x.textContent));
+    const visible = await page.$$eval('#nim-sites tr[data-nim-row]:not(.d-none)', r => r.map(x => x.textContent));
     if (visible.length !== 1 || !visible[0].includes('alpha' + stamp)) { throw new Error('rows after search: ' + visible.length); }
-    await page.fill('#wcp-sites-dt [data-wcp-dt-search]', 'no-such-site');
-    await page.waitForSelector('#wcp-sites [data-wcp-dt-empty]:not(.d-none)');
-    await page.fill('#wcp-sites-dt [data-wcp-dt-search]', '');
+    await page.fill('#nim-sites-dt [data-nim-dt-search]', 'no-such-site');
+    await page.waitForSelector('#nim-sites [data-nim-dt-empty]:not(.d-none)');
+    await page.fill('#nim-sites-dt [data-nim-dt-search]', '');
     if (await total() !== all) { throw new Error('clearing the search'); }
     step('websites: search and total (' + all + ')');
 
-    await page.selectOption('#wcp-sites-dt [data-wcp-dt-size]', '20');
+    await page.selectOption('#nim-sites-dt [data-nim-dt-size]', '20');
     await page.reload();
-    if (await page.$eval('#wcp-sites-dt [data-wcp-dt-size]', s => s.value) !== '20') { throw new Error('page size not kept'); }
+    if (await page.$eval('#nim-sites-dt [data-nim-dt-size]', s => s.value) !== '20') { throw new Error('page size not kept'); }
     step('websites: page size kept');
 
-    const row = `#wcp-sites tr:has-text("beta${stamp}")`;
-    await page.click(`${row} summary.wcp-op-more`);
-    const menu = await page.$(`${row} .wcp-dropmenu`);
+    const row = `#nim-sites tr:has-text("beta${stamp}")`;
+    await page.click(`${row} summary.nim-op-more`);
+    const menu = await page.$(`${row} .nim-dropmenu`);
+    // The page places an opened menu against the window on the toggle event,
+    // which can fire after the click returns.
+    await page.waitForFunction((el) => getComputedStyle(el).position === 'fixed', menu);
     const box = await menu.boundingBox();
     if (!box || box.height < 60) { throw new Error('menu not shown'); }
-    const onTop = await page.evaluate(([x, y]) => !!document.elementFromPoint(x, y).closest('.wcp-dropmenu'), [box.x + box.width / 2, box.y + box.height - 8]);
+    const onTop = await page.evaluate(([x, y]) => !!document.elementFromPoint(x, y).closest('.nim-dropmenu'), [box.x + box.width / 2, box.y + box.height - 8]);
     if (!onTop) { throw new Error('menu is cut off or covered'); }
     await page.click('h1');
     if (await page.$(`${row} details[open]`)) { throw new Error('menu did not close'); }
@@ -77,10 +80,10 @@ const OUT = process.env.E2E_OUT || '/tmp';
     for (const p of ['/security', '/security/firewall', '/security/ssh', '/security/fail2ban', '/security/policies', '/security/hulk', '/security/compilers', '/security/smtp', '/security/password-strength', '/security/forkbomb', '/security/traceroute', '/ftp']) {
       const res = await page.goto(BASE + p);
       if (res.status() !== 200) { throw new Error(p + ' ' + res.status()); }
-      if (p.startsWith('/security') && !(await page.$('[data-wcp-section-menu="security"] a.active'))) { throw new Error(p + ': security menu'); }
+      if (p.startsWith('/security') && !(await page.$('[data-nim-section-menu="security"] a.active'))) { throw new Error(p + ': security menu'); }
     }
     await page.goto(BASE + '/security/firewall');
-    if ((await page.textContent('[data-wcp-section-menu="security"] a.active')).trim() !== 'Firewall') { throw new Error('active menu item'); }
+    if ((await page.textContent('[data-nim-section-menu="security"] a.active')).trim() !== 'Firewall') { throw new Error('active menu item'); }
     await page.click('button[data-bs-target="#new-rule"]');
     await page.waitForSelector('#new-rule.show #r-port');
     step('security pages (sidebar menu) and FTP load; firewall rule form opens');
@@ -89,8 +92,8 @@ const OUT = process.env.E2E_OUT || '/tmp';
       await page.goto(BASE + p);
       await page.screenshot({ path: OUT + '/adminlists-' + shot + '.png', fullPage: true });
     }
-    const items = await page.$$eval('[data-wcp-section-menu="security"] a', (as) => as.map((a) => a.textContent.trim()));
-    const want = ['Overview', 'Firewall', 'SSH', 'Brute-force protection', 'Malware scan', 'Shell access', 'ModSecurity', 'Configure Security Policies', 'Compiler Access', 'SMTP Restrictions', 'Outgoing Connections', 'cPHulk Brute Force Protection', 'Password Strength Configuration', 'Shell Fork Bomb Protection', 'Traceroute Enable/Disable'];
+    const items = await page.$$eval('[data-nim-section-menu="security"] a', (as) => as.map((a) => a.textContent.trim()));
+    const want = ['Overview', 'Firewall', 'SSH', 'Brute-force protection', 'Malware scan', 'File integrity', 'TLS audit', 'Vulnerability advisories', 'Shell access', 'ModSecurity', 'Configure Security Policies', 'Compiler Access', 'SMTP Restrictions', 'Outgoing Connections', 'cPHulk Brute Force Protection', 'Password Strength Configuration', 'Shell Fork Bomb Protection', 'Traceroute Enable/Disable'];
     if (want.some((w, i) => items[i] !== w)) { throw new Error('security menu order: ' + items.join(', ')); }
     step('security menu in order: ' + items.join(', '));
     await page.goto(BASE + '/security/hulk#countries');

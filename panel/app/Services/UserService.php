@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Repositories\RoleRepository;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Security\PasswordHasher;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
+use NimVor\Repositories\RoleRepository;
+use NimVor\Repositories\UserRepository;
+use NimVor\Security\PasswordHasher;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
 
 /**
  * Panel user management with validation and safety rules:
@@ -24,7 +24,7 @@ final class UserService
         private readonly AuditLogger $audit,
         private readonly ?PlanService $plans = null,
         private readonly ?PlanLimits $limits = null,
-        private readonly ?\WhaCP\Security\PasswordPolicy $policy = null,
+        private readonly ?\NimVor\Security\PasswordPolicy $policy = null,
     ) {
     }
 
@@ -68,7 +68,7 @@ final class UserService
         $parentId = null;
         if ($actor !== null && ($actor['role_scope'] ?? 'all') === 'own') {
             // Resellers create customers: no user management of their own.
-            if (in_array(\WhaCP\Security\Permissions::USERS_MANAGE, $this->roles->permissionsFor($data['role_id']), true)) {
+            if (in_array(\NimVor\Security\Permissions::USERS_MANAGE, $this->roles->permissionsFor($data['role_id']), true)) {
                 throw new ValidationException(['role_id' => 'You can only create hosting customers.']);
             }
             $this->limits?->assertCanCreate('customers', (int) $actor['id']);
@@ -148,7 +148,7 @@ final class UserService
             throw new UserFacingException('You cannot delete your own account.', 'Deleting the account you are signed in with would lock you out.', 'Ask another administrator to remove it.');
         }
         if ($existing['role_name'] === 'admin' && (int) $existing['is_active'] === 1 && $this->users->countActiveWithRole('admin') <= 1) {
-            throw new UserFacingException('The last administrator cannot be deleted.', 'WhaCP requires at least one active administrator.', 'Promote another user to Administrator first.');
+            throw new UserFacingException('The last administrator cannot be deleted.', 'NimVor requires at least one active administrator.', 'Promote another user to Administrator first.');
         }
         $this->users->delete($id);
         $this->audit->record('user.delete', 'user', (string) $id, AuditLogger::SUCCESS, ['username' => $existing['username']]);

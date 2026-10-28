@@ -14,13 +14,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/config"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/config"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/jobs"
+	"github.com/NimVor/nimvor/agent/internal/platform"
 )
 
 // Requires root and the awstats package. Runs the real update through the
@@ -29,7 +29,7 @@ import (
 func TestRealHostStatsUpdate(t *testing.T) {
 	if os.Geteuid() == 0 && program(&host.Env{Root: filesystem.Host()}) == "" {
 		// Not a missing test prerequisite when the distribution does not
-		// package AWStats at all (EPEL 10): WhaCP reports the component
+		// package AWStats at all (EPEL 10): NimVor reports the component
 		// as not available there.
 		if _, err := exec.LookPath("dnf"); err == nil && exec.Command("dnf", "-q", "list", "awstats").Run() != nil {
 			t.Log("AWStats is not packaged for this distribution; nothing to test")
@@ -39,14 +39,14 @@ func TestRealHostStatsUpdate(t *testing.T) {
 	if os.Geteuid() != 0 || program(&host.Env{Root: filesystem.Host()}) == "" {
 		t.Skip("needs root and AWStats")
 	}
-	sitesRoot, _ := os.MkdirTemp("/tmp", "whacp-stats-")
+	sitesRoot, _ := os.MkdirTemp("/tmp", "nimvor-stats-")
 	os.Chmod(sitesRoot, 0o755)
 	t.Cleanup(func() { os.RemoveAll(sitesRoot) })
-	exec.Command("useradd", "-M", "-U", "-s", "/usr/sbin/nologin", "-u", "1781", "whacpst").Run()
-	t.Cleanup(func() { exec.Command("userdel", "whacpst").Run() })
+	exec.Command("useradd", "-M", "-U", "-s", "/usr/sbin/nologin", "-u", "1781", "nimvorst").Run()
+	t.Cleanup(func() { exec.Command("userdel", "nimvorst").Run() })
 	root := filepath.Join(sitesRoot, "st.test")
 	os.MkdirAll(filepath.Join(root, "logs"), 0o750)
-	exec.Command("chown", "-R", "whacpst:whacpst", root).Run()
+	exec.Command("chown", "-R", "nimvorst:nimvorst", root).Run()
 	now := time.Now().UTC()
 	var lines strings.Builder
 	for i := 0; i < 5; i++ {
@@ -66,7 +66,7 @@ func TestRealHostStatsUpdate(t *testing.T) {
 	env.Writer.Policy.Patterns = append(env.Writer.Policy.Patterns, cfg.StateDir+"/**")
 	r := actions.NewRegistry(true)
 	Register(r, env)
-	site := `"domain":"st.test","user":"whacpst","root":"` + root + `"`
+	site := `"domain":"st.test","user":"nimvorst","root":"` + root + `"`
 	if _, err := call(t, r, "stats.enable", `{`+site+`,"enabled":true}`); err != nil {
 		t.Fatal(err)
 	}

@@ -1,8 +1,8 @@
-// WhaCP full-page file editor. Saves are refused by the agent when the file
+// NimVor full-page file editor. Saves are refused by the agent when the file
 // changed since it was opened (optimistic concurrency).
 (function () {
     'use strict';
-    var root = document.getElementById('wcp-fe');
+    var root = document.getElementById('nim-fe');
     if (!root) { return; }
     var api = root.dataset.api, path = root.dataset.path;
     var text = root.querySelector('[data-fe-text]'), gutter = root.querySelector('[data-fe-gutter]');
@@ -11,9 +11,9 @@
     var mtime = null, saved = '', lines = 0;
 
     function call(op, params) {
-        return WhaCP.fetchJson(api, { method: 'POST', body: JSON.stringify(Object.assign({ op: op, path: path }, params || {})) }).then(function (r) { return r.data; });
+        return NimVor.fetchJson(api, { method: 'POST', body: JSON.stringify(Object.assign({ op: op, path: path }, params || {})) }).then(function (r) { return r.data; });
     }
-    function fail(err) { var d = err.details || {}; WhaCP.toast((d.message || err.message) + (d.details ? ' — ' + d.details : ''), 'danger'); }
+    function fail(err) { var d = err.details || {}; NimVor.toast((d.message || err.message) + (d.details ? ' — ' + d.details : ''), 'danger'); }
     function dirty() { return text.value !== saved; }
     function updateState() {
         var d = dirty();
@@ -61,7 +61,7 @@
             mtime = r.mtime; saved = content;
             info.textContent = fmt(r.size) + ' · saved ' + new Date(r.mtime).toLocaleTimeString();
             updateState();
-            WhaCP.toast('Saved.', 'success');
+            NimVor.toast('Saved.', 'success');
             if (close) { window.location.href = root.dataset.back; }
         }).catch(function (err) { fail(err); updateState(); });
     }

@@ -1,7 +1,7 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var list<array<string, mixed>> $series */
-use WhaCP\Http\Controllers\MonitoringController;
+use NimVor\Http\Controllers\MonitoringController;
 
 $pct = static fn (float $v): string => number_format($v, 0) . '%';
 $num = static fn (float $v): string => number_format($v, 2);
@@ -22,7 +22,7 @@ $ago = static function (string $iso): string {
 <?php $this->end('actions'); ?>
 
 <?php if ($this->serverScope()): ?>
-<nav class="wcp-pagetabs" aria-label="Monitoring"><a class="active" href="<?= e($this->url('monitoring')) ?>" aria-current="page">History and alerts</a><a href="<?= e($this->url('monitoring.live')) ?>">Live</a><a href="<?= e($this->url('monitoring.processes')) ?>">Processes</a></nav>
+<nav class="nim-pagetabs" aria-label="Monitoring"><a class="active" href="<?= e($this->url('monitoring')) ?>" aria-current="page">History and alerts</a><a href="<?= e($this->url('monitoring.live')) ?>">Live</a><a href="<?= e($this->url('monitoring.processes')) ?>">Processes</a></nav>
 <?php endif; ?>
 <div class="card mb-3">
     <div class="card-header"><i class="bi bi-bell me-1"></i>Active alerts</div>

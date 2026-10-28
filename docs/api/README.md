@@ -2,7 +2,7 @@
 
 ## Agent API (available)
 
-Local-only HTTP over `/run/whacp/agent.sock`, described in
+Local-only HTTP over `/run/nimvor/agent.sock`, described in
 [`agent/api/openapi.yaml`](../../agent/api/openapi.yaml).
 
 Every response uses one envelope:
@@ -29,7 +29,7 @@ Versioned under `/api/v1` and described by OpenAPI at `/api/v1/openapi.yaml`
 API tokens* (permission *Create personal API tokens*); it is shown once.
 
 ```bash
-curl -s -H "Authorization: Bearer whacp_…" https://panel.example.com/api/v1/websites
+curl -s -H "Authorization: Bearer nimvor_…" https://panel.example.com/api/v1/websites
 ```
 
 - Tokens act with their owner's permissions and resource scope; read-only

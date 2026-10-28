@@ -27,10 +27,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
 // Site is a website to look into.
@@ -131,7 +131,7 @@ func (l *limited) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// result reads the "WHACP-JSON" line a script printed into v.
+// result reads the "NIMVOR-JSON" line a script printed into v.
 func result(stdout []byte, v any) error {
 	lines := strings.Split(string(stdout), "\n")
 	for i := len(lines) - 1; i >= 0; i-- {
@@ -221,7 +221,7 @@ func scanSite(ctx context.Context, env *host.Env, s Site) ([]Installation, error
 	if err != nil {
 		return nil, err
 	}
-	stdout, errOut, err := r.script(ctx, scanScript, []string{"WHACP_ROOT=" + r.root}, time.Minute)
+	stdout, errOut, err := r.script(ctx, scanScript, []string{"NIMVOR_ROOT=" + r.root}, time.Minute)
 	var res struct {
 		Installs []struct {
 			Dir              string `json:"dir"`
@@ -409,7 +409,7 @@ func info(ctx context.Context, env *host.Env, t Target, force bool) (*Info, erro
 	}
 	env2 := []string{}
 	if force {
-		env2 = append(env2, "WHACP_FORCE=1")
+		env2 = append(env2, "NIMVOR_FORCE=1")
 	}
 	stdout := &limited{n: 8 << 20}
 	errOut, err := r.wp(ctx, dir, execx.Opts{Stdin: strings.NewReader(infoScript), Stdout: stdout, Env: env2}, "eval-file", "-")
@@ -604,7 +604,7 @@ func manage(ctx context.Context, env *host.Env, o Operation) (map[string]any, fu
 		if err != nil || !filepath.IsAbs(path) || filepath.Base(path) != "wp-config.php" || !strings.HasPrefix(filepath.Clean(path), r.root+"/") {
 			return nil, nil, actions.Failed("wp-config.php was not found inside the website.", host.Output(out))
 		}
-		if _, _, err := r.script(ctx, `<?php exit(chmod(getenv('WHACP_FILE'), 0600) ? 0 : 1);`, []string{"WHACP_FILE=" + path}, time.Minute); err != nil {
+		if _, _, err := r.script(ctx, `<?php exit(chmod(getenv('NIMVOR_FILE'), 0600) ? 0 : 1);`, []string{"NIMVOR_FILE=" + path}, time.Minute); err != nil {
 			return nil, nil, actions.Failed("The permissions of wp-config.php could not be changed.", "")
 		}
 	case "verify_core":
@@ -645,7 +645,7 @@ func login(ctx context.Context, env *host.Env, t Target, adminID int) (map[strin
 	}
 	b := make([]byte, 16)
 	rand.Read(b)
-	name := "whacp-login-" + hex.EncodeToString(b) + ".php"
+	name := "nimvor-login-" + hex.EncodeToString(b) + ".php"
 	expires := env.Now().Add(loginTTL)
 	code := fmt.Sprintf(loginScript, expires.Unix(), expires.Unix(), adminID)
 	if o, err := env.Runner.RunWith(ctx, "sh", execx.Opts{As: r.cred, Dir: dir, Stdin: strings.NewReader(code), Timeout: time.Minute}, "-c", "umask 077 && cat > "+name); err != nil {

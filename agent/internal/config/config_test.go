@@ -12,7 +12,7 @@ func TestLoadMissingFileUsesDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.SocketPath != "/run/whacp/agent.sock" || cfg.AllowWriteActions {
+	if cfg.SocketPath != "/run/nimvor/agent.sock" || cfg.AllowWriteActions {
 		t.Fatalf("unexpected defaults: %+v", cfg)
 	}
 }

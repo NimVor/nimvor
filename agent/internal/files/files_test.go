@@ -10,13 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 func setup(t *testing.T) (*testhost.Host, *actions.Registry, string) {
 	h := testhost.New(t)
-	root := filepath.Join(h.Base, "home/whacp/site.test")
+	root := filepath.Join(h.Base, "home/nimvor/site.test")
 	for _, d := range []string{"public_html/css", "logs", "tmp"} {
 		os.MkdirAll(filepath.Join(root, d), 0o755)
 	}

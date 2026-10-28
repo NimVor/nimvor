@@ -3,12 +3,12 @@
  * Server → Components: each part of the server with the steps it needs and
  * a Fix per step.
  *
- * @var \WhaCP\View\View $this
+ * @var \NimVor\View\View $this
  * @var array<int, array<string, mixed>>|null $components
  * @var list<string> $expected
  */
-use WhaCP\Http\Controllers\ComponentsController;
-use WhaCP\Security\Permissions as P;
+use NimVor\Http\Controllers\ComponentsController;
+use NimVor\Security\Permissions as P;
 
 $labels = ['installed' => 'Packages', 'setup' => 'Set up', 'running' => 'Running', 'boot' => 'Starts at boot', 'ports' => 'Ports open'];
 $fixFor = ['installed' => ['install', P::PACKAGES_MANAGE, 'Install'], 'running' => ['start', P::SERVICES_MANAGE, 'Start'], 'boot' => ['boot', P::SERVICES_MANAGE, 'Start at boot'], 'ports' => ['ports', P::SECURITY_MANAGE, 'Open ports']];
@@ -36,13 +36,13 @@ $expected ??= [];
         $state = !$c['installed'] ? ['Not installed', ''] : (!empty($c['ready']) ? ['Ready', 'is-ok'] : ['Needs attention', 'is-warn']);
         ?>
         <div class="col-md-6 col-xxl-4">
-            <div class="wcp-panel h-100 d-flex flex-column" id="c-<?= e($id) ?>" data-component="<?= e($id) ?>">
+            <div class="nim-panel h-100 d-flex flex-column" id="c-<?= e($id) ?>" data-component="<?= e($id) ?>">
                 <div class="d-flex align-items-start gap-2 p-3 pb-2">
                     <div class="flex-grow-1 min-w-0">
                         <div class="fw-semibold"><?= e((string) $c['name']) ?></div>
-                        <div class="small wcp-muted"><?= e((string) $c['description']) ?></div>
+                        <div class="small nim-muted"><?= e((string) $c['description']) ?></div>
                     </div>
-                    <span class="wcp-state <?= e($state[1]) ?> text-nowrap small"><?= e($state[0]) ?></span>
+                    <span class="nim-state <?= e($state[1]) ?> text-nowrap small"><?= e($state[0]) ?></span>
                 </div>
                 <ul class="list-unstyled small px-3 mb-2 flex-grow-1">
                     <?php foreach ((array) $c['steps'] as $s): $st = (string) $s['status']; if ($st === 'na' && empty($s['detail'])) { continue; } ?>
@@ -50,7 +50,7 @@ $expected ??= [];
                             <i class="bi <?= ['ok' => 'bi-check-circle-fill text-success', 'todo' => 'bi-exclamation-circle-fill text-warning', 'na' => 'bi-dash-circle text-body-secondary'][$st] ?? 'bi-dash-circle' ?> mt-1" aria-hidden="true"></i>
                             <div class="flex-grow-1 min-w-0">
                                 <span class="fw-medium"><?= e($labels[$s['id']] ?? (string) $s['id']) ?></span>
-                                <?php if (!empty($s['detail'])): ?><div class="wcp-muted text-break"><?= e((string) $s['detail']) ?></div><?php endif; ?>
+                                <?php if (!empty($s['detail'])): ?><div class="nim-muted text-break"><?= e((string) $s['detail']) ?></div><?php endif; ?>
                             </div>
                             <?php if ($st === 'todo'):
                                 $fix = $fixFor[$s['id']] ?? null;
@@ -58,7 +58,7 @@ $expected ??= [];
                                 if ($viaPage && $page !== null && $this->hasRoute($page) && $this->routeAllowed($page)): ?>
                                     <a class="btn btn-sm btn-outline-primary text-nowrap" href="<?= e($this->url($page)) ?>"><?= $s['id'] === 'setup' ? 'Set up' : 'Open' ?></a>
                                 <?php elseif (!$viaPage && $fix !== null && $this->can($fix[1])): ?>
-                                    <form method="post" action="<?= e($this->url('components.fix', ['id' => $id, 'step' => $fix[0]])) ?>" data-wcp-busy<?= $fix[0] === 'ports' ? ' data-wcp-confirm="Open ' . e(implode(', ', (array) ($s['items'] ?? []))) . ' in the firewall for ' . e((string) $c['name']) . '? You then have 2 minutes to keep the change."' : '' ?>>
+                                    <form method="post" action="<?= e($this->url('components.fix', ['id' => $id, 'step' => $fix[0]])) ?>" data-nim-busy<?= $fix[0] === 'ports' ? ' data-nim-confirm="Open ' . e(implode(', ', (array) ($s['items'] ?? []))) . ' in the firewall for ' . e((string) $c['name']) . '? You then have 2 minutes to keep the change."' : '' ?>>
                                         <?= $this->csrfField() ?>
                                         <button class="btn btn-sm btn-outline-primary text-nowrap"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><?= e($fix[2]) ?></button>
                                     </form>
@@ -69,8 +69,8 @@ $expected ??= [];
                 </ul>
                 <div class="d-flex flex-wrap gap-2 px-3 pb-3 small">
                     <?php if ($page !== null && $c['installed'] && $this->hasRoute($page) && $this->routeAllowed($page)): ?><a href="<?= e($this->url($page)) ?>"><i class="bi bi-gear me-1" aria-hidden="true"></i>Settings</a><?php endif; ?>
-                    <?php if ((array) $c['units'] !== []): ?><span class="wcp-muted font-monospace text-truncate"><?= e(implode(' ', (array) $c['units'])) ?></span><?php endif; ?>
-                    <?php if (!$isUsed && $c['installed']): ?><span class="wcp-muted">Installed, though not marked as needed.</span><?php endif; ?>
+                    <?php if ((array) $c['units'] !== []): ?><span class="nim-muted font-monospace text-truncate"><?= e(implode(' ', (array) $c['units'])) ?></span><?php endif; ?>
+                    <?php if (!$isUsed && $c['installed']): ?><span class="nim-muted">Installed, though not marked as needed.</span><?php endif; ?>
                 </div>
             </div>
         </div>
@@ -78,11 +78,11 @@ $expected ??= [];
         return (string) ob_get_clean();
     };
     ?>
-    <div class="wcp-panel mb-3">
-        <div class="wcp-statusbar">
+    <div class="nim-panel mb-3">
+        <div class="nim-statusbar">
             <span class="fw-medium">This server</span>
-            <span><?= $ready === count($used) ? '<span class="wcp-state is-ok">All ' . count($used) . ' components ready</span>' : '<span class="wcp-state is-warn">' . $ready . ' of ' . count($used) . ' components ready</span>' ?></span>
-            <span class="small wcp-muted">Each step has a Fix. Opening ports is undone after 2 minutes unless you keep the change; installing runs in the background (see the job log).</span>
+            <span><?= $ready === count($used) ? '<span class="nim-state is-ok">All ' . count($used) . ' components ready</span>' : '<span class="nim-state is-warn">' . $ready . ' of ' . count($used) . ' components ready</span>' ?></span>
+            <span class="small nim-muted">Each step has a Fix. Opening ports is undone after 2 minutes unless you keep the change; installing runs in the background (see the job log).</span>
         </div>
     </div>
     <div class="row g-3 mb-4"><?php foreach ($used as $c) { echo $card($c, true); } ?></div>
@@ -95,13 +95,13 @@ $expected ??= [];
 
     <?php if ($this->can(P::SERVER_MANAGE)): ?>
         <?= $this->modalStart('components-profile', 'What this server should have', false, 'modal-md') ?>
-        <form method="post" action="<?= e($this->url('components.profile')) ?>" data-wcp-busy>
+        <form method="post" action="<?= e($this->url('components.profile')) ?>" data-nim-busy>
             <?= $this->csrfField() ?>
-            <p class="small wcp-muted">Components you tick are checked and shown first; the others are listed under “Not used on this server”. Nothing is installed or removed here.</p>
+            <p class="small nim-muted">Components you tick are checked and shown first; the others are listed under “Not used on this server”. Nothing is installed or removed here.</p>
             <?php foreach ($components as $c): ?>
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" name="expected[]" value="<?= e((string) $c['id']) ?>" id="cp-<?= e((string) $c['id']) ?>"<?= in_array($c['id'], $expected, true) ? ' checked' : '' ?>>
-                    <label class="form-check-label" for="cp-<?= e((string) $c['id']) ?>"><?= e((string) $c['name']) ?><?= $c['installed'] ? '' : ' <span class="small wcp-muted">(not installed)</span>' ?></label>
+                    <label class="form-check-label" for="cp-<?= e((string) $c['id']) ?>"><?= e((string) $c['name']) ?><?= $c['installed'] ? '' : ' <span class="small nim-muted">(not installed)</span>' ?></label>
                 </div>
             <?php endforeach; ?>
             <div class="d-flex justify-content-end gap-2 mt-3">

@@ -45,7 +45,7 @@ import (
 // finishes on its own.
 
 // PackageUnitPrefix names the transient units of package transactions.
-const PackageUnitPrefix = "whacp-pkg-"
+const PackageUnitPrefix = "nimvor-pkg-"
 
 // packageHardening: only what cannot affect a package transaction.
 var packageHardening = []string{
@@ -113,7 +113,7 @@ func acquirePackageSlot(ctx context.Context, log io.Writer) (release func(), err
 	case packageSlot <- struct{}{}:
 	default:
 		if log != nil {
-			fmt.Fprintln(log, "Waiting for another package operation of WhaCP to finish…")
+			fmt.Fprintln(log, "Waiting for another package operation of NimVor to finish…")
 		}
 		select {
 		case packageSlot <- struct{}{}:

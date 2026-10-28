@@ -2,24 +2,24 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Database\Connection;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Security\Permissions as P;
-use WhaCP\Security\TwoFactor;
-use WhaCP\Security\WebAuthn;
-use WhaCP\Services\AuditLogger;
-use WhaCP\Services\ServerContext;
-use WhaCP\Services\ServerSetupService;
-use WhaCP\Services\SettingsService;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
-use WhaCP\View\View;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Database\Connection;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Security\Permissions as P;
+use NimVor\Security\TwoFactor;
+use NimVor\Security\WebAuthn;
+use NimVor\Services\AuditLogger;
+use NimVor\Services\ServerContext;
+use NimVor\Services\ServerSetupService;
+use NimVor\Services\SettingsService;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
+use NimVor\View\View;
 
 /**
  * The setup wizard: choose a server profile and run its steps from the

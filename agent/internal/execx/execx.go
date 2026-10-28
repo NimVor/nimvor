@@ -70,14 +70,14 @@ type Opts struct {
 }
 
 // PrivilegedCommands may run with Opts.Capabilities.
-var PrivilegedCommands = map[string]bool{"setquota": true, "repquota": true, "quotaon": true, "quotacheck": true, "mount": true, "sysctl": true, "whacp-agent": true, "strace": true}
+var PrivilegedCommands = map[string]bool{"setquota": true, "repquota": true, "quotaon": true, "quotacheck": true, "mount": true, "sysctl": true, "nimvor-agent": true, "strace": true}
 
 // PrivilegedCapabilities are the capabilities Opts.Capabilities may name.
 var PrivilegedCapabilities = map[string]bool{"CAP_SYS_ADMIN": true, "CAP_DAC_READ_SEARCH": true, "CAP_SYS_PTRACE": true, "CAP_NET_ADMIN": true}
 
 // SysctlFile is the only file sysctl may load with added capabilities
 // (the security overview's kernel settings).
-const SysctlFile = "/etc/sysctl.d/90-whacp-hardening.conf"
+const SysctlFile = "/etc/sysctl.d/90-nimvor-hardening.conf"
 
 var (
 	sysctlSetRe   = regexp.MustCompile(`^(kernel|fs|net)\.[a-z0-9_.]{1,80}=-?[0-9]{1,10}$`)
@@ -87,14 +87,14 @@ var (
 )
 
 // privilegedArgs: what the commands run with added capabilities may be
-// given (they run as root with CAP_SYS_ADMIN): sysctl only loads WhaCP's
+// given (they run as root with CAP_SYS_ADMIN): sysctl only loads NimVor's
 // file or sets one numeric kernel value; mount only remounts with quota or
 // /proc visibility options.
 func privilegedArgs(id string, args []string) bool {
 	switch id {
 	case "sysctl":
 		return (len(args) == 2 && args[0] == "-p" && args[1] == SysctlFile) || (len(args) == 2 && args[0] == "-w" && sysctlSetRe.MatchString(args[1]))
-	case "whacp-agent":
+	case "nimvor-agent":
 		// The process manager's read-only scan modes only.
 		return (len(args) == 1 && args[0] == "-proc-scan") || (len(args) == 2 && args[0] == "-proc-detail" && pidRe.MatchString(args[1]))
 	case "strace":
@@ -129,11 +129,11 @@ var defaultCandidates = map[string][]string{
 	"systemctl":   {"/usr/bin/systemctl", "/bin/systemctl"},
 	"systemd-run": {"/usr/bin/systemd-run", "/bin/systemd-run"},
 	// The agent itself (the process manager's privileged scan).
-	"whacp-agent": {"/usr/local/bin/whacp-agent"},
-	"strace":      {"/usr/bin/strace"},
-	"journalctl":  {"/usr/bin/journalctl", "/bin/journalctl"},
-	"nginx":       {"/usr/sbin/nginx", "/usr/bin/nginx"},
-	"ip":          {"/usr/sbin/ip", "/sbin/ip", "/usr/bin/ip", "/bin/ip"},
+	"nimvor-agent": {"/usr/local/bin/nimvor-agent"},
+	"strace":       {"/usr/bin/strace"},
+	"journalctl":   {"/usr/bin/journalctl", "/bin/journalctl"},
+	"nginx":        {"/usr/sbin/nginx", "/usr/bin/nginx"},
+	"ip":           {"/usr/sbin/ip", "/sbin/ip", "/usr/bin/ip", "/bin/ip"},
 	// PAM's password checker (web terminal sign-in; password on stdin).
 	"unix_chkpwd":  {"/usr/sbin/unix_chkpwd", "/sbin/unix_chkpwd"},
 	"mysqld":       {"/usr/sbin/mysqld", "/usr/bin/mysqld", "/usr/libexec/mysqld"},
@@ -212,9 +212,9 @@ var defaultCandidates = map[string][]string{
 	// Kernel settings of the security overview (privilegedArgs).
 	"sysctl": {"/usr/sbin/sysctl", "/sbin/sysctl"},
 	"grubby": {"/usr/sbin/grubby", "/sbin/grubby"},
-	// Building the ModSecurity connector (only as WhaCP's build account).
+	// Building the ModSecurity connector (only as NimVor's build account).
 	"make": {"/usr/bin/make"},
-	// SMTP restrictions: only WhaCP's own table and rules file (checkArgs).
+	// SMTP restrictions: only NimVor's own table and rules file (checkArgs).
 	"nft": {"/usr/sbin/nft", "/sbin/nft"},
 }
 
@@ -222,21 +222,21 @@ var defaultCandidates = map[string][]string{
 // load (SMTP restrictions; brute force protection blocks; website
 // accounts' outgoing connections).
 const (
-	NftRulesFile  = "/etc/whacp/smtp-restrict.nft"
-	NftHulkFile   = "/etc/whacp/hulk.nft"
-	NftEgressFile = "/etc/whacp/egress.nft"
+	NftRulesFile  = "/etc/nimvor/smtp-restrict.nft"
+	NftHulkFile   = "/etc/nimvor/hulk.nft"
+	NftEgressFile = "/etc/nimvor/egress.nft"
 	// NftFloodFile: the firewall's flood and connection limits (Security →
 	// Firewall → Protection), loaded by its own unit.
-	NftFloodFile = "/etc/whacp/flood.nft"
+	NftFloodFile = "/etc/nimvor/flood.nft"
 )
 
-// nftAllowed are the only nft command lines WhaCP runs.
+// nftAllowed are the only nft command lines NimVor runs.
 func nftAllowed(args []string) bool {
 	switch strings.Join(args, " ") {
-	case "-c -f " + NftRulesFile, "-f " + NftRulesFile, "list table inet whacp_smtp", "delete table inet whacp_smtp", "--version",
-		"-c -f " + NftHulkFile, "-f " + NftHulkFile, "list table inet whacp_hulk", "delete table inet whacp_hulk",
-		"-c -f " + NftEgressFile, "-f " + NftEgressFile, "list table inet whacp_egress", "delete table inet whacp_egress",
-		"-c -f " + NftFloodFile, "list table inet whacp_flood":
+	case "-c -f " + NftRulesFile, "-f " + NftRulesFile, "list table inet nimvor_smtp", "delete table inet nimvor_smtp", "--version",
+		"-c -f " + NftHulkFile, "-f " + NftHulkFile, "list table inet nimvor_hulk", "delete table inet nimvor_hulk",
+		"-c -f " + NftEgressFile, "-f " + NftEgressFile, "list table inet nimvor_egress", "delete table inet nimvor_egress",
+		"-c -f " + NftFloodFile, "list table inet nimvor_flood":
 		return true
 	}
 	return false
@@ -448,7 +448,7 @@ func (r *SystemRunner) transient() bool {
 func transientUnit() string {
 	var b [8]byte
 	_, _ = rand.Read(b[:])
-	return "whacp-run-" + hex.EncodeToString(b[:]) + ".service"
+	return "nimvor-run-" + hex.EncodeToString(b[:]) + ".service"
 }
 
 // transientHardening confines commands run as a website account: no
@@ -529,7 +529,7 @@ func TransientArgs(unit, sh, bin, dir string, env []string, as Credential, timeo
 	case as.Package:
 		hardening = packageHardening
 		binds = nil
-		a = append(a, "--description=WhaCP package transaction")
+		a = append(a, "--description=NimVor package transaction")
 	case len(as.Capabilities) > 0:
 		hardening = PrivilegedHardening(as.Capabilities)
 		binds = nil
@@ -552,7 +552,7 @@ func TransientArgs(unit, sh, bin, dir string, env []string, as Credential, timeo
 	for _, e := range env {
 		a = append(a, "--setenv="+e)
 	}
-	a = append(a, "--", sh, "-c", pipeWrapper, "whacp-run", stdin, stdout, stderr, bin)
+	a = append(a, "--", sh, "-c", pipeWrapper, "nimvor-run", stdin, stdout, stderr, bin)
 	a = append(a, args...)
 	for i := len(a) - len(args) - 7; i < len(a); i++ {
 		// systemd expands $VAR in command lines; "$$" is a literal "$".
@@ -561,7 +561,7 @@ func TransientArgs(unit, sh, bin, dir string, env []string, as Credential, timeo
 	return a
 }
 
-// SendmailShim is WhaCP's sendmail program (the agent binary, which
+// SendmailShim is NimVor's sendmail program (the agent binary, which
 // behaves as sendmail when started under that name). Inside the units of
 // commands run as an account it replaces the distribution's sendmail:
 // Postfix's hands mail to setgid postdrop, which cannot work under
@@ -599,7 +599,7 @@ func sendmailBinds() []string {
 // list or change; only its pipes (0600) belong to the account, which can
 // open them but never rename or replace them. RunDir is outside the
 // agent's runtime directory, which website accounts cannot enter.
-var RunDir = "/run/whacp-run"
+var RunDir = "/run/nimvor-run"
 
 // runTransient runs bin as o.As in a transient unit, streaming standard
 // input and output through named pipes in RunDir.
@@ -656,7 +656,7 @@ func (r *SystemRunner) runTransient(ctx context.Context, bin, dir string, env []
 	}
 	unit := transientUnit()
 	if o.As.Package {
-		unit = PackageUnitPrefix + strings.TrimPrefix(unit, "whacp-run-")
+		unit = PackageUnitPrefix + strings.TrimPrefix(unit, "nimvor-run-")
 	}
 	cmd := exec.CommandContext(ctx, r.mustPath("systemd-run"), TransientArgs(unit, sh, bin, dir, env, *o.As, timeout, in, out, errp, sendmailBinds(), args)...)
 	cmd.Env = baseEnv

@@ -12,8 +12,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
 // WP-CLI is pinned to one release: the agent downloads exactly this file
@@ -28,7 +28,7 @@ var wpcliSHA512 = "be928f6b8ca1e8dfb9d2f4b75a13aa4aee0896f8a9a0a1c45cd5d2c98605e
 
 const (
 	// WPCLIPath is where the verified copy is kept.
-	WPCLIPath   = "/usr/local/lib/whacp/wp-cli.phar"
+	WPCLIPath   = "/usr/local/lib/nimvor/wp-cli.phar"
 	maxPharSize = 32 << 20
 )
 
@@ -116,7 +116,7 @@ func ensurePhar(ctx context.Context, env *host.Env, src Source) error {
 		return fmt.Errorf("the WP-CLI download does not match the pinned checksum (got %.16s…); nothing was installed", got)
 	}
 	set := env.Changes("wp-cli")
-	set.Mkdir("/usr/local/lib/whacp", 0o755, agentfs.RootOwner)
+	set.Mkdir("/usr/local/lib/nimvor", 0o755, agentfs.RootOwner)
 	set.Write(WPCLIPath, b, 0o644, agentfs.RootOwner)
 	if _, err := set.Commit(nil); err != nil {
 		return fmt.Errorf("WP-CLI could not be saved: %v", err)

@@ -14,11 +14,11 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/shacrypt"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/shacrypt"
 )
 
 // SFTP access for a website's own system user. OpenSSH confines it with
@@ -86,7 +86,7 @@ func NormalizeKey(line string) (string, error) {
 // renderDropIn produces the Match blocks for every enabled user.
 func renderDropIn(env *host.Env, st sftpState) string {
 	var b strings.Builder
-	b.WriteString("# Managed by WhaCP (website SFTP access). Do not edit: changes are overwritten.\n")
+	b.WriteString("# Managed by NimVor (website SFTP access). Do not edit: changes are overwritten.\n")
 	names := make([]string, 0, len(st.Users))
 	for n := range st.Users {
 		names = append(names, n)

@@ -15,8 +15,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 // nodeTarball builds a minimal node-v<ver>-linux-<arch>.tar.gz with a bin/node
@@ -85,14 +85,14 @@ func TestInstallVerifiesAndUnpacksNode(t *testing.T) {
 	if job.Status != "succeeded" {
 		t.Fatalf("install job: %+v", job)
 	}
-	node := filepath.Join(h.Base, "opt/whacp/runtimes/node", version, "bin/node")
+	node := filepath.Join(h.Base, "opt/nimvor/runtimes/node", version, "bin/node")
 	if _, err := os.Stat(node); err != nil {
 		t.Fatalf("node binary not installed: %v", err)
 	}
-	if fi, _ := os.Lstat(filepath.Join(h.Base, "opt/whacp/runtimes/node", version, "bin/npx")); fi == nil || fi.Mode()&os.ModeSymlink == 0 {
+	if fi, _ := os.Lstat(filepath.Join(h.Base, "opt/nimvor/runtimes/node", version, "bin/npx")); fi == nil || fi.Mode()&os.ModeSymlink == 0 {
 		t.Error("npx symlink not created")
 	}
-	if h.Exists("opt/whacp/runtimes/node/" + version + ".tmp") {
+	if h.Exists("opt/nimvor/runtimes/node/" + version + ".tmp") {
 		t.Error("the temporary unpack folder was left behind")
 	}
 
@@ -103,7 +103,7 @@ func TestInstallVerifiesAndUnpacksNode(t *testing.T) {
 	if len(st.Node) != 1 || st.Node[0].Version != version || !st.Node[0].Managed {
 		t.Fatalf("status node: %+v", st.Node)
 	}
-	if bin, err := BinDir(h.Env, "node:"+version); err != nil || bin != filepath.Join("/opt/whacp/runtimes/node", version, "bin") {
+	if bin, err := BinDir(h.Env, "node:"+version); err != nil || bin != filepath.Join("/opt/nimvor/runtimes/node", version, "bin") {
 		t.Fatalf("BinDir: %q %v", bin, err)
 	}
 	if _, err := BinDir(h.Env, "node:19.9.9"); err == nil {
@@ -123,7 +123,7 @@ func TestInstallVerifiesAndUnpacksNode(t *testing.T) {
 	if _, err := rm.Handler(context.Background(), json.RawMessage(`{"kind":"node","version":"`+version+`"}`)); err != nil {
 		t.Fatal(err)
 	}
-	if h.Exists("opt/whacp/runtimes/node/" + version) {
+	if h.Exists("opt/nimvor/runtimes/node/" + version) {
 		t.Error("runtime folder not removed")
 	}
 }
@@ -154,7 +154,7 @@ func TestInstallRejectsBadChecksumAndInput(t *testing.T) {
 	if job.Status != "failed" {
 		t.Fatalf("a bad checksum must fail the install: %+v", job)
 	}
-	if h.Exists("opt/whacp/runtimes/node/" + version) {
+	if h.Exists("opt/nimvor/runtimes/node/" + version) {
 		t.Error("a runtime with a bad checksum was left installed")
 	}
 

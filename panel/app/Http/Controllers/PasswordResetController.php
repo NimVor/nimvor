@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Core\Config;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Security\PasswordReset;
-use WhaCP\Support\ValidationException;
-use WhaCP\View\View;
+use NimVor\Core\Config;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Security\PasswordReset;
+use NimVor\Support\ValidationException;
+use NimVor\View\View;
 
 final class PasswordResetController extends Controller
 {

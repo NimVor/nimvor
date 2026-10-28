@@ -1,9 +1,9 @@
-// WhaCP file manager (full page). Paths are relative to the website root;
+// NimVor file manager (full page). Paths are relative to the website root;
 // the agent enforces confinement. Names are only ever set as text, never
 // as HTML.
 (function () {
     'use strict';
-    var root = document.getElementById('wcp-fm');
+    var root = document.getElementById('nim-fm');
     if (!root) { return; }
     var api = root.dataset.api, uploadUrl = root.dataset.upload, downloadUrl = root.dataset.download, editUrl = root.dataset.edit;
     var CHUNK = 1024 * 1024;
@@ -14,7 +14,7 @@
         cwd: root.dataset.start || '', entries: [], selected: new Set(), anchor: null,
         sort: { key: 'name', dir: 1 }, hidden: false, back: [], forward: [], search: null
     };
-    try { state.hidden = localStorage.getItem('wcp-fm-hidden') === '1'; } catch (e) { /* storage unavailable */ }
+    try { state.hidden = localStorage.getItem('nim-fm-hidden') === '1'; } catch (e) { /* storage unavailable */ }
 
     var $ = function (sel) { return root.querySelector(sel); };
     var rows = $('[data-fm-rows]'), tree = $('[data-fm-tree]'), pathInput = $('[data-fm-path]'), status = $('[data-fm-status]');
@@ -46,12 +46,12 @@
         return 'bi-file-earmark';
     }
     function call(op, params) {
-        return WhaCP.fetchJson(api, { method: 'POST', body: JSON.stringify(Object.assign({ op: op }, params || {})) })
+        return NimVor.fetchJson(api, { method: 'POST', body: JSON.stringify(Object.assign({ op: op }, params || {})) })
             .then(function (res) { return res.data; });
     }
     function fail(err) {
         var d = err.details || {};
-        WhaCP.toast((d.message || err.message) + (d.reason ? ' — ' + d.reason : '') + (d.details ? ' — ' + d.details : ''), 'danger');
+        NimVor.toast((d.message || err.message) + (d.reason ? ' — ' + d.reason : '') + (d.details ? ' — ' + d.details : ''), 'danger');
     }
     function selectedEntries() { return state.entries.filter(function (e) { return state.selected.has(e.path); }); }
 
@@ -99,7 +99,7 @@
         return i;
     }
     function nameList(body, names) {
-        var ul = el('ul', 'small font-monospace mb-2 wcp-fm-namelist');
+        var ul = el('ul', 'small font-monospace mb-2 nim-fm-namelist');
         names.slice(0, 12).forEach(function (n) { ul.appendChild(el('li', '', n)); });
         if (names.length > 12) { ul.appendChild(el('li', 'text-body-secondary', '… and ' + (names.length - 12) + ' more')); }
         body.appendChild(ul);
@@ -108,13 +108,13 @@
 
     // ---- tree ---------------------------------------------------------
     function treeNode(path, name) {
-        var li = el('li', 'wcp-fm-node'); li.setAttribute('role', 'treeitem'); li.dataset.path = path; li.setAttribute('aria-expanded', 'false');
-        var row = el('div', 'wcp-fm-node-row');
-        var tog = el('button', 'btn btn-link p-0 wcp-fm-toggle'); tog.type = 'button'; tog.setAttribute('aria-label', 'Expand ' + name); tog.appendChild(icon('bi-caret-right-fill'));
-        var link = el('button', 'btn btn-link p-0 wcp-fm-node-link'); link.type = 'button'; link.dataset.go = path;
+        var li = el('li', 'nim-fm-node'); li.setAttribute('role', 'treeitem'); li.dataset.path = path; li.setAttribute('aria-expanded', 'false');
+        var row = el('div', 'nim-fm-node-row');
+        var tog = el('button', 'btn btn-link p-0 nim-fm-toggle'); tog.type = 'button'; tog.setAttribute('aria-label', 'Expand ' + name); tog.appendChild(icon('bi-caret-right-fill'));
+        var link = el('button', 'btn btn-link p-0 nim-fm-node-link'); link.type = 'button'; link.dataset.go = path;
         link.appendChild(icon('bi-folder-fill text-warning')); link.appendChild(document.createTextNode(' ' + name));
         row.appendChild(tog); row.appendChild(link); li.appendChild(row);
-        var ul = el('ul', 'wcp-fm-tree-list'); ul.setAttribute('role', 'group'); li.appendChild(ul);
+        var ul = el('ul', 'nim-fm-tree-list'); ul.setAttribute('role', 'group'); li.appendChild(ul);
         return li;
     }
     function expand(li, open) {
@@ -127,13 +127,13 @@
             ul.replaceChildren();
             entries.filter(function (e) { return e.type === 'dir' && (state.hidden || e.name[0] !== '.'); })
                 .forEach(function (e) { ul.appendChild(treeNode(join(li.dataset.path, e.name), e.name)); });
-            if (!ul.children.length) { li.classList.add('wcp-fm-leaf'); }
+            if (!ul.children.length) { li.classList.add('nim-fm-leaf'); }
         });
     }
     function buildTree() {
         tree.replaceChildren();
         var rootNode = treeNode('', '/');
-        rootNode.classList.add('wcp-fm-root');
+        rootNode.classList.add('nim-fm-root');
         tree.appendChild(rootNode);
         return syncTree();
     }
@@ -151,14 +151,14 @@
             });
         });
         return chain.then(function () {
-            tree.querySelectorAll('.wcp-fm-node-row.active').forEach(function (r) { r.classList.remove('active'); });
-            var cur = tree.querySelector('li[data-path="' + CSS.escape(state.cwd) + '"] > .wcp-fm-node-row');
+            tree.querySelectorAll('.nim-fm-node-row.active').forEach(function (r) { r.classList.remove('active'); });
+            var cur = tree.querySelector('li[data-path="' + CSS.escape(state.cwd) + '"] > .nim-fm-node-row');
             if (cur) { cur.classList.add('active'); cur.scrollIntoView({ block: 'nearest' }); }
         }).catch(function () { /* folder vanished; the listing reports it */ });
     }
     function refreshTreeAt(path) {
         var li = tree.querySelector('li[data-path="' + CSS.escape(path) + '"]');
-        if (li) { delete li.dataset.loaded; li.classList.remove('wcp-fm-leaf'); if (li.getAttribute('aria-expanded') === 'true') { expand(li, true); } }
+        if (li) { delete li.dataset.loaded; li.classList.remove('nim-fm-leaf'); if (li.getAttribute('aria-expanded') === 'true') { expand(li, true); } }
     }
 
     // ---- listing ------------------------------------------------------
@@ -175,7 +175,7 @@
         rows.replaceChildren();
         var shown = sortEntries(state.entries.filter(function (e) { return state.hidden || e.name[0] !== '.' || state.search; }));
         if (!state.search && state.cwd) {
-            var up = el('tr', 'wcp-fm-row'); up.dataset.up = '1';
+            var up = el('tr', 'nim-fm-row'); up.dataset.up = '1';
             up.appendChild(el('td'));
             var td = el('td', '', ''); td.colSpan = 5; td.appendChild(icon('bi-arrow-90deg-up me-2')); td.appendChild(document.createTextNode('Up one level'));
             up.appendChild(td); rows.appendChild(up);
@@ -184,20 +184,20 @@
             var tr = el('tr'); var t = el('td', 'text-body-secondary p-3', state.search ? 'Nothing matches.' : 'This folder is empty. Drop files here to upload them.'); t.colSpan = 6; tr.appendChild(t); rows.appendChild(tr);
         }
         shown.forEach(function (e) {
-            var tr = el('tr', 'wcp-fm-row'); tr.dataset.path = e.path; tr.draggable = false;
+            var tr = el('tr', 'nim-fm-row'); tr.dataset.path = e.path; tr.draggable = false;
             if (state.selected.has(e.path)) { tr.classList.add('table-active'); }
-            var c = el('td', 'wcp-fm-check'); var cb = el('input', 'form-check-input'); cb.type = 'checkbox'; cb.checked = state.selected.has(e.path); cb.setAttribute('aria-label', 'Select ' + e.name); cb.dataset.fmSelect = '1';
+            var c = el('td', 'nim-fm-check'); var cb = el('input', 'form-check-input'); cb.type = 'checkbox'; cb.checked = state.selected.has(e.path); cb.setAttribute('aria-label', 'Select ' + e.name); cb.dataset.fmSelect = '1';
             c.appendChild(cb); tr.appendChild(c);
-            var n = el('td', 'wcp-fm-name'); n.appendChild(icon(iconFor(e) + ' me-2'));
+            var n = el('td', 'nim-fm-name'); n.appendChild(icon(iconFor(e) + ' me-2'));
             n.appendChild(document.createTextNode(state.search ? e.path : e.name)); tr.appendChild(n);
             tr.appendChild(el('td', 'text-end small text-nowrap', e.type === 'dir' ? '' : fmtSize(e.size)));
-            tr.appendChild(el('td', 'small text-nowrap text-body-secondary wcp-fm-optional', e.mtime ? new Date(e.mtime).toLocaleString() : ''));
-            tr.appendChild(el('td', 'small text-nowrap wcp-fm-optional', typeOf(e)));
-            tr.appendChild(el('td', 'small font-monospace wcp-fm-optional', e.mode || ''));
+            tr.appendChild(el('td', 'small text-nowrap text-body-secondary nim-fm-optional', e.mtime ? new Date(e.mtime).toLocaleString() : ''));
+            tr.appendChild(el('td', 'small text-nowrap nim-fm-optional', typeOf(e)));
+            tr.appendChild(el('td', 'small font-monospace nim-fm-optional', e.mode || ''));
             rows.appendChild(tr);
         });
         root.querySelectorAll('[data-fm-sort]').forEach(function (th) {
-            th.classList.toggle('wcp-fm-sorted', th.dataset.fmSort === state.sort.key);
+            th.classList.toggle('nim-fm-sorted', th.dataset.fmSort === state.sort.key);
             th.setAttribute('aria-sort', th.dataset.fmSort === state.sort.key ? (state.sort.dir > 0 ? 'ascending' : 'descending') : 'none');
         });
         updateStatus();
@@ -278,7 +278,7 @@
     function open(entry) {
         if (!entry) { return; }
         if (entry.type === 'dir') { go(entry.path); return; }
-        if (entry.type === 'link') { WhaCP.toast('Links are not followed by the file manager.', 'secondary'); return; }
+        if (entry.type === 'link') { NimVor.toast('Links are not followed by the file manager.', 'secondary'); return; }
         if (TEXT_HINT.test(entry.name) || entry.size < 512 * 1024) { window.location.href = editUrl + '?path=' + encodeURIComponent(entry.path); return; }
         window.location.href = downloadUrl + '?path=' + encodeURIComponent(entry.path);
     }
@@ -366,7 +366,7 @@
         }
         trashItems.forEach(function (it) {
             var tr = el('tr'); tr.dataset.id = it.id;
-            var c = el('td', 'wcp-fm-check'); var cb = el('input', 'form-check-input'); cb.type = 'checkbox'; cb.checked = trashSel.has(it.id); cb.setAttribute('aria-label', 'Select ' + base(it.path));
+            var c = el('td', 'nim-fm-check'); var cb = el('input', 'form-check-input'); cb.type = 'checkbox'; cb.checked = trashSel.has(it.id); cb.setAttribute('aria-label', 'Select ' + base(it.path));
             cb.addEventListener('change', function () { if (cb.checked) { trashSel.add(it.id); } else { trashSel.delete(it.id); } trashButtons(); });
             c.appendChild(cb); tr.appendChild(c);
             var n = el('td', 'text-break'); n.appendChild(icon(it.type === 'dir' ? 'bi-folder-fill text-warning me-1' : 'bi-file-earmark me-1')); n.appendChild(document.createTextNode(base(it.path))); tr.appendChild(n);
@@ -409,7 +409,7 @@
             var ids = Array.from(trashSel); if (!ids.length) { return; }
             call('trash_restore', { ids: ids }).then(function (r) {
                 var done = r.restored || [];
-                WhaCP.toast('Restored ' + done.length + ' item(s)' + (done.length === 1 ? ' to /' + done[0].path : '') + '.', 'success');
+                NimVor.toast('Restored ' + done.length + ' item(s)' + (done.length === 1 ? ' to /' + done[0].path : '') + '.', 'success');
                 refreshTreeAt(''); load(); openTrash();
             }).catch(function (e) { fail(e); openTrash(); });
         });
@@ -417,13 +417,13 @@
             var sel = selectedTrash(); if (!sel.length) { return; }
             trashConfirm('Delete permanently', 'These items will be deleted for good. This cannot be undone:', sel.map(function (it) { return it.path; }), 'Delete permanently', true).then(function (ok) {
                 if (!ok) { openTrash(); return; }
-                call('trash_delete', { ids: sel.map(function (it) { return it.id; }) }).then(function (r) { WhaCP.toast('Deleted ' + r.deleted + ' item(s) permanently.', 'success'); openTrash(); }).catch(function (e) { fail(e); openTrash(); });
+                call('trash_delete', { ids: sel.map(function (it) { return it.id; }) }).then(function (r) { NimVor.toast('Deleted ' + r.deleted + ' item(s) permanently.', 'success'); openTrash(); }).catch(function (e) { fail(e); openTrash(); });
             });
         });
         trashEl.querySelector('[data-fm-trash-empty]').addEventListener('click', function () {
             trashConfirm('Empty trash', 'All ' + trashItems.length + ' item(s) in the trash will be deleted for good. This cannot be undone.', [], 'Empty trash', true).then(function (ok) {
                 if (!ok) { openTrash(); return; }
-                call('trash_empty', {}).then(function (r) { WhaCP.toast('Deleted ' + r.deleted + ' item(s) permanently.', 'success'); openTrash(); }).catch(function (e) { fail(e); openTrash(); });
+                call('trash_empty', {}).then(function (r) { NimVor.toast('Deleted ' + r.deleted + ' item(s) permanently.', 'success'); openTrash(); }).catch(function (e) { fail(e); openTrash(); });
             });
         });
     }
@@ -468,7 +468,7 @@
             }, 'Delete', true).then(function (v) {
                 if (!v) { return; }
                 call('delete', { paths: sel.map(function (e) { return e.path; }), permanent: v.permanent }).then(function (r) {
-                    WhaCP.toast(r.trashed ? 'Moved ' + r.deleted + ' item(s) to the Trash.' : 'Deleted ' + r.deleted + ' item(s) permanently.', 'success'); refreshTreeAt(state.cwd); load();
+                    NimVor.toast(r.trashed ? 'Moved ' + r.deleted + ' item(s) to the Trash.' : 'Deleted ' + r.deleted + ' item(s) permanently.', 'success'); refreshTreeAt(state.cwd); load();
                 }).catch(fail);
             });
         },
@@ -478,7 +478,7 @@
             var start = sel[0].mode ? sel[0].mode.slice(-3) : '644';
             dialog('Permissions', function (b) {
                 if (sel.length > 1) { nameList(b, names(sel)); }
-                var grid = el('table', 'table table-sm text-center mb-2 wcp-fm-perms');
+                var grid = el('table', 'table table-sm text-center mb-2 nim-fm-perms');
                 var head = el('tr'); ['', 'Read', 'Write', 'Execute'].forEach(function (h) { head.appendChild(el('th', 'small', h)); }); grid.appendChild(head);
                 var boxes = [];
                 ['Owner', 'Group', 'Everyone'].forEach(function (who, r) {
@@ -505,7 +505,7 @@
                 return function () { return /^[0-7]{3}$/.test(octal.value) ? octal.value : (octal.classList.add('is-invalid'), false); };
             }, 'Change').then(function (mode) {
                 if (!mode) { return; }
-                sequential(sel, function (e) { return call('chmod', { path: e.path, mode: mode }); }).then(function () { WhaCP.toast('Permissions changed.', 'success'); load(true); }).catch(fail);
+                sequential(sel, function (e) { return call('chmod', { path: e.path, mode: mode }); }).then(function () { NimVor.toast('Permissions changed.', 'success'); load(true); }).catch(fail);
             });
         },
         compress: function () {
@@ -550,7 +550,7 @@
                 if (to === e.path) { return kind === 'copy' ? call('copy', { from: e.path, to: e.path + '-copy' }) : null; }
                 return call(kind === 'copy' ? 'copy' : 'rename', { from: e.path, to: to });
             }).then(function () {
-                WhaCP.toast(kind === 'copy' ? 'Copied.' : 'Moved.', 'success');
+                NimVor.toast(kind === 'copy' ? 'Copied.' : 'Moved.', 'success');
                 refreshTreeAt(state.cwd); refreshTreeAt(v.to); load();
             }).catch(function (err) { fail(err); load(); });
         });
@@ -558,10 +558,10 @@
     function watchJob(jobId, label) {
         status.textContent = label + '…';
         (function poll(offset) {
-            WhaCP.fetchJson('/jobs/' + jobId + '?offset=' + offset).then(function (res) {
+            NimVor.fetchJson('/jobs/' + jobId + '?offset=' + offset).then(function (res) {
                 if (!res.done) { setTimeout(function () { poll(res.offset || offset); }, 1000); return; }
-                if (res.job.status === 'succeeded') { WhaCP.toast(label + ' finished.', 'success'); }
-                else { WhaCP.toast(label + ' failed: ' + (res.job.error || 'see the log'), 'danger'); WhaCP.showJob(jobId); }
+                if (res.job.status === 'succeeded') { NimVor.toast(label + ' finished.', 'success'); }
+                else { NimVor.toast(label + ' failed: ' + (res.job.error || 'see the log'), 'danger'); NimVor.showJob(jobId); }
                 refreshTreeAt(state.cwd); load(true);
             }).catch(function () { setTimeout(function () { poll(offset); }, 3000); });
         })(0);
@@ -570,7 +570,7 @@
     root.addEventListener('click', function (e) {
         var go2 = e.target.closest('[data-go]');
         if (go2) { go(go2.dataset.go); return; }
-        var tog = e.target.closest('.wcp-fm-toggle');
+        var tog = e.target.closest('.nim-fm-toggle');
         if (tog) { var li = tog.closest('li'); expand(li, li.getAttribute('aria-expanded') !== 'true'); return; }
         var c = e.target.closest('[data-fm-cmd]');
         if (c && !c.disabled && commands[c.dataset.fmCmd]) { hideMenu(); commands[c.dataset.fmCmd](); }
@@ -595,7 +595,7 @@
     if (hiddenToggle) {
         hiddenToggle.addEventListener('change', function () {
             state.hidden = hiddenToggle.checked;
-            try { localStorage.setItem('wcp-fm-hidden', state.hidden ? '1' : '0'); } catch (e) { /* ignore */ }
+            try { localStorage.setItem('nim-fm-hidden', state.hidden ? '1' : '0'); } catch (e) { /* ignore */ }
             buildTree(); render();
         });
     }
@@ -620,7 +620,7 @@
     // ---- uploads ------------------------------------------------------
     var queue = [], busy = false;
     function enqueue(file, relPath) {
-        var li = el('li', 'wcp-fm-upload');
+        var li = el('li', 'nim-fm-upload');
         var name = el('span', 'font-monospace text-truncate', relPath);
         var bar = el('div', 'progress flex-grow-1'); var fill = el('div', 'progress-bar'); bar.appendChild(fill);
         var pct = el('span', 'text-body-secondary', 'waiting');
@@ -640,7 +640,7 @@
             var fd = new FormData();
             fd.append('chunk', blob, 'chunk'); fd.append('path', job.path); fd.append('offset', String(offset));
             fd.append('final', offset + CHUNK >= f.size ? '1' : '0');
-            return fetch(uploadUrl, { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-CSRF-Token': WhaCP.csrfToken(), 'Accept': 'application/json' } })
+            return fetch(uploadUrl, { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-CSRF-Token': NimVor.csrfToken(), 'Accept': 'application/json' } })
                 .then(function (r) { return r.json(); })
                 .then(function (res) {
                     if (!res.success) { throw new Error((res.error && res.error.message) || 'Upload failed'); }
@@ -705,10 +705,10 @@
         });
     }
     ['dragenter', 'dragover'].forEach(function (t) {
-        list.addEventListener(t, function (e) { if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types, 'Files') >= 0) { e.preventDefault(); list.classList.add('wcp-fm-dragging'); } });
+        list.addEventListener(t, function (e) { if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types, 'Files') >= 0) { e.preventDefault(); list.classList.add('nim-fm-dragging'); } });
     });
     ['dragleave', 'drop'].forEach(function (t) {
-        list.addEventListener(t, function (e) { if (t === 'dragleave' && list.contains(e.relatedTarget)) { return; } list.classList.remove('wcp-fm-dragging'); });
+        list.addEventListener(t, function (e) { if (t === 'dragleave' && list.contains(e.relatedTarget)) { return; } list.classList.remove('nim-fm-dragging'); });
     });
     list.addEventListener('drop', function (e) {
         e.preventDefault();

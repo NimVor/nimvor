@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
 )
 
 func TestRepositoryOfUbuntu(t *testing.T) {
@@ -59,7 +59,7 @@ func TestRepoConfiguredDetectsExistingSource(t *testing.T) {
 	}
 }
 
-// The agent's writer only permits WhaCP-managed paths; the repository files
+// The agent's writer only permits NimVor-managed paths; the repository files
 // must be among them or enabling the repository fails on a real host.
 func TestRepositoryPathsAreWritable(t *testing.T) {
 	h, _ := setup(t)

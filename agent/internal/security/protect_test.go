@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/execx"
 )
 
 func fullProtection() Protection {
@@ -67,7 +67,7 @@ func TestFloodRulesText(t *testing.T) {
 		t.Error("exempt addresses are checked after a drop")
 	}
 	off := FloodRules(Protection{})
-	if strings.Contains(off, "{") || !strings.Contains(off, "delete table inet whacp_flood") {
+	if strings.Contains(off, "{") || !strings.Contains(off, "delete table inet nimvor_flood") {
 		t.Errorf("off: %s", off)
 	}
 }
@@ -88,8 +88,8 @@ func TestFloodRulesLoadInNft(t *testing.T) {
 	if out, err := exec.Command(nft, "-f", f).CombinedOutput(); err != nil {
 		t.Skipf("cannot load here: %s", out)
 	}
-	defer exec.Command(nft, "delete", "table", "inet", "whacp_flood").Run()
-	out, _ := exec.Command(nft, "list", "table", "inet", "whacp_flood").CombinedOutput()
+	defer exec.Command(nft, "delete", "table", "inet", "nimvor_flood").Run()
+	out, _ := exec.Command(nft, "list", "table", "inet", "nimvor_flood").CombinedOutput()
 	c := FloodCounters(string(out))
 	for _, k := range []string{"invalid", "syn", "conn:22", "rate:tcp/80", "rate:udp/53", "icmp"} {
 		if _, ok := c[k]; !ok {
@@ -101,7 +101,7 @@ func TestFloodRulesLoadInNft(t *testing.T) {
 	if out, err := exec.Command(nft, "-f", f).CombinedOutput(); err != nil {
 		t.Fatalf("off: %s", out)
 	}
-	if err := exec.Command(nft, "list", "table", "inet", "whacp_flood").Run(); err == nil {
+	if err := exec.Command(nft, "list", "table", "inet", "nimvor_flood").Run(); err == nil {
 		t.Error("table still loaded after turning off")
 	}
 }
@@ -111,7 +111,7 @@ func TestSetProtectionGuardedAndRolledBack(t *testing.T) {
 	ConfirmWindow = 100 * time.Millisecond
 	defer func() { ConfirmWindow = old }()
 	h, s := setup(t, "")
-	os.MkdirAll(filepath.Join(h.Base, "etc/whacp"), 0o755)
+	os.MkdirAll(filepath.Join(h.Base, "etc/nimvor"), 0o755)
 	ctx := context.Background()
 	p, err := s.SetProtection(ctx, fullProtection())
 	if err != nil {
@@ -120,7 +120,7 @@ func TestSetProtectionGuardedAndRolledBack(t *testing.T) {
 	if p == nil || !strings.Contains(p.Summary, "SYN flood 50/s") {
 		t.Fatalf("pending: %+v", p)
 	}
-	for _, want := range []string{"nft -c -f " + execx.NftFloodFile, "systemctl enable -- " + FloodUnit, "systemctl restart -- " + FloodUnit, "nft list table inet whacp_flood"} {
+	for _, want := range []string{"nft -c -f " + execx.NftFloodFile, "systemctl enable -- " + FloodUnit, "systemctl restart -- " + FloodUnit, "nft list table inet nimvor_flood"} {
 		if !h.Runner.Called(want) {
 			t.Errorf("missing %q: %v", want, h.Runner.Calls)
 		}
@@ -143,7 +143,7 @@ func TestSetProtectionGuardedAndRolledBack(t *testing.T) {
 
 func TestSetProtectionRefusedRulesKeepNothing(t *testing.T) {
 	h, s := setup(t, "")
-	os.MkdirAll(filepath.Join(h.Base, "etc/whacp"), 0o755)
+	os.MkdirAll(filepath.Join(h.Base, "etc/nimvor"), 0o755)
 	h.Fail["nft -c"] = "Error: syntax error"
 	if _, err := s.SetProtection(context.Background(), fullProtection()); err == nil {
 		t.Fatal("rules nft refused were applied")

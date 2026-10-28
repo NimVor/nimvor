@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Hosting\Scope;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Services\AuditLogger;
-use WhaCP\Support\UserFacingException;
-use WhaCP\View\View;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Hosting\Scope;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Services\AuditLogger;
+use NimVor\Support\UserFacingException;
+use NimVor\View\View;
 
 /**
  * Email administration for server administrators: the mail queue,
@@ -27,7 +27,7 @@ final class MailAdminController extends Controller
         SessionInterface $session,
         private readonly AgentClient $agent,
         private readonly AuditLogger $audit,
-        private readonly \WhaCP\Services\MailService $mail,
+        private readonly \NimVor\Services\MailService $mail,
     ) {
         parent::__construct($view, $session);
     }
@@ -141,10 +141,10 @@ final class MailAdminController extends Controller
         try {
             $this->agent->call('mail.settings_set', ['postfix' => (object) $pf, 'dovecot' => (object) $dc], 120);
         } catch (UserFacingException $e) {
-            return $this->redirectWithFailure('/mail/admin/server', $e);
+            return $this->redirectWithFailure('/mail/admin/server#mail-postfix', $e);
         }
         $this->audit->record('mail.settings', 'server', 'mail', AuditLogger::SUCCESS, ['postfix' => $pf, 'dovecot' => $dc]);
-        return $this->redirectWithSuccess('/mail/admin/server', 'Mail server settings applied.');
+        return $this->redirectWithSuccess('/mail/admin/server#mail-postfix', 'Mail server settings applied.');
     }
 
     /** Mail troubleshooter and mailbox permission repair. */

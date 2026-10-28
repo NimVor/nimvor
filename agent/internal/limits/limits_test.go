@@ -8,13 +8,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 func TestDirectivesAndCronDeny(t *testing.T) {
-	d := Directives(Limits{CPUPercent: 200, MemoryMB: 2048, TasksMax: 256, IOReadMBps: 50, IOWriteMBps: 20}, "/home/whacp")
-	want := []string{"CPUQuota=200%", "MemoryHigh=1843M", "MemoryMax=2048M", "TasksMax=256", "IOReadBandwidthMax=/home/whacp 50M", "IOWriteBandwidthMax=/home/whacp 20M"}
+	d := Directives(Limits{CPUPercent: 200, MemoryMB: 2048, TasksMax: 256, IOReadMBps: 50, IOWriteMBps: 20}, "/home/nimvor")
+	want := []string{"CPUQuota=200%", "MemoryHigh=1843M", "MemoryMax=2048M", "TasksMax=256", "IOReadBandwidthMax=/home/nimvor 50M", "IOWriteBandwidthMax=/home/nimvor 20M"}
 	if strings.Join(d, "|") != strings.Join(want, "|") {
 		t.Fatalf("%v", d)
 	}
@@ -35,9 +35,9 @@ func TestDirectivesAndCronDeny(t *testing.T) {
 		t.Fatalf("block not removed:\n%s", RenderCronDeny(next, nil))
 	}
 	if RenderCronDeny(CronDenyStart+"\nx\n"+CronDenyEnd+"\n", nil) != "" {
-		t.Fatal("only WhaCP's block: file becomes empty")
+		t.Fatal("only NimVor's block: file becomes empty")
 	}
-	if !ValidSlice("whacp-acct12.slice") || ValidSlice("whacp-acct12.slice/../x") || ValidSlice("user.slice") {
+	if !ValidSlice("nimvor-acct12.slice") || ValidSlice("nimvor-acct12.slice/../x") || ValidSlice("user.slice") {
 		t.Fatal("ValidSlice")
 	}
 }
@@ -63,24 +63,24 @@ func TestSetAndClear(t *testing.T) {
 	if _, err := call(`{"account":"acct7","users":["example"],"cpu_percent":150,"memory_mb":1024,"tasks_max":200}`); err != nil {
 		t.Fatal(err)
 	}
-	unit, _ := os.ReadFile(filepath.Join(h.Base, h.Env.M.UnitDir, "whacp-acct7.slice"))
+	unit, _ := os.ReadFile(filepath.Join(h.Base, h.Env.M.UnitDir, "nimvor-acct7.slice"))
 	if !strings.Contains(string(unit), "CPUQuota=150%") || !strings.Contains(string(unit), "MemoryMax=1024M") {
 		t.Fatalf("slice:\n%s", unit)
 	}
-	drop, _ := os.ReadFile(filepath.Join(h.Base, h.Env.M.UnitDir, "user-"+itoa(h.UID)+".slice.d/50-whacp-limits.conf"))
+	drop, _ := os.ReadFile(filepath.Join(h.Base, h.Env.M.UnitDir, "user-"+itoa(h.UID)+".slice.d/50-nimvor-limits.conf"))
 	if !strings.Contains(string(drop), "TasksMax=200") {
 		t.Fatalf("drop-in:\n%s", drop)
 	}
-	if !h.Runner.Called("systemctl set-property --runtime -- whacp-acct7.slice CPUQuota=150% MemoryHigh=921M MemoryMax=1024M TasksMax=200") {
+	if !h.Runner.Called("systemctl set-property --runtime -- nimvor-acct7.slice CPUQuota=150% MemoryHigh=921M MemoryMax=1024M TasksMax=200") {
 		t.Fatalf("calls: %v", h.Runner.Calls)
 	}
 	if deny, _ := os.ReadFile(filepath.Join(h.Base, "etc/cron.deny")); !strings.Contains(string(deny), "daemon\n"+CronDenyStart+"\nexample\n") {
 		t.Fatalf("cron.deny:\n%s", deny)
 	}
-	if got := SliceFor(h.Env, "example"); got != "whacp-acct7.slice" {
+	if got := SliceFor(h.Env, "example"); got != "nimvor-acct7.slice" {
 		t.Fatalf("SliceFor = %q", got)
 	}
-	if cred, _, _ := h.Env.Credential("example"); cred.Slice != "whacp-acct7.slice" {
+	if cred, _, _ := h.Env.Credential("example"); cred.Slice != "nimvor-acct7.slice" {
 		t.Fatalf("credential slice = %q", cred.Slice)
 	}
 	for _, bad := range []string{`{"account":"../x","users":[]}`, `{"account":"acct7","users":["root"],"cpu_percent":100}`, `{"account":"acct7","users":["x;y"]}`, `{"account":"acct7","users":[],"memory_mb":5}`} {
@@ -92,7 +92,7 @@ func TestSetAndClear(t *testing.T) {
 	if _, err := call(`{"account":"acct7","users":["example"]}`); err != nil {
 		t.Fatal(err)
 	}
-	for _, f := range []string{"whacp-acct7.slice", "user-" + itoa(h.UID) + ".slice.d/50-whacp-limits.conf"} {
+	for _, f := range []string{"nimvor-acct7.slice", "user-" + itoa(h.UID) + ".slice.d/50-nimvor-limits.conf"} {
 		if _, err := os.Stat(filepath.Join(h.Base, h.Env.M.UnitDir, f)); !os.IsNotExist(err) {
 			t.Errorf("%s left behind", f)
 		}

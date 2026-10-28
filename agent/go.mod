@@ -1,3 +1,3 @@
-module github.com/mchkhawarshahzad/whacp/agent
+module github.com/NimVor/nimvor/agent
 
 go 1.24

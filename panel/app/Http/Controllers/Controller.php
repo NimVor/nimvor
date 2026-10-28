@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Support\ValidationException;
-use WhaCP\View\View;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Support\ValidationException;
+use NimVor\View\View;
 
 abstract class Controller
 {
@@ -52,7 +52,7 @@ abstract class Controller
      * Redirect with a user-facing error (and technical details from the
      * agent, e.g. nginx -t output, when available).
      */
-    protected function redirectWithFailure(string $to, \WhaCP\Support\UserFacingException $e): Response
+    protected function redirectWithFailure(string $to, \NimVor\Support\UserFacingException $e): Response
     {
         $msg = $e->getMessage();
         if ($e->reason() !== '') {
@@ -62,7 +62,7 @@ abstract class Controller
             $msg .= ' ' . $e->remedy();
         }
         $this->session->flash('error', $msg);
-        if ($e instanceof \WhaCP\Agent\AgentException && $e->details() !== '') {
+        if ($e instanceof \NimVor\Agent\AgentException && $e->details() !== '') {
             $this->session->flash('details', $e->details());
         }
         return Response::redirect($to);

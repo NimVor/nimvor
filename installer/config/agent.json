@@ -1,8 +1,8 @@
 {
-  "socket_path": "/run/whacp/agent.sock",
+  "socket_path": "/run/nimvor/agent.sock",
   "socket_mode": "0660",
-  "socket_group": "whacp",
-  "token_file": "/etc/whacp/agent.token",
+  "socket_group": "nimvor",
+  "token_file": "/etc/nimvor/agent.token",
   "root_dir": "/",
   "proc_dir": "/proc",
   "log_level": "info",

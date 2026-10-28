@@ -8,12 +8,12 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/ssl"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/tlsprofile"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/ssl"
+	"github.com/NimVor/nimvor/agent/internal/tlsprofile"
+	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
 // The certificate store (every certificate on the server and where it is
@@ -22,7 +22,7 @@ import (
 
 // StoredCert is one certificate in the store.
 type StoredCert struct {
-	Source      string          `json:"source"` // letsencrypt, whacp (uploaded / made here), other (found in Nginx)
+	Source      string          `json:"source"` // letsencrypt, nimvor (uploaded / made here), other (found in Nginx)
 	Name        string          `json:"name"`
 	Certificate ssl.Certificate `json:"certificate"`
 	UsedBy      []string        `json:"used_by"` // Nginx files
@@ -36,7 +36,7 @@ type SSLHost struct {
 	Enabled     bool             `json:"enabled"`
 	HTTPS       bool             `json:"https"`
 	Redirects   bool             `json:"redirects_to_https"`
-	WhaCP       bool             `json:"whacp"`
+	NimVor      bool             `json:"nimvor"`
 	Covered     bool             `json:"covered"`
 	Certificate *ssl.Certificate `json:"certificate,omitempty"`
 }
@@ -68,7 +68,7 @@ func Store(ctx context.Context, env *host.Env) ([]StoredCert, []SSLHost) {
 		dir := filepath.Join(customDir(env), e.Name())
 		f := filepath.Join(dir, "fullchain.pem")
 		seen[f] = true
-		certs = append(certs, StoredCert{Source: "whacp", Name: e.Name(), Certificate: ssl.Inspect(env.Root, f, filepath.Join(dir, "privkey.pem"), now), UsedBy: nonNil(usedBy[f]), Deletable: len(usedBy[f]) == 0})
+		certs = append(certs, StoredCert{Source: "nimvor", Name: e.Name(), Certificate: ssl.Inspect(env.Root, f, filepath.Join(dir, "privkey.pem"), now), UsedBy: nonNil(usedBy[f]), Deletable: len(usedBy[f]) == 0})
 	}
 	// Certificates Nginx uses from elsewhere (shown, never changed).
 	var other []string
@@ -94,7 +94,7 @@ func Store(ctx context.Context, env *host.Env) ([]StoredCert, []SSLHost) {
 			if n == "" || n == "_" || n == "localhost" || strings.ContainsAny(n, "~$*") {
 				continue
 			}
-			h := SSLHost{Name: n, File: filepath.Base(v.File), Enabled: v.Enabled, WhaCP: strings.HasPrefix(filepath.Base(v.File), "whacp-")}
+			h := SSLHost{Name: n, File: filepath.Base(v.File), Enabled: v.Enabled, NimVor: strings.HasPrefix(filepath.Base(v.File), "nimvor-")}
 			if i, ok := byName[n]; ok {
 				h = hosts[i]
 			}
@@ -170,13 +170,13 @@ func registerStore(r *actions.Registry, env *host.Env) {
 		return map[string]any{"deleted": in.Name}, nil
 	}})
 
-	r.Register(actions.Action{Name: "ssl.tls_get", Description: "The server-wide TLS configuration WhaCP websites and webmail use, the snippet, and how many WhaCP virtual hosts still carry their own TLS lines.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "ssl.tls_get", Description: "The server-wide TLS configuration NimVor websites and webmail use, the snippet, and how many NimVor virtual hosts still carry their own TLS lines.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		p := tlsprofile.Load(env)
-		files, legacy := whacpVhosts(env)
+		files, legacy := nimvorVhosts(env)
 		return map[string]any{"profile": p, "snippet": tlsprofile.Render(p), "path": tlsprofile.Path(env), "vhosts": len(files), "legacy_vhosts": legacy}, nil
 	}})
 
-	r.Register(actions.Action{Name: "ssl.tls_set", Mutating: true, Description: "Set the server-wide TLS configuration: writes the snippet every WhaCP virtual host includes (moving vhosts that carry their own TLS lines to the include), checks with nginx -t and reloads; restores everything if the check or reload fails.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "ssl.tls_set", Mutating: true, Description: "Set the server-wide TLS configuration: writes the snippet every NimVor virtual host includes (moving vhosts that carry their own TLS lines to the include), checks with nginx -t and reloads; restores everything if the check or reload fails.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var p tlsprofile.Profile
 		if err := host.Decode(raw, &p); err != nil {
 			return nil, err
@@ -188,7 +188,7 @@ func registerStore(r *actions.Registry, env *host.Env) {
 		defer unlock()
 		set := env.Changes("tls-profile")
 		tlsprofile.Save(env, set, p)
-		files, _ := whacpVhosts(env)
+		files, _ := nimvorVhosts(env)
 		migrated := 0
 		for _, f := range files {
 			b, err := env.Root.ReadFile(f)
@@ -213,10 +213,10 @@ func registerStore(r *actions.Registry, env *host.Env) {
 	}})
 }
 
-// whacpVhosts lists WhaCP's own Nginx files and how many still carry the
+// nimvorVhosts lists NimVor's own Nginx files and how many still carry the
 // old inline TLS lines.
-func whacpVhosts(env *host.Env) ([]string, int) {
-	files, _ := env.Root.Glob(filepath.Join(env.M.NginxAvailable, "whacp-*.conf"))
+func nimvorVhosts(env *host.Env) ([]string, int) {
+	files, _ := env.Root.Glob(filepath.Join(env.M.NginxAvailable, "nimvor-*.conf"))
 	legacy := 0
 	for _, f := range files {
 		if b, err := env.Root.ReadFile(f); err == nil && strings.Contains(string(b), tlsprofile.LegacyBlock) {

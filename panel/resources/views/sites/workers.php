@@ -1,10 +1,10 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var array<string, mixed> $site */
 /** @var list<array<string, mixed>> $workers */
 /** @var array<string, array<string, mixed>> $status */
 /** @var array<string, mixed>|null $edit */
-use WhaCP\Services\WorkerService;
+use NimVor\Services\WorkerService;
 
 $id = (int) $site['id'];
 $errors ??= [];
@@ -18,13 +18,13 @@ $fmtMem = static fn (?int $b): string => $b === null ? '' : number_format($b / 1
 <?= $this->partial('sites/header', ['site' => $site, 'tab' => 'workers']) ?>
 <?php $open = $edit || $errors !== []; ?>
 <div class="card" id="workers">
-    <div class="card-header wcp-toolbar">
-        <h2 class="wcp-toolbar-title"><i class="bi bi-gear-wide-connected me-1"></i>Background workers <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($workers) ?></span></h2>
+    <div class="card-header nim-toolbar">
+        <h2 class="nim-toolbar-title"><i class="bi bi-gear-wide-connected me-1"></i>Background workers <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($workers) ?></span></h2>
         <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#new-worker"><i class="bi bi-plus-lg me-1"></i>Add worker</button>
     </div>
     <?= $this->modalStart('new-worker', $edit ? 'Edit worker' : 'Add worker', $open) ?>
         <div class="p-3">
-                <form method="post" action="<?= e($this->url('sites.workers.store', ['id' => $id])) ?>" data-wcp-busy>
+                <form method="post" action="<?= e($this->url('sites.workers.store', ['id' => $id])) ?>" data-nim-busy>
                     <?= $this->csrfField() ?>
                     <?php if ($edit): ?><input type="hidden" name="worker_id" value="<?= (int) $edit['id'] ?>"><?php endif; ?>
                     <?= $this->partial('partials/field', ['name' => 'name', 'label' => 'Name', 'value' => (string) ($form['name'] ?? ''), 'attrs' => ['required' => 'required', 'placeholder' => 'Queue worker']]) ?>
@@ -60,7 +60,7 @@ $fmtMem = static fn (?int $b): string => $b === null ? '' : number_format($b / 1
         </div>
     <?= $this->modalEnd() ?>
     <?php if ($workers === []): ?>
-        <div class="wcp-empty-state"><i class="bi bi-gear-wide-connected" aria-hidden="true"></i><div class="fw-medium">No workers yet</div><div class="small">Keep a command running: queue consumers (<code>php artisan queue:work</code>), Node.js or Python servers and other long-running processes.</div></div>
+        <div class="nim-empty-state"><i class="bi bi-gear-wide-connected" aria-hidden="true"></i><div class="fw-medium">No workers yet</div><div class="small">Keep a command running: queue consumers (<code>php artisan queue:work</code>), Node.js or Python servers and other long-running processes.</div></div>
     <?php else: ?>
                 <div class="table-responsive">
                     <table class="table table-sm align-middle mb-0">
@@ -75,15 +75,15 @@ $fmtMem = static fn (?int $b): string => $b === null ? '' : number_format($b / 1
                                     <?php else: ?><?= $this->statusBadge((string) $st['active_state']) ?><div class="small text-body-secondary"><?php if ((int) ($st['procs_total'] ?? 1) > 1): ?><?= (int) ($st['procs_running'] ?? 0) ?>/<?= (int) $st['procs_total'] ?> up · <?php endif; ?><?= e($fmtMem(isset($st['memory_bytes']) ? (int) $st['memory_bytes'] : null)) ?></div><?php endif; ?>
                                 </td>
                                 <td class="text-end text-nowrap">
-                                    <?php if ($this->can(\WhaCP\Security\Permissions::LOGS_VIEW)): ?>
+                                    <?php if ($this->can(\NimVor\Security\Permissions::LOGS_VIEW)): ?>
                                         <a class="btn btn-sm btn-outline-secondary" title="Log" href="<?= e($this->url('sites.logs', ['id' => $id], ['source' => 'journal:' . $w['unit']])) ?>"><i class="bi bi-journal-text"></i></a>
                                     <?php endif; ?>
                                     <?php if ($w['enabled']): ?>
-                                        <form class="d-inline" method="post" action="<?= e($this->url('sites.workers.restart', ['id' => $id, 'worker' => (int) $w['id']])) ?>" data-wcp-busy><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary" title="Restart"><i class="bi bi-arrow-clockwise"></i></button></form>
+                                        <form class="d-inline" method="post" action="<?= e($this->url('sites.workers.restart', ['id' => $id, 'worker' => (int) $w['id']])) ?>" data-nim-busy><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary" title="Restart"><i class="bi bi-arrow-clockwise"></i></button></form>
                                     <?php endif; ?>
                                     <a class="btn btn-sm btn-outline-secondary" title="Edit" href="<?= e($this->url('sites.workers', ['id' => $id], ['edit' => (int) $w['id']])) ?>"><i class="bi bi-pencil"></i></a>
-                                    <form class="d-inline" method="post" action="<?= e($this->url('sites.workers.toggle', ['id' => $id, 'worker' => (int) $w['id']])) ?>" data-wcp-busy><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary" title="<?= $w['enabled'] ? 'Stop' : 'Start' ?>"><i class="bi bi-<?= $w['enabled'] ? 'stop' : 'play' ?>"></i></button></form>
-                                    <form class="d-inline" method="post" action="<?= e($this->url('sites.workers.delete', ['id' => $id, 'worker' => (int) $w['id']])) ?>" data-wcp-confirm="Stop and remove the worker “<?= e($w['name']) ?>”?"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger" title="Remove"><i class="bi bi-trash"></i></button></form>
+                                    <form class="d-inline" method="post" action="<?= e($this->url('sites.workers.toggle', ['id' => $id, 'worker' => (int) $w['id']])) ?>" data-nim-busy><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary" title="<?= $w['enabled'] ? 'Stop' : 'Start' ?>"><i class="bi bi-<?= $w['enabled'] ? 'stop' : 'play' ?>"></i></button></form>
+                                    <form class="d-inline" method="post" action="<?= e($this->url('sites.workers.delete', ['id' => $id, 'worker' => (int) $w['id']])) ?>" data-nim-confirm="Stop and remove the worker “<?= e($w['name']) ?>”?"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger" title="Remove"><i class="bi bi-trash"></i></button></form>
                                 </td>
                             </tr>
                         <?php endforeach; ?>

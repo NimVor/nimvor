@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# nimvor: the panel's command-line tool without the long command.
+#
+#   sudo nimvor user:password admin     reset a password (alias: reset-password)
+#   sudo nimvor user:2fa-reset admin    turn two-factor off (alias: reset-2fa)
+#   sudo nimvor doctor                  check the installation
+#   sudo nimvor help                    every command
+#
+# Installed as /usr/local/bin/nimvor by installer/install.sh and upgrade.sh.
+# It runs the panel's own tool as the panel's account with the panel's
+# configuration; it adds no commands and takes no other privileges.
+set -euo pipefail
+
+PREFIX=${NIMVOR_PREFIX:-/opt/nimvor}
+CONF=${NIMVOR_CONF:-/etc/nimvor/panel.php}
+UNIT=${NIMVOR_PANEL_UNIT:-/etc/systemd/system/nimvor-panel.service}
+ACCOUNT=nimvor
+
+[[ -f $PREFIX/panel/bin/nimvor ]] || { echo "NimVor is not installed in $PREFIX." >&2; exit 1; }
+
+# Not root and not the panel account: ask sudo to run this same command.
+if [[ $(id -u) -ne 0 && $(id -un) != "$ACCOUNT" ]]; then
+    exec sudo "$0" "$@"
+fi
+
+# The PHP the panel itself runs with (Ubuntu 22.04: PHP 8.3 next to the system's 8.1).
+php=$(grep -oE '^ExecStart=[^ ]+' "$UNIT" 2>/dev/null | head -1 | cut -d= -f2 || true)
+[[ -n $php && -x $php ]] || php=$(command -v php || echo /usr/bin/php)
+
+cmd=${1:-help}
+[[ $# -gt 0 ]] && shift
+case $cmd in
+    reset-password|passwd) cmd=user:password ;;
+    reset-2fa) cmd=user:2fa-reset ;;
+esac
+
+run=("$php" "$PREFIX/panel/bin/nimvor" "$cmd" "$@")
+if [[ $(id -un) == "$ACCOUNT" ]]; then
+    exec env NIMVOR_CONFIG="$CONF" "${run[@]}"
+fi
+exec runuser -u "$ACCOUNT" -- env NIMVOR_CONFIG="$CONF" "${run[@]}"

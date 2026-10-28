@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
 // Let's Encrypt ACME account hosts certbot stores accounts under.
@@ -19,7 +19,7 @@ const (
 	leTermsURL  = "https://letsencrypt.org/repository/"
 )
 
-// Provider is an ACME certificate authority WhaCP can issue from. Directory
+// Provider is an ACME certificate authority NimVor can issue from. Directory
 // is the ACME directory URL passed to certbot's --server; it is empty for
 // Let's Encrypt, which is certbot's built-in default. AccountPath is where
 // certbot keeps the account on disk (the server's netloc plus the directory

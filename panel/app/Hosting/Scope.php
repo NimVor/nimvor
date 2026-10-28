@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Hosting;
+namespace NimVor\Hosting;
 
 /**
  * Row-level visibility for hosting objects.

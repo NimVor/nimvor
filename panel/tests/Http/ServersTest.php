@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Agent\AgentHttpResponse;
-use WhaCP\Agent\AgentTransport;
-use WhaCP\Agent\RemoteTransport;
-use WhaCP\Agent\RoutingTransport;
-use WhaCP\Database\Connection;
-use WhaCP\Security\Crypto;
-use WhaCP\Services\ServerContext;
-use WhaCP\Tests\Support\FakeTransport;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Agent\AgentHttpResponse;
+use NimVor\Agent\AgentTransport;
+use NimVor\Agent\RemoteTransport;
+use NimVor\Agent\RoutingTransport;
+use NimVor\Database\Connection;
+use NimVor\Security\Crypto;
+use NimVor\Services\ServerContext;
+use NimVor\Tests\Support\FakeTransport;
+use NimVor\Tests\Support\HttpTestCase;
 
 final class ServersTest extends HttpTestCase
 {
@@ -21,7 +21,7 @@ final class ServersTest extends HttpTestCase
         $db = $this->app->container->get(Connection::class);
         $crypto = $this->app->container->get(Crypto::class);
         $db->run("INSERT INTO servers (id, name, kind, url, token_enc, fingerprint, created_at) VALUES (2, 'web2', 'remote', 'https://203.0.113.10:8443', ?, 'sha256//pin', '2026-01-01')", [$crypto->encrypt('remote-token')]);
-        $ctx = new ServerContext(new \WhaCP\Http\Session\ArraySession());
+        $ctx = new ServerContext(new \NimVor\Http\Session\ArraySession());
         $local = new FakeTransport();
         $remote = new FakeTransport();
         $made = [];
@@ -36,7 +36,7 @@ final class ServersTest extends HttpTestCase
         self::assertSame('remote-token', $remote->requests[0]['token'], 'the local token is never sent to a remote server');
         self::assertSame([['https://203.0.113.10:8443', 'sha256//pin']], $made);
         $ctx->force(3);
-        $this->expectException(\WhaCP\Agent\AgentUnavailableException::class);
+        $this->expectException(\NimVor\Agent\AgentUnavailableException::class);
         $routing->request('GET', '/v1/health', null, 'local-token', 5);
     }
 

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Security;
+namespace NimVor\Security;
 
-use WhaCP\Repositories\LoginAttemptRepository;
+use NimVor\Repositories\LoginAttemptRepository;
 
 /**
  * Brute-force protection: limits failed logins per IP and per username

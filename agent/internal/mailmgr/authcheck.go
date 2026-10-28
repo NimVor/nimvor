@@ -12,14 +12,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/spf"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/spf"
 )
 
 // Email authentication checker: what the public DNS says about a mail
 // domain (MX, SPF, DKIM, DMARC) and this server (host name, reverse DNS),
-// compared with what WhaCP expects. Read-only lookups.
+// compared with what NimVor expects. Read-only lookups.
 
 // AuthResolver is the DNS the checker uses (net.Resolver satisfies it).
 type AuthResolver interface {
@@ -58,7 +58,7 @@ type AuthCheckInput struct {
 	Hostname string   `json:"hostname"` // the mail host name (HELO, MX target)
 	IPs      []string `json:"ips"`      // this server's public sending addresses
 	Selector string   `json:"dkim_selector"`
-	DKIMTXT  string   `json:"dkim_txt"` // the published key WhaCP generated
+	DKIMTXT  string   `json:"dkim_txt"` // the published key NimVor generated
 	Routing  string   `json:"routing"`  // local, backup, remote
 }
 

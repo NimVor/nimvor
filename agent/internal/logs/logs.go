@@ -21,11 +21,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/services"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/platform"
+	"github.com/NimVor/nimvor/agent/internal/services"
+	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
 const (
@@ -78,7 +78,7 @@ func Resolve(env *host.Env, id string) (Source, error) {
 		s.path, s.Label, s.Group = p, filepath.Base(p), "System"
 	case "journal":
 		unit := safePart(parts, 1)
-		if validate.Unit("unit", unit) != nil || (!services.Allowed(unit) && unit != "whacp-agent.service" && unit != "certbot.service" && !strings.HasPrefix(unit, "whacp-worker-")) {
+		if validate.Unit("unit", unit) != nil || (!services.Allowed(unit) && unit != "nimvor-agent.service" && unit != "certbot.service" && !strings.HasPrefix(unit, "nimvor-worker-")) {
 			return s, actions.InvalidParams("source: this unit's journal is not available")
 		}
 		s.Kind, s.unit, s.Label, s.Group = "journal", unit, unit, "Services"
@@ -120,9 +120,9 @@ func Sources(ctx context.Context, env *host.Env, domain string) []Source {
 				ids = append(ids, "system:"+k)
 			}
 		}
-		ids = append(ids, "journal:whacp-agent.service")
+		ids = append(ids, "journal:nimvor-agent.service")
 		for _, u := range env.Platform.CoreServices() {
-			if u != "whacp-agent.service" && u != "whacp-panel.service" && u != "ufw.service" && u != "firewalld.service" {
+			if u != "nimvor-agent.service" && u != "nimvor-panel.service" && u != "ufw.service" && u != "firewalld.service" {
 				ids = append(ids, "journal:"+u)
 			}
 		}

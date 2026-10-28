@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\WebsiteService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /**
  * Cron, workers and Git deployment through the HTTP kernel.
@@ -96,7 +96,7 @@ final class SiteToolsTest extends HttpTestCase
     public function testGitDeployAndWebhooks(): void
     {
         $base = '/sites/' . $this->siteId . '/git';
-        $this->agent->succeed('deploy.key', ['public_key' => 'ssh-ed25519 AAAA whacp-deploy@shop.test']);
+        $this->agent->succeed('deploy.key', ['public_key' => 'ssh-ed25519 AAAA nimvor-deploy@shop.test']);
         $this->agent->succeed('deploy.run', ['job_id' => 'bbbbbbbbbbbbbbbb']);
 
         $this->post($base, ['repo' => 'file:///etc', 'branch' => 'main', 'path' => 'app']);
@@ -115,14 +115,14 @@ final class SiteToolsTest extends HttpTestCase
 
         $db = $this->app->container->get(Connection::class);
         $cfg = $db->fetch('SELECT * FROM git_repositories');
-        $secret = $this->app->container->get(\WhaCP\Security\Crypto::class)->decrypt((string) $cfg['webhook_secret_enc']);
+        $secret = $this->app->container->get(\NimVor\Security\Crypto::class)->decrypt((string) $cfg['webhook_secret_enc']);
         $hook = '/hooks/deploy/' . $cfg['webhook_token'];
         $body = (string) json_encode(['ref' => 'refs/heads/main']);
         $sig = 'sha256=' . hash_hmac('sha256', $body, $secret);
         $runs = $this->calls('deploy.run');
 
         // No session and no CSRF token needed, but the signature is.
-        $this->session = new \WhaCP\Http\Session\ArraySession();
+        $this->session = new \NimVor\Http\Session\ArraySession();
         $this->app = $this->makeApp();
         self::assertSame(401, $this->request('POST', $hook, [], ['x-hub-signature-256' => 'sha256=00'], $body)->status());
         self::assertSame(404, $this->request('POST', '/hooks/deploy/' . str_repeat('0', 40), [], ['x-hub-signature-256' => $sig], $body)->status());
@@ -154,7 +154,7 @@ final class SiteToolsTest extends HttpTestCase
     public function testCustomersOnlySeeTheirOwnSites(): void
     {
         $this->seedUser('cust', 'customer');
-        $this->session = new \WhaCP\Http\Session\ArraySession();
+        $this->session = new \NimVor\Http\Session\ArraySession();
         $this->app = $this->makeApp();
         $this->login('cust');
         foreach (['cron', 'workers', 'git'] as $tab) {

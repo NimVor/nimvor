@@ -2,22 +2,22 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Hosting\Scope;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Services\AuditLogger;
-use WhaCP\Services\DnsService;
-use WhaCP\Services\JobTracker;
-use WhaCP\Services\ServerContext;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
-use WhaCP\View\View;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Hosting\Scope;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Services\AuditLogger;
+use NimVor\Services\DnsService;
+use NimVor\Services\JobTracker;
+use NimVor\Services\ServerContext;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
+use NimVor\View\View;
 
 final class DnsController extends Controller
 {
@@ -77,7 +77,7 @@ final class DnsController extends Controller
         $this->jobs->track((string) $res['job_id'], 'Install BIND', 'server', 'dns', $this->userId($request));
         $this->audit->record('packages.install', 'server', 'dns', AuditLogger::SUCCESS, ['name' => 'bind9']);
         $this->flashJob((string) $res['job_id']);
-        return $this->redirectWithSuccess('/dns', 'Installing BIND. Then set it up for WhaCP below.');
+        return $this->redirectWithSuccess('/dns', 'Installing BIND. Then set it up for NimVor below.');
     }
 
     public function setup(Request $request): Response

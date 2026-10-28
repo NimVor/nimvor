@@ -16,13 +16,13 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/fw"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/shacrypt"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/fw"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/selinux"
+	"github.com/NimVor/nimvor/agent/internal/shacrypt"
+	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
 type configureReq struct {
@@ -181,7 +181,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		return out, nil
 	}})
 
-	r.Register(actions.Action{Name: "ftp.configure", Mutating: true, Description: "Set up or change WhaCP's FTP server (its own pure-ftpd unit and configuration; TLS required by default). Stopping another running FTP server needs confirm_replace_service. Restarts, verifies and rolls back on failure.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "ftp.configure", Mutating: true, Description: "Set up or change NimVor's FTP server (its own pure-ftpd unit and configuration; TLS required by default). Stopping another running FTP server needs confirm_replace_service. Restarts, verifies and rolls back on failure.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		in := configureReq{Settings: Defaults()}
 		if err := host.Decode(raw, &in); err != nil {
 			return nil, err
@@ -201,7 +201,7 @@ func Register(r *actions.Registry, env *host.Env) {
 			}
 		}
 		if len(others) > 0 && !in.ConfirmReplaceService && !(in.ReplaceUnusedStock && unusedStockOnly(env, others)) {
-			return nil, actions.Conflict(strings.Join(others, ", ") + " is running and uses the FTP port. Confirm to stop and disable it; WhaCP then runs its own FTP service. Accounts configured in it are not carried over.")
+			return nil, actions.Conflict(strings.Join(others, ", ") + " is running and uses the FTP port. Confirm to stop and disable it; NimVor then runs its own FTP service. Accounts configured in it are not carried over.")
 		}
 		old := Defaults()
 		if b, err := env.Root.ReadFile(p.conf); err == nil {
@@ -275,7 +275,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		return map[string]any{"settings": in.Settings, "stopped": others, "notes": notes, "certificate": certInfo(env, p), "changed": applied.Changed}, nil
 	}})
 
-	r.Register(actions.Action{Name: "ftp.disable", Mutating: true, Description: "Stop and disable WhaCP's FTP service (accounts are kept).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "ftp.disable", Mutating: true, Description: "Stop and disable NimVor's FTP service (accounts are kept).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		mu.Lock()
 		defer mu.Unlock()
 		env.Systemctl(ctx, "stop", Unit)

@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Repositories\RoleRepository;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\UserService;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
-use WhaCP\View\View;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Repositories\RoleRepository;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\UserService;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
+use NimVor\View\View;
 
 final class UsersController extends Controller
 {
@@ -22,13 +22,13 @@ final class UsersController extends Controller
         private readonly UserRepository $users,
         private readonly RoleRepository $roles,
         private readonly UserService $service,
-        private readonly \WhaCP\Services\PlanService $plans,
-        private readonly \WhaCP\Services\PlanLimits $limits,
-        private readonly \WhaCP\Security\TwoFactor $twoFactor,
-        private readonly \WhaCP\Security\WebAuthn $webAuthn,
-        private readonly \WhaCP\Services\AuditLogger $audit,
-        private readonly \WhaCP\Services\AccountOptions $hostingOptions,
-        private readonly \WhaCP\Services\AccountAdminService $accountAdmin,
+        private readonly \NimVor\Services\PlanService $plans,
+        private readonly \NimVor\Services\PlanLimits $limits,
+        private readonly \NimVor\Security\TwoFactor $twoFactor,
+        private readonly \NimVor\Security\WebAuthn $webAuthn,
+        private readonly \NimVor\Services\AuditLogger $audit,
+        private readonly \NimVor\Services\AccountOptions $hostingOptions,
+        private readonly \NimVor\Services\AccountAdminService $accountAdmin,
     ) {
         parent::__construct($view, $session);
     }
@@ -37,10 +37,10 @@ final class UsersController extends Controller
     private function assignableRoles(Request $request): array
     {
         $mine = $this->roles->permissionsFor((int) ($this->user($request)['role_id'] ?? 0));
-        $own = \WhaCP\Hosting\Scope::isAll($this->user($request));
+        $own = \NimVor\Hosting\Scope::isAll($this->user($request));
         return array_values(array_filter($this->roles->all(), function (array $r) use ($mine, $own): bool {
             $perms = $this->roles->permissionsFor((int) $r['id']);
-            return array_diff($perms, $mine) === [] && ($own || !in_array(\WhaCP\Security\Permissions::USERS_MANAGE, $perms, true));
+            return array_diff($perms, $mine) === [] && ($own || !in_array(\NimVor\Security\Permissions::USERS_MANAGE, $perms, true));
         }));
     }
 
@@ -75,10 +75,10 @@ final class UsersController extends Controller
     public function edit(Request $request, string $id): Response
     {
         $user = $this->users->find((int) $id);
-        if ($user === null || !\WhaCP\Services\UserService::canManage($this->user($request), $user)) {
+        if ($user === null || !\NimVor\Services\UserService::canManage($this->user($request), $user)) {
             return $this->redirectWithError('/users', 'The user no longer exists.');
         }
-        return $this->render('users/form', ['editUser' => $user, 'roles' => $this->assignableRoles($request), 'plans' => $this->plans->visible($this->user($request)), 'usage' => $this->limits->usage((int) $user['id']), 'twoFactor' => $this->twoFactor->status((int) $user['id']), 'hostingOptions' => ($user['role_scope'] ?? 'all') === 'own' ? $this->hostingOptions->get((int) $user['id']) : null, 'limitRows' => ($user['role_scope'] ?? 'all') === 'own' && \WhaCP\Hosting\Scope::isAll($this->user($request)) ? $this->accountAdmin->limitsTable($user) : null]);
+        return $this->render('users/form', ['editUser' => $user, 'roles' => $this->assignableRoles($request), 'plans' => $this->plans->visible($this->user($request)), 'usage' => $this->limits->usage((int) $user['id']), 'twoFactor' => $this->twoFactor->status((int) $user['id']), 'hostingOptions' => ($user['role_scope'] ?? 'all') === 'own' ? $this->hostingOptions->get((int) $user['id']) : null, 'limitRows' => ($user['role_scope'] ?? 'all') === 'own' && \NimVor\Hosting\Scope::isAll($this->user($request)) ? $this->accountAdmin->limitsTable($user) : null]);
     }
 
     public function update(Request $request, string $id): Response
@@ -113,7 +113,7 @@ final class UsersController extends Controller
         }
         $this->twoFactor->disable((int) $user['id']);
         $this->webAuthn->deleteAll((int) $user['id']);
-        $this->audit->record('user.two_factor_reset', 'user', (string) $user['id'], \WhaCP\Services\AuditLogger::SUCCESS, ['username' => $user['username']]);
+        $this->audit->record('user.two_factor_reset', 'user', (string) $user['id'], \NimVor\Services\AuditLogger::SUCCESS, ['username' => $user['username']]);
         return $this->redirectWithSuccess('/users/' . (int) $user['id'] . '/edit', 'Two-factor sign-in (app and security keys) is off for ' . $user['username'] . '. Ask them to turn it on again.');
     }
 }

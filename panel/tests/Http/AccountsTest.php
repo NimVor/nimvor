@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Services\AccountOptions;
-use WhaCP\Services\SettingsService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Services\AccountOptions;
+use NimVor\Services\SettingsService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Create a New Account: login, plan, options and first website in one step. */
 final class AccountsTest extends HttpTestCase
@@ -40,7 +40,7 @@ final class AccountsTest extends HttpTestCase
     {
         $this->login('admin');
         $page = $this->request('GET', '/accounts/new')->body();
-        foreach (['name="username"', 'data-wcp-genpass', 'name="plan_id"', 'name="spam_box"', 'value="backup"', 'Make the account a reseller', 'v=spf1 +a +mx +ip4:203.0.113.10 ~all', 'v=DMARC1; p=none;'] as $want) {
+        foreach (['name="username"', 'data-nim-genpass', 'name="plan_id"', 'name="spam_box"', 'value="backup"', 'Make the account a reseller', 'v=spf1 +a +mx +ip4:203.0.113.10 ~all', 'v=DMARC1; p=none;'] as $want) {
             self::assertStringContainsString($want, $page, $want);
         }
         $res = $this->post('/accounts', $this->form());
@@ -90,7 +90,7 @@ final class AccountsTest extends HttpTestCase
         $reseller = (int) $this->db->scalar("SELECT id FROM users WHERE username = 'resell'");
         $this->db->run("UPDATE users SET password_hash = (SELECT password_hash FROM users WHERE username = 'admin') WHERE id = ?", [$reseller]);
 
-        $this->session = new \WhaCP\Http\Session\ArraySession();
+        $this->session = new \NimVor\Http\Session\ArraySession();
         $this->app = $this->makeApp();
         $this->login('resell');
         self::assertStringNotContainsString('Make the account a reseller', $this->request('GET', '/accounts/new')->body());

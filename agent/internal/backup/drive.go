@@ -25,8 +25,8 @@ var (
 )
 
 // Drive stores backups in one Google Drive folder with the drive.file
-// scope (WhaCP only sees files it created). Every file carries its key in
-// appProperties.whacp_key, which is how it is found again.
+// scope (NimVor only sees files it created). Every file carries its key in
+// appProperties.nimvor_key, which is how it is found again.
 type Drive struct {
 	R      Remote
 	Client *http.Client
@@ -117,11 +117,11 @@ type driveFile struct {
 	AppProperties map[string]string `json:"appProperties"`
 }
 
-// files lists WhaCP files in the folder whose key starts with prefix.
+// files lists NimVor files in the folder whose key starts with prefix.
 func (d *Drive) files(ctx context.Context, prefix string, exact bool) ([]driveFile, error) {
 	q := fmt.Sprintf("'%s' in parents and trashed = false", d.folder())
 	if exact {
-		q += fmt.Sprintf(" and appProperties has { key='whacp_key' and value='%s' }", strings.ReplaceAll(prefix, "'", `\'`))
+		q += fmt.Sprintf(" and appProperties has { key='nimvor_key' and value='%s' }", strings.ReplaceAll(prefix, "'", `\'`))
 	}
 	var out []driveFile
 	page := ""
@@ -149,7 +149,7 @@ func (d *Drive) files(ctx context.Context, prefix string, exact bool) ([]driveFi
 			return nil, err
 		}
 		for _, f := range body.Files {
-			if k := f.AppProperties["whacp_key"]; k != "" && strings.HasPrefix(k, prefix) {
+			if k := f.AppProperties["nimvor_key"]; k != "" && strings.HasPrefix(k, prefix) {
 				out = append(out, f)
 			}
 		}
@@ -176,7 +176,7 @@ func (d *Drive) Put(ctx context.Context, key, localPath string) error {
 	if err != nil {
 		return err
 	}
-	meta, _ := json.Marshal(map[string]any{"name": path.Base(key), "parents": []string{d.folder()}, "appProperties": map[string]string{"whacp_key": key}})
+	meta, _ := json.Marshal(map[string]any{"name": path.Base(key), "parents": []string{d.folder()}, "appProperties": map[string]string{"nimvor_key": key}})
 	res, err := d.do(ctx, "POST", driveAPI+"/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true", bytes.NewReader(meta), map[string]string{
 		"Content-Type": "application/json; charset=UTF-8", "X-Upload-Content-Type": "application/octet-stream", "X-Upload-Content-Length": strconv.FormatInt(info.Size(), 10),
 	})
@@ -286,7 +286,7 @@ func (d *Drive) List(ctx context.Context, prefix string) ([]string, error) {
 	}
 	var out []string
 	for _, f := range fs {
-		k := f.AppProperties["whacp_key"]
+		k := f.AppProperties["nimvor_key"]
 		if rest := strings.TrimPrefix(k, prefix); !strings.Contains(rest, "/") {
 			out = append(out, k)
 		}

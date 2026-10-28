@@ -9,9 +9,9 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 func setup(t *testing.T) (*testhost.Host, *actions.Registry) {
@@ -39,7 +39,7 @@ func setup(t *testing.T) (*testhost.Host, *actions.Registry) {
 	w("etc/evil")
 	os.Symlink("../../etc/evil", filepath.Join(h.Base, "usr/bin/clang"))
 	f, _ := os.OpenFile(filepath.Join(h.Base, "etc/passwd"), os.O_APPEND|os.O_WRONLY, 0o644)
-	f.WriteString("shop:x:1600:1600::/home/whacp/shop.test:/bin/bash\npostfix:x:110:115::/var/spool/postfix:/usr/sbin/nologin\nwhacp:x:998:998::/var/lib/whacp:/usr/sbin/nologin\n")
+	f.WriteString("shop:x:1600:1600::/home/nimvor/shop.test:/bin/bash\npostfix:x:110:115::/var/spool/postfix:/usr/sbin/nologin\nnimvor:x:998:998::/var/lib/nimvor:/usr/sbin/nologin\n")
 	f.Close()
 	h.Respond = func(id string, args []string) (string, error, bool) {
 		if id == "groupadd" {
@@ -96,7 +96,7 @@ func TestCompilersRestrictedAndRestored(t *testing.T) {
 			t.Errorf("%s changed: %o", p, mode)
 		}
 	}
-	if !strings.Contains(strings.Join(h.Runner.Calls, "\n"), "gpasswd --members shop whacp-compiler") {
+	if !strings.Contains(strings.Join(h.Runner.Calls, "\n"), "gpasswd --members shop nimvor-compiler") {
 		t.Fatalf("members: %v", h.Runner.Calls)
 	}
 	if progs := res["programs"].([]any); len(progs) != 3 {
@@ -202,7 +202,7 @@ func TestSMTPRestrictionsDenyNobodySubmit(t *testing.T) {
 	}
 }
 
-func TestNftOnlyRunsWhaCPsTable(t *testing.T) {
+func TestNftOnlyRunsNimVorsTable(t *testing.T) {
 	var runner execx.SimRunner
 	for _, args := range [][]string{{"-f", "/tmp/x.nft"}, {"flush", "ruleset"}, {"delete", "table", "inet", "firewalld"}} {
 		if _, err := runner.RunWith(context.Background(), "nft", execx.Opts{}, args...); err == nil {

@@ -2,7 +2,7 @@
 /**
  * Certificate state as a badge and one line.
  *
- * @var \WhaCP\View\View $this
+ * @var \NimVor\View\View $this
  * @var array<string, mixed> $c
  * @var int $warnDays
  */
@@ -20,5 +20,5 @@ if (preg_match('/O=([^,]+)/', $issuer, $m)) {
     $issuer = $m[1];
 }
 ?>
-<span class="wcp-state <?= $cls ?>"><?= e($label) ?></span>
-<?php if (empty($c['error'])): ?><span class="small wcp-muted"><?= !empty($c['self_signed']) ? 'self-signed' : e($issuer) ?> · until <?= e(substr((string) ($c['not_after'] ?? ''), 0, 10)) ?></span><?php else: ?><span class="small wcp-muted"><?= e((string) $c['error']) ?></span><?php endif; ?>
+<span class="nim-state <?= $cls ?>"><?= e($label) ?></span>
+<?php if (empty($c['error'])): ?><span class="small nim-muted"><?= !empty($c['self_signed']) ? 'self-signed' : e($issuer) ?> · until <?= e(substr((string) ($c['not_after'] ?? ''), 0, 10)) ?></span><?php else: ?><span class="small nim-muted"><?= e((string) $c['error']) ?></span><?php endif; ?>

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Services\FeatureService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Services\FeatureService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Node.js / Python first-class site kinds: runtime version + app. */
 final class SiteRuntimeTest extends HttpTestCase

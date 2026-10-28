@@ -13,12 +13,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/config"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
+	"github.com/NimVor/nimvor/agent/internal/config"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/jobs"
+	"github.com/NimVor/nimvor/agent/internal/platform"
 )
 
 // A key added for an administrator in the panel lets it sign in over SSH
@@ -39,7 +39,7 @@ func TestRealHostAdminSSHKey(t *testing.T) {
 	if b, _ := os.ReadFile("/etc/group"); !strings.Contains(string(b), "\nsudo:") {
 		group = "wheel"
 	}
-	const name = "whacpadm"
+	const name = "nimvoradm"
 	if out, err := exec.Command("useradd", "-m", "-s", "/bin/bash", "-G", group, name).CombinedOutput(); err != nil {
 		t.Fatalf("useradd: %v %s", err, out)
 	}
@@ -47,7 +47,7 @@ func TestRealHostAdminSSHKey(t *testing.T) {
 
 	dir := t.TempDir()
 	key := filepath.Join(dir, "id")
-	if out, err := exec.Command("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", "rt@whacp", "-f", key).CombinedOutput(); err != nil {
+	if out, err := exec.Command("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", "rt@nimvor", "-f", key).CombinedOutput(); err != nil {
 		t.Fatalf("ssh-keygen: %s", out)
 	}
 	pub, _ := os.ReadFile(key + ".pub")

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Security;
+namespace NimVor\Tests\Security;
 
-use WhaCP\Http\Router;
-use WhaCP\Security\Permissions;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Http\Router;
+use NimVor\Security\Permissions;
+use NimVor\Tests\Support\HttpTestCase;
 
 /**
  * Release gate: for every route with a permission and every default role
@@ -26,7 +26,7 @@ final class RbacMatrixTest extends HttpTestCase
             if ($role === 'admin') {
                 continue;
             }
-            $this->session = new \WhaCP\Http\Session\ArraySession();
+            $this->session = new \NimVor\Http\Session\ArraySession();
             $this->app = $this->makeApp();
             $this->seedUser('u_' . $role, $role);
             $this->login('u_' . $role);

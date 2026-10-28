@@ -13,16 +13,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/config"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/config"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/jobs"
+	"github.com/NimVor/nimvor/agent/internal/platform"
 )
 
-// FFmpeg limited to the whacp-ffmpeg group on a real system: a member runs
+// FFmpeg limited to the nimvor-ffmpeg group on a real system: a member runs
 // it, another account cannot; the limit survives a package reinstall.
 func TestRealHostFFmpegAccess(t *testing.T) {
 	if os.Geteuid() != 0 {
@@ -53,7 +53,7 @@ func TestRealHostFFmpegAccess(t *testing.T) {
 		json.Unmarshal(out, &m)
 		return m
 	}
-	for _, u := range []string{"wcpffyes", "wcpffno"} {
+	for _, u := range []string{"nimffyes", "nimffno"} {
 		exec.Command("useradd", "--create-home", "--shell", "/bin/sh", u).Run()
 	}
 	t.Cleanup(func() {
@@ -63,7 +63,7 @@ func TestRealHostFFmpegAccess(t *testing.T) {
 			os.Chmod(p, 0o755)
 		}
 		exec.Command("groupdel", Group).Run()
-		for _, u := range []string{"wcpffyes", "wcpffno"} {
+		for _, u := range []string{"nimffyes", "nimffno"} {
 			exec.Command("userdel", "--remove", u).Run()
 		}
 	})
@@ -74,19 +74,19 @@ func TestRealHostFFmpegAccess(t *testing.T) {
 		}
 		return err == nil
 	}
-	if !runs("wcpffno") {
-		t.Fatal("FFmpeg not usable before WhaCP limits it")
+	if !runs("nimffno") {
+		t.Fatal("FFmpeg not usable before NimVor limits it")
 	}
-	res := call("ffmpeg.access", map[string]any{"users": []string{"wcpffyes"}})
-	if res["restricted"] != true || strings.Join(toStrings(res["members"]), ",") != "wcpffyes" || !strings.HasPrefix(res["version"].(string), "ffmpeg version") {
+	res := call("ffmpeg.access", map[string]any{"users": []string{"nimffyes"}})
+	if res["restricted"] != true || strings.Join(toStrings(res["members"]), ",") != "nimffyes" || !strings.HasPrefix(res["version"].(string), "ffmpeg version") {
 		t.Fatalf("access: %v", res)
 	}
-	if !runs("wcpffyes") || runs("wcpffno") {
+	if !runs("nimffyes") || runs("nimffno") {
 		t.Fatal("the member must run FFmpeg and the other account must not")
 	}
 	// Package reinstall: dpkg keeps the override; on RHEL the agent applies it again.
 	if env.Platform.PackageManager() == "apt" {
-		if out, err := exec.Command("dpkg-statoverride", "--list", "/usr/bin/ffmpeg").Output(); err != nil || strings.TrimSpace(string(out)) != "root whacp-ffmpeg 750 /usr/bin/ffmpeg" {
+		if out, err := exec.Command("dpkg-statoverride", "--list", "/usr/bin/ffmpeg").Output(); err != nil || strings.TrimSpace(string(out)) != "root nimvor-ffmpeg 750 /usr/bin/ffmpeg" {
 			t.Fatalf("statoverride: %q %v", out, err)
 		}
 		if out, err := exec.Command("apt-get", "install", "-y", "-q", "--reinstall", "--no-install-recommends", "ffmpeg").CombinedOutput(); err != nil {
@@ -98,11 +98,11 @@ func TestRealHostFFmpegAccess(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if runs("wcpffno") || !runs("wcpffyes") {
+	if runs("nimffno") || !runs("nimffyes") {
 		t.Fatal("the limit did not survive the package reinstall")
 	}
 	res = call("ffmpeg.access", map[string]any{"users": []string{}})
-	if strings.Join(toStrings(res["removed"]), ",") != "wcpffyes" || runs("wcpffyes") {
+	if strings.Join(toStrings(res["removed"]), ",") != "nimffyes" || runs("nimffyes") {
 		t.Fatalf("removal: %v", res)
 	}
 	if _, err := call2(r, "ffmpeg.access", map[string]any{"users": []string{"root"}}); err == nil {

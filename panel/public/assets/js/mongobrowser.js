@@ -1,16 +1,16 @@
 /* MongoDB database browser (Server → MongoDB → Browser).
  *
- * Drives the full-page three-pane #wcp-mongo tool: a databases/collections
+ * Drives the full-page three-pane #nim-mongo tool: a databases/collections
  * sidebar, a centre pane with the query bar, view tabs and a documents table
  * (or JSON view) with paging, and a right rail showing the selected document,
  * the collection's indexes, its statistics and quick actions. Loaded from
  * 'self' (the panel CSP forbids inline scripts); all calls go to the
- * mongo.browse endpoint through WhaCP.fetchJson, which attaches the CSRF token
+ * mongo.browse endpoint through NimVor.fetchJson, which attaches the CSRF token
  * on POST. */
 (function () {
     'use strict';
-    var root = document.getElementById('wcp-mongo');
-    if (!root || !window.WhaCP) { return; }
+    var root = document.getElementById('nim-mongo');
+    if (!root || !window.NimVor) { return; }
 
     var api = root.getAttribute('data-api');
     var exportApi = root.getAttribute('data-export');
@@ -56,15 +56,15 @@
         return e;
     }
     function call(op, params) {
-        return WhaCP.fetchJson(api, { method: 'POST', body: JSON.stringify(Object.assign({ op: op, db: state.db }, params || {})) })
+        return NimVor.fetchJson(api, { method: 'POST', body: JSON.stringify(Object.assign({ op: op, db: state.db }, params || {})) })
             .then(function (r) { return r.data; });
     }
     function fail(err) {
         var d = (err && err.details) || {};
-        WhaCP.toast((d.message || (err && err.message) || 'Request failed') + (d.details ? ' — ' + d.details : ''), 'danger');
+        NimVor.toast((d.message || (err && err.message) || 'Request failed') + (d.details ? ' — ' + d.details : ''), 'danger');
     }
     function emptyState(target, icon, title, hint) {
-        var box = el('div', 'wcp-db-empty');
+        var box = el('div', 'nim-db-empty');
         box.appendChild(el('i', 'bi bi-' + icon));
         box.appendChild(el('div', 'fw-semibold', title));
         if (hint) { box.appendChild(el('div', 'small text-body-secondary', hint)); }
@@ -160,13 +160,13 @@
         if (op === 'drop') {
             if (!window.confirm('Drop the collection "' + name + '" and all its documents? This cannot be undone.')) { return; }
             call('coll_drop', { collection: name }).then(function () {
-                WhaCP.toast('Collection dropped.', 'success');
+                NimVor.toast('Collection dropped.', 'success');
                 if (state.collection === name) { loadCollections(); } else { reloadCollections(); }
             }).catch(fail);
         } else if (op === 'empty') {
             if (!window.confirm('Remove every document from "' + name + '"? The collection and its indexes stay. This cannot be undone.')) { return; }
             call('coll_empty', { collection: name }).then(function (d) {
-                WhaCP.toast('Removed ' + (d.deleted || 0) + ' document' + ((d.deleted === 1) ? '' : 's') + '.', 'success');
+                NimVor.toast('Removed ' + (d.deleted || 0) + ' document' + ((d.deleted === 1) ? '' : 's') + '.', 'success');
                 reloadCollections();
                 if (state.collection === name) { state.skip = 0; loadRail(); if (state.tab === 'documents') { loadDocuments(); } }
             }).catch(fail);
@@ -174,7 +174,7 @@
             var to = window.prompt('Rename collection "' + name + '" to:', name);
             if (!to || to.trim() === '' || to === name) { return; }
             call('coll_rename', { collection: name, name: to.trim() }).then(function () {
-                WhaCP.toast('Collection renamed.', 'success');
+                NimVor.toast('Collection renamed.', 'success');
                 if (state.collection === name) { loadCollections(); } else { reloadCollections(); }
             }).catch(fail);
         }
@@ -249,7 +249,7 @@
             ['Indexes', fmtInt(s.nindexes)],
             ['Index size', fmtBytes(s.totalIndexSize)],
         ];
-        var dl = el('dl', 'wcp-mongo-stat mb-0');
+        var dl = el('dl', 'nim-mongo-stat mb-0');
         rows.forEach(function (r) {
             dl.appendChild(el('dt', null, r[0]));
             dl.appendChild(el('dd', null, r[1]));
@@ -341,7 +341,7 @@
             meta.appendChild(el('span', 'badge text-bg-light border', 'Level: ' + (s.validationLevel || 'strict')));
             meta.appendChild(el('span', 'badge text-bg-light border', 'Action: ' + (s.validationAction || 'error')));
             wrap.appendChild(meta);
-            var pre = el('pre', 'wcp-mongo-json mb-0 p-3 border rounded');
+            var pre = el('pre', 'nim-mongo-json mb-0 p-3 border rounded');
             pre.textContent = JSON.stringify(s.validator, null, 2);
             wrap.appendChild(pre);
             pane.replaceChildren(wrap);
@@ -364,8 +364,8 @@
             var grid = el('div', 'row g-3');
             rows.forEach(function (r) {
                 var col = el('div', 'col-sm-6 col-xl-4');
-                var card = el('div', 'wcp-panel h-100 mb-0');
-                card.appendChild(el('div', 'small wcp-muted', r[0]));
+                var card = el('div', 'nim-panel h-100 mb-0');
+                card.appendChild(el('div', 'small nim-muted', r[0]));
                 card.appendChild(el('div', 'fs-5 fw-semibold text-break', String(r[1])));
                 col.appendChild(card);
                 grid.appendChild(col);
@@ -460,7 +460,7 @@
                 docs.forEach(function (doc, i) {
                     var card = el('article', 'card mb-2');
                     card.appendChild(el('div', 'card-header py-1 px-2 small', '#' + (i + 1)));
-                    var body = el('pre', 'card-body mb-0 small wcp-mongo-json');
+                    var body = el('pre', 'card-body mb-0 small nim-mongo-json');
                     body.textContent = JSON.stringify(doc, null, 2);
                     card.appendChild(body);
                     results.appendChild(card);
@@ -478,7 +478,7 @@
                 status.textContent = 'Query plan (the pipeline was not run).';
                 var card = el('article', 'card');
                 card.appendChild(el('div', 'card-header py-1 px-2 small', 'explain'));
-                var body = el('pre', 'card-body mb-0 small wcp-mongo-json');
+                var body = el('pre', 'card-body mb-0 small nim-mongo-json');
                 body.textContent = JSON.stringify(d.explain, null, 2);
                 card.appendChild(body);
                 results.replaceChildren(card);
@@ -536,7 +536,7 @@
         if (!window.confirm('Drop the user "' + name + '"? Applications using it will lose access.')) { return; }
         btn.disabled = true;
         call('user_drop', { user: name }).then(function () {
-            WhaCP.toast('User dropped.', 'success');
+            NimVor.toast('User dropped.', 'success');
             loadUsers();
         }).catch(function (e) { btn.disabled = false; fail(e); });
     }
@@ -590,7 +590,7 @@
         if (v !== '') {
             try { JSON.parse(v); } catch (e) {
                 input.classList.add('is-invalid');
-                WhaCP.toast('The ' + label + ' must be a JSON object, e.g. { "name": 1 }.', 'danger');
+                NimVor.toast('The ' + label + ' must be a JSON object, e.g. { "name": 1 }.', 'danger');
                 return null;
             }
         }
@@ -639,7 +639,7 @@
     }
 
     function cellText(v) {
-        if (v === null) { return { text: 'null', cls: 'wcp-db-null' }; }
+        if (v === null) { return { text: 'null', cls: 'nim-db-null' }; }
         if (typeof v === 'undefined') { return { text: '', cls: '' }; }
         if (typeof v === 'object') {
             if (typeof v.$oid === 'string') { return { text: v.$oid, cls: '' }; }
@@ -667,11 +667,11 @@
 
     function renderTableView(docs) {
         var cols = columnsFor(docs);
-        var wrap = el('div', 'wcp-mongo-tablewrap');
-        var table = el('table', 'table table-hover align-middle mb-0 wcp-mongo-table');
+        var wrap = el('div', 'nim-mongo-tablewrap');
+        var table = el('table', 'table table-hover align-middle mb-0 nim-mongo-table');
         var thead = el('thead');
         var hr = el('tr');
-        cols.forEach(function (c) { hr.appendChild(el('th', c === '_id' ? 'wcp-mongo-idcol' : null, c)); });
+        cols.forEach(function (c) { hr.appendChild(el('th', c === '_id' ? 'nim-mongo-idcol' : null, c)); });
         if (canDelete) { hr.appendChild(el('th', 'text-end', '')); }
         thead.appendChild(hr);
         table.appendChild(thead);
@@ -682,7 +682,7 @@
             tr.addEventListener('click', function () { selectDoc(i); });
             cols.forEach(function (c) {
                 if (c === '_id') {
-                    var td = el('td', 'wcp-mongo-idcol');
+                    var td = el('td', 'nim-mongo-idcol');
                     var a = el('button', 'btn btn-link p-0 font-monospace small text-truncate', (doc && typeof doc._id !== 'undefined') ? idLabel(doc._id) : '(no _id)');
                     a.type = 'button';
                     a.addEventListener('click', function (e) { e.stopPropagation(); selectDoc(i); });
@@ -715,7 +715,7 @@
     }
 
     function renderJsonView(docs) {
-        var wrap = el('div', 'wcp-mongo-docs p-2');
+        var wrap = el('div', 'nim-mongo-docs p-2');
         docs.forEach(function (doc, i) {
             var card = el('article', 'card mb-2');
             var head = el('div', 'card-header d-flex align-items-center gap-2 py-1 px-2');
@@ -739,7 +739,7 @@
                 head.appendChild(del);
             }
             card.appendChild(head);
-            var body = el('pre', 'card-body mb-0 small wcp-mongo-json');
+            var body = el('pre', 'card-body mb-0 small nim-mongo-json');
             body.textContent = JSON.stringify(doc, null, 2);
             card.appendChild(body);
             wrap.appendChild(card);
@@ -751,7 +751,7 @@
         if (!window.confirm('Delete this document? This cannot be undone.')) { return; }
         btn.disabled = true;
         call('delete', { collection: state.collection, id: JSON.stringify(id) }).then(function () {
-            WhaCP.toast('Document deleted.', 'success');
+            NimVor.toast('Document deleted.', 'success');
             if (state.skip > 0 && state.skip + 1 >= state.total) { state.skip = Math.max(0, state.skip - state.limit); }
             loadRail();
             loadDocuments();
@@ -900,7 +900,7 @@
         if (!window.confirm('Drop the index "' + name + '"? Queries that relied on it may slow down.')) { return; }
         btn.disabled = true;
         call('index_drop', { collection: state.collection, name: name }).then(function () {
-            WhaCP.toast('Index dropped.', 'success');
+            NimVor.toast('Index dropped.', 'success');
             loadIndexes();
         }).catch(function (e) { btn.disabled = false; fail(e); });
     }
@@ -927,7 +927,7 @@
             var ok = indexEl.querySelector('[data-mb-index-ok]');
             ok.disabled = true;
             call('index_create', { collection: state.collection, keys: JSON.stringify(keysObj), options: JSON.stringify(options) }).then(function () {
-                ok.disabled = false; indexModal.hide(); WhaCP.toast('Index created.', 'success');
+                ok.disabled = false; indexModal.hide(); NimVor.toast('Index created.', 'success');
                 loadRail();
                 if (state.tab === 'indexes') { loadIndexes(); }
             }).catch(function (ee) { ok.disabled = false; errEl.textContent = (ee.details && ee.details.message) || ee.message || 'Failed.'; });
@@ -963,7 +963,7 @@
             call('import', { collection: state.collection, format: fmtIn.value, content: content }).then(function (d) {
                 ok.disabled = false; importModal.hide();
                 var msg = 'Imported ' + d.inserted + ' of ' + d.total + ' document' + (d.total === 1 ? '' : 's') + '.';
-                WhaCP.toast(msg + (d.errors ? ' ' + d.errors + ' skipped (errors).' : ''), d.errors ? 'warning' : 'success');
+                NimVor.toast(msg + (d.errors ? ' ' + d.errors + ' skipped (errors).' : ''), d.errors ? 'warning' : 'success');
                 loadRail();
                 if (state.tab === 'documents') { state.skip = 0; loadDocuments(); }
             }).catch(function (ee) { ok.disabled = false; errEl.textContent = (ee.details && ee.details.message) || ee.message || 'The import failed.'; });
@@ -983,7 +983,7 @@
             ok.disabled = true;
             var done = function () {
                 ok.disabled = false; userModal.hide();
-                WhaCP.toast(userMode === 'password' ? 'Password changed.' : 'User created.', 'success');
+                NimVor.toast(userMode === 'password' ? 'Password changed.' : 'User created.', 'success');
                 loadUsers();
             };
             var failed = function (ee) { ok.disabled = false; errEl.textContent = (ee.details && ee.details.message) || ee.message || 'Failed.'; };
@@ -1024,7 +1024,7 @@
             var text = docJson ? docJson.textContent : '';
             if (!text) { return; }
             if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(text).then(function () { WhaCP.toast('Document copied.', 'success'); }, function () { WhaCP.toast('Could not copy.', 'danger'); });
+                navigator.clipboard.writeText(text).then(function () { NimVor.toast('Document copied.', 'success'); }, function () { NimVor.toast('Could not copy.', 'danger'); });
             }
         });
     }
@@ -1059,7 +1059,7 @@
             var name = window.prompt('New collection name in ' + state.db + ':', '');
             if (!name || name.trim() === '') { return; }
             call('coll_create', { collection: name.trim() }).then(function () {
-                WhaCP.toast('Collection created.', 'success');
+                NimVor.toast('Collection created.', 'success');
                 reloadCollections();
             }).catch(fail);
         });

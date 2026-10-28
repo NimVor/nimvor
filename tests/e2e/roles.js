@@ -1,7 +1,7 @@
 // Users and Roles as separate pages; Logs sub-menu; role editor: every
 // permission lists the pages it opens, built-in roles are editable
 // (Administrator stays full access), own-scope roles cannot take
-// server-wide permissions, reset to WhaCP defaults.
+// server-wide permissions, reset to NimVor defaults.
 const { chromium } = require('playwright');
 const BASE = process.env.E2E_BASE || 'http://127.0.0.1:8095';
 const OUT = process.env.E2E_OUT || '/tmp';
@@ -19,8 +19,8 @@ const OUT = process.env.E2E_OUT || '/tmp';
     await page.fill('#username', 'admin'); await page.fill('#password', 'dev-password-change-me');
     await Promise.all([page.waitForNavigation(), page.click('button[type=submit]')]);
 
-    const side = await page.$$eval('.wcp-sidebar a', a => a.map(x => x.textContent.replace(/\s+/g, ' ').trim()));
-    for (const want of ['Users', 'Roles', 'Bandwidth Limits', 'All server logs', 'Web server', 'Mail server', 'Security', 'WhaCP', 'Audit log', 'ModSecurity events', 'Failed logins']) {
+    const side = await page.$$eval('.nim-sidebar a', a => a.map(x => x.textContent.replace(/\s+/g, ' ').trim()));
+    for (const want of ['Users', 'Roles', 'Bandwidth Limits', 'All server logs', 'Web server', 'Mail server', 'Security', 'NimVor', 'Audit log', 'ModSecurity events', 'Failed logins']) {
       if (!side.includes(want)) { throw new Error('sidebar lacks ' + want + ': ' + side.join(' | ')); }
     }
     await page.goto(BASE + '/logs?view=web');
@@ -43,10 +43,10 @@ const OUT = process.env.E2E_OUT || '/tmp';
     for (const want of ['ModSecurity', 'Processes', 'IP addresses', 'Bandwidth Limits']) {
       if (!opens.includes(want)) { throw new Error('checklist does not say what opens ' + want); }
     }
-    await page.fill('.wcp-perm-search', 'modsecurity');
-    const shown = await page.$$eval('[data-wcp-filter-item]:not([hidden]) input', i => i.map(x => x.value));
+    await page.fill('.nim-perm-search', 'modsecurity');
+    const shown = await page.$$eval('[data-nim-filter-item]:not([hidden]) input', i => i.map(x => x.value));
     if (!shown.includes('security.manage') || shown.length > 3) { throw new Error('search: ' + shown); }
-    await page.fill('.wcp-perm-search', '');
+    await page.fill('.nim-perm-search', '');
     await page.check('#perm-audit\\.view');
     await Promise.all([page.waitForLoadState('networkidle'), page.click('button:has-text("Save role")')]);
     await page.waitForSelector('main tr:has-text("Viewer") .badge:has-text("changed")', { timeout: 15000 });
@@ -56,11 +56,11 @@ const OUT = process.env.E2E_OUT || '/tmp';
     await page.waitForSelector('#perm-list');
     if (!(await page.isChecked('#perm-audit\\.view'))) { throw new Error('change not saved'); }
     page.once('dialog', d => d.accept());
-    await page.click('button:has-text("Reset to WhaCP defaults")');
-    const ok = await page.waitForSelector('#wcp-confirm.show [data-wcp-confirm-ok]', { timeout: 3000 }).catch(() => null);
+    await page.click('button:has-text("Reset to NimVor defaults")');
+    const ok = await page.waitForSelector('#nim-confirm.show [data-nim-confirm-ok]', { timeout: 3000 }).catch(() => null);
     if (ok) { await Promise.all([page.waitForLoadState('networkidle'), ok.click()]); }
     await page.waitForFunction(() => document.querySelector('#perm-audit\\.view') && !document.querySelector('#perm-audit\\.view').checked, null, { timeout: 15000 });
-    step('reset to WhaCP defaults');
+    step('reset to NimVor defaults');
 
     await page.goto(BASE + '/roles');
     await page.click('main tr:has-text("Hosting customer") a:has-text("Edit")');

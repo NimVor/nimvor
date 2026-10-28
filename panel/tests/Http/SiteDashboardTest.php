@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\WebsiteService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /**
  * The website dashboard, its menu, Advanced, and the set-up pages for
@@ -34,7 +34,7 @@ final class SiteDashboardTest extends HttpTestCase
 
     private function switchTo(string $user): void
     {
-        $this->session = new \WhaCP\Http\Session\ArraySession();
+        $this->session = new \NimVor\Http\Session\ArraySession();
         $this->app = $this->makeApp();
         $this->login($user);
     }
@@ -44,11 +44,11 @@ final class SiteDashboardTest extends HttpTestCase
         $this->login('admin');
         $base = '/sites/' . $this->siteId;
         $page = $this->request('GET', $base)->body();
-        foreach (['data-wcp-site-summary', 'Site user', 'Root directory', 'Handler', 'PHP-FPM', '5 MB', 'Not installed', 'None yet', 'data-wcp-feature-search', 'Site managing', 'Delete the website', 'Disable the website'] as $s) {
+        foreach (['data-nim-site-summary', 'Site user', 'Root directory', 'Handler', 'PHP-FPM', '5 MB', 'Not installed', 'None yet', 'data-nim-feature-search', 'Site managing', 'Delete the website', 'Disable the website'] as $s) {
             self::assertStringContainsString($s, $page, $s);
         }
         foreach (['ftp accounts', 'files', 'databases', 'domains (dns)', 'ssl certificates', 'scheduler', 'mail', 'backup copies', 'site access', 'settings', 'php settings', 'logs', 'manual settings'] as $t) {
-            self::assertStringContainsString('data-wcp-tile="' . $t . '"', $page, $t);
+            self::assertStringContainsString('data-nim-tile="' . $t . '"', $page, $t);
         }
         self::assertStringContainsString('href="' . $base . '/databases#new-database"', $page, 'search opens the form');
         // The generated configuration and re-apply stay under Advanced.
@@ -69,8 +69,8 @@ final class SiteDashboardTest extends HttpTestCase
             $db->run("INSERT INTO cron_jobs (website_id, schedule, command, created_at, updated_at) VALUES (?, '*/5 * * * *', ?, ?, ?)", [$this->siteId, $cmd, gmdate('c'), gmdate('c')]);
         }
         $page = $this->request('GET', '/sites/' . $this->siteId)->body();
-        self::assertMatchesRegularExpression('#data-wcp-tile="scheduler">.*?wcp-tile-note">2<#s', $page);
-        self::assertMatchesRegularExpression('#data-wcp-tile="databases">.*?wcp-tile-note">0<#s', $page);
+        self::assertMatchesRegularExpression('#data-nim-tile="scheduler">.*?nim-tile-note">2<#s', $page);
+        self::assertMatchesRegularExpression('#data-nim-tile="databases">.*?nim-tile-note">0<#s', $page);
     }
 
     public function testCustomersGetTheSimpleLayout(): void
@@ -78,17 +78,17 @@ final class SiteDashboardTest extends HttpTestCase
         $this->login('cust');
         self::assertSame('/websites', $this->request('GET', '/')->header('Location'), 'home is their websites');
         $list = $this->request('GET', '/websites')->body();
-        self::assertStringNotContainsString('id="wcp-sidebar"', $list);
-        self::assertStringContainsString('wcp-brandbar', $list);
-        self::assertStringContainsString('data-wcp-cards', $list);
+        self::assertStringNotContainsString('id="nim-sidebar"', $list);
+        self::assertStringContainsString('nim-brandbar', $list);
+        self::assertStringContainsString('data-nim-cards', $list);
         self::assertStringContainsString('shop.test', $list);
         self::assertStringNotContainsString('other.test', $list, "another account's website");
         self::assertStringContainsString('Create site', $list);
 
         $page = $this->request('GET', '/sites/' . $this->siteId)->body();
-        self::assertStringNotContainsString('id="wcp-sidebar"', $page);
-        self::assertStringNotContainsString('data-wcp-site-menu-button', $page, 'no menu button without a sidebar');
-        self::assertStringContainsString('class="wcp-crumbs"', $page);
+        self::assertStringNotContainsString('id="nim-sidebar"', $page);
+        self::assertStringNotContainsString('data-nim-site-menu-button', $page, 'no menu button without a sidebar');
+        self::assertStringContainsString('class="nim-crumbs"', $page);
         self::assertStringContainsString('/sites/' . $this->siteId . '/advanced', $page, 'customers manage their own website');
         foreach (['Server security', 'Audit log', 'Memcached', 'Spam filter', 'Backup destinations', '/security"', '/audit"'] as $s) {
             self::assertStringNotContainsString($s, $page, $s);
@@ -102,17 +102,17 @@ final class SiteDashboardTest extends HttpTestCase
         $this->switchTo('admin');
         $this->agent->succeed('discovery.inventory', ['websites' => ['websites' => [], 'catch_all_vhosts' => 0, 'warnings' => []]]);
         $list = $this->request('GET', '/websites')->body();
-        self::assertStringContainsString('id="wcp-sidebar"', $list);
-        self::assertStringContainsString('id="wcp-sites-dt"', $list, 'the table is the administrators\' default');
+        self::assertStringContainsString('id="nim-sidebar"', $list);
+        self::assertStringContainsString('id="nim-sites-dt"', $list, 'the table is the administrators\' default');
         self::assertStringContainsString('name="return_to" value="websites"', $list, 'status switch returns to the list');
-        self::assertStringContainsString('wcp-site-card', $this->request('GET', '/websites', [], [], '', ['view' => 'grid'])->body());
+        self::assertStringContainsString('nim-site-card', $this->request('GET', '/websites', [], [], '', ['view' => 'grid'])->body());
     }
 
     public function testViewerGetsAReadOnlySitePage(): void
     {
         $this->login('viewer');
         $page = $this->request('GET', '/sites/' . $this->siteId)->body();
-        self::assertStringContainsString('data-wcp-tiles', $page);
+        self::assertStringContainsString('data-nim-tiles', $page);
         foreach (['/advanced', '#new-database', '#backup-now', 'Delete the website', 'Disable the website', '/sites/' . $this->siteId . '/settings', 'href="/settings"'] as $s) {
             self::assertStringNotContainsString($s, $page, $s);
         }
@@ -140,11 +140,11 @@ final class SiteDashboardTest extends HttpTestCase
         $mail = $this->request('GET', $base . '/mail');
         self::assertSame(200, $mail->status());
         self::assertStringContainsString('Set up email', $mail->body());
-        self::assertStringContainsString('data-wcp-site-menu', $mail->body());
+        self::assertStringContainsString('data-nim-site-menu', $mail->body());
         self::assertStringContainsString('name="return_to" value="' . $base . '/mail"', $mail->body());
 
         $dns = $this->request('GET', $base . '/dns')->body();
-        self::assertStringContainsString('data-wcp-site-menu', $dns);
+        self::assertStringContainsString('data-nim-site-menu', $dns);
 
         // Errors go back to the set-up page, but only to that exact page.
         self::assertSame($base . '/mail', $this->post('/mail/domains', ['website_id' => '99999', 'return_to' => $base . '/mail'])->header('Location'));
@@ -165,10 +165,10 @@ final class SiteDashboardTest extends HttpTestCase
                     continue; // pages needing agent data not stubbed here
                 }
                 $body = $res->body();
-                self::assertStringNotContainsString('wcp-tabs', $body, $p);
-                self::assertStringContainsString('class="wcp-crumbs"', $body, $user . $p);
-                self::assertSame($sidebar, str_contains($body, 'data-wcp-site-menu'), $user . $p . ': website menu in the sidebar');
-                self::assertSame($sidebar, str_contains($body, 'data-wcp-site-menu-button'), $user . $p . ': phone menu button');
+                self::assertStringNotContainsString('nim-tabs', $body, $p);
+                self::assertStringContainsString('class="nim-crumbs"', $body, $user . $p);
+                self::assertSame($sidebar, str_contains($body, 'data-nim-site-menu'), $user . $p . ': website menu in the sidebar');
+                self::assertSame($sidebar, str_contains($body, 'data-nim-site-menu-button'), $user . $p . ': phone menu button');
             }
         }
     }
@@ -177,7 +177,7 @@ final class SiteDashboardTest extends HttpTestCase
     {
         $this->agent->succeed('mail.status', ['installed' => ['postfix' => true], 'configured' => true, 'hostname' => 'mail.host.test', 'running' => ['postfix' => true],
             'mailboxes' => [['address' => 'info@shop.test', 'quota_mb' => 1, 'bytes' => 1000000]]]);
-        $this->agent->succeed('mail.domain_add', ['domain' => 'shop.test', 'dkim_selector' => 'whacp202609', 'dkim_txt' => 'v=DKIM1; k=rsa; p=MIIB']);
+        $this->agent->succeed('mail.domain_add', ['domain' => 'shop.test', 'dkim_selector' => 'nimvor202609', 'dkim_txt' => 'v=DKIM1; k=rsa; p=MIIB']);
         $this->agent->succeed('mail.mailbox_save', ['created' => true]);
         $this->login('cust');
         $this->post('/mail/domains', ['website_id' => (string) $this->siteId]);
@@ -186,7 +186,7 @@ final class SiteDashboardTest extends HttpTestCase
         $this->post('/mail/domains/' . $id . '/mailboxes', ['local' => 'info', 'password' => 'a-long-password-1', 'quota_mb' => '1']);
 
         $page = $this->request('GET', '/mail/domains/' . $id)->body();
-        foreach (['class="wcp-crumbs"', 'id="new-mailbox"', 'id="new-alias"', 'id="mail-dns"', 'id="mail-clients"', '<th>Usage</th>', 'Almost full', 'No forwarders'] as $s) {
+        foreach (['class="nim-crumbs"', 'id="new-mailbox"', 'id="new-alias"', 'id="mail-dns"', 'id="mail-clients"', '<th>Usage</th>', 'Almost full', 'No forwarders'] as $s) {
             self::assertStringContainsString($s, $page, $s);
         }
         // Hosting customers do not get the "Danger zone" (stop hosting email) on their own domain.
@@ -194,7 +194,7 @@ final class SiteDashboardTest extends HttpTestCase
         // Administrators get the website's menu on it as well, and the danger zone.
         $this->switchTo('admin');
         $adminPage = $this->request('GET', '/mail/domains/' . $id)->body();
-        self::assertStringContainsString('data-wcp-site-menu', $adminPage, 'administrators see the website too');
+        self::assertStringContainsString('data-nim-site-menu', $adminPage, 'administrators see the website too');
         self::assertStringContainsString('Stop hosting email', $adminPage, 'administrators see the danger zone');
     }
 }

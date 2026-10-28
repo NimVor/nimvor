@@ -8,13 +8,13 @@ declare(strict_types=1);
 [$_, $panel, $stateFile] = $argv;
 require $panel . '/vendor/autoload.php';
 
-use WhaCP\Core\Application;
-use WhaCP\Core\Config;
-use WhaCP\Database\Connection;
+use NimVor\Core\Application;
+use NimVor\Core\Config;
+use NimVor\Database\Connection;
 
 $state = json_decode((string) file_get_contents($stateFile), true);
 $defaults = require $panel . '/config/app.php';
-$app = new Application(new Config(array_replace_recursive($defaults, require getenv('WHACP_CONFIG'))));
+$app = new Application(new Config(array_replace_recursive($defaults, require getenv('NIMVOR_CONFIG'))));
 $c = $app->container;
 $db = $c->get(Connection::class);
 $errors = [];
@@ -37,7 +37,7 @@ if (!password_verify($state['password'], $hash)) {
 }
 $enc = (string) $db->scalar("SELECT token_enc FROM servers WHERE name = 'edge-1'");
 try {
-    if ($c->get(\WhaCP\Security\Crypto::class)->decrypt($enc) !== 'remote-agent-token-fixture') {
+    if ($c->get(\NimVor\Security\Crypto::class)->decrypt($enc) !== 'remote-agent-token-fixture') {
         $errors[] = 'the remote server token decrypts to something else';
     }
 } catch (\Throwable $e) {

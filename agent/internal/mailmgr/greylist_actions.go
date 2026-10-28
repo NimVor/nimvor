@@ -13,27 +13,27 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/greylist"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/spf"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/greylist"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/spf"
 )
 
-// Greylisting: WhaCP's own policy service (see package greylist) runs as
+// Greylisting: NimVor's own policy service (see package greylist) runs as
 // an unprivileged, socket-activated unit; Postfix asks it at RCPT time.
 // Should the service fail, Postfix accepts the mail (default_action=DUNNO)
 // rather than deferring everything.
 
 const (
-	GreylistService = "whacp-greylist.service"
-	GreylistSocket  = "whacp-greylist.socket"
-	greylistClause  = "check_policy_service { unix:private/whacp-greylist, default_action=DUNNO }"
+	GreylistService = "nimvor-greylist.service"
+	GreylistSocket  = "nimvor-greylist.socket"
+	greylistClause  = "check_policy_service { unix:private/nimvor-greylist, default_action=DUNNO }"
 )
 
 // Replaced in tests.
 var (
-	greylistControl                 = "/run/whacp-greylist/control"
+	greylistControl                 = "/run/nimvor-greylist/control"
 	greylistCheck                   = greylistSelfTest
 	greylistResolver   spf.Resolver = net.DefaultResolver
 	greylistExecutable              = func() string {
@@ -43,11 +43,11 @@ var (
 			}
 			return p
 		}
-		return "/usr/local/bin/whacp-agent"
+		return "/usr/local/bin/nimvor-agent"
 	}
 )
 
-// socketctl runs systemctl for WhaCP's greylisting socket (a fixed name;
+// socketctl runs systemctl for NimVor's greylisting socket (a fixed name;
 // Env.Systemctl accepts service units only).
 func (e env) socketctl(ctx context.Context, verb string) error {
 	out, err := e.Runner.Run(ctx, "systemctl", verb, "--", GreylistSocket)
@@ -85,8 +85,8 @@ func (e env) queueDir(ctx context.Context) string {
 }
 
 func renderGreylistSocket(queueDir string) string {
-	return "# Managed by WhaCP (greylisting). Do not edit: changes are overwritten.\n[Unit]\nDescription=WhaCP greylisting policy socket (Postfix)\n\n" +
-		"[Socket]\nListenStream=" + queueDir + "/private/whacp-greylist\nSocketUser=postfix\nSocketGroup=postfix\nSocketMode=0600\n\n" +
+	return "# Managed by NimVor (greylisting). Do not edit: changes are overwritten.\n[Unit]\nDescription=NimVor greylisting policy socket (Postfix)\n\n" +
+		"[Socket]\nListenStream=" + queueDir + "/private/nimvor-greylist\nSocketUser=postfix\nSocketGroup=postfix\nSocketMode=0600\n\n" +
 		"[Install]\nWantedBy=sockets.target\n"
 }
 
@@ -94,10 +94,10 @@ func renderGreylistSocket(queueDir string) string {
 // with no capabilities; its configuration arrives as a systemd credential
 // (read by systemd as root, so the file stays 0600 root).
 func renderGreylistService(bin, configPath string) string {
-	return "# Managed by WhaCP (greylisting). Do not edit: changes are overwritten.\n[Unit]\nDescription=WhaCP greylisting policy service (Postfix)\nRequires=" + GreylistSocket + "\nAfter=network.target\n\n" +
+	return "# Managed by NimVor (greylisting). Do not edit: changes are overwritten.\n[Unit]\nDescription=NimVor greylisting policy service (Postfix)\nRequires=" + GreylistSocket + "\nAfter=network.target\n\n" +
 		"[Service]\nType=simple\nExecStart=" + bin + " greylist-policy\n" +
 		"LoadCredential=config:" + configPath + "\n" +
-		"DynamicUser=yes\nStateDirectory=whacp-greylist\nStateDirectoryMode=0700\nRuntimeDirectory=whacp-greylist\nRuntimeDirectoryMode=0700\n" +
+		"DynamicUser=yes\nStateDirectory=nimvor-greylist\nStateDirectoryMode=0700\nRuntimeDirectory=nimvor-greylist\nRuntimeDirectoryMode=0700\n" +
 		"Restart=on-failure\nRestartSec=2\nTimeoutStopSec=20\n" +
 		"NoNewPrivileges=yes\nCapabilityBoundingSet=\nAmbientCapabilities=\n" +
 		"ProtectSystem=strict\nProtectHome=yes\nPrivateTmp=yes\nPrivateDevices=yes\nPrivateUsers=yes\n" +
@@ -112,7 +112,7 @@ func renderGreylistService(bin, configPath string) string {
 // withGreylisting adds or removes the policy check in a restriction list.
 func withGreylisting(current string, on bool) string {
 	cur := strings.TrimSpace(strings.ReplaceAll(current, "\n", " "))
-	idx := strings.Index(cur, "check_policy_service { unix:private/whacp-greylist")
+	idx := strings.Index(cur, "check_policy_service { unix:private/nimvor-greylist")
 	if idx >= 0 {
 		end := strings.Index(cur[idx:], "}")
 		rest := ""
@@ -223,7 +223,7 @@ func registerGreylist(r *actions.Registry, e env) {
 		return map[string]any{
 			"config":     c,
 			"providers":  greylist.Providers,
-			"service":    map[string]bool{"active": e.UnitActive(ctx, GreylistService), "socket": e.UnitActive(ctx, GreylistSocket), "postfix": strings.Contains(cur, "unix:private/whacp-greylist")},
+			"service":    map[string]bool{"active": e.UnitActive(ctx, GreylistService), "socket": e.UnitActive(ctx, GreylistSocket), "postfix": strings.Contains(cur, "unix:private/nimvor-greylist")},
 			"configured": e.configured(),
 		}
 	}
@@ -277,7 +277,7 @@ func registerGreylist(r *actions.Registry, e env) {
 				return fail("The greylisting service did not start.", err)
 			}
 			if !e.Cfg.SimulateCommands {
-				if err := greylistCheck(ctx, filepath.Join(e.queueDir(ctx), "private", "whacp-greylist")); err != nil {
+				if err := greylistCheck(ctx, filepath.Join(e.queueDir(ctx), "private", "nimvor-greylist")); err != nil {
 					return fail("The greylisting service does not answer.", err)
 				}
 			}
@@ -295,7 +295,7 @@ func registerGreylist(r *actions.Registry, e env) {
 			return nil
 		}
 		// Off: Postfix stops asking first, then the service stops.
-		if strings.Contains(prevRestr, "unix:private/whacp-greylist") {
+		if strings.Contains(prevRestr, "unix:private/nimvor-greylist") {
 			if err := e.run(ctx, "postconf", "-e", "smtpd_recipient_restrictions="+withGreylisting(prevRestr, false)); err != nil {
 				return fail("Postfix was not configured.", err)
 			}

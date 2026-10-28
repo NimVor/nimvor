@@ -4,7 +4,7 @@
  * and what a restore does here, then the import, the recreation and its
  * report.
  *
- * @var \WhaCP\View\View $this
+ * @var \NimVor\View\View $this
  * @var string $path
  * @var array<string, mixed> $manifest
  * @var array<string, mixed> $plan
@@ -17,9 +17,9 @@ $u = (array) ($meta['user'] ?? []);
 $username = (string) ($manifest['username'] ?? ($u['username'] ?? ''));
 $websites = (array) ($meta['websites'] ?? []);
 $state = static fn (string $s): string => match ($s) {
-    'create' => '<span class="wcp-state is-ok">will be created</span>',
-    'existing' => '<span class="wcp-state is-warn">exists in the account: restored into it</span>',
-    default => '<span class="wcp-state is-error">belongs to someone else: skipped</span>',
+    'create' => '<span class="nim-state is-ok">will be created</span>',
+    'existing' => '<span class="nim-state is-warn">exists in the account: restored into it</span>',
+    default => '<span class="nim-state is-error">belongs to someone else: skipped</span>',
 };
 $secrets ??= [];
 $importState ??= '';
@@ -36,7 +36,7 @@ $showPlan = $restore === null || in_array($status, ['importing', 'imported'], tr
     <table class="table table-sm mb-0 small">
         <tbody>
         <?php foreach ($secrets as $s): ?>
-            <tr><td><?= e($s['what']) ?></td><td class="font-monospace"><?= e($s['name']) ?></td><td class="font-monospace text-break" data-wcp-secret><?= e($s['password']) ?></td></tr>
+            <tr><td><?= e($s['what']) ?></td><td class="font-monospace"><?= e($s['name']) ?></td><td class="font-monospace text-break" data-nim-secret><?= e($s['password']) ?></td></tr>
         <?php endforeach; ?>
         </tbody>
     </table>
@@ -48,12 +48,12 @@ $showPlan = $restore === null || in_array($status, ['importing', 'imported'], tr
         <div class="card mb-3">
             <div class="card-header"><i class="bi bi-person-vcard me-1"></i>In the file</div>
             <div class="card-body">
-                <dl class="wcp-dl mb-0">
-                    <dt>Account</dt><dd><?= e($username) ?> <span class="wcp-muted">(<?= e((string) ($u['role'] ?? 'customer')) ?><?= !empty($u['plan']) ? ', plan ' . e((string) $u['plan']) : '' ?><?= !empty($u['parent']) ? ', reseller ' . e((string) $u['parent']) : '' ?>)</span>
-                        <?php if ($showPlan): ?><div><?= $plan['account'] === 'create' ? '<span class="wcp-state is-ok">will be created</span>' : ($plan['account'] === 'existing' ? '<span class="wcp-state is-warn">exists: its websites are restored into it</span>' : '<span class="wcp-state is-error">a staff user has this name: cannot be restored</span>') ?></div><?php endif; ?></dd>
+                <dl class="nim-dl mb-0">
+                    <dt>Account</dt><dd><?= e($username) ?> <span class="nim-muted">(<?= e((string) ($u['role'] ?? 'customer')) ?><?= !empty($u['plan']) ? ', plan ' . e((string) $u['plan']) : '' ?><?= !empty($u['parent']) ? ', reseller ' . e((string) $u['parent']) : '' ?>)</span>
+                        <?php if ($showPlan): ?><div><?= $plan['account'] === 'create' ? '<span class="nim-state is-ok">will be created</span>' : ($plan['account'] === 'existing' ? '<span class="nim-state is-warn">exists: its websites are restored into it</span>' : '<span class="nim-state is-error">a staff user has this name: cannot be restored</span>') ?></div><?php endif; ?></dd>
                     <dt>Made</dt><dd><?= e(substr((string) ($manifest['created_at'] ?? ''), 0, 16)) ?><?= !empty($manifest['label']) ? ' · ' . e((string) $manifest['label']) : '' ?></dd>
                     <dt>Backup key</dt><dd><code><?= e((string) ($manifest['key_id'] ?? '')) ?></code></dd>
-                    <?php if (!$plan['plan_found']): ?><dt>Plan</dt><dd><span class="wcp-state is-warn">"<?= e((string) $u['plan']) ?>" does not exist here: the account gets no plan</span></dd><?php endif; ?>
+                    <?php if (!$plan['plan_found']): ?><dt>Plan</dt><dd><span class="nim-state is-warn">"<?= e((string) $u['plan']) ?>" does not exist here: the account gets no plan</span></dd><?php endif; ?>
                 </dl>
             </div>
         </div>
@@ -74,16 +74,16 @@ $showPlan = $restore === null || in_array($status, ['importing', 'imported'], tr
         <div class="card">
             <div class="card-header"><i class="bi bi-list-check me-1"></i>Also in the file</div>
             <div class="card-body small">
-                <div><?= count((array) ($meta['databases'] ?? [])) ?> database(s)<?php foreach ($showPlan ? (array) ($plan['databases'] ?? []) : [] as $name => $s): if ($s === 'existing'): ?> · <span class="wcp-state is-warn"><?= e((string) $name) ?> exists</span><?php endif; endforeach; ?>,
+                <div><?= count((array) ($meta['databases'] ?? [])) ?> database(s)<?php foreach ($showPlan ? (array) ($plan['databases'] ?? []) : [] as $name => $s): if ($s === 'existing'): ?> · <span class="nim-state is-warn"><?= e((string) $name) ?> exists</span><?php endif; endforeach; ?>,
                     <?= count((array) ($meta['database_users'] ?? [])) ?> database user(s) (with new passwords),
                     <?= count((array) ($meta['dns_zones'] ?? [])) ?> DNS zone(s), <?= count((array) ($meta['cron_jobs'] ?? [])) ?> cron job(s).</div>
-                <div class="wcp-muted mt-1">Not in account backups: email (mailboxes and messages), SSL certificates (AutoSSL issues them again once the domains point here) and FTP accounts. The account gets a new panel password.</div>
+                <div class="nim-muted mt-1">Not in account backups: email (mailboxes and messages), SSL certificates (AutoSSL issues them again once the domains point here) and FTP accounts. The account gets a new panel password.</div>
             </div>
         </div>
     </div>
     <div class="col-xl-5">
         <?php if ($restore === null): ?>
-            <form class="card" method="post" action="<?= e($this->url('backups.accounts.restore')) ?>" data-wcp-busy>
+            <form class="card" method="post" action="<?= e($this->url('backups.accounts.restore')) ?>" data-nim-busy>
                 <?= $this->csrfField() ?>
                 <input type="hidden" name="path" value="<?= e($path) ?>">
                 <div class="card-header"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</div>
@@ -106,11 +106,11 @@ $showPlan = $restore === null || in_array($status, ['importing', 'imported'], tr
                 <div class="card-body">
                     <?php if ($status === 'importing'): ?>
                         <p class="mb-2"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Checking the file and importing its website backups…</p>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" data-wcp-job-open="<?= e((string) $restore['job_id']) ?>">Show the log</button>
-                        <span data-wcp-reload-when-done="<?= e((string) $restore['job_id']) ?>"></span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-nim-job-open="<?= e((string) $restore['job_id']) ?>">Show the log</button>
+                        <span data-nim-reload-when-done="<?= e((string) $restore['job_id']) ?>"></span>
                     <?php elseif ($status === 'imported'): ?>
-                        <p class="mb-2"><span class="wcp-state is-ok">File checked and imported</span></p>
-                        <form method="post" action="<?= e($this->url('backups.accounts.recreate', ['id' => (int) $restore['id']])) ?>" data-wcp-busy data-wcp-confirm="Recreate the account <?= e($username) ?> and restore its websites now?">
+                        <p class="mb-2"><span class="nim-state is-ok">File checked and imported</span></p>
+                        <form method="post" action="<?= e($this->url('backups.accounts.recreate', ['id' => (int) $restore['id']])) ?>" data-nim-busy data-nim-confirm="Recreate the account <?= e($username) ?> and restore its websites now?">
                             <?= $this->csrfField() ?>
                             <button class="btn btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Recreate the account and restore its websites</button>
                         </form>
@@ -118,15 +118,15 @@ $showPlan = $restore === null || in_array($status, ['importing', 'imported'], tr
                         <p class="mb-0"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Recreating the account…</p>
                     <?php endif; ?>
                     <?php if (in_array($status, ['done', 'failed'], true)): ?>
-                        <p class="mb-2"><?= $status === 'done' ? '<span class="wcp-state is-ok">Done</span>' : '<span class="wcp-state is-error">Failed</span>' ?> <span class="small wcp-muted"><?= e(substr((string) $restore['updated_at'], 0, 16)) ?></span></p>
-                        <ul class="list-unstyled small mb-0 wcp-restore-report">
+                        <p class="mb-2"><?= $status === 'done' ? '<span class="nim-state is-ok">Done</span>' : '<span class="nim-state is-error">Failed</span>' ?> <span class="small nim-muted"><?= e(substr((string) $restore['updated_at'], 0, 16)) ?></span></p>
+                        <ul class="list-unstyled small mb-0 nim-restore-report">
                             <?php foreach ((array) $restore['report'] as $line): $lv = (string) ($line['level'] ?? 'info'); ?>
                                 <li class="mb-1"><i class="bi <?= ['ok' => 'bi-check-circle text-success', 'warning' => 'bi-exclamation-triangle text-warning', 'error' => 'bi-x-circle text-danger'][$lv] ?? 'bi-info-circle text-body-secondary' ?> me-1"></i><?= e((string) ($line['text'] ?? '')) ?></li>
                             <?php endforeach; ?>
                         </ul>
                         <?php if ($status === 'done'): ?>
                             <div class="mt-3 d-flex flex-wrap gap-2"><a class="btn btn-sm btn-outline-primary" href="<?= e($this->url('users')) ?>">Users</a><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('websites')) ?>">Websites</a></div>
-                            <p class="small wcp-muted mt-2 mb-0">The websites' files and databases are restored by jobs (see the notifications). Point the domains to this server; AutoSSL then issues their certificates.</p>
+                            <p class="small nim-muted mt-2 mb-0">The websites' files and databases are restored by jobs (see the notifications). Point the domains to this server; AutoSSL then issues their certificates.</p>
                         <?php endif; ?>
                     <?php endif; ?>
                 </div>

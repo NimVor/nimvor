@@ -1,7 +1,7 @@
 // Package mcmgr reports on and configures the local Memcached server.
 //
 // Memcached's configuration file belongs to the distribution package, so
-// WhaCP only changes it when the caller explicitly confirms. It edits just
+// NimVor only changes it when the caller explicitly confirms. It edits just
 // the memory size, connection limit and listen addresses, keeps a backup,
 // restarts Memcached and checks that it answers; on any failure the
 // previous file is restored and Memcached restarted again. Memcached has
@@ -20,13 +20,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/changeset"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/changeset"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
-// Settings are the options WhaCP manages.
+// Settings are the options NimVor manages.
 type Settings struct {
 	MemoryMB int      `json:"memory_mb"`
 	MaxConns int      `json:"max_conns"`
@@ -319,7 +319,7 @@ func Register(r *actions.Registry, env *host.Env) {
 			return nil, err
 		}
 		if !in.Confirm {
-			return nil, actions.InvalidParams("confirm_edit_package_config: " + path + " belongs to the Memcached package; confirm that WhaCP may edit it (a backup is kept)")
+			return nil, actions.InvalidParams("confirm_edit_package_config: " + path + " belongs to the Memcached package; confirm that NimVor may edit it (a backup is kept)")
 		}
 		cur, data, installed := load()
 		if !installed {
