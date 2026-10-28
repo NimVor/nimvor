@@ -92,6 +92,10 @@ final class Application
         $events->on('website.moved', static fn (array $p) => $limits());
         $events->on('website.deleting', static function (array $p) use ($c): void {
             $site = (array) $p['website'];
+            // Everything that belongs to the website goes with it; the
+            // system account stays (it has its own option).
+            $c->get(\NimVor\Services\MailService::class)->purgeForWebsite($site);
+            $c->get(\NimVor\Services\DatabaseService::class)->purgeForWebsite($site);
             $c->get(\NimVor\Services\WorkerService::class)->removeAll($site);
             try {
                 $c->get(\NimVor\Services\CronService::class)->removeFromServer($site);

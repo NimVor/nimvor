@@ -197,6 +197,43 @@ final class SiteStateTest extends HttpTestCase
         self::assertTrue($this->exists($this->otherSite));
     }
 
+    public function testDeletingAWebsiteRemovesItsDatabasesAndMailButNotTheOthers(): void
+    {
+        $c = (int) (is_array($this->custUser) ? $this->custUser['id'] : $this->custUser);
+        $db = $this->db;
+        foreach ([['shop_db', $this->siteId], ['blog_db', $this->otherSite]] as [$n, $w]) {
+            $db->run("INSERT INTO databases (server_id, website_id, owner_id, name, created_at) VALUES (1, ?, ?, ?, 'x')", [$w, $c, $n]);
+        }
+        foreach (['shop_u', 'shared_u'] as $u) {
+            $db->run("INSERT INTO database_users (server_id, owner_id, username, created_at) VALUES (1, ?, ?, 'x')", [$c, $u]);
+        }
+        foreach ([['shop_u', 'shop_db'], ['shared_u', 'shop_db'], ['shared_u', 'blog_db']] as [$u, $d]) {
+            $db->run("INSERT INTO database_grants (database_id, user_id, privileges) VALUES ((SELECT id FROM databases WHERE name = ?), (SELECT id FROM database_users WHERE username = ?), 'ALL')", [$d, $u]);
+        }
+        $db->run("INSERT INTO mail_domains (server_id, domain, website_id, owner_id, created_at) VALUES (1, 'shop.test', ?, ?, 'x')", [$this->siteId, $c]);
+        $dom = (int) $db->scalar("SELECT id FROM mail_domains WHERE domain = 'shop.test'");
+        $db->run("INSERT INTO mail_mailboxes (domain_id, local, created_at) VALUES (?, 'info', 'x')", [$dom]);
+        $db->run("INSERT INTO mail_aliases (domain_id, local, destinations, created_at) VALUES (?, 'sales', 'info@shop.test', 'x')", [$dom]);
+        foreach (['db.drop', 'db.user_drop', 'mail.mailbox_delete', 'mail.alias_delete', 'mail.domain_remove'] as $a) {
+            $this->agent->succeed($a, ['ok' => true]);
+        }
+
+        $this->switchTo('cust');
+        $this->post('/sites/' . $this->siteId . '/delete', ['confirm_domain' => 'shop.test']);
+
+        self::assertFalse($this->exists($this->siteId));
+        self::assertSame(0, (int) $db->scalar("SELECT COUNT(*) FROM databases WHERE name = 'shop_db'"));
+        self::assertSame(1, (int) $db->scalar("SELECT COUNT(*) FROM databases WHERE name = 'blog_db'"), 'another website\'s database stays');
+        self::assertSame(0, (int) $db->scalar("SELECT COUNT(*) FROM database_users WHERE username = 'shop_u'"), 'a user only this database used goes');
+        self::assertSame(1, (int) $db->scalar("SELECT COUNT(*) FROM database_users WHERE username = 'shared_u'"), 'a user another database still uses stays');
+        self::assertSame(0, (int) $db->scalar('SELECT COUNT(*) FROM mail_domains WHERE id = ?', [$dom]));
+        self::assertSame(0, (int) $db->scalar('SELECT COUNT(*) FROM mail_mailboxes WHERE domain_id = ?', [$dom]));
+        self::assertSame(1, $this->calls('mail.mailbox_delete'));
+        self::assertSame(1, $this->calls('mail.domain_remove'));
+        self::assertSame(1, $this->calls('db.drop'));
+        self::assertSame(1, $this->calls('db.user_drop'));
+    }
+
     public function testAdministratorsCanDeleteADisabledWebsite(): void
     {
         $this->login('admin');

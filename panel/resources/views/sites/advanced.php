@@ -133,9 +133,9 @@ $id = (int) $site['id'];
         <div class="card border-danger nim-delete-card" id="delete-website">
             <div class="card-header text-danger"><i class="bi bi-trash me-1"></i>Delete website</div>
             <div class="card-body">
-                <p class="small text-body-secondary">Removes the website's Nginx and PHP configuration. This cannot be undone from the panel.</p>
+                <p class="small text-body-secondary">Removes the website's Nginx and PHP configuration, its databases and database users, its email domain with all mailboxes and aliases, and its cron jobs, workers and statistics. The system user stays unless you tick the box below. This cannot be undone from the panel.</p>
                 <form method="post" action="<?= e($this->url('sites.delete', ['id' => $id])) ?>"
-                      data-nim-confirm="Delete <?= e($site['domain']) ?>? The Nginx and PHP configuration is removed. This cannot be undone from the panel.">
+                      data-nim-confirm="Delete <?= e($site['domain']) ?>? Its databases and email accounts are deleted too. This cannot be undone from the panel.">
                     <?= $this->csrfField() ?>
                     <label class="form-label small" for="cd">Type <code><?= e($site['domain']) ?></code> to confirm</label>
                     <input class="form-control form-control-sm mb-2" id="cd" name="confirm_domain" autocomplete="off" required>

@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- **Deleting a website removes everything that belongs to it**: its databases and the database users only they used, its email domain with all mailboxes and aliases, plus the cron jobs, workers and statistics it already removed. The system user stays unless the option is ticked. If one removal fails the website is left in place.
+
 ### Fixed
 - Adding a website a customer had removed no longer fails with “Please correct the highlighted fields” and nothing highlighted: errors on fields the page does not show are now listed, and a derived account name that is reserved (a domain such as nimvor.com gives “nimvor”) or already used by another account gets a number.
 

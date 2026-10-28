@@ -249,6 +249,33 @@ final class DatabaseService
         $this->audit->record('database.drop', 'database', (string) $database['name']);
     }
 
+    /**
+     * Drop the databases of a website being deleted, and the database users
+     * that were only used by them. A failure stops the website's deletion
+     * before anything else is removed.
+     *
+     * @param array<string, mixed> $site
+     */
+    public function purgeForWebsite(array $site): void
+    {
+        $userIds = [];
+        foreach ($this->repo->forWebsite((int) $site['id']) as $database) {
+            foreach ($this->repo->userIdsOf((int) $database['id']) as $uid) {
+                $userIds[$uid] = true;
+            }
+            $this->drop($database, (string) $database['name']);
+        }
+        foreach (array_keys($userIds) as $uid) {
+            if ($this->repo->grantsOf($uid) !== []) {
+                continue; // still used by another database
+            }
+            $u = $this->repo->user($this->server->id(), $uid, null);
+            if ($u !== null) {
+                $this->dropUser($u);
+            }
+        }
+    }
+
     /** @param array<string, mixed> $dbUser */
     public function dropUser(array $dbUser): void
     {

@@ -285,7 +285,11 @@ SSL, Scheduler (cron), Mail, Backup copies, Site access (SFTP), Headers & cache,
 PHP settings, Redirects, Applications, Git, Workers, Redis, Logs, Statistics,
 Subdomains, Addon domains and Manual settings (Advanced), plus
 **Search…** (press `/`). *Delete the website* leads to the typed
-confirmation under Advanced; *Disable the website* asks first.
+confirmation under Advanced and removes everything that belongs to the
+website: its databases (and the database users only they used), its email
+domain with all mailboxes and aliases, cron jobs, workers and statistics. The
+system user stays unless its option is ticked, and if one removal fails the
+website is left in place. *Disable the website* asks first.
 Administrators also have the website's menu in the sidebar.
 
 **Redirects** (website → *Redirects*) lists the website's redirects, one record

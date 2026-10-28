@@ -225,6 +225,27 @@ final class MailService
         return $added;
     }
 
+    /**
+     * Remove a website's mail domain with its mailboxes and aliases when the
+     * website is deleted. A failure stops the website's deletion.
+     *
+     * @param array<string, mixed> $site
+     */
+    public function purgeForWebsite(array $site): void
+    {
+        $domain = $this->forWebsite((int) $site['id']);
+        if ($domain === null) {
+            return;
+        }
+        foreach ($this->mailboxes((int) $domain['id']) as $m) {
+            $this->deleteMailbox($domain, (int) $m['id'], $m['local'] . '@' . $domain['domain']);
+        }
+        foreach ($this->aliases((int) $domain['id']) as $a) {
+            $this->deleteAlias($domain, (int) $a['id']);
+        }
+        $this->removeDomain($domain, (string) $domain['domain']);
+    }
+
     /** @param array<string, mixed> $domain */
     public function removeDomain(array $domain, string $confirm): void
     {
