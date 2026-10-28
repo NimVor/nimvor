@@ -27,7 +27,7 @@ final class AppManagerTest extends HttpTestCase
         foreach (\NimVor\Services\AppInstallerService::APPS as $slug => $def) {
             self::assertSame(1, (int) $db->scalar('SELECT COUNT(*) FROM app_catalog WHERE slug = ?', [$slug]), $slug . ' is not in the catalog');
             if (!empty($def['staged'])) {
-                self::assertArrayHasKey($slug, \NimVor\Services\AppInstallerService::STAGED, $slug);
+                self::assertTrue(isset(\NimVor\Services\AppInstallerService::STAGED[$slug]) || isset(\NimVor\Services\AppInstallerService::NATIVE[$slug]), $slug . ' is staged or native');
             }
         }
         foreach (['backdrop', 'processwire', 'bludit', 'dolibarr', 'akaunting', 'flarum', 'typo3', 'concrete', 'bagisto', 'shopware', 'symfony', 'codeigniter', 'yii', 'cakephp', 'slim', 'kirby', 'craft', 'invoiceninja', 'facturascripts', 'tutor', 'bbpress', 'wp-statistics', 'piwigo', 'mautic'] as $slug) {

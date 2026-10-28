@@ -35,6 +35,9 @@ final class AppInstallerService
         'matomo' => ['title' => 'Matomo', 'description' => 'Privacy-friendly web analytics. Staged; finish in its web installer.', 'staged' => true],
         'mediawiki' => ['title' => 'MediaWiki', 'description' => 'The wiki engine behind Wikipedia. Staged; finish in its web installer.', 'staged' => true],
         'woocommerce' => ['title' => 'WooCommerce', 'description' => 'WordPress with the WooCommerce online store plugin installed and activated, with a new database and an administrator account.'],
+        'gitea' => ['title' => 'Gitea', 'description' => 'Self-hosted Git service. Runs as a service behind this reverse-proxy website; finish setup in its own installer.', 'staged' => true],
+        'django' => ['title' => 'Django', 'description' => 'Python web framework with the admin site, in a virtual environment behind this Python website.'],
+        'fastapi' => ['title' => 'FastAPI', 'description' => 'Python API framework starter in a virtual environment behind this Python website.', 'staged' => true],
         'grav' => ['title' => 'Grav', 'description' => 'Flat-file CMS — no database. Staged; ready to use after install.', 'staged' => true],
         'backdrop' => ['title' => 'Backdrop CMS', 'description' => 'Lightweight CMS for small business and nonprofit sites. Staged with a new database; finish in its web installer.', 'staged' => true],
         'processwire' => ['title' => 'ProcessWire', 'description' => 'Flexible, API-first CMS. Staged with a new database; finish in its web installer.', 'staged' => true],
@@ -82,6 +85,45 @@ final class AppInstallerService
         'download-monitor' => ['download-monitor'],
     ];
 
+    /**
+     * Natively deployed applications: a program supervised as a worker service
+     * behind the website's reverse proxy. runtime is what the website must be
+     * (binary: a reverse-proxy website; python: a Python website).
+     */
+    public const NATIVE = [
+        'gitea' => ['runtime' => 'binary', 'finish' => '/', 'name' => 'gitea'],
+        'django' => ['runtime' => 'python', 'finish' => '/admin/', 'name' => 'django', 'admin' => true],
+        'fastapi' => ['runtime' => 'python', 'finish' => '/docs', 'name' => 'fastapi'],
+    ];
+
+    /**
+     * Whether an application can be installed on a website (or subdomain) of
+     * this kind: PHP applications need a PHP website, a program needs a plain
+     * reverse-proxy website, a Python application a Python website.
+     *
+     * @param array<string, mixed> $site needs kind, php_version and app_runtime
+     */
+    public static function compatible(array $site, string $app): bool
+    {
+        $kind = (string) ($site['kind'] ?? '');
+        $runtime = (string) ($site['app_runtime'] ?? '');
+        return match (self::NATIVE[$app]['runtime'] ?? 'php') {
+            'binary' => $kind === 'proxy' && $runtime === '',
+            'python' => $kind === 'proxy' && str_starts_with($runtime, 'python:'),
+            default => $kind === 'php' && (string) ($site['php_version'] ?? '') !== '',
+        };
+    }
+
+    /** What an application needs the website to be, in words. */
+    public static function needs(string $app): string
+    {
+        return match (self::NATIVE[$app]['runtime'] ?? 'php') {
+            'binary' => 'a reverse-proxy website',
+            'python' => 'a Python website',
+            default => 'a PHP website',
+        };
+    }
+
     /** Staged apps: where their web installer lives and the web root subfolder. */
     public const STAGED = [
         'joomla' => ['finish' => '/installation/', 'docroot' => ''],
@@ -122,10 +164,14 @@ final class AppInstallerService
     /** @param array<string, mixed> $site */
     public static function finishUrl(array $site, string $app): string
     {
+        $scheme = $site['https'] ? 'https://' : 'http://';
+        if (isset(self::NATIVE[$app])) {
+            return $scheme . $site['domain'] . self::NATIVE[$app]['finish'];
+        }
         if (!isset(self::STAGED[$app])) {
             return '';
         }
-        return ($site['https'] ? 'https://' : 'http://') . $site['domain'] . self::STAGED[$app]['finish'];
+        return $scheme . $site['domain'] . self::STAGED[$app]['finish'];
     }
 
     public function __construct(
@@ -138,6 +184,7 @@ final class AppInstallerService
         private readonly AuditLogger $audit,
         private readonly ServerContext $server,
         private readonly AppCatalogService $catalog,
+        private readonly WorkerService $workers,
     ) {
     }
 
@@ -163,8 +210,8 @@ final class AppInstallerService
         $catalogRow = $this->catalog->find($app);
         $appName = (string) ($catalogRow['name'] ?? (self::APPS[$app]['title'] ?? $app));
         $needsDb = (int) ($catalogRow['needs_db'] ?? 1) === 1;
-        if ($site['kind'] !== 'php' || $site['php_version'] === '') {
-            throw new UserFacingException($appName . ' needs a PHP website.', '', 'Change the website type to PHP under Settings first.');
+        if (!self::compatible($site, $app)) {
+            throw new UserFacingException($appName . ' needs ' . self::needs($app) . '.', '', ((self::NATIVE[$app]['runtime'] ?? 'php') === 'php') ? 'Change the website type to PHP under Settings first.' : 'Choose or create a website of that type first.');
         }
         $errors = [];
         $wpPlugins = self::WORDPRESS_BASED[$app] ?? null;
@@ -175,7 +222,37 @@ final class AppInstallerService
         $strategy = $wpPlugins !== null ? 'wordpress-plugin' : ($app === 'wordpress' ? 'wordpress' : ($app === 'laravel' ? 'laravel' : (isset(self::STAGED[$app]) ? 'archive' : '')));
         $params['allow_testing'] = \NimVor\Hosting\Scope::isAll($actor);
         $adminPassword = null;
-        if ($app === 'wordpress' || $wpPlugins !== null) {
+        $native = self::NATIVE[$app] ?? null;
+        if ($native !== null) {
+            // A program supervised as a service behind this website's reverse
+            // proxy: the port is the one the website already points at.
+            $strategy = $native['runtime'] === 'binary' ? 'binary-service' : 'python-venv';
+            $params['path'] = trim((string) ($input['path'] ?? 'app'), " /");
+            if (!preg_match('#^[A-Za-z0-9._-]{1,60}$#', $params['path']) || in_array($params['path'], ['logs', 'tmp', 'backups', '.ssh', '.', '..'], true)) {
+                $errors['path'] = 'Choose a new folder name, e.g. app.';
+            }
+            if (!preg_match('/:(\d+)/', (string) $site['proxy_pass'], $pm)) {
+                throw new UserFacingException($appName . ' needs this website to forward to a local port.', '', 'Set the website\'s application port under Runtime first.');
+            }
+            $params['port'] = (int) $pm[1];
+            $params['runtime'] = (string) $site['app_runtime'];
+            $params['service_slug'] = $this->workers->reserveSlug($site, $native['name']);
+            if ((int) $this->db->scalar("SELECT COUNT(*) FROM app_installs WHERE website_id = ? AND strategy IN ('binary-service', 'python-venv') AND status IN ('running', 'succeeded')", [(int) $site['id']]) > 0) {
+                throw new UserFacingException('This website already runs an application behind its reverse proxy.', '', 'Use another reverse-proxy or Python website for ' . $appName . '.');
+            }
+            if (!empty($native['admin'])) {
+                $params['admin_user'] = trim((string) ($input['admin_user'] ?? 'admin'));
+                $params['admin_email'] = trim((string) ($input['admin_email'] ?? ''));
+                if (!preg_match('/^[A-Za-z0-9._@-]{3,60}$/', $params['admin_user'])) {
+                    $errors['admin_user'] = 'Use 3–60 letters, digits or . _ @ -';
+                }
+                if (!filter_var($params['admin_email'], FILTER_VALIDATE_EMAIL)) {
+                    $errors['admin_email'] = 'Enter the administrator\'s email address.';
+                }
+                $adminPassword = Crypto::password(20);
+                $params['admin_password'] = $adminPassword;
+            }
+        } elseif ($app === 'wordpress' || $wpPlugins !== null) {
             if ($wpPlugins !== null) {
                 $params['plugins'] = $wpPlugins;
             }
@@ -294,8 +371,8 @@ final class AppInstallerService
             throw new UserFacingException('This application is not available for installation.');
         }
         $row = $this->catalog->find($app);
-        if ($site['kind'] !== 'php' || $site['php_version'] === '') {
-            throw new UserFacingException((string) ($row['name'] ?? $app) . ' needs a PHP website.', '', 'Change the website type to PHP under Settings first.');
+        if (!self::compatible($site, $app)) {
+            throw new UserFacingException((string) ($row['name'] ?? $app) . ' needs ' . self::needs($app) . '.', '', ((self::NATIVE[$app]['runtime'] ?? 'php') === 'php') ? 'Change the website type to PHP under Settings first.' : 'Choose or create a website of that type first.');
         }
         $wp = self::WORDPRESS_BASED[$app] ?? null;
         $params = [
@@ -305,6 +382,16 @@ final class AppInstallerService
         ];
         if ($wp !== null) {
             $params['plugins'] = $wp;
+        }
+        $native = self::NATIVE[$app] ?? null;
+        if ($native !== null) {
+            $params['path'] = 'app';
+            $params['port'] = preg_match('/:(\d+)/', (string) $site['proxy_pass'], $pm) ? (int) $pm[1] : 0;
+            $params['runtime'] = (string) $site['app_runtime'];
+            $params['service_slug'] = $this->workers->reserveSlug($site, $native['name']);
+            if (!empty($native['admin'])) {
+                $params += ['admin_user' => 'admin', 'admin_email' => 'admin@example.com', 'admin_password' => 'plan-only-not-used-0000'];
+            }
         }
         if ($app === 'wordpress' || $wp !== null) {
             $params += ['title' => $site['domain'], 'admin_user' => 'admin', 'admin_email' => 'admin@example.com', 'admin_password' => 'plan-only-not-used-0000'];
@@ -341,6 +428,10 @@ final class AppInstallerService
             $version = mb_substr((string) (((array) ($job['result'] ?? []))['version'] ?? ''), 0, 40);
             $error = mb_substr((string) ($job['error'] ?? ''), 0, 500);
             $this->db->run('UPDATE app_installs SET status = ?, error = ?, version = ?, finished_at = ? WHERE id = ?', [$status, $error, $version, gmdate('c'), (int) $i['id']]);
+            if ($status === 'succeeded' && is_array(((array) ($job['result'] ?? []))['service'] ?? null)) {
+                // A native application's service was created by the agent: list it with the website's workers.
+                $this->workers->adopt($site, (array) $job['result']['service']);
+            }
             $this->audit->record('app.install_result', 'website', (string) $site['id'], $status === 'succeeded' ? AuditLogger::SUCCESS : AuditLogger::FAILURE, ['domain' => $site['domain'], 'app' => $i['app'], 'path' => $i['path'], 'version' => $version, 'error' => $status === 'failed' ? mb_substr($error, 0, 300) : '']);
             // Point the website at the app's web root when it is a subfolder
             // (Laravel's public/, OpenCart's upload/, AbanteCart's public_html/).

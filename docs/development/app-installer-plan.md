@@ -153,3 +153,28 @@ probe, and are re-checked by the real-host install test before any entry leaves
 3. **BookStack** (Composer strategy with PHP >= 8.3, `.env`, migrations).
 4. PostgreSQL manager → Listmonk. 5. Node strategy → Directus/Ghost/Uptime Kuma as
    permitted. 6. OCI container foundation.
+
+## 7. What has been built (and what has not)
+
+Status at the end of milestone 2. "Verified" means a real installation test passed on a
+disposable Ubuntu 24.04 VM in CI (`.github/workflows/app-native.yml`, real downloads, real
+systemd, real HTTP); unit tests with simulated privileged operations are separate and
+are not counted as proof.
+
+| Application | Strategy | Status in the catalog | Real-host test |
+|---|---|---|---|
+| Gitea | `binary-service` (dl.gitea.com binary, SHA-256 checked against the file beside it and against the GitHub release; SQLite; worker service; loopback only) | testing | `TestRealHostGiteaInstall`: passed (Gitea 28.2.0) |
+| Django | `python-venv` (pinned PyPI packages, `requirements.lock`, production settings, secret key in a 0600 file, administrator through one command's environment, Gunicorn worker) | testing | `TestRealHostPythonDjango`: passed (Django 6.1.2, including a real admin sign-in) |
+| FastAPI | `python-venv` (Uvicorn worker) | testing | `TestRealHostPythonFastAPI`: passed (0.162.0) |
+| BookStack | not implemented | - | - |
+| Listmonk | blocked: needs PostgreSQL, which NimVor cannot provision (G8) | - | - |
+
+The three implemented applications are **verified but deliberately left in `testing`**:
+administrators can install them; customers cannot until an administrator reviews the flow
+and promotes them (`app_catalog.status = 'enabled'`, then the customer-visible switch,
+which the panel refuses while an application is not enabled).
+
+Open items: uninstall and upgrade flows (G5; a native installation occupies its proxy
+website until a removal flow exists), SELinux-enforcing hosts (not tested; the installer
+writes only under the website's folder and creates a systemd unit like any worker), the
+container foundation, PostgreSQL, and the Node.js strategy.

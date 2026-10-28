@@ -55,12 +55,14 @@ func djangoManifest() Manifest {
 	m := pythonManifest("django", "Django", "Python web framework: a production-ready project with the admin site, served by Gunicorn.", "django", "/admin/login/", "3.12")
 	m.License = LicenseSpec{SPDX: "BSD-3-Clause", URL: "https://github.com/django/django/blob/main/LICENSE"}
 	m.Secrets = []string{"DJANGO_SECRET_KEY", "ADMIN_PASSWORD"}
+	m.Verified = "realhost:TestRealHostPythonDjango" // .github/workflows/app-native.yml
 	return m
 }
 
 func fastapiManifest() Manifest {
 	m := pythonManifest("fastapi", "FastAPI", "Python API framework: a starter application with a health endpoint, served by Uvicorn.", "fastapi", "/healthz", "3.10")
 	m.License = LicenseSpec{SPDX: "MIT", URL: "https://github.com/fastapi/fastapi/blob/master/LICENSE"}
+	m.Verified = "realhost:TestRealHostPythonFastAPI" // .github/workflows/app-native.yml
 	return m
 }
 

@@ -275,6 +275,45 @@ final class WorkerService
         }
     }
 
+    /**
+     * A free service name for an application the installer is about to
+     * supervise on this website (the agent creates the service; see adopt()).
+     *
+     * @param array<string, mixed> $site
+     */
+    public function reserveSlug(array $site, string $name): string
+    {
+        return $this->slug($site, $name);
+    }
+
+    /**
+     * Lists a service the installer created through the agent with the
+     * website's other workers, so it is shown, restarted and removed on the
+     * Workers page. The service already runs; nothing is applied here.
+     *
+     * @param array<string, mixed> $site
+     * @param array<string, mixed> $service what the agent reported (never holds a secret)
+     */
+    public function adopt(array $site, array $service): void
+    {
+        $slug = (string) ($service['slug'] ?? '');
+        if (!preg_match('/^[a-z0-9-]{1,63}$/', $slug)
+            || $this->db->scalar('SELECT COUNT(*) FROM workers WHERE server_id = ? AND slug = ?', [$this->server->id(), $slug]) > 0) {
+            return;
+        }
+        $now = gmdate('c');
+        $this->db->run(
+            'INSERT INTO workers (server_id, website_id, slug, name, directory, command, env, restart, memory_mb, procs, runtime, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)',
+            [
+                $this->server->id(), (int) $site['id'], $slug, mb_substr((string) ($service['name'] ?? $slug), 0, 100), (string) ($service['directory'] ?? ''),
+                (string) ($service['command'] ?? ''), json_encode((object) (array) ($service['env'] ?? []), JSON_THROW_ON_ERROR),
+                in_array($service['restart'] ?? 'always', ['always', 'on-failure', 'no'], true) ? (string) $service['restart'] : 'always',
+                (int) ($service['memory_mb'] ?? 0), max(1, (int) ($service['procs'] ?? 1)), (string) ($service['runtime'] ?? ''), $now, $now,
+            ]
+        );
+        $this->audit->record('worker.adopt', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['domain' => $site['domain'], 'slug' => $slug, 'source' => 'app installer']);
+    }
+
     /** @param array<string, mixed> $site */
     private function slug(array $site, string $name): string
     {

@@ -109,6 +109,9 @@ final class AppsController extends SiteController
             'domain' => (string) $s['domain'],
             'docroot' => AppInstallerService::relativeDocroot($s),
             'is_php' => $s['kind'] === 'php' && $s['php_version'] !== '',
+            'kind' => (string) $s['kind'],
+            'php_version' => (string) $s['php_version'],
+            'app_runtime' => (string) ($s['app_runtime'] ?? ''),
         ];
         $targets = [$entry($site)];
         foreach ($this->sites->children($this->server->id(), (int) $site['id']) as $child) {

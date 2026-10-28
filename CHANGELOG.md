@@ -6,6 +6,18 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **App installer foundation**: every application has a validated manifest (runtime, database, source and integrity
+  policy, service, health check, backup/upgrade/uninstall strategies, licence, compatibility) that selects one of a fixed
+  set of trusted installation strategies and downloads only from trusted hosts; a catalog status
+  (draft, testing, enabled, deprecated, disabled); a read-only dry run ("Review what it will do"); at most one running
+  installation per website folder (no second database or job on a repeated request); the installed version and the
+  outcome of every installation are recorded and audited.
+- **Native applications** (Gitea, Django, FastAPI), installed as services under the website's account behind its reverse
+  proxy, each proven by a real installation on a disposable server and offered to administrators first
+  (status *testing*). Gitea is a checksum-verified binary (two published checksums must agree); Django and FastAPI get a
+  virtual environment with pinned packages. WordPress plus a plugin is now labelled as an extension.
+
 ### Changed
 - **App installer downloads fixed** (found by the new CI download check): PrestaShop, OpenCart, Joomla and Invoice
   Ninja are now fetched from the latest GitHub release asset (their file names carry the version, so a fixed
