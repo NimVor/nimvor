@@ -206,3 +206,150 @@ func TestRealHostGiteaInstall(t *testing.T) {
 		t.Errorf("the plan must flag the used service name: %+v", plan.Conflicts)
 	}
 }
+
+func httpDo(t *testing.T, method, url, host string, hdr map[string]string, body string) (int, http.Header, string) {
+	t.Helper()
+	req, _ := http.NewRequest(method, url, strings.NewReader(body))
+	if host != "" {
+		req.Host = host
+	}
+	for k, v := range hdr {
+		req.Header.Set(k, v)
+	}
+	client := &http.Client{Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	res, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("%s %s: %v", method, url, err)
+	}
+	defer res.Body.Close()
+	b, _ := io.ReadAll(io.LimitReader(res.Body, 2<<20))
+	return res.StatusCode, res.Header, string(b)
+}
+
+// A real installation of Django: venv and packages from PyPI as the website
+// account, the project, migrations, an administrator, Gunicorn under systemd;
+// then a real sign-in to the admin site proves the secret key, the database
+// and the administrator account all work.
+func TestRealHostPythonDjango(t *testing.T) {
+	n := newRealNative(t, "django", "rtdjango", "2894")
+	if _, err := os.Stat("/usr/bin/python3.12"); err != nil {
+		t.Fatal("this host has no /usr/bin/python3.12 (Django needs Python 3.12 or newer)")
+	}
+	const slug, port, domain, password = "rt-django", 3921, "django.test", "a-real-admin-password-1"
+	t.Cleanup(func() {
+		workers.Remove(context.Background(), n.env, slug)
+		exec.Command("systemctl", "daemon-reload").Run()
+	})
+	req := Request{App: "django", Domain: domain, User: n.user, Root: n.home, Path: "app", URL: "https://" + domain, Port: port, ServiceSlug: slug,
+		Runtime: "python:3.12", AdminUser: "owner", AdminEmail: "owner@django.test", AdminPassword: password, AllowTesting: true}
+	j, err := n.install(t, req)
+	if err != nil {
+		t.Fatalf("apps.install: %v", err)
+	}
+	log := n.jobLog(t, j.ID)
+	if j.Status != "succeeded" {
+		t.Fatalf("the install did not succeed: %s\n%s", j.Error, log)
+	}
+	if strings.Contains(log, password) {
+		t.Error("the administrator password is in the job log")
+	}
+	res, _ := j.Result.(map[string]any)
+	t.Logf("installed Django %v", res["version"])
+
+	// The admin login page, then a real sign-in.
+	base := "http://127.0.0.1:3921"
+	h := map[string]string{"X-Forwarded-Proto": "https", "Referer": "https://" + domain + "/admin/login/", "Origin": "https://" + domain}
+	code, hdr, body := httpDo(t, "GET", base+"/admin/login/", domain, h, "")
+	if code != 200 || !strings.Contains(body, "Django") {
+		t.Fatalf("the admin login page: HTTP %d", code)
+	}
+	var csrf string
+	for _, c := range hdr.Values("Set-Cookie") {
+		if strings.HasPrefix(c, "csrftoken=") {
+			csrf = strings.SplitN(strings.TrimPrefix(c, "csrftoken="), ";", 2)[0]
+		}
+	}
+	if csrf == "" {
+		t.Fatal("no CSRF cookie")
+	}
+	form := "username=owner&password=" + password + "&csrfmiddlewaretoken=" + csrf + "&next=/admin/"
+	h["Cookie"] = "csrftoken=" + csrf
+	h["Content-Type"] = "application/x-www-form-urlencoded"
+	code, hdr, _ = httpDo(t, "POST", base+"/admin/login/", domain, h, form)
+	if code != 302 || !strings.Contains(hdr.Get("Location"), "/admin/") {
+		t.Errorf("signing in as the administrator: HTTP %d, Location %q", code, hdr.Get("Location"))
+	}
+	// A wrong password is refused (200 with the form again).
+	code, _, _ = httpDo(t, "POST", base+"/admin/login/", domain, h, strings.Replace(form, password, "wrong-password-xx", 1))
+	if code == 302 {
+		t.Error("a wrong password signed in")
+	}
+	// A request for another host is refused (ALLOWED_HOSTS).
+	if code, _, _ := httpDo(t, "GET", base+"/admin/login/", "evil.example", nil, ""); code != 400 {
+		t.Errorf("an unknown Host header got HTTP %d, want 400", code)
+	}
+
+	// Layout, permissions and secrets.
+	target := filepath.Join(n.home, "app")
+	if b, err := os.ReadFile(filepath.Join(target, "requirements.lock")); err != nil || !strings.Contains(strings.ToLower(string(b)), "django==") {
+		t.Errorf("requirements.lock: %v %q", err, b)
+	}
+	if fi, err := os.Stat(filepath.Join(target, ".env")); err != nil || fi.Mode().Perm() != 0o600 {
+		t.Errorf(".env: %v %v", fi, err)
+	}
+	if out, err := exec.Command("setpriv", "--reuid=65534", "--regid=65534", "--clear-groups", "cat", filepath.Join(target, ".env")).CombinedOutput(); err == nil {
+		t.Errorf("another account read the secret key:\n%s", out)
+	}
+	if b, _ := os.ReadFile(filepath.Join(target, "config", "settings.py")); strings.Contains(string(b), password) {
+		t.Error("the password is in settings.py")
+	}
+	if st, _, _ := httpDo(t, "GET", base+"/.env", domain, nil, ""); st == 200 {
+		t.Error("the secret file is served")
+	}
+	ss, _ := exec.Command("ss", "-ltn", "sport = :3921").CombinedOutput()
+	if !strings.Contains(string(ss), "127.0.0.1:3921") || strings.Contains(string(ss), "0.0.0.0:3921") || strings.Contains(string(ss), "*:3921") {
+		t.Errorf("Gunicorn must listen on 127.0.0.1 only:\n%s", ss)
+	}
+	ps, _ := exec.Command("ps", "-u", n.user, "-o", "comm=").CombinedOutput()
+	if !strings.Contains(string(ps), "gunicorn") {
+		t.Errorf("no gunicorn process runs as %s:\n%s", n.user, ps)
+	}
+}
+
+// A real installation of FastAPI with Uvicorn.
+func TestRealHostPythonFastAPI(t *testing.T) {
+	n := newRealNative(t, "fastapi", "rtfastapi", "2895")
+	if _, err := os.Stat("/usr/bin/python3.12"); err != nil {
+		t.Fatal("this host has no /usr/bin/python3.12")
+	}
+	const slug, port = "rt-fastapi", 3922
+	t.Cleanup(func() {
+		workers.Remove(context.Background(), n.env, slug)
+		exec.Command("systemctl", "daemon-reload").Run()
+	})
+	req := Request{App: "fastapi", Domain: "api.test", User: n.user, Root: n.home, Path: "api", URL: "https://api.test", Port: port, ServiceSlug: slug, Runtime: "python:3.12", AllowTesting: true}
+	j, err := n.install(t, req)
+	if err != nil {
+		t.Fatalf("apps.install: %v", err)
+	}
+	if j.Status != "succeeded" {
+		t.Fatalf("the install did not succeed: %s\n%s", j.Error, n.jobLog(t, j.ID))
+	}
+	res, _ := j.Result.(map[string]any)
+	t.Logf("installed FastAPI %v", res["version"])
+	code, _, body := httpDo(t, "GET", "http://127.0.0.1:3922/healthz", "", nil, "")
+	if code != 200 || !strings.Contains(body, `"ok"`) {
+		t.Errorf("/healthz: HTTP %d %q", code, body)
+	}
+	if code, _, _ := httpDo(t, "GET", "http://127.0.0.1:3922/docs", "", nil, ""); code != 200 {
+		t.Errorf("/docs: HTTP %d", code)
+	}
+	ss, _ := exec.Command("ss", "-ltn", "sport = :3922").CombinedOutput()
+	if !strings.Contains(string(ss), "127.0.0.1:3922") || strings.Contains(string(ss), "0.0.0.0:3922") || strings.Contains(string(ss), "*:3922") {
+		t.Errorf("Uvicorn must listen on 127.0.0.1 only:\n%s", ss)
+	}
+	ps, _ := exec.Command("ps", "-u", n.user, "-o", "comm=").CombinedOutput()
+	if !strings.Contains(string(ps), "uvicorn") {
+		t.Errorf("no uvicorn process runs as %s:\n%s", n.user, ps)
+	}
+}

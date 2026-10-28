@@ -173,7 +173,7 @@ var strategies = map[string]strategyInfo{
 	"wordpress-plugin": {Runtimes: []string{"php"}, Sources: []string{"url"}, Implemented: true},
 	"laravel":          {Runtimes: []string{"php"}, Sources: []string{"composer"}, Implemented: true},
 	"binary-service":   {Runtimes: []string{"binary"}, Sources: []string{"url", "github-release"}, Service: true, ExecutesDownload: true, Implemented: true},
-	"python-venv":      {Runtimes: []string{"python"}, Sources: []string{"pypi"}, Service: true},
+	"python-venv":      {Runtimes: []string{"python"}, Sources: []string{"pypi"}, Service: true, Implemented: true},
 }
 
 // StrategyImplemented reports whether the agent can run the strategy.

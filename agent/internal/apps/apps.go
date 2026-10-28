@@ -173,6 +173,8 @@ type Request struct {
 	// slug the panel reserved for the service.
 	Port        int    `json:"port"`
 	ServiceSlug string `json:"service_slug"`
+	// Runtime is the website's selected language runtime ("python:3.12.7").
+	Runtime string `json:"runtime"`
 	// AllowTesting lets an application in testing status be installed. The
 	// panel sets it only for administrators; every other status that is not
 	// enabled is refused whatever the request says.
@@ -246,6 +248,20 @@ func (r *Request) validate(env *host.Env) error {
 		}
 		if !urlRe.MatchString(r.URL) {
 			return &validate.Error{Field: "url", Message: "must be the website address, e.g. https://example.com"}
+		}
+		if r.App == "django" {
+			if !wpUser.MatchString(r.AdminUser) {
+				return &validate.Error{Field: "admin_user", Message: "3–60 letters, digits or . _ @ -"}
+			}
+			if !regexp.MustCompile(`^[^@\s]+@[^@\s]+\.[^@\s]+$`).MatchString(r.AdminEmail) || len(r.AdminEmail) > 100 {
+				return &validate.Error{Field: "admin_email", Message: "must be an email address"}
+			}
+			if len(r.AdminPassword) < 12 || len(r.AdminPassword) > 128 || strings.ContainsAny(r.AdminPassword, "\x00\n\r") {
+				return &validate.Error{Field: "admin_password", Message: "12–128 characters on one line"}
+			}
+		}
+		if m := nativeApps[r.App].manifest; m.Runtime.Type == "python" && r.Runtime != "" && !regexp.MustCompile(`^python:[0-9][0-9A-Za-z.]{0,31}$`).MatchString(r.Runtime) {
+			return &validate.Error{Field: "runtime", Message: "must look like python:3.12.7"}
 		}
 		return nil
 	}

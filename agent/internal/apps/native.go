@@ -147,6 +147,10 @@ func giteaManifest() Manifest {
 		Backup:  "files", Upgrade: "binary-replace", Uninstall: "files",
 		License: LicenseSpec{SPDX: "MIT", URL: "https://github.com/go-gitea/gitea/blob/main/LICENSE"},
 		Compat:  Compat{Arch: []string{"amd64", "arm64"}, MinDiskMB: 500, MinRAMMB: 256},
+		// Proven by a real installation on a disposable Ubuntu 24.04 VM
+		// (.github/workflows/app-native.yml). It stays in testing until the
+		// panel flow for native applications has been reviewed.
+		Verified: "realhost:TestRealHostGiteaInstall",
 	}
 }
 

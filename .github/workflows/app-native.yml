@@ -24,6 +24,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24'
+      - name: Python virtual environments (the server needs python3-venv)
+        run: sudo apt-get install -y python3-venv >/dev/null && python3.12 --version
       - name: Real installations (as root)
         working-directory: agent
         run: |
