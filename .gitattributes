@@ -1,0 +1,2 @@
+# The website is a separate component with its own deployment; it is not part of the NimVor release archives.
+/website export-ignore
