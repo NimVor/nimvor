@@ -20,7 +20,10 @@ apt-get update -q
 if [[ $VERSION_ID == 22.04 ]]; then
     apt-get install -y -q --no-install-recommends software-properties-common
     add-apt-repository -y ppa:ondrej/php
+    # Ubuntu 22.04's Python is 3.10; Django and FastAPI need 3.12 or newer.
+    add-apt-repository -y ppa:deadsnakes/ppa
     apt-get update -q
+    apt-get install -y -q --no-install-recommends python3.12 python3.12-venv
     php=8.3
 else
     apt-get install -y -q --no-install-recommends php-cli

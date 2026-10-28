@@ -226,22 +226,36 @@ func httpDo(t *testing.T, method, url, host string, hdr map[string]string, body 
 	return res.StatusCode, res.Header, string(b)
 }
 
+// systemPython returns the newest "3.x" (3.12 or newer) interpreter the host
+// has. Django and FastAPI need Python 3.12 or newer, so a host without one
+// fails here: the test setup installs one where the distribution lacks it.
+func systemPython(t *testing.T) string {
+	t.Helper()
+	for _, v := range []string{"3.14", "3.13", "3.12"} {
+		for _, d := range []string{"/usr/local/bin", "/usr/bin"} {
+			if _, err := os.Stat(d + "/python" + v); err == nil {
+				return v
+			}
+		}
+	}
+	t.Fatal("this host has no Python 3.12 or newer (python3.12, 3.13 or 3.14): install one in the test setup")
+	return ""
+}
+
 // A real installation of Django: venv and packages from PyPI as the website
 // account, the project, migrations, an administrator, Gunicorn under systemd;
 // then a real sign-in to the admin site proves the secret key, the database
 // and the administrator account all work.
 func TestRealHostPythonDjango(t *testing.T) {
 	n := newRealNative(t, "django", "rtdjango", "2894")
-	if _, err := os.Stat("/usr/bin/python3.12"); err != nil {
-		t.Skip("not run: this host has no /usr/bin/python3.12 (Django needs Python 3.12 or newer); the installer refuses it there, which the plan test covers")
-	}
+	py := systemPython(t)
 	const slug, port, domain, password = "rt-django", 3921, "django.test", "a-real-admin-password-1"
 	t.Cleanup(func() {
 		workers.Remove(context.Background(), n.env, slug)
 		exec.Command("systemctl", "daemon-reload").Run()
 	})
 	req := Request{App: "django", Domain: domain, User: n.user, Root: n.home, Path: "app", URL: "https://" + domain, Port: port, ServiceSlug: slug,
-		Runtime: "python:3.12", AdminUser: "owner", AdminEmail: "owner@django.test", AdminPassword: password, AllowTesting: true}
+		Runtime: "python:" + py, AdminUser: "owner", AdminEmail: "owner@django.test", AdminPassword: password, AllowTesting: true}
 	j, err := n.install(t, req)
 	if err != nil {
 		t.Fatalf("apps.install: %v", err)
@@ -319,15 +333,13 @@ func TestRealHostPythonDjango(t *testing.T) {
 // A real installation of FastAPI with Uvicorn.
 func TestRealHostPythonFastAPI(t *testing.T) {
 	n := newRealNative(t, "fastapi", "rtfastapi", "2895")
-	if _, err := os.Stat("/usr/bin/python3.12"); err != nil {
-		t.Skip("not run: this host has no /usr/bin/python3.12 (FastAPI needs Python 3.12 or newer)")
-	}
+	py := systemPython(t)
 	const slug, port = "rt-fastapi", 3922
 	t.Cleanup(func() {
 		workers.Remove(context.Background(), n.env, slug)
 		exec.Command("systemctl", "daemon-reload").Run()
 	})
-	req := Request{App: "fastapi", Domain: "api.test", User: n.user, Root: n.home, Path: "api", URL: "https://api.test", Port: port, ServiceSlug: slug, Runtime: "python:3.12", AllowTesting: true}
+	req := Request{App: "fastapi", Domain: "api.test", User: n.user, Root: n.home, Path: "api", URL: "https://api.test", Port: port, ServiceSlug: slug, Runtime: "python:" + py, AllowTesting: true}
 	j, err := n.install(t, req)
 	if err != nil {
 		t.Fatalf("apps.install: %v", err)
