@@ -234,6 +234,25 @@ final class SiteStateTest extends HttpTestCase
         self::assertSame(1, $this->calls('db.user_drop'));
     }
 
+    public function testACustomerKeepsOneSystemAccountAcrossWebsites(): void
+    {
+        $this->switchTo('cust');
+        $this->post("/websites/new", ["domain" => "nimvor.com", 'kind' => 'static']);
+        $first = $this->db->fetch("SELECT id, system_user FROM websites WHERE domain = 'nimvor.com'");
+        self::assertNotNull($first, (string) $this->flash("error"));
+        self::assertSame('nimvor2', $first['system_user'], 'a reserved derived name is numbered');
+        self::assertTrue($this->lastCall('sites.apply')['new_user']);
+
+        // Removed with its account kept: the next website reuses it, no second account is created.
+        $this->post('/sites/' . $first['id'] . '/delete', ['confirm_domain' => 'nimvor.com']);
+        self::assertSame(0, (int) $this->db->scalar("SELECT COUNT(*) FROM websites WHERE domain = 'nimvor.com'"));
+        $this->post('/websites/new', ['domain' => 'second.example', 'kind' => 'static']);
+        $second = $this->db->fetch("SELECT system_user FROM websites WHERE domain = 'second.example'");
+        self::assertNotNull($second, (string) $this->flash('error'));
+        self::assertSame('nimvor2', $second['system_user']);
+        self::assertArrayNotHasKey('new_user', $this->lastCall('sites.apply'));
+    }
+
     public function testAdministratorsCanDeleteADisabledWebsite(): void
     {
         $this->login('admin');

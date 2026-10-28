@@ -179,6 +179,14 @@ final class WebsiteService
         if (!Scope::isAll($actor)) {
             $this->assertNotUnderOthers($data['names'], $ownerId);
         }
+        if ($parent === null && $ownerId !== null && !Scope::isAll($actor) && empty($input['new_system_user'])) {
+            // A customer has one system account, reused by every website
+            // they add, also after all of them were removed.
+            $own = $this->sites->accountOf($serverId, $ownerId);
+            if ($own !== null) {
+                $data['row']['system_user'] = $own;
+            }
+        }
         if (!empty($input['new_system_user'])) {
             // A new hosting account: its own, new system account (the agent
             // refuses one that exists, e.g. a server login).
@@ -200,6 +208,9 @@ final class WebsiteService
             $this->sites->delete($id);
             $this->audit->record('website.create', 'website', $data['row']['domain'], AuditLogger::FAILURE, ['error' => $e->getMessage()]);
             throw $e;
+        }
+        if ($ownerId !== null && $parent === null) {
+            $this->sites->rememberAccount($serverId, $ownerId, (string) $row['system_user']);
         }
         $this->audit->record('website.create', 'website', (string) $id, AuditLogger::SUCCESS, [
             'domain' => $row['domain'], 'kind' => $row['kind'], 'php' => $row['php_version'], 'user' => $row['system_user'],
@@ -387,6 +398,9 @@ final class WebsiteService
             'remove_user' => $removeUser,
         ]);
         $this->sites->delete($id);
+        if ($removeUser) {
+            $this->sites->forgetAccount((int) $site['server_id'], (string) $site['system_user']);
+        }
         $this->discovery->invalidate();
         $this->audit->record('website.delete', 'website', (string) $id, AuditLogger::SUCCESS, [
             'domain' => $site['domain'], 'files' => $removeFiles ? ($res['trash'] ?? 'kept') : 'kept', 'user_removed' => $removeUser,
@@ -512,6 +526,9 @@ final class WebsiteService
         $usedBy = $this->sites->usingSystemUser($this->server->id(), $user);
         if (\NimVor\Hosting\Scope::isAll($actor)) {
             return false;
+        }
+        if ($ownerId !== null && $this->sites->accountBelongsTo($this->server->id(), $ownerId, $user)) {
+            return false; // their own account, kept from an earlier website
         }
         if ($usedBy === []) {
             return true;

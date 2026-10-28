@@ -44,6 +44,28 @@ final class WebsiteRepository
     }
 
     /** @return list<array{id: int, owner_id: int|null}> websites run by a system account */
+    /** The system account a customer already has on this server, if any. */
+    public function accountOf(int $serverId, int $ownerId): ?string
+    {
+        $u = $this->db->scalar('SELECT system_user FROM hosting_accounts WHERE server_id = ? AND owner_id = ? ORDER BY created_at, system_user LIMIT 1', [$serverId, $ownerId]);
+        return $u === null || $u === false ? null : (string) $u;
+    }
+
+    public function accountBelongsTo(int $serverId, int $ownerId, string $user): bool
+    {
+        return (int) $this->db->scalar('SELECT COUNT(*) FROM hosting_accounts WHERE server_id = ? AND owner_id = ? AND system_user = ?', [$serverId, $ownerId, $user]) > 0;
+    }
+
+    public function rememberAccount(int $serverId, int $ownerId, string $user): void
+    {
+        $this->db->run('INSERT OR IGNORE INTO hosting_accounts (server_id, owner_id, system_user, created_at) VALUES (?, ?, ?, ?)', [$serverId, $ownerId, $user, gmdate('c')]);
+    }
+
+    public function forgetAccount(int $serverId, string $user): void
+    {
+        $this->db->run('DELETE FROM hosting_accounts WHERE server_id = ? AND system_user = ?', [$serverId, $user]);
+    }
+
     public function usingSystemUser(int $serverId, string $user): array
     {
         return $this->db->fetchAll('SELECT id, owner_id FROM websites WHERE server_id = ? AND system_user = ?', [$serverId, $user]);
