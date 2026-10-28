@@ -7,6 +7,7 @@ All notable changes to WhaCP are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **The NimVor website** (`website/`, separate from the panel): public pages (home, features, resources: documentation, blog, community and source, build services, sponsors, about; support: contact, privacy policy), real accounts with a client dashboard and an administrator dashboard with reports and CSV exports. PHP 8.3 with MySQL/MariaDB and Redis, Memcached or a file cache; strict CSP, CSRF on every POST, Argon2id, sign-in throttling. Has its own tests and CI workflow; see `website/README.md`.
 - **Recommended security settings are on after the server setup, and switchable from the Security overview.** A new
   setup step turns on (once) weekly malware scans with quarantine, all five fail2ban jails (now including
   `nginx-limit-req`), compiler access for root only, SMTP restrictions, the cloud-metadata block, cPHulk with its

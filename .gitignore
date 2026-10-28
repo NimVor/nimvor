@@ -22,3 +22,8 @@
 realhost.test
 # go build output in the agent folder
 /agent/whacp-agent
+website/vendor/
+website/storage/cache/*
+!website/storage/cache/.gitkeep
+website/storage/.phpunit.cache/
+website/.phpunit.result.cache

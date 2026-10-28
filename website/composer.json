@@ -1,0 +1,26 @@
+{
+    "name": "nimvor/website",
+    "description": "The NimVor brand website: public pages, client and admin accounts, reports.",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.3",
+        "ext-pdo": "*",
+        "ext-pdo_mysql": "*",
+        "ext-mbstring": "*",
+        "ext-sodium": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.5"
+    },
+    "autoload": {
+        "psr-4": { "NimVorSite\\": "app/" }
+    },
+    "autoload-dev": {
+        "psr-4": { "NimVorSite\\Tests\\": "tests/" }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
+}

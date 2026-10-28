@@ -1,0 +1,77 @@
+name: Website
+
+# Tests for the brand website (website/): PHP lint and the whole suite against a real
+# MariaDB and Redis. Runs only when the website or this file changes.
+on:
+  push:
+    paths: ['website/**', '.github/workflows/website.yml']
+  pull_request:
+    paths: ['website/**', '.github/workflows/website.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: website-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  website:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_DATABASE: nimvor_site_test
+          MARIADB_USER: site
+          MARIADB_PASSWORD: site-test-pw
+          MARIADB_ROOT_PASSWORD: root-test-pw
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd="redis-cli ping" --health-interval=5s --health-timeout=3s --health-retries=10
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, mbstring, sodium, redis
+          tools: composer
+      - name: PHP lint
+        run: find app bin config database public resources tests -name '*.php' -print0 | xargs -0 -n1 -P4 php -l > /dev/null
+      - run: composer install --no-interaction --no-progress
+      - name: Tests (Redis cache)
+        env:
+          DB_HOST: 127.0.0.1
+          DB_NAME: nimvor_site_test
+          DB_USER: site
+          DB_PASS: site-test-pw
+        run: vendor/bin/phpunit --no-coverage
+      - name: Tests (file cache)
+        env:
+          TEST_CACHE: file
+          DB_HOST: 127.0.0.1
+          DB_NAME: nimvor_site_test
+          DB_USER: site
+          DB_PASS: site-test-pw
+        run: vendor/bin/phpunit --no-coverage
+      - name: The command-line tool runs against a fresh database
+        env:
+          DB_HOST: 127.0.0.1
+          DB_NAME: nimvor_site_test
+          DB_USER: site
+          DB_PASS: site-test-pw
+          CACHE_DRIVER: file
+        run: |
+          php bin/site migrate
+          php bin/site seed
+          printf 'a-long-admin-password-1\n' | php bin/site user:create admin@example.test "Admin" --role=admin
