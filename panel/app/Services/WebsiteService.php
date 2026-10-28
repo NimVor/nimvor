@@ -767,6 +767,12 @@ final class WebsiteService
         if ($existing === null) {
             if ($user === '') {
                 $user = self::suggestUser($domain);
+                // A derived name another account already has gets a number,
+                // so a customer who never chose it is not stuck.
+                $base = $user;
+                for ($n = 2; !$serverSettings && $n < 100 && $this->sites->usingSystemUser($this->server->id(), $user) !== []; $n++) {
+                    $user = substr($base, 0, 28) . $n;
+                }
             }
             if (!preg_match('/^[a-z][a-z0-9_-]{1,30}$/', $user) || in_array($user, ['root', 'www-data', 'nobody', 'mysql', 'nimvor', 'admin'], true)) {
                 $errors['system_user'] = 'Use 2–31 lowercase letters, digits, - or _, starting with a letter.';

@@ -31,6 +31,11 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
     <?= $this->partial('sites/header', ['site' => $site, 'tab' => 'settings']) ?>
 <?php endif; ?>
 
+<?php /* Errors on fields this page does not show (the account name is derived for customers) would otherwise leave "correct the highlighted fields" with nothing highlighted. */
+$hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $serverPhp ? ['kind', 'app_runtime'] : ['system_user', 'kind', 'app_runtime', 'owner_id'], true), ARRAY_FILTER_USE_KEY); ?>
+<?php if ($hidden !== []): ?>
+    <div class="alert alert-danger"><?php foreach ($hidden as $m): ?><div><?= e((string) $m) ?></div><?php endforeach; ?></div>
+<?php endif; ?>
 <form method="post" action="<?= e($isNew ? $this->url('sites.store') : $this->url('sites.update', ['id' => (int) $site['id']])) ?>" data-nim-busy novalidate>
     <?= $this->csrfField() ?>
     <div class="row g-3">

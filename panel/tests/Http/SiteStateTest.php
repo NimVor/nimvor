@@ -67,6 +67,17 @@ final class SiteStateTest extends HttpTestCase
         return $this->app->handle(new Request($method, $path, [], [], ['REMOTE_ADDR' => '192.0.2.70'], ['authorization' => 'Bearer ' . $token, 'content-type' => 'application/json'], ''));
     }
 
+    public function testDerivedAccountNameAvoidsAnotherAccountsName(): void
+    {
+        $svc = $this->app->container->get(WebsiteService::class);
+        // "u<otherId>" is taken by another customer; a derived name that equals it must not be reused.
+        $taken = 'blogacct';
+        $this->db->run('UPDATE websites SET system_user = ? WHERE id = ?', [$taken, $this->otherSite]);
+        $domain = $taken . '.example.net';
+        $row = $svc->validate(['domain' => $domain, 'kind' => 'static'], null, false)['row'];
+        self::assertSame($taken . '2', $row['system_user']);
+    }
+
     public function testCustomersDoNotSeeTheEnableDisableOption(): void
     {
         $this->switchTo('cust');

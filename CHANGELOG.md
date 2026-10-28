@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Adding a website a customer had removed no longer fails with “Please correct the highlighted fields” and nothing highlighted: errors on fields the page does not show are now listed, and a derived account name another account already has gets a number.
+
 ### Added
 - **App installer foundation**: every application has a validated manifest (runtime, database, source and integrity
   policy, service, health check, backup/upgrade/uninstall strategies, licence, compatibility) that selects one of a fixed
