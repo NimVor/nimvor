@@ -115,6 +115,16 @@ func cleanup(ctx context.Context, env *host.Env, cred *execx.Credential, dir str
 	fmt.Fprintf(log, "Cleanup: removed %s.\n", strings.Join(names, ", "))
 }
 
+// serviceFree refuses to create a service over an existing one: a worker's
+// name is global to the server, and installing must never replace another
+// website's service.
+func serviceFree(env *host.Env, slug string) error {
+	if env.Root.Exists(filepath.Join(env.M.UnitDir, workers.Unit(slug))) {
+		return fmt.Errorf("a service called %s already exists on this server; nothing was installed", slug)
+	}
+	return nil
+}
+
 // serviceResult is what a native install tells the panel about the worker it
 // created, so the panel can list it with the website's other workers. It
 // never holds a secret.
@@ -231,6 +241,9 @@ func installGitea(ctx context.Context, env *host.Env, src Sources, r Request, cr
 	}
 	if !env.Runner.Available("git") {
 		return nil, fmt.Errorf("git is not installed on this server; Gitea needs it. Install git first")
+	}
+	if err := serviceFree(env, r.ServiceSlug); err != nil {
+		return nil, err
 	}
 
 	// 1. The version: the newest stable release, recorded below.

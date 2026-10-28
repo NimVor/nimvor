@@ -70,6 +70,8 @@ paths:
               - agent.actions
               - agent.status
               - apps.install
+              - apps.manifests
+              - apps.plan
               - av.quarantine_list
               - av.release
               - av.scan
@@ -551,6 +553,8 @@ x-nimvor-actions:
   agent.actions: { mutating: false, description: "List the actions this agent supports." }
   agent.status: { mutating: false, description: "Agent version, write mode and managed layout." }
   apps.install: { mutating: true, description: "Install an application (WordPress, Laravel, or a staged app like Joomla, Drupal, phpBB, SMF, PrestaShop, OpenCart, AbanteCart) into a website (job)." }
+  apps.manifests: { mutating: false, description: "The application catalog as validated manifests (read-only)." }
+  apps.plan: { mutating: false, description: "Dry run: what installing an application into a website would require and change (read-only)." }
   av.quarantine_list: { mutating: false, description: "List a website's quarantined files (moved there by a malware scan): where each came from, its size and when it was quarantined." }
   av.release: { mutating: true, description: "Release a file from a website's quarantine back to where it came from, after re-scanning it. Refuses if the file is still infected or its original location is now occupied." }
   av.scan: { mutating: true, description: "Scan a website for malware with ClamAV, as the website's account (job); optionally quarantine infected files inside the website. With paths, scans only those files or folders (relative to the website), e.g. just-uploaded or just-extracted files." }

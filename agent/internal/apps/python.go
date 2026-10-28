@@ -265,6 +265,9 @@ func pyPrepare(ctx context.Context, env *host.Env, src Sources, r Request, log i
 		return "", "", "", nil, fmt.Errorf("the website folder could not be resolved")
 	}
 	target = filepath.Join(root, r.Path)
+	if err := serviceFree(env, r.ServiceSlug); err != nil {
+		return "", "", "", nil, err
+	}
 	interp, minor, err := pythonOf(env, r.Runtime)
 	if err != nil {
 		return "", "", "", nil, err

@@ -358,3 +358,25 @@ func TestWaitHTTPAndPortFree(t *testing.T) {
 		t.Error("HTTP 502 is not healthy")
 	}
 }
+
+func TestAnInstallNeverReplacesAnExistingService(t *testing.T) {
+	h, _ := setup(t)
+	f := newGitea(t)
+	stubHealth(t, nil)
+	os.MkdirAll(filepath.Join(h.Base, "etc/systemd/system"), 0o755)
+	os.WriteFile(filepath.Join(h.Base, "etc/systemd/system/nimvor-worker-git-gitea.service"), []byte("# another website's service"), 0o644)
+	cred, _, _ := h.Env.Credential("example")
+	before := len(h.Runner.Calls)
+	_, err := Install(context.Background(), h.Env, f.sources(), giteaRequest(), cred, io.Discard)
+	if err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("%v", err)
+	}
+	for _, c := range h.Runner.Calls[before:] {
+		if strings.HasPrefix(c, "sh -c") {
+			t.Errorf("wrote files although the service name was taken: %s", c)
+		}
+	}
+	if got := h.Read("etc/systemd/system/nimvor-worker-git-gitea.service"); got != "# another website's service" {
+		t.Errorf("the existing service was overwritten: %q", got)
+	}
+}

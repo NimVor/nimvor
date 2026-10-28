@@ -373,3 +373,16 @@ func TestPythonPlan(t *testing.T) {
 		}
 	}
 }
+
+func TestPythonInstallNeverReplacesAnExistingService(t *testing.T) {
+	h, _ := setup(t)
+	f := newPyPI(t)
+	withPython(t, h, "3.12")
+	stubHealth(t, nil)
+	os.MkdirAll(filepath.Join(h.Base, "etc/systemd/system"), 0o755)
+	os.WriteFile(filepath.Join(h.Base, "etc/systemd/system/nimvor-worker-py-fastapi.service"), []byte("# taken"), 0o644)
+	cred, _, _ := h.Env.Credential("example")
+	if _, err := Install(context.Background(), h.Env, Sources{Client: f.srv.Client()}, fastapiRequest(), cred, io.Discard); err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("%v", err)
+	}
+}
