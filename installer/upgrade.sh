@@ -333,7 +333,7 @@ mv "$PREFIX/panel" "$PREFIX/panel.old"
 mv "$PREFIX/panel.new" "$PREFIX/panel"
 rm -rf "$PREFIX/panel.old"
 install -m 0755 "$AGENT_SRC" "$BIN.new" && mv -f "$BIN.new" "$BIN"
-install -m 0755 -o root -g root "$SRC_DIR/installer/config/nimvor-cli" /usr/local/bin/nimvor # the short command (sudo nimvor ...)
+install -m 0755 "$SRC_DIR/installer/config/nimvor-cli" "$(dirname "$BIN")/nimvor" # the short command (sudo nimvor ...), next to the agent binary
 port=$(sed -n 's/.*-S 127\.0\.0\.1:\([0-9]*\).*/\1/p' "$UNIT_DIR/nimvor-panel.service" | head -1)
 install -m 0644 "$SRC_DIR/installer/systemd/nimvor-agent.service" "$UNIT_DIR/nimvor-agent.service"
 sed "s/127.0.0.1:8090/127.0.0.1:${port:-8090}/" "$SRC_DIR/installer/systemd/nimvor-panel.service" > "$UNIT_DIR/nimvor-panel.service"

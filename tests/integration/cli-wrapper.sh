@@ -11,7 +11,7 @@ printf '#!/bin/sh\nexit 0\n' > "$T/bin/php"
 # runuser -u ACCOUNT -- env NIMVOR_CONFIG=... CMD...: record and stop.
 printf '#!/bin/sh\necho "$@" > "%s/out"\n' "$T" > "$T/bin/runuser"
 chmod +x "$T/bin/php" "$T/bin/runuser"
-[[ $(id -u) -eq 0 ]] || { echo "run as root (the wrapper hands over with runuser)"; exit 0; }
+[[ $(id -u) -eq 0 ]] || exec sudo -E "$0" "$@"
 
 run() { PATH="$T/bin:$PATH" NIMVOR_PREFIX="$T/prefix" NIMVOR_CONF=/etc/nimvor/panel.php NIMVOR_PANEL_UNIT=/nonexistent bash "$ROOT/installer/config/nimvor-cli" "$@"; }
 fail() { echo "FAIL: $*" >&2; exit 1; }
