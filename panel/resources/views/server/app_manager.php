@@ -53,7 +53,7 @@ $toggle = function (string $action, array $fields, bool $on, string $label, bool
             <?php foreach ($cat['apps'] as $app): $en = (int) $app['enabled'] === 1; $vis = (int) $app['customer_visible'] === 1; ?>
                 <tr<?= $catOn ? '' : ' class="opacity-50"' ?>>
                     <td>
-                        <i class="bi <?= e((string) $app['icon']) ?> me-1" aria-hidden="true"></i><span class="fw-medium"><?= e((string) $app['name']) ?></span>
+                        <i class="bi <?= e((string) $app['icon']) ?> me-1" aria-hidden="true"></i><span class="fw-medium"><?= e((string) $app['name']) ?></span><?php $st = (string) ($app['status'] ?? 'enabled'); if ($st !== 'enabled'): ?> <span class="badge text-bg-<?= $st === 'testing' ? 'warning' : 'secondary' ?>"><?= e(ucfirst($st)) ?></span><?php endif; ?>
                         <div class="small text-body-secondary"><?= e((string) $app['description']) ?></div>
                     </td>
                     <td class="text-center"><?php if ($canManage): ?><div class="d-inline-block"><?= $toggle($this->url('apps.manager.app'), ['slug' => $app['slug'], 'field' => 'enabled'], $en, 'Enabled', false) ?></div><?php else: ?><?= $en ? 'Yes' : 'No' ?><?php endif; ?></td>

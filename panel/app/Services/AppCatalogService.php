@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NimVor\Services;
 
 use NimVor\Database\Connection;
+use NimVor\Support\UserFacingException;
 
 /**
  * The admin-managed application catalog: categories and the applications in
@@ -50,7 +51,26 @@ final class AppCatalogService
         if (!$this->installerEnabled()) {
             return [];
         }
-        return $this->grouped('WHERE a.enabled = 1 AND a.customer_visible = 1', true);
+        return $this->grouped("WHERE a.enabled = 1 AND a.customer_visible = 1 AND a.status = 'enabled'", true);
+    }
+
+    /**
+     * What this user is offered: customers get the enabled, customer-visible
+     * applications; administrators also get the applications in testing, so
+     * they can prove them before anyone else sees them.
+     *
+     * @param array<string, mixed> $actor
+     * @return list<array<string, mixed>>
+     */
+    public function forActor(array $actor): array
+    {
+        if (!\NimVor\Hosting\Scope::isAll($actor)) {
+            return $this->forCustomer();
+        }
+        if (!$this->installerEnabled()) {
+            return [];
+        }
+        return $this->grouped("WHERE a.enabled = 1 AND ((a.customer_visible = 1 AND a.status = 'enabled') OR a.status = 'testing')", true);
     }
 
     /**
@@ -101,8 +121,15 @@ final class AppCatalogService
         if ($cat !== null && (int) $cat['enabled'] !== 1) {
             return false;
         }
+        $status = (string) ($app['status'] ?? 'enabled');
+        if ($status === 'testing') {
+            return \NimVor\Hosting\Scope::isAll($actor); // only administrators may try an application still in testing
+        }
+        if ($status !== 'enabled') {
+            return false; // draft, deprecated and disabled applications are not installed
+        }
         if (\NimVor\Hosting\Scope::isAll($actor)) {
-            return true; // administrators/resellers see everything
+            return true; // administrators see everything that is enabled
         }
         return (int) $app['customer_visible'] === 1;
     }
@@ -117,11 +144,18 @@ final class AppCatalogService
         $this->db->run('UPDATE app_categories SET enabled = ? WHERE slug = ?', [$on ? 1 : 0, $slug]);
     }
 
-    /** @param 'enabled'|'customer_visible' $field */
+    /**
+     * @param 'enabled'|'customer_visible' $field
+     * @throws UserFacingException when a customer-visible switch is asked for an application that is not proven yet
+     */
     public function setAppFlag(string $slug, string $field, bool $on): void
     {
         if (!in_array($field, ['enabled', 'customer_visible'], true)) {
             return;
+        }
+        $row = $this->find($slug);
+        if ($on && $field === 'customer_visible' && $row !== null && (string) ($row['status'] ?? 'enabled') !== 'enabled') {
+            throw new UserFacingException('This application is still ' . (string) $row['status'] . ': it cannot be offered to customers until it has passed its real-host installation test.');
         }
         $this->db->run("UPDATE app_catalog SET {$field} = ? WHERE slug = ?", [$on ? 1 : 0, $slug]);
     }

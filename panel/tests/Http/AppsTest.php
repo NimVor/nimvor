@@ -48,7 +48,18 @@ final class AppsTest extends HttpTestCase
         self::assertStringNotContainsString($secret['password'], (string) json_encode($this->db->fetchAll('SELECT * FROM audit_logs')));
         self::assertSame(1, (int) $this->db->scalar("SELECT COUNT(*) FROM app_installs WHERE app = 'wordpress'"));
 
-        // A second WordPress gets its own database name.
+        // The same folder cannot be installed into twice at once: the repeat is
+        // refused without creating a second database or starting a second job.
+        $dbs = (int) $this->db->scalar('SELECT COUNT(*) FROM databases');
+        $jobs = $this->calls('apps.install');
+        $this->post($base . '/wordpress', ['title' => 'Shop', 'admin_user' => 'owner', 'admin_email' => 'owner@shop.test']);
+        self::assertStringContainsString('already in progress', (string) $this->flash('error'));
+        self::assertSame($dbs, (int) $this->db->scalar('SELECT COUNT(*) FROM databases'), 'no second database');
+        self::assertSame($jobs, $this->calls('apps.install'), 'no second job');
+        self::assertSame(1, (int) $this->db->scalar("SELECT COUNT(*) FROM app_installs WHERE app = 'wordpress'"));
+
+        // Once the first has finished, a second WordPress gets its own database name.
+        $this->db->run("UPDATE app_installs SET status = 'succeeded' WHERE status = 'running'");
         $this->post($base . '/wordpress', ['title' => 'Shop', 'admin_user' => 'owner', 'admin_email' => 'owner@shop.test']);
         self::assertSame('shop_wp1', $this->lastCall('apps.install')['db']['name']);
     }

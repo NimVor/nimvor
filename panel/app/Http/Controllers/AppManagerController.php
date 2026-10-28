@@ -62,7 +62,11 @@ final class AppManagerController extends Controller
         if ($this->catalog->find($slug) === null) {
             return $this->redirectWithError('/apps-manager', 'Unknown application.');
         }
-        $this->catalog->setAppFlag($slug, $field, $on);
+        try {
+            $this->catalog->setAppFlag($slug, $field, $on);
+        } catch (\NimVor\Support\UserFacingException $e) {
+            return $this->redirectWithFailure('/apps-manager', $e);
+        }
         $this->audit->record('apps.app', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['app' => $slug, 'field' => $field, 'on' => $on], $this->userId($request));
         return $this->redirectWithSuccess('/apps-manager', 'Application updated.');
     }

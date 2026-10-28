@@ -175,6 +175,7 @@ return static function (Router $r): void {
     $r->post('/monitoring/processes/signal', [MonitoringController::class, 'signal'], ['name' => 'monitoring.processes.signal', 'permission' => P::SERVER_MANAGE]);
     $r->post('/monitoring/processes/kill-user', [MonitoringController::class, 'killUser'], ['name' => 'monitoring.processes.kill_user', 'permission' => P::SERVER_MANAGE]);
     $r->get('/sites/{id}/apps', [AppsController::class, 'show'], ['name' => 'sites.apps', 'permission' => P::APPS_INSTALL]);
+    $r->get('/sites/{id}/apps/{app}/plan', [AppsController::class, 'plan'], ['name' => 'sites.apps.plan', 'permission' => P::APPS_INSTALL]);
     $r->post('/sites/{id}/apps/{app}', [AppsController::class, 'install'], ['name' => 'sites.apps.install', 'permission' => P::APPS_INSTALL]);
     $r->get('/logs', [LogsController::class, 'index'], ['name' => 'logs', 'permission' => P::LOGS_VIEW]);
     $r->get('/logs/tail', [LogsController::class, 'tail'], ['name' => 'logs.tail', 'permission' => P::LOGS_VIEW]);

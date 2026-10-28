@@ -172,6 +172,8 @@ final class AppInstallerService
             'app' => $wpPlugins !== null ? 'wordpress' : $app, 'domain' => $site['domain'], 'user' => $site['system_user'], 'root' => $site['root'],
             'php_version' => $site['php_version'], 'url' => ($site['https'] ? 'https://' : 'http://') . $site['domain'],
         ];
+        $strategy = $wpPlugins !== null ? 'wordpress-plugin' : ($app === 'wordpress' ? 'wordpress' : ($app === 'laravel' ? 'laravel' : (isset(self::STAGED[$app]) ? 'archive' : '')));
+        $params['allow_testing'] = \NimVor\Hosting\Scope::isAll($actor);
         $adminPassword = null;
         if ($app === 'wordpress' || $wpPlugins !== null) {
             if ($wpPlugins !== null) {
@@ -207,34 +209,50 @@ final class AppInstallerService
             throw new ValidationException($errors);
         }
 
+        // Claim the folder first: at most one installation per website folder
+        // runs at a time (a unique index backs this up), so a repeated request
+        // creates neither a second database nor a second job.
+        try {
+            $this->db->run(
+                "INSERT INTO app_installs (website_id, app, path, status, strategy, user_id, created_at) VALUES (?, ?, ?, 'running', ?, ?, ?)",
+                [(int) $site['id'], $params['app'], $params['path'], $strategy, (int) $actor['id'], gmdate('c')]
+            );
+        } catch (\PDOException $e) {
+            throw new UserFacingException('An installation into this website is already in progress.', '', 'Wait for it to finish, then check the result below.');
+        }
+        $claimId = (int) $this->db->scalar('SELECT MAX(id) FROM app_installs WHERE website_id = ? AND path = ?', [(int) $site['id'], $params['path']]);
+        $release = function (string $why) use ($claimId): void {
+            $this->db->run("UPDATE app_installs SET status = 'failed', error = ?, finished_at = ? WHERE id = ? AND status = 'running'", [mb_substr($why, 0, 500), gmdate('c'), $claimId]);
+        };
+
         // A database and user for the application (password kept encrypted
         // so it can be looked up later under Databases). Flat-file apps
         // (e.g. Grav) need none.
         $created = null;
         $database = null;
-        if ($needsDb) {
-            $base = substr(preg_replace('/[^a-z0-9]/', '', strtolower(explode('.', (string) $site['domain'])[0])) ?: 'site', 0, 10) . ($app === 'wordpress' || $wpPlugins !== null ? '_wp' : '_app');
-            for ($i = 0; $i < 10 && $created === null; $i++) {
-                $name = $i === 0 ? $base : $base . $i;
-                try {
-                    $created = $this->databases->create(['name' => $name, 'create_user' => true, 'username' => $name, 'store_password' => true, 'website_id' => (int) $site['id']], $actor);
-                } catch (ValidationException $e) {
-                    if (!isset($e->errors()['name']) && !isset($e->errors()['username'])) {
-                        throw $e;
+        try {
+            if ($needsDb) {
+                $base = substr(preg_replace('/[^a-z0-9]/', '', strtolower(explode('.', (string) $site['domain'])[0])) ?: 'site', 0, 10) . ($app === 'wordpress' || $wpPlugins !== null ? '_wp' : '_app');
+                for ($i = 0; $i < 10 && $created === null; $i++) {
+                    $name = $i === 0 ? $base : $base . $i;
+                    try {
+                        $created = $this->databases->create(['name' => $name, 'create_user' => true, 'username' => $name, 'store_password' => true, 'website_id' => (int) $site['id']], $actor);
+                    } catch (ValidationException $e) {
+                        if (!isset($e->errors()['name']) && !isset($e->errors()['username'])) {
+                            throw $e;
+                        }
                     }
                 }
+                if ($created === null) {
+                    throw new UserFacingException('No free database name was found for the application.');
+                }
+                $database = $this->dbRepo->database($this->server->id(), (int) $created['database_id'], null);
+                $params['db'] = ['name' => $database['name'], 'user' => $created['user'], 'password' => $created['password'], 'host' => 'localhost'];
             }
-            if ($created === null) {
-                throw new UserFacingException('No free database name was found for the application.');
-            }
-            $database = $this->dbRepo->database($this->server->id(), (int) $created['database_id'], null);
-            $params['db'] = ['name' => $database['name'], 'user' => $created['user'], 'password' => $created['password'], 'host' => 'localhost'];
-        }
-
-        try {
             $res = (array) $this->agent->call('apps.install', $params);
-        } catch (AgentException $e) {
-            // Nothing was installed: remove the database we just created.
+        } catch (\Throwable $e) {
+            // Nothing was installed: remove only what this request created
+            // and free the folder for another attempt.
             if ($database !== null) {
                 try {
                     $this->databases->drop((array) $database, (string) $database['name']);
@@ -246,19 +264,58 @@ final class AppInstallerService
                 } catch (\Throwable) {
                 }
             }
+            $release($e->getMessage());
             throw $e;
         }
         $job = (string) $res['job_id'];
         $this->db->run(
-            'INSERT INTO app_installs (website_id, app, path, database_id, admin_user, job_id, user_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [(int) $site['id'], $params['app'], $params['path'], $database !== null ? (int) $database['id'] : null, $params['admin_user'] ?? '', $job, (int) $actor['id'], gmdate('c')]
+            'UPDATE app_installs SET database_id = ?, admin_user = ?, job_id = ? WHERE id = ?',
+            [$database !== null ? (int) $database['id'] : null, $params['admin_user'] ?? '', $job, $claimId]
         );
-        $this->audit->record('app.install', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['domain' => $site['domain'], 'app' => $app, 'path' => $params['path'], 'database' => $database !== null ? $database['name'] : '']);
+        $this->audit->record('app.install', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['domain' => $site['domain'], 'app' => $app, 'path' => $params['path'], 'database' => $database !== null ? $database['name'] : '', 'strategy' => $strategy]);
         $out = ['job' => $job];
         if ($adminPassword !== null) {
             $out += ['admin_user' => $params['admin_user'], 'admin_password' => $adminPassword];
         }
         return $out;
+    }
+
+    /**
+     * The dry run: what installing $app into $site would require and change,
+     * worked out by the agent without changing anything.
+     *
+     * @param array<string, mixed> $site
+     * @param array<string, mixed> $actor
+     * @return array<string, mixed>
+     */
+    public function plan(array $site, string $app, array $actor): array
+    {
+        if (!$this->catalog->installableBy($app, $actor)) {
+            throw new UserFacingException('This application is not available for installation.');
+        }
+        $row = $this->catalog->find($app);
+        if ($site['kind'] !== 'php' || $site['php_version'] === '') {
+            throw new UserFacingException((string) ($row['name'] ?? $app) . ' needs a PHP website.', '', 'Change the website type to PHP under Settings first.');
+        }
+        $wp = self::WORDPRESS_BASED[$app] ?? null;
+        $params = [
+            'app' => $wp !== null ? 'wordpress' : $app, 'domain' => $site['domain'], 'user' => $site['system_user'], 'root' => $site['root'],
+            'php_version' => $site['php_version'], 'url' => ($site['https'] ? 'https://' : 'http://') . $site['domain'],
+            'path' => self::relativeDocroot($site), 'allow_testing' => \NimVor\Hosting\Scope::isAll($actor),
+        ];
+        if ($wp !== null) {
+            $params['plugins'] = $wp;
+        }
+        if ($app === 'wordpress' || $wp !== null) {
+            $params += ['title' => $site['domain'], 'admin_user' => 'admin', 'admin_email' => 'admin@example.com', 'admin_password' => 'plan-only-not-used-0000'];
+        } elseif ($app === 'laravel') {
+            $params['path'] = 'app';
+        }
+        if ((int) ($row['needs_db'] ?? 1) === 1) {
+            // Only names for the plan; nothing is created.
+            $params['db'] = ['name' => 'plan_preview', 'user' => 'plan_preview', 'password' => 'plan-only-not-used-0000', 'host' => 'localhost'];
+        }
+        return (array) $this->agent->call('apps.plan', $params);
     }
 
     /**
@@ -281,7 +338,10 @@ final class AppInstallerService
             if ($status !== 'succeeded' && $status !== 'failed') {
                 continue;
             }
-            $this->db->run('UPDATE app_installs SET status = ?, error = ?, finished_at = ? WHERE id = ?', [$status, mb_substr((string) ($job['error'] ?? ''), 0, 500), gmdate('c'), (int) $i['id']]);
+            $version = mb_substr((string) (((array) ($job['result'] ?? []))['version'] ?? ''), 0, 40);
+            $error = mb_substr((string) ($job['error'] ?? ''), 0, 500);
+            $this->db->run('UPDATE app_installs SET status = ?, error = ?, version = ?, finished_at = ? WHERE id = ?', [$status, $error, $version, gmdate('c'), (int) $i['id']]);
+            $this->audit->record('app.install_result', 'website', (string) $site['id'], $status === 'succeeded' ? AuditLogger::SUCCESS : AuditLogger::FAILURE, ['domain' => $site['domain'], 'app' => $i['app'], 'path' => $i['path'], 'version' => $version, 'error' => $status === 'failed' ? mb_substr($error, 0, 300) : '']);
             // Point the website at the app's web root when it is a subfolder
             // (Laravel's public/, OpenCart's upload/, AbanteCart's public_html/).
             $sub = $i['app'] === 'laravel' ? 'public' : (string) (self::STAGED[$i['app']]['docroot'] ?? '');

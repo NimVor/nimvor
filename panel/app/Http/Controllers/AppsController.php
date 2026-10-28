@@ -44,9 +44,27 @@ final class AppsController extends SiteController
             'secret' => $this->session->pullFlash('secret'),
             'docroot' => AppInstallerService::relativeDocroot($site),
             'email' => (string) ($this->user($request)['email'] ?? ''),
-            'catalog' => $this->catalog->forCustomer(),
+            'catalog' => $this->catalog->forActor($this->user($request)),
             'installerEnabled' => $this->catalog->installerEnabled(),
             'targets' => $this->targets($site),
+        ]);
+    }
+
+    /** The dry run for one application: requirements, changes and conflicts, before anything is installed. */
+    public function plan(Request $request, string $id, string $app): Response
+    {
+        $site = $this->site($request, $id);
+        if ($site === null) {
+            return $this->siteNotFound();
+        }
+        try {
+            $plan = $this->apps->plan($site, $app, $this->user($request));
+        } catch (\NimVor\Support\UserFacingException $e) {
+            return $this->redirectWithFailure('/sites/' . (int) $site['id'] . '/apps', $e);
+        }
+        return $this->render('sites/app_plan', [
+            'site' => $site, 'tab' => 'apps', 'plan' => $plan, 'app' => $app, 'agentError' => null,
+            'title' => (string) ($this->catalog->find($app)['name'] ?? $app),
         ]);
     }
 

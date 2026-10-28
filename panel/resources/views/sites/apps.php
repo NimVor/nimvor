@@ -56,9 +56,11 @@ $targets ??= [['id' => $id, 'domain' => (string) $site['domain'], 'docroot' => $
                                     <div class="d-flex align-items-center gap-2 mb-2">
                                         <i class="bi <?= e((string) $app['icon']) ?> fs-4" aria-hidden="true"></i>
                                         <span class="fw-semibold"><?= e((string) $app['name']) ?></span>
+                                        <?php if (($app['status'] ?? 'enabled') === 'testing'): ?><span class="badge text-bg-warning" title="Still being tested: only administrators see it">Testing</span><?php endif; ?>
                                     </div>
                                     <p class="small text-body-secondary flex-grow-1"><?= e((string) $app['description']) ?></p>
                                     <button class="btn btn-sm btn-primary align-self-start" type="button" data-bs-toggle="modal" data-bs-target="#app-<?= e($slug) ?>"<?= $isPhp ? '' : ' disabled' ?>><i class="bi bi-download me-1"></i>Install</button>
+                                    <a class="small mt-1" href="<?= e($this->url('sites.apps.plan', ['id' => $id, 'app' => $slug])) ?>"><i class="bi bi-list-check me-1" aria-hidden="true"></i>Review what it will do</a>
                                 </div>
                             </div>
                         </div>
