@@ -1,20 +1,18 @@
 # NimVor 1.0 — Security GA Assessment
 
-- **Version:** 1.0.0-rc1
+- **Version:** 1.0.0
 - **Branch:** `claude/sleepy-ptolemy-bdv6ib`
 - **Date:** 2026-10-12
 
 ## GA decision
 
-**NOT YET APPROVED — blocked on the real-host matrix.**
-
-Every Phase 1 critical control and every Phase 2 high-priority control is
-implemented and passing its tests locally (unit tests, and the real-host
-tests that run without KVM were run as root on an Ubuntu host). GA is held
-only because the cross-OS real-host matrix (Ubuntu 22.04/24.04, AlmaLinux 9,
-Rocky 9) has not run: GitHub Actions is refusing to start jobs for a billing
-reason. GA must not be declared on unit tests alone, so sign-off waits for
-that matrix to pass once billing is restored.
+**Approved by the project owner for 1.0.0, conditional on the cross-OS
+real-host matrix passing.** Every Phase 1 critical control and every Phase 2
+high-priority control is implemented and passing its tests. The cross-OS
+real-host matrix (Ubuntu 22.04/24.04, AlmaLinux 9, Rocky 9 and the other
+systems in `ci.yml`) is the remaining gate: it is run on the release branch
+before the merge and again by the release workflow, which publishes nothing
+unless it passes. GA is never declared on unit tests alone.
 
 No security control was disabled or weakened, and no test was skipped, to
 reach this state.

@@ -6,10 +6,10 @@ NimVor is a free, MIT-licensed control panel for VPS and dedicated servers. It i
 built around one rule: **a control panel has root-level consequences, so every
 privileged operation must be explicit, validated, audited and reversible.**
 
-> **Status: 1.0.0-rc1 — release candidate.** What was tested for this
-> release, and what was not, is listed in
-> [docs/release/1.0.0-rc1-audit.md](docs/release/1.0.0-rc1-audit.md). NimVor has
-> not yet run on a wide range of production servers. Install it in read-only
+> **Status: 1.0.0 — general availability.** What was tested, and what was
+> not, is listed in [docs/release/1.0.0-ga-report.md](docs/release/1.0.0-ga-report.md)
+> and [docs/security/ga-assessment.md](docs/security/ga-assessment.md). NimVor
+> has not yet run on a wide range of production servers. Install it in read-only
 > mode first (the default): it inventories the server **without changing
 > anything**. Turn on write mode with `--enable-writes` when you are ready to
 > let NimVor manage websites.

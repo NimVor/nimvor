@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: NimVor Agent API
-  version: 1.0.0-rc1
+  version: 1.0.0
   summary: Local, authenticated API of the privileged NimVor agent.
   description: |
     The agent listens on a Unix socket (default `/run/nimvor/agent.sock`,

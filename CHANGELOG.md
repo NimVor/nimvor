@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-10-28
+
+General availability. Everything since 1.0.0-rc1:
+
 ### Changed
 - **Deleting a website removes everything that belongs to it**: its databases and the database users only they used, its email domain with all mailboxes and aliases, plus the cron jobs, workers and statistics it already removed. The system user stays unless the option is ticked. If one removal fails the website is left in place.
 

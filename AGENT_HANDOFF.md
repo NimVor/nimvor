@@ -1,5 +1,9 @@
 # AGENT_HANDOFF.md — Verified development status
 
+> **Historical.** This is the handoff written for 1.0.0-rc1 (2026-10-19) and is
+> kept for reference; the branch and version facts below are out of date.
+> Current status: `CHANGELOG.md`, `docs/release/1.0.0-ga-report.md`, `AGENTS.md`.
+
 **Prepared:** 2026-10-19 · **Branch:** `claude/sleepy-ptolemy-bdv6ib` (the
 remote's default branch; there is no `main`) · **HEAD:** `2ad3bc3` · **Version
 (`VERSION`):** `1.0.0-rc1`
