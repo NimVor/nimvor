@@ -200,8 +200,8 @@ server's name; default the system's full host name), `--php=8.2,8.3,8.4`
 Run it again, or later on a server installed with `none`:
 
 ```bash
-sudo -u nimvor NIMVOR_CONFIG=/etc/nimvor/panel.php php /opt/nimvor/panel/bin/nimvor setup:apply --profile=web
-sudo -u nimvor NIMVOR_CONFIG=/etc/nimvor/panel.php php /opt/nimvor/panel/bin/nimvor setup:status
+sudo nimvor setup:apply --profile=web
+sudo nimvor setup:status
 ```
 
 (`php` is the PHP the panel runs on: on Ubuntu 22.04 the installer
@@ -339,7 +339,7 @@ ssh -L 8090:127.0.0.1:8090 you@server
 
 ```bash
 systemctl status nimvor-agent nimvor-panel nimvor-scheduler.timer
-sudo -u nimvor NIMVOR_CONFIG=/etc/nimvor/panel.php php /opt/nimvor/panel/bin/nimvor doctor   # Ubuntu 22.04: php8.3
+sudo nimvor doctor
 curl -s http://127.0.0.1:8090/healthz
 ```
 
@@ -355,6 +355,25 @@ missing and gives the command to complete it: the same options plus
 key and database and creates only what is missing. Nothing outside
 NimVor's own files is changed by the installer, so there is nothing else to
 undo.
+
+## The `nimvor` command
+
+The installer (and `upgrade.sh`) puts a short command in `/usr/local/bin/nimvor`.
+It runs the panel's command-line tool as the panel's account with the panel's
+configuration, using the PHP the panel runs with. It adds no commands of its
+own; `sudo nimvor help` lists them.
+
+```bash
+sudo nimvor user:password admin     # reset a password (also: reset-password)
+sudo nimvor user:2fa-reset admin    # turn two-factor off (also: reset-2fa)
+sudo nimvor user:create NAME EMAIL --role=admin
+sudo nimvor doctor                  # check the installation
+sudo nimvor setup:status
+```
+
+Without `sudo` it asks `sudo` to run the same command. The uninstaller removes
+it. The long form (`sudo -u nimvor NIMVOR_CONFIG=/etc/nimvor/panel.php php
+/opt/nimvor/panel/bin/nimvor …`) still works.
 
 ## Update (source checkout)
 

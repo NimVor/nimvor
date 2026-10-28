@@ -707,6 +707,10 @@ run install -d -m 0750 -o nimvor -g nimvor "$DATA_DIR" "$DATA_DIR/sessions" "$LO
 log "Installing files"
 run install -m 0755 -o root -g root "$AGENT_SRC" "$BIN"
 if [[ $AGENT_ONLY -eq 0 ]]; then
+    # The short command: "sudo nimvor user:password admin".
+    run install -m 0755 -o root -g root "$SRC_DIR/installer/config/nimvor-cli" /usr/local/bin/nimvor
+fi
+if [[ $AGENT_ONLY -eq 0 ]]; then
     run rm -rf "$PREFIX/panel.new"
     run mkdir -p "$PREFIX/panel.new"
     run cp -a "$SRC_DIR/panel/app" "$SRC_DIR/panel/bin" "$SRC_DIR/panel/config" "$SRC_DIR/panel/database" \

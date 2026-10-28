@@ -70,7 +70,7 @@ if [[ $panel_site -eq 1 ]] && command -v nginx >/dev/null && nginx -t >/dev/null
     systemctl reload nginx 2>/dev/null || true
     echo "Removed the panel's HTTPS site from Nginx."
 fi
-rm -f /usr/local/bin/nimvor-agent
+rm -f /usr/local/bin/nimvor-agent /usr/local/bin/nimvor
 # FFmpeg limited to the nimvor-ffmpeg group: back to the package's own modes.
 if getent group nimvor-ffmpeg >/dev/null; then
     for f in /usr/bin/ffmpeg /usr/bin/ffprobe; do

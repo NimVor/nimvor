@@ -243,6 +243,7 @@ jobs:
           extensions: pdo_sqlite, curl, mbstring
       - run: cd panel && composer install --no-interaction --no-progress
       - run: tests/integration/smoke.sh
+      - run: tests/integration/cli-wrapper.sh
       - run: tests/integration/upgrade.sh
       - name: Upgrade from the previous release (real code and data)
         run: |

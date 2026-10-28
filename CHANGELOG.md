@@ -10,6 +10,9 @@ All notable changes to NimVor are documented here. The format follows
 
 General availability. Everything since 1.0.0-rc1:
 
+### Added
+- **`sudo nimvor …`**: a short command for the panel's command-line tool (`sudo nimvor user:password admin`, `reset-password`, `reset-2fa`, `doctor`, `help`), installed by the installer and `upgrade.sh`, removed by the uninstaller.
+
 ### Changed
 - Removed the obsolete PHP-to-Go migration planning pages from `docs/migration/` (the panel stays PHP). The WhaCP-to-NimVor server migration guide and its inventory script remain.
 - **Deleting a website removes everything that belongs to it**: its databases and the database users only they used, its email domain with all mailboxes and aliases, plus the cron jobs, workers and statistics it already removed. The system user stays unless the option is ticked. If one removal fails the website is left in place.
