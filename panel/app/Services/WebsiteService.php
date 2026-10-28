@@ -680,6 +680,8 @@ final class WebsiteService
      * @param array<string, mixed>|null $existing
      * @return array{row: array<string, mixed>, names: list<string>}
      */
+    private const RESERVED_USERS = ['root', 'www-data', 'nobody', 'mysql', 'nimvor', 'admin'];
+
     public function validate(array $input, ?array $existing, bool $serverSettings = true): array
     {
         if (!$serverSettings) {
@@ -770,11 +772,12 @@ final class WebsiteService
                 // A derived name another account already has gets a number,
                 // so a customer who never chose it is not stuck.
                 $base = $user;
-                for ($n = 2; !$serverSettings && $n < 100 && $this->sites->usingSystemUser($this->server->id(), $user) !== []; $n++) {
+                // A reserved name (root, nimvor, ...) is never derived either.
+                for ($n = 2; $n < 100 && (in_array($user, self::RESERVED_USERS, true) || (!$serverSettings && $this->sites->usingSystemUser($this->server->id(), $user) !== [])); $n++) {
                     $user = substr($base, 0, 28) . $n;
                 }
             }
-            if (!preg_match('/^[a-z][a-z0-9_-]{1,30}$/', $user) || in_array($user, ['root', 'www-data', 'nobody', 'mysql', 'nimvor', 'admin'], true)) {
+            if (!preg_match('/^[a-z][a-z0-9_-]{1,30}$/', $user) || in_array($user, self::RESERVED_USERS, true)) {
                 $errors['system_user'] = 'Use 2–31 lowercase letters, digits, - or _, starting with a letter.';
             }
         }

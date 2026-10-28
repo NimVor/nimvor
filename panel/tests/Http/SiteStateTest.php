@@ -78,6 +78,13 @@ final class SiteStateTest extends HttpTestCase
         self::assertSame($taken . '2', $row['system_user']);
     }
 
+    public function testDerivedAccountNameNeverUsesAReservedName(): void
+    {
+        $svc = $this->app->container->get(WebsiteService::class);
+        $row = $svc->validate(['domain' => 'nimvor.com', 'kind' => 'static'], null, false)['row'];
+        self::assertSame('nimvor2', $row['system_user']);
+    }
+
     public function testCustomersDoNotSeeTheEnableDisableOption(): void
     {
         $this->switchTo('cust');
