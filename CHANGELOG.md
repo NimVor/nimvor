@@ -18,6 +18,7 @@ General availability. Everything since 1.0.0-rc1:
 - **Deleting a website removes everything that belongs to it**: its databases and the database users only they used, its email domain with all mailboxes and aliases, plus the cron jobs, workers and statistics it already removed. The system user stays unless the option is ticked. If one removal fails the website is left in place.
 
 ### Fixed
+- The release workflow now creates the release as a draft, uploads the archives and `SHA256SUMS`, checks they are attached and only then publishes, so it also works when the repository publishes immutable releases (whose files cannot be added afterwards).
 - A customer's websites run as **one system account named after their own login** (nv100), not after each domain: it is created with the first website and reused by every later one, also after all were removed. Adding a website again no longer fails with “The system user … already exists”; if a name the panel derived already exists on the server (left from an earlier website), the next free number is used.
 - Adding a website a customer had removed no longer fails with “Please correct the highlighted fields” and nothing highlighted: errors on fields the page does not show are now listed, and a derived account name that is reserved (a domain such as nimvor.com gives “nimvor”) or already used by another account gets a number.
 

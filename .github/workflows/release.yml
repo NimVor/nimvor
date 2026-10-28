@@ -51,6 +51,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Draft first, attach the files, then publish. A published release can be immutable
+          # (its tag and files can no longer change), so the files must be there before it is public.
           pre=()
           [[ $(cat VERSION) == *-* ]] && pre=(--prerelease) # e.g. 1.0.0-rc1
-          gh release create "$GITHUB_REF_NAME" dist/release/nimvor-*.tar.gz dist/release/SHA256SUMS --title "NimVor $(cat VERSION)" --generate-notes --verify-tag "${pre[@]}"
+          gh release create "$GITHUB_REF_NAME" --draft --title "NimVor $(cat VERSION)" --generate-notes --verify-tag "${pre[@]}"
+          gh release upload "$GITHUB_REF_NAME" dist/release/nimvor-*.tar.gz dist/release/SHA256SUMS
+          [[ $(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets | length') -ge 2 ]] || { echo "the release files did not upload" >&2; exit 1; }
+          gh release edit "$GITHUB_REF_NAME" --draft=false
