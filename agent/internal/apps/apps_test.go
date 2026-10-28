@@ -389,14 +389,18 @@ func TestWordPressPluginsAreAllowlisted(t *testing.T) {
 
 func TestResolveURLFindsTheLatestReleaseAsset(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/repos/acme/app/releases/latest" {
-			http.NotFound(w, r)
-			return
-		}
-		io.WriteString(w, `{"assets":[
+		assets := `{"assets":[
 			{"name":"app-1.2.3.tar.gz","browser_download_url":"https://github.com/acme/app/releases/download/v1.2.3/app-1.2.3.tar.gz"},
 			{"name":"app-1.2.3.zip","browser_download_url":"https://github.com/acme/app/releases/download/v1.2.3/app-1.2.3.zip"},
-			{"name":"evil.zip","browser_download_url":"https://evil.example/evil.zip"}]}`)
+			{"name":"evil.zip","browser_download_url":"https://evil.example/evil.zip"}]}`
+		switch r.URL.Path {
+		case "/repos/acme/app/releases/latest":
+			io.WriteString(w, assets)
+		case "/repos/acme/app/releases":
+			io.WriteString(w, "["+assets+"]")
+		default:
+			http.NotFound(w, r)
+		}
 	}))
 	t.Cleanup(srv.Close)
 	old := githubAPI

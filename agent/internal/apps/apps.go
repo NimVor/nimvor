@@ -55,9 +55,9 @@ var DefaultSources = Sources{WordPressURL: "https://wordpress.org/latest.tar.gz"
 
 const maxDownload = 512 << 20
 
-// userAgent identifies NimVor in a form download servers accept (some refuse
-// a bare product name).
-const userAgent = "Mozilla/5.0 (X11; Linux x86_64) NimVor/1.0 (+https://github.com/NimVor/nimvor)"
+// userAgent identifies NimVor. A bare product name keeps SourceForge (Dolibarr)
+// answering with the file instead of a web page for browsers.
+const userAgent = "NimVor"
 
 // DB holds database credentials for the application.
 type DB struct {
@@ -97,8 +97,8 @@ type AppDef struct {
 var Catalog = map[string]AppDef{
 	"joomla":     {Name: "Joomla", GitHub: "joomla/joomla-cms", AssetRe: `Full_Package\.tar\.gz$`, Format: "targz", Strip: 0, Ext: []string{"mysqli", "json", "mbstring", "xml", "zip", "gd"}, Finish: "/installation/"},
 	"drupal":     {Name: "Drupal", URL: "https://www.drupal.org/download-latest/tar.gz", Format: "targz", Strip: 1, Ext: []string{"pdo_mysql", "gd", "xml", "mbstring"}, Finish: "/core/install.php"},
-	"phpbb":      {Name: "phpBB", URL: "https://download.phpbb.com/pub/release/3.3/latest/phpBB-latest.tar.bz2", Format: "tarbz2", Strip: 1, Ext: []string{"mysqli", "json", "gd"}, Finish: "/install/"},
-	"smf":        {Name: "SMF (Simple Machines Forum)", URL: "https://download.simplemachines.org/index.php?thanks;filename=smf_latest_install.tar.gz", Format: "targz", Strip: 0, Ext: []string{"mysqli", "gd"}, Finish: "/install.php"},
+	"phpbb":      {Name: "phpBB", GitHub: "phpbb/phpbb", AssetRe: `^phpBB-[0-9.]+\.tar\.bz2$`, Format: "tarbz2", Strip: 1, Ext: []string{"mysqli", "json", "gd"}, Finish: "/install/"},
+	"smf":        {Name: "SMF (Simple Machines Forum)", GitHub: "SimpleMachines/SMF2.1", AssetRe: `install\.tar\.gz$`, Format: "targz", Strip: 0, Ext: []string{"mysqli", "gd"}, Finish: "/install.php"},
 	"prestashop": {Name: "PrestaShop", GitHub: "PrestaShop/PrestaShop", AssetRe: `^prestashop_[0-9.]+\.zip$`, Format: "zip", Strip: 0, Ext: []string{"pdo_mysql", "gd", "intl", "zip", "curl"}, Finish: "/index.php"},
 	"opencart":   {Name: "OpenCart", GitHub: "opencart/opencart", AssetRe: `^opencart-[0-9.]+\.zip$`, Format: "zip", Strip: 0, DocRoot: "upload", Ext: []string{"mysqli", "gd", "curl", "zip"}, Finish: "/install/"},
 	"abantecart": {Name: "AbanteCart", URL: "https://github.com/abantecart/abantecart-src/archive/refs/heads/master.tar.gz", Format: "targz", Strip: 1, DocRoot: "public_html", Ext: []string{"mysqli", "gd", "curl", "zip"}, Finish: "/install/"},
@@ -129,7 +129,7 @@ var Catalog = map[string]AppDef{
 	// More CMS, business, finance
 	"kirby":          {Name: "Kirby", Package: "getkirby/plainkit", NoDB: true, Ext: []string{"mbstring", "gd", "curl", "ctype", "dom", "json", "libxml"}, Finish: "/panel"},
 	"craft":          {Name: "Craft CMS", Package: "craftcms/craft", DocRoot: "web", Ext: []string{"pdo_mysql", "gd", "intl", "mbstring", "xml", "curl", "zip", "bcmath", "dom"}, Finish: "/admin/install"},
-	"invoiceninja":   {Name: "Invoice Ninja", GitHub: "invoiceninja/invoiceninja", AssetRe: `^invoiceninja.*\.zip$`, Format: "zip", Strip: 1, DocRoot: "public", Ext: []string{"pdo_mysql", "gd", "mbstring", "xml", "curl", "zip", "bcmath", "intl", "fileinfo"}, Finish: "/setup"},
+	"invoiceninja":   {Name: "Invoice Ninja", GitHub: "invoiceninja/invoiceninja", AssetRe: `^invoiceninja\.tar\.gz$`, Format: "targz", Strip: 1, DocRoot: "public", Ext: []string{"pdo_mysql", "gd", "mbstring", "xml", "curl", "zip", "bcmath", "intl", "fileinfo"}, Finish: "/setup"},
 	"facturascripts": {Name: "FacturaScripts", URL: "https://facturascripts.com/DownloadBuild/1/stable", Format: "zip", Strip: 1, Ext: []string{"mysqli", "gd", "mbstring", "xml", "curl", "zip", "openssl"}, Finish: "/"},
 	// Media, marketing
 	"piwigo": {Name: "Piwigo", URL: "https://piwigo.org/download/dlcounter.php?code=latest", Format: "zip", Strip: 1, Ext: []string{"mysqli", "gd", "mbstring", "exif", "json", "zip"}, Finish: "/install.php"},
@@ -746,36 +746,66 @@ func ResolveURL(ctx context.Context, client *http.Client, def AppDef) (string, e
 	if err != nil {
 		return "", err
 	}
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, githubAPI+"/repos/"+def.GitHub+"/releases/latest", nil)
+	var names []string
+	// The latest release first; some projects publish their files on an
+	// earlier release (or not on GitHub at all), so look through a few.
+	for _, path := range []string{"/releases/latest", "/releases?per_page=15"} {
+		releases, err := githubReleases(ctx, client, def, path)
+		if err != nil {
+			return "", err
+		}
+		for _, rel := range releases {
+			if rel.Draft || rel.Prerelease {
+				continue
+			}
+			for _, a := range rel.Assets {
+				if len(names) < 20 {
+					names = append(names, a.Name)
+				}
+				if re.MatchString(a.Name) && strings.HasPrefix(a.URL, "https://github.com/"+def.GitHub+"/releases/download/") {
+					return a.URL, nil
+				}
+			}
+		}
+	}
+	return "", fmt.Errorf("no recent %s release has a download matching %s (assets seen: %s)", def.Name, def.AssetRe, strings.Join(names, ", "))
+}
+
+type githubRelease struct {
+	Draft      bool `json:"draft"`
+	Prerelease bool `json:"prerelease"`
+	Assets     []struct {
+		Name string `json:"name"`
+		URL  string `json:"browser_download_url"`
+	} `json:"assets"`
+}
+
+// githubReleases reads one release (…/releases/latest) or a list of them.
+func githubReleases(ctx context.Context, client *http.Client, def AppDef, path string) ([]githubRelease, error) {
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, githubAPI+"/repos/"+def.GitHub+path, nil)
 	req.Header.Set("User-Agent", userAgent)
 	req.Header.Set("Accept", "application/vnd.github+json")
 	res, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("the latest %s release could not be looked up: %v", def.Name, err)
+		return nil, fmt.Errorf("the latest %s release could not be looked up: %v", def.Name, err)
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("the latest %s release could not be looked up: HTTP %d", def.Name, res.StatusCode)
+		return nil, fmt.Errorf("the latest %s release could not be looked up: HTTP %d", def.Name, res.StatusCode)
 	}
-	var rel struct {
-		Assets []struct {
-			Name string `json:"name"`
-			URL  string `json:"browser_download_url"`
-		} `json:"assets"`
-	}
-	if err := json.NewDecoder(io.LimitReader(res.Body, 4<<20)).Decode(&rel); err != nil {
-		return "", fmt.Errorf("the latest %s release could not be read: %v", def.Name, err)
-	}
-	var names []string
-	for _, a := range rel.Assets {
-		if len(names) < 20 {
-			names = append(names, a.Name)
+	body := io.LimitReader(res.Body, 8<<20)
+	if strings.HasSuffix(path, "/latest") {
+		var one githubRelease
+		if err := json.NewDecoder(body).Decode(&one); err != nil {
+			return nil, fmt.Errorf("the latest %s release could not be read: %v", def.Name, err)
 		}
-		if re.MatchString(a.Name) && strings.HasPrefix(a.URL, "https://github.com/"+def.GitHub+"/releases/download/") {
-			return a.URL, nil
-		}
+		return []githubRelease{one}, nil
 	}
-	return "", fmt.Errorf("the latest %s release has no download matching %s (assets: %s)", def.Name, def.AssetRe, strings.Join(names, ", "))
+	var many []githubRelease
+	if err := json.NewDecoder(body).Decode(&many); err != nil {
+		return nil, fmt.Errorf("the %s releases could not be read: %v", def.Name, err)
+	}
+	return many, nil
 }
 
 // installStaged downloads def's archive (verified against its checksum when
