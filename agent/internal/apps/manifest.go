@@ -172,7 +172,7 @@ var strategies = map[string]strategyInfo{
 	"wordpress":        {Runtimes: []string{"php"}, Sources: []string{"url"}, Implemented: true},
 	"wordpress-plugin": {Runtimes: []string{"php"}, Sources: []string{"url"}, Implemented: true},
 	"laravel":          {Runtimes: []string{"php"}, Sources: []string{"composer"}, Implemented: true},
-	"binary-service":   {Runtimes: []string{"binary"}, Sources: []string{"url", "github-release"}, Service: true, ExecutesDownload: true},
+	"binary-service":   {Runtimes: []string{"binary"}, Sources: []string{"url", "github-release"}, Service: true, ExecutesDownload: true, Implemented: true},
 	"python-venv":      {Runtimes: []string{"python"}, Sources: []string{"pypi"}, Service: true},
 }
 
@@ -542,6 +542,7 @@ func builtinManifests() []Manifest {
 			License: LicenseSpec{SPDX: "NOASSERTION"}, Verified: "legacy",
 		})
 	}
+	out = append(out, nativeManifests()...)
 	return out
 }
 

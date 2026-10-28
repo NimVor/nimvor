@@ -13,6 +13,7 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/actions"
 	"github.com/NimVor/nimvor/agent/internal/execx"
 	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/workers"
 )
 
 // A Plan is what installing an application would do, worked out without
@@ -110,6 +111,16 @@ func BuildPlan(ctx context.Context, env *host.Env, r Request, cred *execx.Creden
 			missing, err := missingPHPExtensions(ctx, env, "php"+r.PHPVersion, cred, r.Root, m.Runtime.Extensions)
 			check("PHP extensions are installed", err == nil, "missing: "+missing)
 		}
+	}
+	for _, pkg := range m.Runtime.OSPackages {
+		if pkg == "git" {
+			check("git is installed", env.Runner.Available("git"), m.Name+" needs git on the server")
+		}
+	}
+	if m.Service != nil {
+		check("The application's port is free", r.Port > 0 && portFree(r.Port), fmt.Sprintf("something already listens on 127.0.0.1:%d", r.Port))
+		unit := filepath.Join(env.M.UnitDir, workers.Unit(r.ServiceSlug))
+		check("The service name is unused", r.ServiceSlug != "" && !env.Root.Exists(unit), fmt.Sprintf("a service called %s already exists", r.ServiceSlug))
 	}
 	if len(m.Compat.Arch) > 0 {
 		check("CPU architecture is supported", contains(m.Compat.Arch, runtime.GOARCH), fmt.Sprintf("%s runs on %s, this server is %s", m.Name, strings.Join(m.Compat.Arch, ", "), runtime.GOARCH))

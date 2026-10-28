@@ -191,12 +191,106 @@ func (s Spec) unit(script string, instance int) string {
 	return b.String()
 }
 
+// Apply creates or updates a worker service and starts or stops it, exactly as
+// the workers.apply action does; the installer uses it to supervise the
+// applications it installs (so they are ordinary workers: listed, restarted
+// and removed through the same pages).
+func Apply(ctx context.Context, env *host.Env, s Spec) (any, error) {
+	scriptPath := func(slug string) string { return filepath.Join(host.WorkersDir, slug+".sh") }
+	legacyPath := func(slug string) string { return filepath.Join(env.Cfg.StateDir, "workers", slug+".sh") }
+	unitFile := func(unit string) string { return filepath.Join(env.M.UnitDir, unit) }
+	if err := s.validate(env); err != nil {
+		return nil, host.Invalid(err)
+	}
+	cred, _, err := env.Credential(s.User)
+	if err != nil {
+		return nil, actions.InvalidParams("user: " + err.Error())
+	}
+	s.slice = env.AccountSlice(s.User)
+	want := procUnits(s.Slug, s.Procs)
+	// Copies that used to run but are no longer wanted: stop and disable
+	// them before their unit files are removed.
+	for n := s.Procs + 1; n <= MaxProcs; n++ {
+		if u := unitN(s.Slug, n); env.Root.Exists(unitFile(u)) {
+			_ = env.Systemctl(ctx, "stop", u)
+			_ = env.Systemctl(ctx, "disable", u)
+		}
+	}
+	set := env.Changes("worker-" + s.Slug)
+	set.Mkdir(host.WorkersDir, 0o711, agentfs.RootOwner)
+	set.Write(scriptPath(s.Slug), []byte(s.script()), 0o640, agentfs.Owner{UID: 0, GID: int(cred.GID)})
+	set.Remove(legacyPath(s.Slug))
+	for n, u := range want {
+		set.Write(unitFile(u), []byte(s.unit(scriptPath(s.Slug), n+1)), 0o644, agentfs.RootOwner)
+	}
+	for n := s.Procs + 1; n <= MaxProcs; n++ {
+		set.Remove(unitFile(unitN(s.Slug, n)))
+	}
+	a, err := set.Apply()
+	if err != nil {
+		return nil, host.FailWithValidation("The worker was not saved", err)
+	}
+	if len(a.Changed) > 0 {
+		if err := env.DaemonReload(ctx); err != nil {
+			_ = a.Rollback()
+			_ = env.DaemonReload(ctx)
+			return nil, actions.Failed("systemd rejected the worker unit.", err.Error())
+		}
+	}
+	changed := map[string]bool{}
+	for _, c := range a.Changed {
+		changed[c] = true
+	}
+	for _, u := range want {
+		if s.Enabled {
+			if err := env.Systemctl(ctx, "enable", u); err != nil {
+				return nil, actions.Failed("The worker could not be enabled.", err.Error())
+			}
+			// Restart a copy whose unit changed or is not running; leave an
+			// unchanged, already-running copy alone.
+			if changed[unitFile(u)] || !env.UnitActive(ctx, u) {
+				if err := env.Systemctl(ctx, "restart", u); err != nil {
+					return nil, actions.Failed("The worker did not start. Check its log.", err.Error())
+				}
+			}
+		} else {
+			_ = env.Systemctl(ctx, "stop", u)
+			_ = env.Systemctl(ctx, "disable", u)
+		}
+	}
+	return map[string]any{"unit": Unit(s.Slug), "units": want, "changed": a.Changed, "active": env.UnitActive(ctx, Unit(s.Slug))}, nil
+}
+
+// Remove stops a worker and all its copies and deletes its files, exactly as
+// the workers.remove action does.
+func Remove(ctx context.Context, env *host.Env, slug string) (any, error) {
+	scriptPath := func(slug string) string { return filepath.Join(host.WorkersDir, slug+".sh") }
+	legacyPath := func(slug string) string { return filepath.Join(env.Cfg.StateDir, "workers", slug+".sh") }
+	unitFile := func(unit string) string { return filepath.Join(env.M.UnitDir, unit) }
+	if err := validate.Slug("slug", slug); err != nil {
+		return nil, host.Invalid(err)
+	}
+	set := env.Changes("worker-remove-" + slug)
+	for n := 1; n <= MaxProcs; n++ {
+		u := unitN(slug, n)
+		if !env.Root.Exists(unitFile(u)) {
+			continue
+		}
+		_ = env.Systemctl(ctx, "stop", u)
+		_ = env.Systemctl(ctx, "disable", u)
+		set.Remove(unitFile(u))
+	}
+	set.Remove(scriptPath(slug))
+	set.Remove(legacyPath(slug))
+	if _, err := set.Apply(); err != nil {
+		return nil, host.FailWithValidation("The worker was not removed", err)
+	}
+	_ = env.DaemonReload(ctx)
+	return map[string]any{"removed": Unit(slug)}, nil
+}
+
 // Register adds worker actions.
 func Register(r *actions.Registry, env *host.Env) {
-	scriptPath := func(slug string) string { return filepath.Join(host.WorkersDir, slug+".sh") }
-	// Before 1.0.0 launchers were written to the state directory, where the
-	// account could not read them (the worker never started).
-	legacyPath := func(slug string) string { return filepath.Join(env.Cfg.StateDir, "workers", slug+".sh") }
 	unitFile := func(unit string) string { return filepath.Join(env.M.UnitDir, unit) }
 	// presentUnits lists the worker's unit files that exist on disk (the
 	// primary plus any extra copies), used to act on all of them without
@@ -216,66 +310,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		if err := host.Decode(p, &s); err != nil {
 			return nil, err
 		}
-		if err := s.validate(env); err != nil {
-			return nil, host.Invalid(err)
-		}
-		cred, _, err := env.Credential(s.User)
-		if err != nil {
-			return nil, actions.InvalidParams("user: " + err.Error())
-		}
-		s.slice = env.AccountSlice(s.User)
-		want := procUnits(s.Slug, s.Procs)
-		// Copies that used to run but are no longer wanted: stop and disable
-		// them before their unit files are removed.
-		for n := s.Procs + 1; n <= MaxProcs; n++ {
-			if u := unitN(s.Slug, n); env.Root.Exists(unitFile(u)) {
-				_ = env.Systemctl(ctx, "stop", u)
-				_ = env.Systemctl(ctx, "disable", u)
-			}
-		}
-		set := env.Changes("worker-" + s.Slug)
-		set.Mkdir(host.WorkersDir, 0o711, agentfs.RootOwner)
-		set.Write(scriptPath(s.Slug), []byte(s.script()), 0o640, agentfs.Owner{UID: 0, GID: int(cred.GID)})
-		set.Remove(legacyPath(s.Slug))
-		for n, u := range want {
-			set.Write(unitFile(u), []byte(s.unit(scriptPath(s.Slug), n+1)), 0o644, agentfs.RootOwner)
-		}
-		for n := s.Procs + 1; n <= MaxProcs; n++ {
-			set.Remove(unitFile(unitN(s.Slug, n)))
-		}
-		a, err := set.Apply()
-		if err != nil {
-			return nil, host.FailWithValidation("The worker was not saved", err)
-		}
-		if len(a.Changed) > 0 {
-			if err := env.DaemonReload(ctx); err != nil {
-				_ = a.Rollback()
-				_ = env.DaemonReload(ctx)
-				return nil, actions.Failed("systemd rejected the worker unit.", err.Error())
-			}
-		}
-		changed := map[string]bool{}
-		for _, c := range a.Changed {
-			changed[c] = true
-		}
-		for _, u := range want {
-			if s.Enabled {
-				if err := env.Systemctl(ctx, "enable", u); err != nil {
-					return nil, actions.Failed("The worker could not be enabled.", err.Error())
-				}
-				// Restart a copy whose unit changed or is not running; leave an
-				// unchanged, already-running copy alone.
-				if changed[unitFile(u)] || !env.UnitActive(ctx, u) {
-					if err := env.Systemctl(ctx, "restart", u); err != nil {
-						return nil, actions.Failed("The worker did not start. Check its log.", err.Error())
-					}
-				}
-			} else {
-				_ = env.Systemctl(ctx, "stop", u)
-				_ = env.Systemctl(ctx, "disable", u)
-			}
-		}
-		return map[string]any{"unit": Unit(s.Slug), "units": want, "changed": a.Changed, "active": env.UnitActive(ctx, Unit(s.Slug))}, nil
+		return Apply(ctx, env, s)
 	}})
 
 	r.Register(actions.Action{Name: "workers.remove", Mutating: true, Description: "Stop and remove a worker service and all its copies.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
@@ -285,26 +320,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		if err := host.Decode(p, &in); err != nil {
 			return nil, err
 		}
-		if err := validate.Slug("slug", in.Slug); err != nil {
-			return nil, host.Invalid(err)
-		}
-		set := env.Changes("worker-remove-" + in.Slug)
-		for n := 1; n <= MaxProcs; n++ {
-			u := unitN(in.Slug, n)
-			if !env.Root.Exists(unitFile(u)) {
-				continue
-			}
-			_ = env.Systemctl(ctx, "stop", u)
-			_ = env.Systemctl(ctx, "disable", u)
-			set.Remove(unitFile(u))
-		}
-		set.Remove(scriptPath(in.Slug))
-		set.Remove(legacyPath(in.Slug))
-		if _, err := set.Apply(); err != nil {
-			return nil, host.FailWithValidation("The worker was not removed", err)
-		}
-		_ = env.DaemonReload(ctx)
-		return map[string]any{"removed": Unit(in.Slug)}, nil
+		return Remove(ctx, env, in.Slug)
 	}})
 
 	r.Register(actions.Action{Name: "workers.restart", Mutating: true, Description: "Restart a running worker service (all its copies).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {

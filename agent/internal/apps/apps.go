@@ -49,10 +49,17 @@ type Sources struct {
 	// CatalogBase/<app>.<ext> (and its checksum with CatalogBase/<app>.sum).
 	// Used by tests to serve archives locally.
 	CatalogBase string
+	// GiteaDL and GiteaGitHub are the two places Gitea publishes a release
+	// and its checksum (a download server and the GitHub release assets).
+	GiteaDL     string
+	GiteaGitHub string
 }
 
 // DefaultSources are the official download locations.
-var DefaultSources = Sources{WordPressURL: "https://wordpress.org/latest.tar.gz", Client: &http.Client{Timeout: 15 * time.Minute}}
+var DefaultSources = Sources{
+	WordPressURL: "https://wordpress.org/latest.tar.gz", Client: &http.Client{Timeout: 15 * time.Minute},
+	GiteaDL: "https://dl.gitea.com/gitea", GiteaGitHub: "https://github.com/go-gitea/gitea/releases/download",
+}
 
 const maxDownload = 512 << 20
 
@@ -161,6 +168,11 @@ type Request struct {
 	Plugins []string `json:"plugins"`
 	// Laravel
 	Migrate bool `json:"migrate"`
+	// Native applications (programs supervised as a worker behind the reverse
+	// proxy): the loopback port the website's proxy points at, and the worker
+	// slug the panel reserved for the service.
+	Port        int    `json:"port"`
+	ServiceSlug string `json:"service_slug"`
 	// AllowTesting lets an application in testing status be installed. The
 	// panel sets it only for administrators; every other status that is not
 	// enabled is refused whatever the request says.
@@ -198,7 +210,8 @@ var (
 
 func (r *Request) validate(env *host.Env) error {
 	_, staged := Catalog[r.App]
-	if r.App != "wordpress" && r.App != "laravel" && !staged {
+	_, native := nativeApps[r.App]
+	if r.App != "wordpress" && r.App != "laravel" && !staged && !native {
 		return &validate.Error{Field: "app", Message: "unknown application"}
 	}
 	if err := validate.Domain("domain", r.Domain); err != nil {
@@ -222,6 +235,19 @@ func (r *Request) validate(env *host.Env) error {
 	switch strings.Split(filepath.Clean(r.Path), "/")[0] {
 	case "logs", "tmp", "backups", ".ssh":
 		return &validate.Error{Field: "path", Message: "cannot install into " + r.Path}
+	}
+	if native {
+		// No PHP, no MySQL: a loopback port and a worker slug instead.
+		if r.Port < 1024 || r.Port > 65535 {
+			return &validate.Error{Field: "port", Message: "must be a port between 1024 and 65535"}
+		}
+		if err := validate.Slug("service_slug", r.ServiceSlug); err != nil {
+			return err
+		}
+		if !urlRe.MatchString(r.URL) {
+			return &validate.Error{Field: "url", Message: "must be the website address, e.g. https://example.com"}
+		}
+		return nil
 	}
 	if err := validate.PHPVersion("php_version", r.PHPVersion); err != nil {
 		return err
@@ -606,6 +632,9 @@ echo "Configured .env\n";
 func Install(ctx context.Context, env *host.Env, src Sources, r Request, cred *execx.Credential, log io.Writer) (map[string]any, error) {
 	root, _ := env.Root.Path(r.Root)
 	target := filepath.Join(root, r.Path)
+	if n, ok := nativeApps[r.App]; ok {
+		return n.install(ctx, env, src, r, cred, log)
+	}
 	php := "php" + r.PHPVersion
 	as := func(dir string, extraEnv []string, stdin string) execx.Opts {
 		o := execx.Opts{As: cred, Dir: dir, Output: log, Env: extraEnv, Timeout: 20 * time.Minute}
@@ -779,8 +808,9 @@ func ResolveURL(ctx context.Context, client *http.Client, def AppDef) (string, e
 }
 
 type githubRelease struct {
-	Draft      bool `json:"draft"`
-	Prerelease bool `json:"prerelease"`
+	TagName    string `json:"tag_name"`
+	Draft      bool   `json:"draft"`
+	Prerelease bool   `json:"prerelease"`
 	Assets     []struct {
 		Name string `json:"name"`
 		URL  string `json:"browser_download_url"`

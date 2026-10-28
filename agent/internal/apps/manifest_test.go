@@ -101,19 +101,32 @@ func TestStatusGates(t *testing.T) {
 		t.Fatalf("a verified manifest can be enabled: %v", errs)
 	}
 	// A strategy the agent does not implement can only be a draft.
-	b := goodManifest()
-	b.Strategy, b.Runtime = "binary-service", RuntimeSpec{Type: "binary"}
-	b.Service = &ServiceSpec{Type: "worker", Proxy: true}
-	b.Health = HealthSpec{Type: "http", Path: "/healthz"}
-	b.Status = StatusTesting
-	if errs := b.Validate(); !hasError(errs, "not implemented yet") {
-		t.Errorf("an unimplemented strategy cannot be testing: %v", errs)
-	}
-	b.Status = StatusDraft
-	if errs := b.Validate(); len(errs) != 0 {
-		t.Errorf("but it can be a draft: %v", errs)
+	p := goodManifest()
+	p.Strategy, p.Runtime = "python-venv", RuntimeSpec{Type: "python", Min: "3.10"}
+	p.Source = SourceSpec{Kind: "pypi", Package: "fastapi", Integrity: "https-only", IntegrityNote: "pip verifies nothing beyond TLS"}
+	p.Service = &ServiceSpec{Type: "worker", Proxy: true}
+	p.Health = HealthSpec{Type: "http", Path: "/healthz"}
+	p.Database = DatabaseSpec{Type: "none"}
+	p.Status = StatusTesting
+	if !StrategyImplemented("python-venv") {
+		if errs := p.Validate(); !hasError(errs, "not implemented yet") {
+			t.Errorf("an unimplemented strategy cannot be testing: %v", errs)
+		}
+		p.Status = StatusDraft
+		if errs := p.Validate(); len(errs) != 0 {
+			t.Errorf("but it can be a draft: %v", errs)
+		}
 	}
 	// A downloaded program must be verified by a checksum or signature.
+	b := goodManifest()
+	b.Strategy, b.Runtime = "binary-service", RuntimeSpec{Type: "binary"}
+	b.Database = DatabaseSpec{Type: "sqlite"}
+	b.Service = &ServiceSpec{Type: "worker", Proxy: true}
+	b.Health = HealthSpec{Type: "http", Path: "/healthz"}
+	b.Status = StatusDraft
+	if errs := b.Validate(); len(errs) != 0 {
+		t.Errorf("a binary service with a checksum is valid: %v", errs)
+	}
 	b.Source.Integrity, b.Source.IntegrityNote = "https-only", "nothing published"
 	if errs := b.Validate(); !hasError(errs, "needs a checksum or signature") {
 		t.Errorf("an executable download needs more than https: %v", errs)
