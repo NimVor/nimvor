@@ -16,7 +16,7 @@ $desc = $v->meta('description', 'NimVor is a free, open-source hosting control p
     <meta property="og:description" content="<?= e($desc) ?>">
     <meta property="og:type" content="website">
     <meta property="og:url" content="<?= e($siteUrl . $path) ?>">
-    <meta name="theme-color" content="#0a1020">
+    <meta name="theme-color" content="#f7f4ec">
     <link rel="icon" href="<?= e($v->asset('img/logo.svg')) ?>" type="image/svg+xml">
     <link rel="stylesheet" href="<?= e($v->asset('css/site.css')) ?>">
     <script src="<?= e($v->asset('js/site.js')) ?>" defer></script>
@@ -31,5 +31,6 @@ $desc = $v->meta('description', 'NimVor is a free, open-source hosting control p
     <?= $content ?>
 </main>
 <?= $v->partial('partials/footer') ?>
+<a class="chat-fab" href="/support/contact" aria-label="Contact us"><?= $v->icon('chat', 26) ?></a>
 </body>
 </html>

@@ -3,7 +3,7 @@
     <div class="container">
         <div class="footer-grid">
             <div>
-                <a class="brand" href="/"><img src="<?= e($v->asset('img/logo.svg')) ?>" width="34" height="34" alt="">NimVor</a>
+                <a class="brand" href="/"><img src="<?= e($v->asset('img/logo.svg')) ?>" width="36" height="36" alt="">NimVor</a>
                 <p class="mt-2 maxw-34">A free, open-source control panel for Linux servers. Every privileged change is explicit, validated, audited and reversible.</p>
             </div>
             <div>

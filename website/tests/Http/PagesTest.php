@@ -12,7 +12,7 @@ final class PagesTest extends SiteTestCase
     public static function pages(): array
     {
         return [
-            'home' => ['/', 'checks before it'],
+            'home' => ['/', 'in your hands'],
             'features' => ['/features', 'Websites and applications'],
             'resources' => ['/resources', 'Build services'],
             'documentation' => ['/resources/documentation', 'Administrator commands'],

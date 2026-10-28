@@ -14,7 +14,7 @@ server with neither). No framework, no build step, no external fonts or scripts.
 
 | Area | What it does |
 |------|--------------|
-| Public pages | Server-rendered, original design, light and dark, works on phones. Pages that do not depend on who you are are cacheable and set no cookie. |
+| Public pages | Server-rendered, original editorial design (cream and sage paper, a deep-green section, one orange accent, oversized headlines, hairline rules), works on phones. Fonts (Inter, Inter Tight, IBM Plex Mono, SIL OFL) are served from `public/assets/fonts`, with their licences. Pages that do not depend on who you are are cacheable and set no cookie. |
 | Blog | Posts in the database, written under Admin, drafts, a small safe text format (headings, lists, bold, code, https links). |
 | Contact and build services | Forms stored in the database, with a hidden field for bots and a per-address limit. |
 | Sponsors | Added and removed by an administrator. |
