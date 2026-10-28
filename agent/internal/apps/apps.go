@@ -30,6 +30,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/NimVor/nimvor/agent/internal/actions"
@@ -160,6 +161,10 @@ type Request struct {
 	Plugins []string `json:"plugins"`
 	// Laravel
 	Migrate bool `json:"migrate"`
+	// AllowTesting lets an application in testing status be installed. The
+	// panel sets it only for administrators; every other status that is not
+	// enabled is refused whatever the request says.
+	AllowTesting bool `json:"allow_testing"`
 }
 
 // WPPlugins are the wordpress.org plugins an install may add (WooCommerce is
@@ -614,9 +619,7 @@ func Install(ctx context.Context, env *host.Env, src Sources, r Request, cred *e
 	if def, ok := Catalog[r.App]; ok {
 		need = def.Ext
 	}
-	check := fmt.Sprintf(`$m = array_filter(%s, fn ($e) => !extension_loaded($e)); if ($m) { echo implode(" ", $m); exit(1); }`, phpArray(need))
-	if out, err := env.Runner.RunWith(ctx, php, execx.Opts{As: cred, Dir: root, Timeout: time.Minute}, "-r", check); err != nil {
-		missing := strings.TrimSpace(string(out))
+	if missing, err := missingPHPExtensions(ctx, env, php, cred, root, need); err != nil {
 		return nil, fmt.Errorf("PHP %s is missing extensions: %s. Install them under PHP and try again", r.PHPVersion, missing)
 	}
 	mkdir := fmt.Sprintf("umask 027 && mkdir -p %s", shQuote(target))
@@ -812,6 +815,57 @@ func githubReleases(ctx context.Context, client *http.Client, def AppDef, path s
 	return many, nil
 }
 
+// missingPHPExtensions runs a read-only check as the site account and returns
+// the extensions that are not loaded (an error when any is missing).
+func missingPHPExtensions(ctx context.Context, env *host.Env, php string, cred *execx.Credential, root string, need []string) (string, error) {
+	check := fmt.Sprintf(`$m = array_filter(%s, fn ($e) => !extension_loaded($e)); if ($m) { echo implode(" ", $m); exit(1); }`, phpArray(need))
+	out, err := env.Runner.RunWith(ctx, php, execx.Opts{As: cred, Dir: root, Timeout: time.Minute}, "-r", check)
+	if err != nil {
+		return strings.TrimSpace(string(out)), err
+	}
+	return "", nil
+}
+
+// checkInstallable refuses an application whose manifest does not validate or
+// whose status does not allow this installation.
+func checkInstallable(r Request) error {
+	m, ok := ManifestFor(r.App)
+	if !ok {
+		return fmt.Errorf("unknown application")
+	}
+	if errs := m.Validate(); len(errs) > 0 {
+		return fmt.Errorf("%s has an invalid catalog entry and cannot be installed: %s", m.Name, strings.Join(errs, "; "))
+	}
+	if !m.Status.Installable(r.AllowTesting) {
+		return fmt.Errorf("%s cannot be installed right now (its status is %s)", m.Name, m.Status)
+	}
+	return nil
+}
+
+// installClaims makes an installation target (website and folder) belong to
+// one request at a time: a second request for the same target is refused
+// before it can create a database or start a job.
+var installClaims = struct {
+	sync.Mutex
+	held map[string]bool
+}{held: map[string]bool{}}
+
+func claimInstall(key string) bool {
+	installClaims.Lock()
+	defer installClaims.Unlock()
+	if installClaims.held[key] {
+		return false
+	}
+	installClaims.held[key] = true
+	return true
+}
+
+func releaseInstall(key string) {
+	installClaims.Lock()
+	delete(installClaims.held, key)
+	installClaims.Unlock()
+}
+
 // installStaged downloads def's archive (verified against its checksum when
 // the vendor publishes one), unpacks it into target, and hands off to the
 // application's own web installer. The database has already been created by
@@ -928,6 +982,9 @@ func Register(r *actions.Registry, env *host.Env) {
 		if err := in.validate(env); err != nil {
 			return nil, host.Invalid(err)
 		}
+		if err := checkInstallable(in); err != nil {
+			return nil, actions.Conflict(err.Error())
+		}
 		cred, _, err := env.Credential(in.User)
 		if err != nil {
 			return nil, actions.InvalidParams("user: " + err.Error())
@@ -939,9 +996,21 @@ func Register(r *actions.Registry, env *host.Env) {
 		if !empty {
 			return nil, actions.Conflict(fmt.Sprintf("The folder %s is not empty. Choose an empty folder, or remove its files first.", in.Path))
 		}
+		// One installation per website and folder at a time.
+		key := in.Domain + "|" + filepath.Clean(in.Path)
+		if !claimInstall(key) {
+			return nil, actions.Conflict(fmt.Sprintf("An installation into %s is already in progress.", in.Path))
+		}
 		j := env.Jobs.Start("apps.install", "site:"+in.Domain, func(ctx context.Context, log io.Writer) (any, error) {
+			defer releaseInstall(key)
+			// Look again now that the job holds the website's lock: an earlier
+			// job for this website may have filled the folder since the request.
+			if empty, err := emptyTarget(env, in, filepath.Join(in.Root, in.Path)); err != nil || !empty {
+				return nil, fmt.Errorf("the folder %s is no longer empty; nothing was changed", in.Path)
+			}
 			return Install(ctx, env, DefaultSources, in, cred, log)
 		})
 		return map[string]any{"job_id": j.ID}, nil
 	}})
+	registerPlan(r, env)
 }
