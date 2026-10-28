@@ -14,18 +14,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/cron"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/database"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/firewall"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/nginx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/php"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/redis"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/ssl"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/systemd"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/users"
+	"github.com/NimVor/nimvor/agent/internal/cron"
+	"github.com/NimVor/nimvor/agent/internal/database"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/firewall"
+	"github.com/NimVor/nimvor/agent/internal/nginx"
+	"github.com/NimVor/nimvor/agent/internal/php"
+	"github.com/NimVor/nimvor/agent/internal/platform"
+	"github.com/NimVor/nimvor/agent/internal/redis"
+	"github.com/NimVor/nimvor/agent/internal/ssl"
+	"github.com/NimVor/nimvor/agent/internal/systemd"
+	"github.com/NimVor/nimvor/agent/internal/users"
 )
 
 // PHPBinding links a website to PHP-FPM.
@@ -144,7 +144,7 @@ func (s Service) Users() ([]users.User, error) {
 // Firewall returns firewall state.
 func (s Service) Firewall() firewall.Status { return firewall.Detect(s.Root, s.Platform.Paths()) }
 
-// ServiceUnits returns the units WhaCP reports on: core services plus
+// ServiceUnits returns the units NimVor reports on: core services plus
 // every PHP-FPM unit present on the host.
 func (s Service) ServiceUnits() []string {
 	paths := s.Platform.Paths()
@@ -389,10 +389,10 @@ func managedBy(w *Website) string {
 		return "HestiaCP"
 	case strings.Contains(joined, "/usr/local/lsws") || strings.Contains(joined, "cyberpanel"):
 		return "CyberPanel"
-	case strings.Contains(joined, "whacp-webmail"):
-		return "WhaCP (webmail)"
-	case strings.Contains(joined, "whacp-"):
-		return "WhaCP"
+	case strings.Contains(joined, "nimvor-webmail"):
+		return "NimVor (webmail)"
+	case strings.Contains(joined, "nimvor-"):
+		return "NimVor"
 	}
 	return ""
 }

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Repositories;
+namespace NimVor\Repositories;
 
-use WhaCP\Database\Connection;
-use WhaCP\Hosting\Scope;
+use NimVor\Database\Connection;
+use NimVor\Hosting\Scope;
 
 final class DatabaseRepository
 {
@@ -106,6 +106,12 @@ final class DatabaseRepository
             return;
         }
         $this->db->run('INSERT INTO database_grants (database_id, user_id, privileges) VALUES (?, ?, ?) ON CONFLICT(database_id, user_id) DO UPDATE SET privileges = excluded.privileges', [$databaseId, $userId, $privileges]);
+    }
+
+    /** @return list<int> */
+    public function userIdsOf(int $databaseId): array
+    {
+        return array_map(static fn (array $r): int => (int) $r['user_id'], $this->db->fetchAll('SELECT user_id FROM database_grants WHERE database_id = ?', [$databaseId]));
     }
 
     public function deleteDatabase(int $id): void

@@ -11,13 +11,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/config"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/config"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/jobs"
+	"github.com/NimVor/nimvor/agent/internal/platform"
 )
 
 // Requires root and a running MariaDB/MySQL: anonymous accounts are removed,
@@ -37,11 +37,11 @@ func TestRealHostDropAnonymousUsers(t *testing.T) {
 	if _, err := c.Query(ctx, "SELECT 1;"); err != nil {
 		t.Skipf("no database server: %v", err)
 	}
-	if _, err := c.Query(ctx, "CREATE USER ''@'localhost'; CREATE USER 'whacpanonkeep'@'localhost';"); err != nil {
+	if _, err := c.Query(ctx, "CREATE USER ''@'localhost'; CREATE USER 'nimvoranonkeep'@'localhost';"); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		c.Query(ctx, "DROP USER IF EXISTS ''@'localhost'; DROP USER IF EXISTS 'whacpanonkeep'@'localhost';")
+		c.Query(ctx, "DROP USER IF EXISTS ''@'localhost'; DROP USER IF EXISTS 'nimvoranonkeep'@'localhost';")
 	})
 	r := actions.NewRegistry(true)
 	Register(r, env)
@@ -53,7 +53,7 @@ func TestRealHostDropAnonymousUsers(t *testing.T) {
 	if b, _ := json.Marshal(res); string(b) == `{"removed":[]}` {
 		t.Fatalf("nothing removed: %s", b)
 	}
-	rows, _ := c.Query(ctx, "SELECT COUNT(*) FROM mysql.user WHERE User = ''; SELECT COUNT(*) FROM mysql.user WHERE User = 'whacpanonkeep';")
+	rows, _ := c.Query(ctx, "SELECT COUNT(*) FROM mysql.user WHERE User = ''; SELECT COUNT(*) FROM mysql.user WHERE User = 'nimvoranonkeep';")
 	if len(rows) != 2 || rows[0][0] != "0" || rows[1][0] != "1" {
 		t.Fatalf("after: %v", rows)
 	}

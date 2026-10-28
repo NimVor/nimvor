@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Support;
+namespace NimVor\Tests\Support;
 
-use WhaCP\Security\WebAuthn;
+use NimVor\Security\WebAuthn;
 
 /**
  * A software WebAuthn authenticator for tests: creates credentials and

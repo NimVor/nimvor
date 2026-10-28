@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 // Router for PHP's built-in web server (development and the loopback-only
-// whacp-panel service). Serves existing static assets directly and sends
+// nimvor-panel service). Serves existing static assets directly and sends
 // everything else to index.php. Dotfiles and PHP files other than the front
 // controller are never served.
 

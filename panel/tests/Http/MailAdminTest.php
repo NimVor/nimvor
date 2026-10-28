@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Email administration: queue, delivery reports, statistics. */
 final class MailAdminTest extends HttpTestCase
@@ -33,7 +33,7 @@ final class MailAdminTest extends HttpTestCase
             'services' => [
                 ['unit' => 'postfix.service', 'name' => 'Postfix', 'active' => true, 'enabled' => true, 'version' => '3.8.6'],
                 ['unit' => 'dovecot.service', 'name' => 'Dovecot', 'active' => false, 'enabled' => true, 'version' => '2.3.21'],
-                ['unit' => 'whacp-opendkim.service', 'name' => 'OpenDKIM', 'active' => false, 'enabled' => false, 'version' => '', 'installed' => false],
+                ['unit' => 'nimvor-opendkim.service', 'name' => 'OpenDKIM', 'active' => false, 'enabled' => false, 'version' => '', 'installed' => false],
             ],
             'checks' => ['postfix' => '', 'dovecot' => 'doveconf: Error: <b>broken</b>'],
             'values' => ['postfix' => ['message_size_limit' => '52428800', 'maximal_queue_lifetime' => '5d', 'relayhost' => ''], 'dovecot' => ['login_greeting' => '']],
@@ -54,7 +54,7 @@ final class MailAdminTest extends HttpTestCase
         $this->login('admin');
         $page = $this->request('GET', '/mail/admin/tools', [], [], '', ['address' => ' Sales@shop.test '])->body();
         self::assertSame('Sales@shop.test', $this->lastCall('mail.trace')['address']);
-        foreach (['Forwarded to me@shop.test &lt;x&gt;.', 'wcp-trace-1', 'Repair mailbox permissions', 'Maildir'] as $want) {
+        foreach (['Forwarded to me@shop.test &lt;x&gt;.', 'nim-trace-1', 'Repair mailbox permissions', 'Maildir'] as $want) {
             self::assertStringContainsString($want, $page, $want);
         }
         self::assertSame(0, $this->calls('mail.repair_permissions'));
@@ -70,10 +70,18 @@ final class MailAdminTest extends HttpTestCase
         self::assertStringNotContainsString('Email is not set up on this server yet', $page, 'an agent without the field counts as set up');
         // Not set up yet: no Start button that can only fail.
         self::assertStringContainsString('created by Email → Set up and start', $page);
-        self::assertStringNotContainsString('name="unit" value="whacp-opendkim.service"', $page);
+        self::assertStringNotContainsString('name="unit" value="nimvor-opendkim.service"', $page);
         foreach (['3.8.6', 'Stopped', '&lt;b&gt;broken&lt;/b&gt;', 'name="postfix[message_size_limit]"', 'value="50"', 'status=sent &lt;x&gt;', 'value="start"', 'value="/mail/admin/server"'] as $want) {
             self::assertStringContainsString($want, $page, $want);
         }
+        // Services, Postfix, Dovecot and the log are tabs of one page (no reload);
+        // the settings controls belong to one form wherever their tab is.
+        foreach (['mail-services', 'mail-postfix', 'mail-dovecot', 'mail-log'] as $pane) {
+            self::assertStringContainsString('data-bs-target="#' . $pane . '"', $page, $pane);
+            self::assertStringContainsString('id="' . $pane . '" role="tabpanel"', $page, $pane);
+        }
+        self::assertStringContainsString('<form id="mail-settings"', $page);
+        self::assertMatchesRegularExpression('/<input[^>]*form="mail-settings"[^>]*name="postfix\[message_size_limit\]"/', $page);
         $this->post('/mail/admin/server', [
             'postfix' => ['message_size_limit' => '25', 'maximal_queue_lifetime' => '5', 'relayhost' => ''],
             'current' => ['message_size_limit' => '50', 'maximal_queue_lifetime' => '5', 'relayhost' => ''],
@@ -93,7 +101,7 @@ final class MailAdminTest extends HttpTestCase
     {
         $this->login('admin');
         $page = $this->request('GET', '/mail/admin/queue')->body();
-        foreach (['2 message(s) in the queue', '7506CE0062', 'Host or domain name not found', '(bounce)', 'data-wcp-confirm-submit'] as $want) {
+        foreach (['2 message(s) in the queue', '7506CE0062', 'Host or domain name not found', '(bounce)', 'data-nim-confirm-submit'] as $want) {
             self::assertStringContainsString($want, $page, $want);
         }
         $this->post('/mail/admin/queue', ['action' => 'delete', 'ids' => ['7506CE0062', 'bad id; rm']]);
@@ -104,7 +112,7 @@ final class MailAdminTest extends HttpTestCase
         self::assertStringContainsString('Select messages first', (string) $this->flash('error'));
         $json = json_decode($this->request('GET', '/mail/admin/queue/7506CE0062', [], ['accept' => 'application/json'])->body(), true);
         self::assertSame('Order <script>', $json['headers']['subject'], 'plain data; the page renders it as text');
-        self::assertSame('mail.queue_delete', $this->app->container->get(\WhaCP\Database\Connection::class)->scalar("SELECT action FROM audit_logs WHERE action = 'mail.queue_delete'"));
+        self::assertSame('mail.queue_delete', $this->app->container->get(\NimVor\Database\Connection::class)->scalar("SELECT action FROM audit_logs WHERE action = 'mail.queue_delete'"));
     }
 
     public function testReportsAndStatistics(): void

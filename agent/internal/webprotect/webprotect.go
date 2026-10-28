@@ -22,8 +22,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
 // State is every website's protection.
@@ -95,7 +95,7 @@ var mu sync.Mutex
 
 // Dir holds the website files and the password files.
 func Dir(e *host.Env) string {
-	return filepath.Join(filepath.Dir(e.M.NginxAvailable), "whacp-protect")
+	return filepath.Join(filepath.Dir(e.M.NginxAvailable), "nimvor-protect")
 }
 
 // SitePath is a website's file.
@@ -152,23 +152,23 @@ func Render(e *host.Env, domain string, s *Site) string {
 		return ""
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "    # Managed by WhaCP (website protection of %s). Do not edit.\n", domain)
+	fmt.Fprintf(&b, "    # Managed by NimVor (website protection of %s). Do not edit.\n", domain)
 	// Password protection: the longest matching path decides.
 	if len(s.Password) > 0 {
 		list := append([]Protected{}, s.Password...)
 		sort.SliceStable(list, func(i, j int) bool { return len(list[i].Path) < len(list[j].Path) })
-		b.WriteString("    set $whacp_auth off;\n    set $whacp_auth_file /dev/null;\n")
+		b.WriteString("    set $nimvor_auth off;\n    set $nimvor_auth_file /dev/null;\n")
 		for _, p := range list {
 			i := indexOf(s.Password, p.Path)
 			if p.Path == "/" {
-				fmt.Fprintf(&b, "    set $whacp_auth %q;\n    set $whacp_auth_file %s;\n", p.Realm, passwdPath(e, domain, i))
+				fmt.Fprintf(&b, "    set $nimvor_auth %q;\n    set $nimvor_auth_file %s;\n", p.Realm, passwdPath(e, domain, i))
 				continue
 			}
-			fmt.Fprintf(&b, "    if ($uri ~ \"^%s\") {\n        set $whacp_auth %q;\n        set $whacp_auth_file %s;\n    }\n", quoteRe(p.Path), p.Realm, passwdPath(e, domain, i))
+			fmt.Fprintf(&b, "    if ($uri ~ \"^%s\") {\n        set $nimvor_auth %q;\n        set $nimvor_auth_file %s;\n    }\n", quoteRe(p.Path), p.Realm, passwdPath(e, domain, i))
 		}
 		// Certificates keep renewing behind a password.
-		b.WriteString("    if ($uri ~ \"^/\\.well-known/acme-challenge/\") {\n        set $whacp_auth off;\n    }\n")
-		b.WriteString("    auth_basic $whacp_auth;\n    auth_basic_user_file $whacp_auth_file;\n")
+		b.WriteString("    if ($uri ~ \"^/\\.well-known/acme-challenge/\") {\n        set $nimvor_auth off;\n    }\n")
+		b.WriteString("    auth_basic $nimvor_auth;\n    auth_basic_user_file $nimvor_auth_file;\n")
 	}
 	paths := make([]string, 0, len(s.WordPress))
 	for p := range s.WordPress {
@@ -224,7 +224,7 @@ func indexOf(list []Protected, path string) int {
 	return -1
 }
 
-// vhostMarker is a line every WhaCP server block with content carries;
+// vhostMarker is a line every NimVor server block with content carries;
 // the include goes right after it (for websites created before this).
 const vhostMarker = "    add_header X-Content-Type-Options \"nosniff\" always;\n"
 
@@ -235,10 +235,10 @@ func apply(ctx context.Context, e *host.Env, st State, domain string) error {
 	if err := e.PrecheckNginx(ctx); err != nil {
 		return err
 	}
-	vhost := filepath.Join(e.M.NginxAvailable, "whacp-"+domain+".conf")
+	vhost := filepath.Join(e.M.NginxAvailable, "nimvor-"+domain+".conf")
 	b, err := e.Root.ReadFile(vhost)
 	if err != nil {
-		return fmt.Errorf("the website %s has no WhaCP web server configuration", domain)
+		return fmt.Errorf("the website %s has no NimVor web server configuration", domain)
 	}
 	set := e.Changes("webprotect-" + domain)
 	set.Mkdir(Dir(e), 0o755, agentfs.RootOwner)
@@ -246,7 +246,7 @@ func apply(ctx context.Context, e *host.Env, st State, domain string) error {
 	body := Render(e, domain, s)
 	if inc := SiteInclude(e, domain); !strings.Contains(string(b), inc) {
 		if !strings.Contains(string(b), vhostMarker) {
-			return fmt.Errorf("the web server configuration of %s was changed outside WhaCP; save the website in the panel first", domain)
+			return fmt.Errorf("the web server configuration of %s was changed outside NimVor; save the website in the panel first", domain)
 		}
 		set.Write(vhost, []byte(strings.ReplaceAll(string(b), vhostMarker, vhostMarker+inc)), 0o644, agentfs.RootOwner)
 	}

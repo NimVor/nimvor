@@ -44,12 +44,12 @@ func createCert(certPath, keyPath string) error {
 	host, _ := os.Hostname()
 	tmpl := &x509.Certificate{
 		SerialNumber: serial,
-		Subject:      pkix.Name{CommonName: "whacp-agent " + host},
+		Subject:      pkix.Name{CommonName: "nimvor-agent " + host},
 		NotBefore:    time.Now().Add(-time.Hour),
 		NotAfter:     time.Now().AddDate(10, 0, 0),
 		KeyUsage:     x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		DNSNames:     []string{"whacp-agent"},
+		DNSNames:     []string{"nimvor-agent"},
 	}
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
 	if err != nil {

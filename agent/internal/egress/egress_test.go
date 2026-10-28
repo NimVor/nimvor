@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 func setup(t *testing.T) *testhost.Host {
@@ -16,8 +16,8 @@ func setup(t *testing.T) *testhost.Host {
 	h := testhost.New(t)
 	f, _ := os.OpenFile(filepath.Join(h.Base, "etc/passwd"), os.O_APPEND|os.O_WRONLY, 0o644)
 	// Two website accounts, an administrator and a service account.
-	f.WriteString("shop:x:1600:1600:WhaCP website shop.test:/home/whacp/shop.test:/usr/sbin/nologin\n" +
-		"blog:x:1601:1601:WhaCP website blog.test:/home/whacp/blog.test:/usr/sbin/nologin\n" +
+	f.WriteString("shop:x:1600:1600:NimVor website shop.test:/home/nimvor/shop.test:/usr/sbin/nologin\n" +
+		"blog:x:1601:1601:NimVor website blog.test:/home/nimvor/blog.test:/usr/sbin/nologin\n" +
 		"rocky:x:1000:1000::/home/rocky:/bin/bash\nchrony:x:990:990::/var/lib/chrony:/sbin/nologin\n")
 	f.Close()
 	AllowPaths(h.Env)
@@ -34,7 +34,7 @@ func TestDefaultBlocksMetadataForWebsiteAccounts(t *testing.T) {
 	}
 	rules := h.Read(execx.NftEgressFile)
 	for _, want := range []string{
-		"table inet whacp_egress\ndelete table inet whacp_egress\n",
+		"table inet nimvor_egress\ndelete table inet nimvor_egress\n",
 		`oifname "lo" accept`,
 		`meta skuid { 1600, 1601 } ip daddr { 169.254.169.254, 169.254.170.2, 100.100.100.200 } counter reject comment "cloud metadata"`,
 		`meta skuid { 1600, 1601 } ip6 daddr { fd00:ec2::254 } counter reject`,
@@ -64,7 +64,7 @@ func TestDefaultBlocksMetadataForWebsiteAccounts(t *testing.T) {
 	}
 	// A new website account: in the rules.
 	f, _ := os.OpenFile(filepath.Join(h.Base, "etc/passwd"), os.O_APPEND|os.O_WRONLY, 0o644)
-	f.WriteString("news:x:1602:1602:WhaCP website news.test:/home/whacp/news.test:/usr/sbin/nologin\n")
+	f.WriteString("news:x:1602:1602:NimVor website news.test:/home/nimvor/news.test:/usr/sbin/nologin\n")
 	f.Close()
 	Refresh(context.Background(), h.Env)
 	if !strings.Contains(h.Read(execx.NftEgressFile), "meta skuid { 1600, 1601, 1602 }") {
@@ -112,7 +112,7 @@ func TestSettings(t *testing.T) {
 	if err := Set(ctx, h.Env, Settings{MetadataAllowed: true}); err != nil {
 		t.Fatal(err)
 	}
-	if h.Exists(execx.NftEgressFile) || h.Exists(unitPath) || !h.Runner.Called("nft delete table inet whacp_egress") {
+	if h.Exists(execx.NftEgressFile) || h.Exists(unitPath) || !h.Runner.Called("nft delete table inet nimvor_egress") {
 		t.Errorf("not removed: %v", h.Runner.Calls)
 	}
 }

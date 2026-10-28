@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 // Nginx before 1.21.5 builds only against the original PCRE library.

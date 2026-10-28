@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Security;
+namespace NimVor\Security;
 
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\AuditLogger;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\AuditLogger;
 
 /**
  * Session authentication.
@@ -48,7 +48,7 @@ final class AuthService
         private readonly ?TwoFactor $twoFactor = null,
         private readonly ?WebAuthn $webAuthn = null,
         private readonly ?LoginIpVerifier $ipVerifier = null,
-        private readonly ?\WhaCP\Services\HulkService $hulk = null,
+        private readonly ?\NimVor\Services\HulkService $hulk = null,
     ) {
         $this->clock = $clock ?? time(...);
     }
@@ -175,7 +175,7 @@ final class AuthService
         $p = $this->session->get(self::IP_PENDING_KEY);
         $user = $this->users->find((int) $p['id']);
         $hash = $this->users->passwordHash((int) $p['id']);
-        if ($p['ip'] !== $ip || $hash === null || !\WhaCP\Repositories\UserRepository::canAct($user) || !hash_equals($p['fp'], $this->fingerprint($hash, (int) $p['id']))
+        if ($p['ip'] !== $ip || $hash === null || !\NimVor\Repositories\UserRepository::canAct($user) || !hash_equals($p['fp'], $this->fingerprint($hash, (int) $p['id']))
             || $this->throttle->retryAfter($p['username'], $ip) > 0) {
             $this->session->remove(self::IP_PENDING_KEY);
             return 'Your sign-in expired. Enter your password again.';
@@ -273,7 +273,7 @@ final class AuthService
         $id = (int) $p['id'];
         $user = $this->users->find($id);
         $hash = $this->users->passwordHash($id);
-        if ($hash === null || !\WhaCP\Repositories\UserRepository::canAct($user) || !hash_equals($p['fp'], $this->fingerprint($hash, (int) $p['id']))) {
+        if ($hash === null || !\NimVor\Repositories\UserRepository::canAct($user) || !hash_equals($p['fp'], $this->fingerprint($hash, (int) $p['id']))) {
             $this->session->remove(self::PENDING_KEY);
             return 'Your sign-in expired. Enter your password again.';
         }
@@ -406,7 +406,7 @@ final class AuthService
         }
         $user = $this->users->find($id);
         $hash = $this->users->passwordHash($id);
-        if ($hash === null || !\WhaCP\Repositories\UserRepository::canAct($user)
+        if ($hash === null || !\NimVor\Repositories\UserRepository::canAct($user)
             || !hash_equals((string) $this->session->get(self::FINGERPRINT_KEY, ''), $this->fingerprint($hash, $id))) {
             $this->session->invalidate();
             return null;
@@ -435,7 +435,7 @@ final class AuthService
      */
     private function fingerprint(string $hash, int $userId): string
     {
-        return hash('sha256', 'whacp-session|' . $hash . '|' . $this->users->sessionEpoch($userId));
+        return hash('sha256', 'nimvor-session|' . $hash . '|' . $this->users->sessionEpoch($userId));
     }
 
     /** End every other session of the user; this one stays signed in. */

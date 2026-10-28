@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Services\AuditLogger;
-use WhaCP\View\View;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Services\AuditLogger;
+use NimVor\View\View;
 
 final class ServicesController extends Controller
 {
@@ -44,19 +44,19 @@ final class ServicesController extends Controller
         return $json ? Response::json(['success' => true, 'message' => $message]) : $this->redirectWithSuccess($back, $message);
     }
 
-    /** Restart one of WhaCP's own services (agent and panel restart shortly after). */
-    public function restartWhacp(Request $request, string $key): Response
+    /** Restart one of NimVor's own services (agent and panel restart shortly after). */
+    public function restartNimvor(Request $request, string $key): Response
     {
-        if (!\WhaCP\Hosting\Scope::isAll($this->user($request))) {
-            return $this->redirectWithError('/services', 'Only server administrators can restart WhaCP.');
+        if (!\NimVor\Hosting\Scope::isAll($this->user($request))) {
+            return $this->redirectWithError('/services', 'Only server administrators can restart NimVor.');
         }
         try {
-            $res = (array) $this->agent->call('whacp.restart', ['key' => $key]);
+            $res = (array) $this->agent->call('nimvor.restart', ['key' => $key]);
         } catch (AgentException $e) {
-            $this->audit->record('whacp.restart', 'service', $key, AuditLogger::FAILURE, ['error' => $e->getMessage()]);
+            $this->audit->record('nimvor.restart', 'service', $key, AuditLogger::FAILURE, ['error' => $e->getMessage()]);
             return $this->redirectWithFailure('/services', $e);
         }
-        $this->audit->record('whacp.restart', 'service', (string) ($res['unit'] ?? $key));
+        $this->audit->record('nimvor.restart', 'service', (string) ($res['unit'] ?? $key));
         return $this->redirectWithSuccess('/services', !empty($res['scheduled'])
             ? ($key === 'panel' ? 'The panel restarts in a few seconds; reload this page then.' : 'The agent restarts in a few seconds; running tasks finish first.')
             : 'Restarted ' . $res['unit'] . '.');

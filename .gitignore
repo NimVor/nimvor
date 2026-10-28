@@ -21,4 +21,4 @@
 .vm/
 realhost.test
 # go build output in the agent folder
-/agent/whacp-agent
+/agent/nimvor-agent

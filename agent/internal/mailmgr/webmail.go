@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/tlsprofile"
+	"github.com/NimVor/nimvor/agent/internal/tlsprofile"
 	"io"
 	"io/fs"
 	"math/big"
@@ -20,23 +20,23 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/logging"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/phpmgr"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/pkgs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/ssl"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/sslmgr"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/logging"
+	"github.com/NimVor/nimvor/agent/internal/phpmgr"
+	"github.com/NimVor/nimvor/agent/internal/pkgs"
+	"github.com/NimVor/nimvor/agent/internal/platform"
+	"github.com/NimVor/nimvor/agent/internal/selinux"
+	"github.com/NimVor/nimvor/agent/internal/ssl"
+	"github.com/NimVor/nimvor/agent/internal/sslmgr"
+	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
-// Webmail with Roundcube from the distribution's packages. WhaCP never
+// Webmail with Roundcube from the distribution's packages. NimVor never
 // edits the package's files: Roundcube reads its configuration folder
-// from ROUNDCUBE_CONFIG_DIR, which WhaCP's own PHP-FPM pool points at
+// from ROUNDCUBE_CONFIG_DIR, which NimVor's own PHP-FPM pool points at
 // WebmailDir. Roundcube runs as its own account (not the web server's and
 // not a site's), keeps its SQLite database and temporary files in
 // WebmailData, signs in to Dovecot (IMAP, 993) and sends through Postfix
@@ -44,12 +44,12 @@ import (
 // served by an Nginx virtual host of its own over HTTPS.
 
 const (
-	webmailUser   = "whacp-webmail"
-	webmailPool   = "whacp-webmail"
-	webmailHeader = "Managed by WhaCP (webmail). Do not edit: changes are overwritten."
+	webmailUser   = "nimvor-webmail"
+	webmailPool   = "nimvor-webmail"
+	webmailHeader = "Managed by NimVor (webmail). Do not edit: changes are overwritten."
 )
 
-// Webmail is WhaCP's webmail state (webmail.json).
+// Webmail is NimVor's webmail state (webmail.json).
 type Webmail struct {
 	Enabled  bool   `json:"enabled"`
 	Hostname string `json:"hostname"`
@@ -154,14 +154,14 @@ func (e env) webmailServeDiagnosis(ctx context.Context, v string) string {
 	all := func(string) bool { return true }
 	// The webmail site's own error log (its server block sets one), then
 	// the server's, for lines about the webmail socket.
-	tail("/var/log/nginx/whacp-webmail.error.log", 8, all)
+	tail("/var/log/nginx/nimvor-webmail.error.log", 8, all)
 	// Whether the probe reached the webmail site at all (else another
 	// server block answered for the host name).
-	tail("/var/log/nginx/whacp-webmail.access.log", 3, all)
-	tail("/var/log/nginx/error.log", 8, func(l string) bool { return strings.Contains(l, sock) || strings.Contains(l, "whacp-webmail") })
+	tail("/var/log/nginx/nimvor-webmail.access.log", 3, all)
+	tail("/var/log/nginx/error.log", 8, func(l string) bool { return strings.Contains(l, sock) || strings.Contains(l, "nimvor-webmail") })
 	// SELinux denials of Nginx or PHP-FPM.
 	tail("/var/log/audit/audit.log", 6, func(l string) bool {
-		return strings.Contains(l, "denied") && (strings.Contains(l, `comm="nginx"`) || strings.Contains(l, `comm="php-fpm"`) || strings.Contains(l, "whacp-webmail"))
+		return strings.Contains(l, "denied") && (strings.Contains(l, `comm="nginx"`) || strings.Contains(l, `comm="php-fpm"`) || strings.Contains(l, "nimvor-webmail"))
 	})
 	unit := e.M.FPMUnit(v)
 	state := "not running"
@@ -186,7 +186,7 @@ func (e env) webmailServeDiagnosis(ctx context.Context, v string) string {
 	return logging.Redact(b.String())
 }
 
-// renderDefaults is WhaCP's defaults.inc.php. It includes the
+// renderDefaults is NimVor's defaults.inc.php. It includes the
 // distribution's file when everyone may read it (Debian). RHEL keeps it
 // root:apache 0640, which the webmail account cannot read (and joining the
 // web server's group would give it much more): the agent copies the
@@ -247,8 +247,8 @@ func (e env) roundcubeInstalled() bool {
 	return e.Root.Exists(e.M.RoundcubePublic+"/index.php") && e.Root.Exists(e.M.RoundcubeDefaults) && e.Root.Exists(e.M.RoundcubeDir+"/bin/updatedb.sh")
 }
 
-func (e env) webmailVhost() string { return filepath.Join(e.M.NginxAvailable, "whacp-webmail.conf") }
-func (e env) webmailLink() string  { return filepath.Join(e.M.NginxEnabled, "whacp-webmail.conf") }
+func (e env) webmailVhost() string { return filepath.Join(e.M.NginxAvailable, "nimvor-webmail.conf") }
+func (e env) webmailLink() string  { return filepath.Join(e.M.NginxEnabled, "nimvor-webmail.conf") }
 func (e env) webmailSocket() string {
 	return filepath.Join(e.M.PHPSocketDir, webmailPool+".sock")
 }
@@ -342,7 +342,7 @@ func (e env) webmailKey() (string, error) {
 	return string(key), nil
 }
 
-// renderRoundcube is WhaCP's config.inc.php.
+// renderRoundcube is NimVor's config.inc.php.
 func renderRoundcube(data, desKey string, legacy bool) string {
 	return `<?php
 // ` + webmailHeader + `
@@ -459,7 +459,7 @@ func (e env) renderWebmailPool(v string) string {
 // does, for packages whose iniset.php hard-codes it (RHEL's
 // "/etc/roundcubemail/") instead of reading ROUNDCUBE_CONFIG_DIR. The
 // package's own files are never changed.
-func (e env) configDirFile() string { return e.M.WebmailDir + "/whacp-config-dir.php" }
+func (e env) configDirFile() string { return e.M.WebmailDir + "/nimvor-config-dir.php" }
 
 func (e env) needsConfigDirFile() bool {
 	b, err := e.Root.ReadFile(e.M.RoundcubeDir + "/program/include/iniset.php")
@@ -517,7 +517,7 @@ func (e env) renderWebmailVhost(p vhostParams) string {
 	b.WriteString(tlsprofile.Include(e.Env))
 	b.WriteString("    add_header Strict-Transport-Security \"max-age=31536000\" always;\n    add_header X-Content-Type-Options \"nosniff\" always;\n    add_header Referrer-Policy \"same-origin\" always;\n")
 	fmt.Fprintf(&b, "    root %s;\n    index index.php;\n    client_max_body_size 30m;\n", e.M.RoundcubePublic)
-	b.WriteString("    access_log /var/log/nginx/whacp-webmail.access.log;\n    error_log /var/log/nginx/whacp-webmail.error.log warn;\n")
+	b.WriteString("    access_log /var/log/nginx/nimvor-webmail.access.log;\n    error_log /var/log/nginx/nimvor-webmail.error.log warn;\n")
 	b.WriteString(acme)
 	b.WriteString("    location ~ /\\.(?!well-known) {\n        deny all;\n    }\n")
 	b.WriteString("    location ~ (^|/)(README|CHANGELOG|INSTALL|UPGRADING|LICENSE|composer\\.|meta\\.json|jsdeps\\.json) {\n        deny all;\n    }\n")
@@ -539,7 +539,7 @@ func (e env) webmailStatus(ctx context.Context) map[string]any {
 
 // registerWebmail adds mail.webmail_install and mail.webmail_configure.
 func registerWebmail(r *actions.Registry, e env) {
-	r.Register(actions.Action{Name: "mail.webmail_install", Mutating: true, Description: "Install Roundcube webmail from the distribution's packages (with PHP-FPM and SQLite support; the package's own database setup is skipped because WhaCP keeps Roundcube's data itself). Runs as a job.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "mail.webmail_install", Mutating: true, Description: "Install Roundcube webmail from the distribution's packages (with PHP-FPM and SQLite support; the package's own database setup is skipped because NimVor keeps Roundcube's data itself). Runs as a job.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		if err := host.Decode(raw, &struct{}{}); err != nil {
 			return nil, err
 		}
@@ -560,7 +560,7 @@ func registerWebmail(r *actions.Registry, e env) {
 		return map[string]any{"job_id": j.ID, "packages": packages}, nil
 	}})
 
-	r.Register(actions.Action{Name: "mail.webmail_configure", Mutating: true, Description: "Turn webmail (Roundcube) on for a host name, or off. WhaCP writes Roundcube's configuration in its own folder, runs it in its own PHP-FPM pool and account, creates or upgrades its SQLite database and serves it with its own Nginx site over HTTPS (Let's Encrypt certificate for the host name when present, otherwise self-signed). Validated with nginx -t and php-fpm -t, checked by loading the sign-in page, rolled back on failure.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "mail.webmail_configure", Mutating: true, Description: "Turn webmail (Roundcube) on for a host name, or off. NimVor writes Roundcube's configuration in its own folder, runs it in its own PHP-FPM pool and account, creates or upgrades its SQLite database and serves it with its own Nginx site over HTTPS (Let's Encrypt certificate for the host name when present, otherwise self-signed). Validated with nginx -t and php-fpm -t, checked by loading the sign-in page, rolled back on failure.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		defer e.LockWebConfig()()
 		in := struct {
 			Enabled    bool   `json:"enabled"`
@@ -589,10 +589,10 @@ func registerWebmail(r *actions.Registry, e env) {
 		for _, w := range e.Discovery.Websites(ctx).Websites {
 			mine := false
 			for _, f := range w.ConfigFiles {
-				// Webmail's own site, and WhaCP's host-name challenge site
+				// Webmail's own site, and NimVor's host-name challenge site
 				// (port 80, ACME only), do not count as a website owning the
 				// name — webmail can still answer for it on 443.
-				mine = mine || f == e.webmailVhost() || f == e.webmailLink() || filepath.Base(f) == "whacp-hostname.conf"
+				mine = mine || f == e.webmailVhost() || f == e.webmailLink() || filepath.Base(f) == "nimvor-hostname.conf"
 			}
 			if !mine && (w.Domain == in.Hostname || contains(w.Aliases, in.Hostname)) {
 				return nil, actions.Conflict("The website " + w.Domain + " already answers for " + in.Hostname + ". Choose another host name for webmail.")
@@ -609,7 +609,7 @@ func registerWebmail(r *actions.Registry, e env) {
 			return nil, err
 		}
 		if _, err := e.LookupUser(webmailUser); err != nil {
-			if err := e.run(ctx, "useradd", "--system", "--home-dir", e.M.WebmailData, "--no-create-home", "--shell", "/usr/sbin/nologin", "--user-group", "--comment", "WhaCP webmail", "--", webmailUser); err != nil {
+			if err := e.run(ctx, "useradd", "--system", "--home-dir", e.M.WebmailData, "--no-create-home", "--shell", "/usr/sbin/nologin", "--user-group", "--comment", "NimVor webmail", "--", webmailUser); err != nil {
 				return nil, actions.Failed("Could not create the webmail account.", err.Error())
 			}
 		}
@@ -697,7 +697,7 @@ func registerWebmail(r *actions.Registry, e env) {
 		}
 		// SELinux: PHP-FPM (as the web server) writes Roundcube's data and
 		// connects to IMAP and submission.
-		// The socket folder WhaCP may just have created: its policy type, so
+		// The socket folder NimVor may just have created: its policy type, so
 		// PHP-FPM may create the socket and Nginx connect to it.
 		if e.M.PHPSocketTmpfiles != "" {
 			selinux.Restore(ctx, e.Env, e.M.PHPSocketDir)

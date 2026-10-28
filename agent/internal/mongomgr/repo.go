@@ -3,7 +3,7 @@ package mongomgr
 // MongoDB is not in the base repositories of any supported distribution, so
 // installing it means adding MongoDB Inc.'s own signed repository first. This
 // is the administrator's choice (a button with a confirmation on the MongoDB
-// page); WhaCP never adds it on its own.
+// page); NimVor never adds it on its own.
 //
 // Unlike the PHP repositories, whose signing key is embedded in the agent
 // build (phpmgr), MongoDB's key is not redistributed here: it is fetched at
@@ -22,25 +22,25 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/pkgs"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/pkgs"
 )
 
 const (
-	// Version is the MongoDB major version WhaCP's repository tracks.
+	// Version is the MongoDB major version NimVor's repository tracks.
 	Version = "8.0"
 	// Package is the metapackage that installs the server (mongod), the
 	// shell (mongosh) and the tools; the same name on APT and DNF.
 	Package = "mongodb-org"
 
 	keyURL      = "https://pgp.mongodb.com/server-" + Version + ".asc"
-	aptKeyring  = "/etc/apt/keyrings/whacp-mongodb-" + Version + ".asc"
-	aptSources  = "/etc/apt/sources.list.d/whacp-mongodb-" + Version + ".sources"
+	aptKeyring  = "/etc/apt/keyrings/nimvor-mongodb-" + Version + ".asc"
+	aptSources  = "/etc/apt/sources.list.d/nimvor-mongodb-" + Version + ".sources"
 	aptURIUbunt = "https://repo.mongodb.org/apt/ubuntu"
 	aptURIDeb   = "https://repo.mongodb.org/apt/debian"
-	dnfRepoFile = "/etc/yum.repos.d/whacp-mongodb-" + Version + ".repo"
+	dnfRepoFile = "/etc/yum.repos.d/nimvor-mongodb-" + Version + ".repo"
 	dnfBaseURL  = "https://repo.mongodb.org/yum/redhat/$releasever/mongodb-org/" + Version + "/x86_64/"
 
 	maxKey = 1 << 20 // a public key is a few KB; cap the download well above that
@@ -100,7 +100,7 @@ func codenameOK(s string) bool {
 }
 
 // repoConfigured reports whether a MongoDB repository is already present
-// (added by WhaCP, by the installer or by hand).
+// (added by NimVor, by the installer or by hand).
 func repoConfigured(env *host.Env) bool {
 	if env.Platform.PackageManager() == "dnf" {
 		return fileMentions(env, "/etc/yum.repos.d", "repo.mongodb.org", ".repo")
@@ -150,7 +150,7 @@ func aptSource(kind, codename string) string {
 	if kind == "apt-debian" {
 		uri, comp = aptURIDeb, "main"
 	}
-	return "# Added by WhaCP (MongoDB page): MongoDB " + Version + " from MongoDB Inc.\n" +
+	return "# Added by NimVor (MongoDB page): MongoDB " + Version + " from MongoDB Inc.\n" +
 		"Types: deb\n" +
 		"URIs: " + uri + "\n" +
 		"Suites: " + codename + "/mongodb-org/" + Version + "\n" +
@@ -162,9 +162,9 @@ func aptSource(kind, codename string) string {
 // dnfRepo is the .repo file for the MongoDB repository. DNF fetches and
 // imports the signing key from MongoDB's HTTPS key server on first use.
 func dnfRepo() string {
-	return "# Added by WhaCP (MongoDB page): MongoDB " + Version + " from MongoDB Inc.\n" +
-		"[whacp-mongodb-org-" + Version + "]\n" +
-		"name=MongoDB " + Version + " (added by WhaCP)\n" +
+	return "# Added by NimVor (MongoDB page): MongoDB " + Version + " from MongoDB Inc.\n" +
+		"[nimvor-mongodb-org-" + Version + "]\n" +
+		"name=MongoDB " + Version + " (added by NimVor)\n" +
 		"baseurl=" + dnfBaseURL + "\n" +
 		"gpgcheck=1\n" +
 		"enabled=1\n" +
@@ -175,7 +175,7 @@ func dnfRepo() string {
 // CA-verified HTTPS connection and checks that it is a public key block.
 func fetchKey(ctx context.Context) ([]byte, error) {
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, keyURL, nil)
-	req.Header.Set("User-Agent", "WhaCP")
+	req.Header.Set("User-Agent", "NimVor")
 	res, err := (&http.Client{Timeout: 60 * time.Second}).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("could not fetch %s: %w", keyURL, err)

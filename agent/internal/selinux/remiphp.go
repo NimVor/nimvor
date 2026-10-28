@@ -6,8 +6,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/platform"
 )
 
 // Remi's parallel PHP versions live in /opt/remi/phpNN/root, /etc/opt/remi/
@@ -15,7 +15,7 @@ import (
 // trees take the labels of /, /etc and /var (semanage fcontext -e), so the
 // php-fpm binary is httpd_exec_t and PHP-FPM runs as the web server
 // (httpd_t), which Nginx may connect to. When those scripts did not run (an
-// install whose scriptlets failed, e.g. under an older WhaCP agent), PHP-FPM
+// install whose scriptlets failed, e.g. under an older NimVor agent), PHP-FPM
 // runs as unconfined_service_t and SELinux refuses Nginx its socket
 // ("connect() ... failed (13: Permission denied)", avc denied connectto
 // tcontext=unconfined_service_t): every PHP site of that version answers

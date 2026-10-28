@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Support\ValidationException;
+use NimVor\Database\Connection;
+use NimVor\Repositories\UserRepository;
+use NimVor\Support\ValidationException;
 
 /**
  * Personal API tokens. Only a SHA-256 hash is stored; the token is shown
@@ -55,7 +55,7 @@ final class ApiTokenService
         if ($errors !== []) {
             throw new ValidationException($errors);
         }
-        $token = 'whacp_' . bin2hex(random_bytes(20));
+        $token = 'nimvor_' . bin2hex(random_bytes(20));
         $this->db->run(
             'INSERT INTO api_tokens (user_id, name, token_hash, prefix, ability, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
             [$userId, $name, hash('sha256', $token), substr($token, 0, 12), $ability, $days > 0 ? gmdate('c', time() + $days * 86400) : null, gmdate('c')]
@@ -77,7 +77,7 @@ final class ApiTokenService
      */
     public function authenticate(string $token, string $ip): ?array
     {
-        if (!preg_match('/^whacp_[a-f0-9]{40}$/', $token)) {
+        if (!preg_match('/^nimvor_[a-f0-9]{40}$/', $token)) {
             return null;
         }
         $row = $this->db->fetch('SELECT * FROM api_tokens WHERE token_hash = ?', [hash('sha256', $token)]);
@@ -85,7 +85,7 @@ final class ApiTokenService
             return null;
         }
         $user = $this->users->find((int) $row['user_id']);
-        if (!\WhaCP\Repositories\UserRepository::canAct($user)) {
+        if (!\NimVor\Repositories\UserRepository::canAct($user)) {
             return null;
         }
         if ($row['last_used_at'] === null || strtotime((string) $row['last_used_at']) < time() - 60) {

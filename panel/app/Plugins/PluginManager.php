@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Plugins;
+namespace NimVor\Plugins;
 
 use Throwable;
-use WhaCP\Core\Container;
-use WhaCP\Database\Connection;
-use WhaCP\Http\Router;
-use WhaCP\Repositories\SettingRepository;
-use WhaCP\Support\Logger;
+use NimVor\Core\Container;
+use NimVor\Database\Connection;
+use NimVor\Http\Router;
+use NimVor\Repositories\SettingRepository;
+use NimVor\Support\Logger;
 
 /**
  * Discovers, enables and boots plugins.

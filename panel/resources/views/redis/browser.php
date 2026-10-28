@@ -1,30 +1,30 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 ?>
 <?php $this->start(); ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($back) ?>"><i class="bi bi-arrow-left"></i> <?= e($backLabel) ?></a><?php $this->end('back'); ?>
 <?php $this->start(); ?><i class="bi bi-lightning me-1"></i><?= e($heading) ?><?php $this->end('title'); ?>
 
-<div class="wcp-rb" id="wcp-rb" data-api="<?= e($api) ?>" data-prefix="<?= e($prefix) ?>" data-fixed="<?= $fixedPrefix ? '1' : '0' ?>">
-    <div class="wcp-rb-bar">
+<div class="nim-rb" id="nim-rb" data-api="<?= e($api) ?>" data-prefix="<?= e($prefix) ?>" data-fixed="<?= $fixedPrefix ? '1' : '0' ?>">
+    <div class="nim-rb-bar">
         <label class="small text-body-secondary" for="rb-db">Database</label>
         <select class="form-select form-select-sm w-auto" id="rb-db" data-rb-db>
             <?php for ($i = 0; $i < 16; $i++): ?><option value="<?= $i ?>"><?= $i ?></option><?php endfor; ?>
         </select>
-        <form class="input-group input-group-sm wcp-rb-search" data-rb-search>
+        <form class="input-group input-group-sm nim-rb-search" data-rb-search>
             <?php if ($prefix !== ''): ?><span class="input-group-text font-monospace" title="Keys are limited to this prefix"><?= e($prefix) ?></span><?php endif; ?>
-            <?php if (!$fixedPrefix): ?><input class="form-control font-monospace wcp-rb-prefix" data-rb-prefix placeholder="prefix (optional)" aria-label="Key prefix" spellcheck="false"><?php endif; ?>
+            <?php if (!$fixedPrefix): ?><input class="form-control font-monospace nim-rb-prefix" data-rb-prefix placeholder="prefix (optional)" aria-label="Key prefix" spellcheck="false"><?php endif; ?>
             <input class="form-control font-monospace" data-rb-pattern value="*" aria-label="Key pattern (* and ? are wildcards)" spellcheck="false">
             <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-search"></i> Scan</button>
         </form>
         <button type="button" class="btn btn-sm btn-primary ms-auto" data-rb-cmd="newkey"><i class="bi bi-plus-lg"></i> New key</button>
     </div>
-    <div class="wcp-rb-body">
-        <aside class="wcp-rb-keys">
+    <div class="nim-rb-body">
+        <aside class="nim-rb-keys">
             <ul class="list-group list-group-flush" data-rb-keys role="listbox" aria-label="Keys"></ul>
             <div class="p-2 d-grid"><button type="button" class="btn btn-sm btn-outline-secondary d-none" data-rb-cmd="more">Load more</button></div>
-            <div class="wcp-rb-count small text-body-secondary px-2 pb-2" data-rb-count></div>
+            <div class="nim-rb-count small text-body-secondary px-2 pb-2" data-rb-count></div>
         </aside>
-        <section class="wcp-rb-detail" data-rb-detail aria-live="polite">
+        <section class="nim-rb-detail" data-rb-detail aria-live="polite">
             <div class="text-body-secondary p-4">Select a key to see its value.</div>
         </section>
     </div>

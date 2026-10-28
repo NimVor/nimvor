@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/platform"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 func init() { hostScanEnabled = false }
@@ -22,11 +22,11 @@ func TestHostScanFindings(t *testing.T) {
 		os.WriteFile(full, []byte(body), 0o644)
 		os.Chmod(full, mode)
 	}
-	put("usr/bin/passwd", 0o755|os.ModeSetuid, "x")            // a package's
-	put("usr/local/bin/rootme", 0o755|os.ModeSetuid, "x")      // no package
-	put("tmp/.x/sh", 0o755|os.ModeSetgid, "x")                 // untrusted place
-	put("etc/open.conf", 0o666, "x")                           // world-writable
-	put("home/whacp/shop.test/public_html/up.txt", 0o666, "x") // a website's own: not reported
+	put("usr/bin/passwd", 0o755|os.ModeSetuid, "x")             // a package's
+	put("usr/local/bin/rootme", 0o755|os.ModeSetuid, "x")       // no package
+	put("tmp/.x/sh", 0o755|os.ModeSetgid, "x")                  // untrusted place
+	put("etc/open.conf", 0o666, "x")                            // world-writable
+	put("home/nimvor/shop.test/public_html/up.txt", 0o666, "x") // a website's own: not reported
 	os.MkdirAll(filepath.Join(h.Base, "var/lib/shared"), 0o777)
 	os.Chmod(filepath.Join(h.Base, "var/lib/shared"), 0o777|os.ModeSticky) // sticky: fine
 	// A server's socket must be connectable: not reported (mysql.sock).
@@ -39,7 +39,7 @@ func TestHostScanFindings(t *testing.T) {
 	}
 	put("etc/cron.d/backdoor", 0o644, "* * * * * root /tmp/x\n")
 	put("etc/cron.d/sysstat", 0o644, "x")                                           // a package's
-	put("etc/cron.d/whacp-websites", 0o644, "# Managed by WhaCP\n")                 // WhaCP's
+	put("etc/cron.d/nimvor-websites", 0o644, "# Managed by NimVor\n")               // NimVor's
 	put("etc/systemd/system/miner.service", 0o644, "[Service]\nExecStart=/tmp/m\n") // not a package's
 	put("etc/ld.so.preload", 0o644, "/lib/evil.so\n")
 	owned := map[string]bool{"/bin/passwd": true, "/etc/cron.d/sysstat": true, "/etc/cron.d/certbot": true} // merged-/usr spelling

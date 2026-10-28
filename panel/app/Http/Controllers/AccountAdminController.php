@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Services\AccountAdminService;
-use WhaCP\Services\PlanService;
-use WhaCP\Services\TerminationService;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
-use WhaCP\View\View;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Services\AccountAdminService;
+use NimVor\Services\PlanService;
+use NimVor\Services\TerminationService;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
+use NimVor\View\View;
 
 /**
  * Hosting account administration: limit overrides, plan changes,
@@ -26,9 +26,9 @@ final class AccountAdminController extends Controller
         private readonly AccountAdminService $accounts,
         private readonly PlanService $plans,
         private readonly TerminationService $termination,
-        private readonly \WhaCP\Services\ResourceLimitService $limits,
-        private readonly \WhaCP\Services\BandwidthLimitService $bandwidth,
-        private readonly \WhaCP\Services\DiskQuotaService $quotas,
+        private readonly \NimVor\Services\ResourceLimitService $limits,
+        private readonly \NimVor\Services\BandwidthLimitService $bandwidth,
+        private readonly \NimVor\Services\DiskQuotaService $quotas,
     ) {
         parent::__construct($view, $session);
     }
@@ -99,7 +99,7 @@ final class AccountAdminController extends Controller
         // CPU, memory and other resource limits change at once (upgrade or downgrade).
         try {
             $this->limits->reconcile();
-        } catch (\WhaCP\Agent\AgentException $e) {
+        } catch (\NimVor\Agent\AgentException $e) {
             return $this->redirectWithFailure($this->edit((int) $id), new UserFacingException('The plan was changed, but its resource limits were not applied: ' . $e->getMessage(), '', 'The scheduler applies them again within minutes.'));
         }
         return $this->redirectWithSuccess($this->edit((int) $id), 'The account now has the “' . $plan['name'] . '” plan. Its limits apply from now on; nothing was removed.');

@@ -1,11 +1,11 @@
 // Package netmgr reports the server's IP addresses and makes routed IPv6
 // ranges usable by websites.
 //
-// WhaCP does not edit the operating system's network configuration
+// NimVor does not edit the operating system's network configuration
 // (netplan, NetworkManager, ifcfg): an address must already be configured
 // on an interface before a website can listen on it. The one exception is a
 // routed IPv6 range: its addresses become local through a "local" route on
-// the loopback interface (AnyIP), kept by WhaCP's own systemd unit. Ranges
+// the loopback interface (AnyIP), kept by NimVor's own systemd unit. Ranges
 // that overlap an interface's on-link prefix or contain the default
 // gateway are refused, because such a route would cut the server off from
 // its neighbours.
@@ -20,13 +20,13 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
 // Unit keeps the IPv6 ranges' local routes across reboots.
-const Unit = "whacp-ipv6-ranges.service"
+const Unit = "nimvor-ipv6-ranges.service"
 
 // Address is one address on an interface.
 type Address struct {
@@ -181,7 +181,7 @@ func Local(ctx context.Context, e *host.Env, ip string) (bool, error) {
 
 func renderUnit(ranges []string) string {
 	var b strings.Builder
-	b.WriteString("# Managed by WhaCP (IP addresses → IPv6 ranges): makes routed IPv6 ranges local.\n[Unit]\nDescription=WhaCP routed IPv6 ranges\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=oneshot\nRemainAfterExit=yes\n")
+	b.WriteString("# Managed by NimVor (IP addresses → IPv6 ranges): makes routed IPv6 ranges local.\n[Unit]\nDescription=NimVor routed IPv6 ranges\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=oneshot\nRemainAfterExit=yes\n")
 	for _, r := range ranges {
 		fmt.Fprintf(&b, "ExecStart=/usr/sbin/ip -6 route replace local %s dev lo\n", r)
 	}
@@ -196,7 +196,7 @@ func renderUnit(ranges []string) string {
 func Register(r *actions.Registry, e *host.Env) {
 	e.Writer.Policy.Patterns = append(e.Writer.Policy.Patterns, unitPath(e))
 
-	r.Register(actions.Action{Name: "net.addresses", Description: "The server's IP addresses (per interface), default gateways and the routed IPv6 ranges WhaCP makes local.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "net.addresses", Description: "The server's IP addresses (per interface), default gateways and the routed IPv6 ranges NimVor makes local.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		addrs, err := Addresses(ctx, e)
 		if err != nil {
 			return nil, actions.Failed("The IP addresses could not be read.", err.Error())

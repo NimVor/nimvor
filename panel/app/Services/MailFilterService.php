@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Database\Connection;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
+use NimVor\Agent\AgentClient;
+use NimVor\Database\Connection;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
 
 /**
  * Email filters and autoresponders of mailboxes, and mail routing of

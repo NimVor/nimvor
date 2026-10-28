@@ -12,13 +12,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/config"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/config"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/jobs"
+	"github.com/NimVor/nimvor/agent/internal/platform"
 )
 
 // Requires a local MariaDB/MySQL reachable as root over its socket.
@@ -50,48 +50,48 @@ func TestRealHostDatabaseLifecycle(t *testing.T) {
 	}
 	t.Cleanup(func() {
 		a, _ := r.Lookup("db.drop")
-		a.Handler(ctx, json.RawMessage(`{"name":"whacp_rt","confirm":"whacp_rt"}`))
-		a.Handler(ctx, json.RawMessage(`{"name":"whacp_rt2","confirm":"whacp_rt2"}`))
+		a.Handler(ctx, json.RawMessage(`{"name":"nimvor_rt","confirm":"nimvor_rt"}`))
+		a.Handler(ctx, json.RawMessage(`{"name":"nimvor_rt2","confirm":"nimvor_rt2"}`))
 		u, _ := r.Lookup("db.user_drop")
-		u.Handler(ctx, json.RawMessage(`{"user":"whacp_rt","host":"localhost"}`))
+		u.Handler(ctx, json.RawMessage(`{"user":"nimvor_rt","host":"localhost"}`))
 	})
-	do("db.create", `{"name":"whacp_rt"}`)
-	do("db.user_create", `{"user":"whacp_rt","host":"localhost","password":"It's-a-S3cret\\pw"}`)
-	do("db.grant", `{"user":"whacp_rt","host":"localhost","database":"whacp_rt","privileges":"all"}`)
+	do("db.create", `{"name":"nimvor_rt"}`)
+	do("db.user_create", `{"user":"nimvor_rt","host":"localhost","password":"It's-a-S3cret\\pw"}`)
+	do("db.grant", `{"user":"nimvor_rt","host":"localhost","database":"nimvor_rt","privileges":"all"}`)
 	c := Client{Env: env}
 	// The new user can log in with the tricky password and create a table.
-	out, err := env.Runner.RunWith(ctx, "mysql", execx.Opts{Stdin: strings.NewReader("CREATE TABLE t (id INT); INSERT INTO t VALUES (42);")}, "--user=whacp_rt", "--password=It's-a-S3cret\\pw", "whacp_rt")
+	out, err := env.Runner.RunWith(ctx, "mysql", execx.Opts{Stdin: strings.NewReader("CREATE TABLE t (id INT); INSERT INTO t VALUES (42);")}, "--user=nimvor_rt", "--password=It's-a-S3cret\\pw", "nimvor_rt")
 	if err != nil {
 		t.Fatalf("login as new user: %s", out)
 	}
 	ov := do("db.overview", `{}`).(map[string]any)
 	found := false
 	for _, u := range ov["users"].([]User) {
-		if u.User == "whacp_rt" && u.Grants["whacp_rt"] == "all" {
+		if u.User == "nimvor_rt" && u.Grants["nimvor_rt"] == "all" {
 			found = true
 		}
 	}
 	if !found {
 		t.Fatalf("grant not reported: %+v", ov["users"])
 	}
-	do("db.grant", `{"user":"whacp_rt","host":"localhost","database":"whacp_rt","privileges":"readonly"}`)
-	do("db.user_password", `{"user":"whacp_rt","host":"localhost","password":"another-L0ng-password"}`)
+	do("db.grant", `{"user":"nimvor_rt","host":"localhost","database":"nimvor_rt","privileges":"readonly"}`)
+	do("db.user_password", `{"user":"nimvor_rt","host":"localhost","password":"another-L0ng-password"}`)
 
-	dest := cfg.BackupDir + "/databases/whacp_rt.sql.gz"
-	res := do("db.dump", `{"name":"whacp_rt","dest":"`+dest+`"}`).(map[string]any)
+	dest := cfg.BackupDir + "/databases/nimvor_rt.sql.gz"
+	res := do("db.dump", `{"name":"nimvor_rt","dest":"`+dest+`"}`).(map[string]any)
 	j, _ := jm.Wait(ctx, res["job_id"].(string))
 	if j.Status != "succeeded" {
 		l, _, _ := jm.Log(j.ID, 0)
 		t.Fatalf("dump: %+v\n%s", j, l)
 	}
-	do("db.create", `{"name":"whacp_rt2"}`)
-	res = do("db.import", `{"name":"whacp_rt2","source":"`+dest+`"}`).(map[string]any)
+	do("db.create", `{"name":"nimvor_rt2"}`)
+	res = do("db.import", `{"name":"nimvor_rt2","source":"`+dest+`"}`).(map[string]any)
 	j, _ = jm.Wait(ctx, res["job_id"].(string))
 	if j.Status != "succeeded" {
 		l, _, _ := jm.Log(j.ID, 0)
 		t.Fatalf("import: %+v\n%s", j, l)
 	}
-	rows, err := c.Query(ctx, "SELECT id FROM whacp_rt2.t;")
+	rows, err := c.Query(ctx, "SELECT id FROM nimvor_rt2.t;")
 	if err != nil || len(rows) != 1 || rows[0][0] != "42" {
 		t.Fatalf("restored data = %v %v", rows, err)
 	}
@@ -104,7 +104,7 @@ func TestRealHostDatabaseLifecycle(t *testing.T) {
 	if err := os.WriteFile(evil, []byte(sql), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	res = do("db.import", `{"name":"whacp_rt2","source":"`+evil+`"}`).(map[string]any)
+	res = do("db.import", `{"name":"nimvor_rt2","source":"`+evil+`"}`).(map[string]any)
 	j, _ = jm.Wait(ctx, res["job_id"].(string))
 	if left, _ := os.ReadDir(marks); len(left) != 0 || j.Status != "failed" {
 		l, _, _ := jm.Log(j.ID, 0)

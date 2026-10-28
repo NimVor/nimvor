@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Services\ServerSetupService;
-use WhaCP\Services\SettingsService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Services\ServerSetupService;
+use NimVor\Services\SettingsService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** The server setup (installer profiles): every step through the agent, idempotent. */
 final class ServerSetupTest extends HttpTestCase
@@ -242,7 +242,7 @@ final class ServerSetupTest extends HttpTestCase
             try {
                 $this->service()->run($p, $o);
                 self::fail('accepted ' . json_encode([$p, $o]));
-            } catch (\WhaCP\Support\ValidationException) {
+            } catch (\NimVor\Support\ValidationException) {
                 self::assertSame(0, count($this->agent->requests));
             }
         }

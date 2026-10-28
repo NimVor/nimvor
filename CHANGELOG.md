@@ -1,12 +1,102 @@
 # Changelog
 
-All notable changes to WhaCP are documented here. The format follows
+All notable changes to NimVor are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-10-28
+
+General availability. Everything since 1.0.0-rc1:
+
 ### Added
+- **`sudo nimvor …`**: a short command for the panel's command-line tool (`sudo nimvor user:password admin`, `reset-password`, `reset-2fa`, `doctor`, `help`), installed by the installer and `upgrade.sh`, removed by the uninstaller.
+
+### Changed
+- Removed the obsolete PHP-to-Go migration planning pages from `docs/migration/` (the panel stays PHP). The WhaCP-to-NimVor server migration guide and its inventory script remain.
+- **Deleting a website removes everything that belongs to it**: its databases and the database users only they used, its email domain with all mailboxes and aliases, plus the cron jobs, workers and statistics it already removed. The system user stays unless the option is ticked. If one removal fails the website is left in place.
+
+### Fixed
+- A customer's websites run as **one system account named after their own login** (nv100), not after each domain: it is created with the first website and reused by every later one, also after all were removed. Adding a website again no longer fails with “The system user … already exists”; if a name the panel derived already exists on the server (left from an earlier website), the next free number is used.
+- Adding a website a customer had removed no longer fails with “Please correct the highlighted fields” and nothing highlighted: errors on fields the page does not show are now listed, and a derived account name that is reserved (a domain such as nimvor.com gives “nimvor”) or already used by another account gets a number.
+
+### Added
+- **App installer foundation**: every application has a validated manifest (runtime, database, source and integrity
+  policy, service, health check, backup/upgrade/uninstall strategies, licence, compatibility) that selects one of a fixed
+  set of trusted installation strategies and downloads only from trusted hosts; a catalog status
+  (draft, testing, enabled, deprecated, disabled); a read-only dry run ("Review what it will do"); at most one running
+  installation per website folder (no second database or job on a repeated request); the installed version and the
+  outcome of every installation are recorded and audited.
+- **Native applications** (Gitea, Django, FastAPI), installed as services under the website's account behind its reverse
+  proxy, each proven by a real installation on a disposable server and offered to administrators first
+  (status *testing*). Gitea is a checksum-verified binary (two published checksums must agree); Django and FastAPI get a
+  virtual environment with pinned packages. WordPress plus a plugin is now labelled as an extension.
+
+### Changed
+- **App installer downloads fixed** (found by the new CI download check): PrestaShop, OpenCart, Joomla and Invoice
+  Ninja are now fetched from the latest GitHub release asset (their file names carry the version, so a fixed
+  address returned 404/500); the download limit is 512 MB (Nextcloud is larger than the old 200 MB); downloads send
+  a browser-like User-Agent.
+- **Redirects are managed one by one** on a new *Redirects* page (a tile on the website overview and a menu entry):
+  a table of the website's redirects, an *Add redirect* window (type permanent 301 or temporary 302, the address,
+  where it goes) and *Delete* for each. Loops, duplicates and unsafe values are refused, and a change the agent
+  refuses is undone. The redirects text area is gone from Settings.
+- **PHP settings has its own page** (*PHP settings* tile and menu entry): the PHP version, process limits and
+  security profile, and the website's own php.ini directives. The *PHP settings* and *Additional PHP directives*
+  sections and the PHP version are removed from the Settings page (a new website still chooses its PHP version when
+  it is created).
+- **Customers can no longer enable or disable a website, and cannot delete a disabled one.** The enable/disable
+  controls are gone from the customer's website pages and list, and the endpoint (page and API) refuses them; only
+  administrators and resellers switch websites. When an administrator disables a website, its owner sees a message at
+  the top of the website's overview, the Delete option is hidden, and deleting is refused by the panel and the API
+  (also for a suspended account). Enabled websites can still be deleted by their owner, with the typed confirmation.
+
+### Added
+- **Security headers and cache rules per website** (website → *Headers & cache*) — owners choose framing protection
+  (X-Frame-Options and CSP `frame-ancestors`), a validated Content Security Policy with report-only mode,
+  Referrer-Policy, Permissions-Policy (presets or validated directives) and HSTS (only for websites with working
+  HTTPS), and browser-cache rules: static-asset lifetime, a policy for dynamic pages and extra never-cache paths.
+  Sign-in/administration paths, accounts, carts, API endpoints, authenticated requests, session cookies, responses that
+  set cookies and non-GET requests are never cached publicly, whatever is chosen. No Nginx directive is exposed; the
+  agent renders the configuration, validates it with `nginx -t` and keeps the last good file on failure. Includes
+  *Restore defaults*, a migration (`web_policy`), docs, panel and agent tests, and a real-nginx test.
+- **WordPress-based apps and more** — Tutor LMS, LearnPress and LifterLMS (Education), bbPress (Forums), BuddyPress,
+  Easy Digital Downloads (E-Commerce), WP Statistics and Koko Analytics (Analytics), Download Monitor (Files), plus
+  Piwigo and Mautic. The plugin apps are WordPress plus an allowlisted wordpress.org plugin, like WooCommerce.
+- **Frameworks and more apps** — Symfony, CodeIgniter 4, Yii 2, CakePHP and Slim starters (Composer, no database created),
+  Kirby and Craft CMS, Invoice Ninja and FacturaScripts.
+- **More apps in the app installer** — Backdrop CMS, ProcessWire and Bludit (Blogs & CMS), Dolibarr ERP & CRM (new
+  *Business, CRM & ERP* category) and Akaunting (new *Finance & Invoicing* category), plus Flarum, TYPO3,
+  Concrete CMS, Bagisto and Shopware Community Edition, which are installed with Composer (as the website's account,
+  with the website's PHP version) and served from `<folder>/public`. WooCommerce is WordPress plus the WooCommerce
+  plugin (downloaded from wordpress.org, from an allowlist of plugins in the agent) and is recorded as a WordPress
+  install, so the WordPress tools apply to it. They install like the other
+  staged apps and can be hidden or disabled under Administration → Application Manager.
+
+### Changed
+- **Email → Greylisting uses tabs** — Settings, Trusted hosts and Common mail providers — that switch in the page
+  without reloading; saving returns to the tab you were on.
+- **Resource limits is under Administration** (next to Bandwidth Limits) instead of Server.
+- **Email → Server settings (`/mail/admin/server`) uses tabs** — Services, Postfix, Dovecot and Mail log — that switch
+  in the page without reloading; "Check and apply" saves the Postfix and Dovecot settings together from either tab.
+- **WhaCP is now NimVor, everywhere.** The product, the licence holder (MIT, NimVor) and the repository
+  (github.com/NimVor/nimvor; Go module `github.com/NimVor/nimvor/agent`) use the new name, and so does everything on
+  the server: the `nimvor` system user and group, `/opt/nimvor`, `/etc/nimvor`, `/var/lib/nimvor`, `/var/log/nimvor`,
+  `/var/backups/nimvor`, the `nimvor-agent`, `nimvor-panel` and `nimvor-scheduler` units (and every other unit,
+  nftables table, group, Nginx/PHP-FPM file name and `.nimvor-*` folder the agent creates), `bin/nimvor`, the
+  `NIMVOR_*` environment variables, the `X-NimVor-*` headers, the `nimvor.*` agent actions, the cookie and session
+  names, and the markers in host configuration files ("Managed by NimVor"). The panel has a new "N" logo and default
+  name. No compatibility with the old names was kept: a server that still runs WhaCP must be migrated
+  (docs/migration/WHACP-TO-NIMVOR.md), and the installer refuses to run on it until then. Backups made under the old
+  name fail NimVor's integrity check (the key-derivation label changed); take new ones. Signed-in sessions and
+  passkeys do not carry over.
+
+### Added
+- **One-line installer: `curl -fsSL https://nimvor.com/install | sudo bash`.** `installer/bootstrap.sh` (the script
+  nimvor.com serves) fetches the source from github.com/NimVor/nimvor into `/usr/local/src/nimvor` and runs the
+  installer; `--version`, `--branch`, `--commit`, `--source` (mirror), `--dir` and `--fetch-only` choose what is
+  fetched, and it refuses to run on a checkout with local changes or the wrong commit.
 - **Recommended security settings are on after the server setup, and switchable from the Security overview.** A new
   setup step turns on (once) weekly malware scans with quarantine, all five fail2ban jails (now including
   `nginx-limit-req`), compiler access for root only, SMTP restrictions, the cloud-metadata block, cPHulk with its
@@ -20,6 +110,19 @@ All notable changes to WhaCP are documented here. The format follows
   `runtime.available`; `runtime.install` accepts `kind: python`.
 
 ### Fixed
+- **The website dashboard's "Site access" tile did nothing useful** (it only jumped to the FTP page). It now opens a
+  Site access page: password-protect the whole website or a folder of it with HTTP basic authentication (a user name and
+  password that visitors enter in the browser's sign-in prompt). The agent writes the Nginx rule and keeps only a
+  SHA-512 crypt hash; protected addresses can be changed or turned off from the same page. New feature switch "Site
+  access" in the Feature Manager (on in the default "Hosting" lists).
+- **File integrity checks of package-owned files silently found nothing on a normal server.** `dpkg --verify` /
+  `rpm -Va` read every file of every installed package, which takes minutes; the agent's default 15 second command
+  timeout cut it off, and the check "never fails the scan", so Security → File integrity reported no drift. The
+  verification now has its own 15 minute limit. (Found by the real-host CI test.)
+- **The default "Hosting" feature lists left newer features off.** The server setup's feature lists predate Addon
+  domains, Cloudflare, the site firewall, Memcached, MongoDB, Node.js, Python, site health, site security and the
+  "Create PHP / static sites" switches, so accounts on the default plans could not use them. They are now on in
+  "Hosting" and "Hosting with SSH" (SSH stays off in "Hosting").
 - **Security → Hulk: the search boxes did nothing and the country list had no select-all.** Table rows were not
   marked for the page's filter, so searching countries or failed logins never hid anything (and neither list was
   paged). Rows are now searchable and paged, and the country table has a header checkbox that ticks or unticks the
@@ -79,7 +182,7 @@ All notable changes to WhaCP are documented here. The format follows
   exists), position (Localhost), and a free-text administrator note, with
   per-row Browse / change-password / drop actions. The toolbar gained Root
   password and Security-authentication buttons. Notes are stored panel-side
-  and are admin-only; per WhaCP's secrets policy the panel still never stores
+  and are admin-only; per NimVor's secrets policy the panel still never stores
   or reveals a database user's password — the per-row key resets it instead.
 - **MongoDB browser redesigned as a three-pane explorer.** The full-page
   browser now has a databases/collections sidebar, a centre pane with a
@@ -110,7 +213,7 @@ All notable changes to WhaCP are documented here. The format follows
   table. No behaviour or route changes.
 
 ### Security
-- **GA security program (WhaCP 1.0).** Closed the boundaries that could allow
+- **GA security program (NimVor 1.0).** Closed the boundaries that could allow
   cross-customer compromise, privilege escalation, sandbox escape or unsafe
   privileged operations, each with permanent tests:
   - **Cross-site PHP isolation (item 50):** a real-host test runs as a real
@@ -125,7 +228,7 @@ All notable changes to WhaCP are documented here. The format follows
     traversal, null-byte, shell-metacharacter, Unicode and over-long inputs;
     `GitRef` tightened to git's own refname rule.
   - **File integrity monitoring (items 104–106):** `dpkg --verify` / `rpm -Va`
-    plus a WhaCP baseline, graded by severity (`security.integrity`).
+    plus a NimVor baseline, graded by severity (`security.integrity`).
   - **TLS configuration audit (items 70–71):** read-only probe of the
     server's own endpoints for weak protocols, weak ciphers and certificate
     problems (`tls.audit`).
@@ -158,7 +261,7 @@ All notable changes to WhaCP are documented here. The format follows
   which blocks inline `<script>`; the Website → Apps category switcher, the
   Website Settings PHP-profile toggle, and the MongoDB change-password modal
   fill were inline scripts and so silently stopped working (clicking an app
-  category did nothing). They moved to delegated handlers in `whacp.js`, and a
+  category did nothing). They moved to delegated handlers in `nimvor.js`, and a
   `ViewTest` guard now fails the build on any inline `<script>` in a template.
 - **Webmail's self-signed certificate follows a host-name change.** Webmail
   only generated its self-signed certificate when none existed, so after the
@@ -185,7 +288,7 @@ All notable changes to WhaCP are documented here. The format follows
   address was left at a reserved/example domain (e.g. the install docs'
   `you@example.com`), Let's Encrypt rejected the account with "contact email
   has forbidden domain" and *every* certificate — website and host-name —
-  failed to issue. WhaCP now drops such an address and issues the
+  failed to issue. NimVor now drops such an address and issues the
   certificate without a contact, noting in the job log that a real email
   should be set for renewal notices.
 - **Clearer Let's Encrypt failures.** When certbot cannot reach Let's
@@ -208,7 +311,7 @@ All notable changes to WhaCP are documented here. The format follows
   reverse-path filtering (`net.ipv4.conf.all.rp_filter`; loose mode 2 is
   applied, strict mode 1 also passes).
 - **PHP 8.5, OPcache:** OPcache is built into PHP from 8.5 and has no
-  package of its own. WhaCP looked for `php8.5-opcache`, so a profile with
+  package of its own. NimVor looked for `php8.5-opcache`, so a profile with
   OPcache (the default) never matched; the setup wizard reported "PHP 8.5
   opcache (install)". OPcache now counts as built in on PHP 8.5 and later:
   shown as installed and on, with nothing to install, remove or switch.
@@ -239,7 +342,7 @@ All notable changes to WhaCP are documented here. The format follows
 - **Sidebar:** "Users & roles" is now two pages, **Users** and **Roles**,
   and **Bandwidth Limits** has its own entry. **Logs** has a sub-menu for
   every kind of log: web server, PHP-FPM, mail, database, security, SSL,
-  system, services and WhaCP logs, and links to the audit log, AutoSSL
+  system, services and NimVor logs, and links to the audit log, AutoSSL
   log, ModSecurity events, mail delivery reports and failed logins.
 - **Roles:**
   - Every permission in the role editor lists the pages it opens. The list
@@ -251,8 +354,8 @@ All notable changes to WhaCP are documented here. The format follows
   - The editor has a search box and "All" / "None" for each group.
 - **Built-in roles are editable** (Operator, Viewer, Reseller, Hosting
   customer):
-  - A changed role keeps its permissions when WhaCP is updated;
-    **Reset to WhaCP defaults** brings back the defaults.
+  - A changed role keeps its permissions when NimVor is updated;
+    **Reset to NimVor defaults** brings back the defaults.
   - Administrator stays full access.
   - Nobody can grant a permission they do not hold themselves.
   - Reseller and customer roles cannot be given server-wide permissions.
@@ -333,7 +436,7 @@ All notable changes to WhaCP are documented here. The format follows
 - **MongoDB raw configuration-file editor (Server → MongoDB).** The
   Configuration card can now edit the whole `mongod.conf` directly (admins with
   `mongo.manage`), not just the structured port/bindIp/authorization fields.
-  MongoDB has no offline config check, so WhaCP writes the file, restarts, and
+  MongoDB has no offline config check, so NimVor writes the file, restarts, and
   restores the previous file automatically if the service will not start —
   never leaving MongoDB down because of a bad edit. New agent action
   `mongo.config_write`.
@@ -343,8 +446,8 @@ All notable changes to WhaCP are documented here. The format follows
   their passwords are not stored by the panel, so there is no per-row stored
   password to reveal — unlike a MySQL-style model.)
 - **MongoDB admin password and authentication toggle (Server → MongoDB).** Two
-  top actions: set the WhaCP MongoDB administrator's password (creates or resets
-  the `whacpAdmin` account in the `admin` database and stores only a root-only
+  top actions: set the NimVor MongoDB administrator's password (creates or resets
+  the `nimvorAdmin` account in the `admin` database and stores only a root-only
   connection string), and turn authentication on or off (restarts the service).
   Enabling authentication is **refused unless an admin password is set first**,
   so the panel and the server owner can never be locked out; the config change
@@ -502,7 +605,7 @@ All notable changes to WhaCP are documented here. The format follows
   host-name change, names recorded earlier — DNS zone records, Nginx server
   names, Postfix's greeting — keep the old value. A read-only scan
   (`server.hostname_references`) finds every place a given previous host name
-  still appears in `/etc/hosts`, WhaCP's Nginx sites, the hosted DNS zones and
+  still appears in `/etc/hosts`, NimVor's Nginx sites, the hosted DNS zones and
   the mail server, grouped with guidance and deep links, plus one-click
   "Re-apply mail server" (when Postfix still greets with the old name) and
   "Re-apply webmail" (when Roundcube still answers on it with a self-signed
@@ -510,7 +613,7 @@ All notable changes to WhaCP are documented here. The format follows
   certificate). It only reads configuration; customer DNS zones are listed,
   never rewritten automatically.
 - **Choice of certificate authority: Let's Encrypt, ZeroSSL or Buypass.**
-  WhaCP can now issue from ZeroSSL and Buypass Go in addition to Let's
+  NimVor can now issue from ZeroSSL and Buypass Go in addition to Let's
   Encrypt, still through certbot and the same webroot/renewal/deploy
   machinery. A certificate-authority setting selects the active provider for
   new and automatic SSL, the host name and services; Let's Encrypt stays the
@@ -528,7 +631,7 @@ All notable changes to WhaCP are documented here. The format follows
   certificate). Reserved/example and invalid addresses are refused with a
   clear message.
 - **Server → Health:** one page that shows whether anything is wrong.
-  - It gathers the panel's checks: WhaCP itself (the doctor checks),
+  - It gathers the panel's checks: NimVor itself (the doctor checks),
     resources, components, the security audit, updates, certificates,
     failed backups and tasks.
   - The worst items come first, each with a link to its fix.
@@ -564,7 +667,7 @@ All notable changes to WhaCP are documented here. The format follows
     until it is closed.
 - **Server profiles in the installer** (`--profile=full|web|minimal|none`;
   default by memory on a fresh server, `none` where web, mail, DNS or
-  database services already run). After installing, `bin/whacp
+  database services already run). After installing, `bin/nimvor
   setup:apply` sets the server up through the panel's own actions:
   - packages, then PHP 8.3 + 8.4 with the default extensions (`--php=`);
   - email (`--hostname=`), DNS (authoritative only) and FTP;
@@ -580,7 +683,7 @@ All notable changes to WhaCP are documented here. The format follows
   agent stay reachable. The installer checks memory, disk, outgoing port 25
   and reverse DNS. It states the third-party PHP repository it would add
   (Ondřej Surý's PPA or Remi); `--no-third-party-repos` keeps to the
-  system's repositories. `bin/whacp setup:status` shows the last run.
+  system's repositories. `bin/nimvor setup:status` shows the last run.
 - **Backups for every website**: a schedule can back up every website (each
   its own backup, two at a time, retention per website, websites added
   later included) as well as the server configuration.
@@ -599,7 +702,7 @@ All notable changes to WhaCP are documented here. The format follows
   Protection*), next to UFW or firewalld (no second firewall manager):
   invalid-packet filter, per-address SYN flood, connection and port flood
   limits per port, ping rate limit and exempt addresses, in the nftables
-  table `inet whacp_flood` (it only drops or rejects). Changes are undone
+  table `inet nimvor_flood` (it only drops or rejects). Changes are undone
   after 2 minutes unless confirmed; the page shows what each protection
   dropped. Brute force protection can block blacklisted countries on every
   port (CC_DENY), not only the login services.
@@ -613,7 +716,7 @@ All notable changes to WhaCP are documented here. The format follows
   A PHP version installed only as the command line now offers
   *Install PHP-FPM*.
 - **Account backups** (*Backups → Account backups*):
-  - **What the file holds.** One `.whacp-account` file per hosting
+  - **What the file holds.** One `.nimvor-account` file per hosting
     account, with every website's files and databases (encrypted) and the
     account's description: profile, plan, websites, databases and their
     users, DNS zones and cron jobs.
@@ -672,19 +775,19 @@ All notable changes to WhaCP are documented here. The format follows
 
 ### Added
 - **Top bar for server administrators:** the host name, the operating
-  system, the WhaCP version and the load averages (1, 5 and 15 minutes,
+  system, the NimVor version and the load averages (1, 5 and 15 minutes,
   refreshed every 5 seconds, and the same as the dashboard's Load card). Clicking the load opens live monitoring.
   The tool search moved to the sidebar, above Dashboard, and the
   "Write mode" label was removed from the sidebar. "Read-only mode" and
   "Agent offline" are still shown there.
 - **Three buttons in the dashboard's Server card:**
-  - **Restart all services:** every running service WhaCP manages, in
+  - **Restart all services:** every running service NimVor manages, in
     order: databases and caches, PHP, mail, DNS and FTP, then Nginx after a
     configuration test, then the agent and the panel. SSH is never
     restarted.
   - **Restart the server:** asks for the host name; it can still be
     cancelled on the Server page.
-  - **Update WhaCP:** shown only when a newer version exists. The scheduler
+  - **Update NimVor:** shown only when a newer version exists. The scheduler
     looks for a newer commit on GitHub every six hours (the agent itself has
     no network access). The update page runs `installer/update.sh` in its
     own systemd unit and shows its output while it runs; the panel and the
@@ -696,7 +799,7 @@ All notable changes to WhaCP are documented here. The format follows
     connections, and five seconds of system calls (when strace is
     installed; it is now on the Packages page).
   - **Stop** (TERM) and **Kill** (KILL) a single process, or every process
-    of one account. Root and WhaCP's own account are refused.
+    of one account. Root and NimVor's own account are refused.
   - **Suspicious processes** are flagged:
     - names of known miners or backdoors, and mining pool addresses;
     - programs deleted from disk after they started (not merely replaced
@@ -729,15 +832,15 @@ All notable changes to WhaCP are documented here. The format follows
   other sections.
 - **Security → Overview fixes findings with one click**, each with an undo:
   - **Kernel security settings:** the recommended values are applied and
-    kept in `/etc/sysctl.d/90-whacp-hardening.conf`; undo puts the earlier
+    kept in `/etc/sysctl.d/90-nimvor-hardening.conf`; undo puts the earlier
     values back. On a server that routes traffic for others, redirects are
     left on.
   - **Process visibility:** `/proc` uses `hidepid=2`, so each account sees
-    only its own processes. Root and the group `whacp-proc` (polkit is
+    only its own processes. Root and the group `nimvor-proc` (polkit is
     added to it) still see all processes. The setting is kept in
     `/etc/fstab`.
   - **Automatic security updates:** unattended-upgrades on Debian/Ubuntu.
-    On RHEL, dnf-automatic installs security updates only, uses WhaCP's own
+    On RHEL, dnf-automatic installs security updates only, uses NimVor's own
     configuration and never restarts the server. The package is installed
     when missing.
   - **Database network access:** the database server accepts local
@@ -749,7 +852,7 @@ All notable changes to WhaCP are documented here. The format follows
   locking anyone out. Only plain Ed25519, ECDSA and RSA keys of at least
   2048 bits are accepted. **Generate a new key** creates the key pair in the
   panel (RSA 4096, protected with an optional passphrase), allows it at once
-  and offers the private key for download one time; WhaCP does not keep it.
+  and offers the private key for download one time; NimVor does not keep it.
   Changes need an administrator who confirmed
   their password recently, and are audited. The last key cannot be
   removed while password logins are off.
@@ -770,8 +873,8 @@ All notable changes to WhaCP are documented here. The format follows
 - **Every cron job runs in a sandbox**, not only those of accounts with
   resource limits. Each job runs as the website account in a transient
   service, with no capabilities and the system read-only, like the other
-  commands WhaCP runs as that account. Updates rewrite existing schedules
-  in the new form (`bin/whacp cron:sync`).
+  commands NimVor runs as that account. Updates rewrite existing schedules
+  in the new form (`bin/nimvor cron:sync`).
 - **Websites cannot reach the cloud metadata service** (169.254.169.254 and
   the other providers' addresses), which hands out the server's cloud
   credentials. Security → Outgoing Connections can also block private
@@ -780,8 +883,8 @@ All notable changes to WhaCP are documented here. The format follows
 
 ### Fixed
 - **Brotli on Ubuntu/Debian:**
-  - WhaCP installed `libnginx-mod-brotli`, a name these systems don't
-    have. Their package is `libnginx-mod-http-brotli-filter`, which WhaCP
+  - NimVor installed `libnginx-mod-brotli`, a name these systems don't
+    have. Their package is `libnginx-mod-http-brotli-filter`, which NimVor
     now installs.
   - Components a repository does not list at all are now also shown as
     "Not available on this system".
@@ -799,7 +902,7 @@ All notable changes to WhaCP are documented here. The format follows
     Composer and `upgrade.sh` use the panel's own PHP.
   - **Go:** the agent did not build with the distribution's Go 1.18. When
     the system's Go is too old, the installer now downloads Go 1.24 from
-    go.dev into `/usr/local/lib/whacp-go` and checks its SHA-256 first.
+    go.dev into `/usr/local/lib/nimvor-go` and checks its SHA-256 first.
 - **Recovery from remote storage refused real website backups:**
   - The authentication of a website backup's manifest covered its panel
     metadata as sent. The manifest is stored indented, which changed those
@@ -824,7 +927,7 @@ All notable changes to WhaCP are documented here. The format follows
   reload services got longer time limits too.
 - The top bar's load refresh started an extra timer each time a page
   loaded in place.
-- **WhaCP's greylisting and mail-limit services were flagged as suspicious
+- **NimVor's greylisting and mail-limit services were flagged as suspicious
   processes after an update.** They run the agent's program and were not
   restarted by the installer, so they kept running the replaced (deleted)
   version. Now:
@@ -834,7 +937,7 @@ All notable changes to WhaCP are documented here. The format follows
   - accounts without a name (systemd's dynamic users) show their service.
 - **"Renewal of Let's Encrypt certificates: not scheduled" on Rocky/Alma.**
   EPEL's certbot installs `certbot-renew.timer` but does not turn it on,
-  and WhaCP looked only for Debian's `certbot.timer`. WhaCP now turns the
+  and NimVor looked only for Debian's `certbot.timer`. NimVor now turns the
   timer on in three cases:
   - after issuing a certificate;
   - when the agent starts and certificates exist;
@@ -848,7 +951,7 @@ All notable changes to WhaCP are documented here. The format follows
   each listed file again when it is shown.
 - **clamav-freshclam showed as not installed after installing it** on
   Rocky/Alma. EPEL 9 and 10 call the package clamav-freshclam (clamav-update
-  before), so WhaCP looked for the old name.
+  before), so NimVor looked for the old name.
 - **ImageMagick could not be installed on Rocky/Alma** ("is not a valid
   package name"). RPM package names may have capital letters and
   underscores.
@@ -860,13 +963,13 @@ All notable changes to WhaCP are documented here. The format follows
   when its install scripts failed, for example under the older agent. Its
   PHP-FPM then ran outside the web server's SELinux domain, and SELinux
   refused nginx the socket (`connect() ... (13: Permission denied)`). Before
-  loading PHP-FPM, WhaCP now checks the version's SELinux labels. If they
+  loading PHP-FPM, NimVor now checks the version's SELinux labels. If they
   are missing, it records the same rules Remi's scripts would have,
   relabels the files and restarts PHP-FPM.
-- **Webmail and PHP websites on Rocky/Alma with only Remi's PHP:** WhaCP
+- **Webmail and PHP websites on Rocky/Alma with only Remi's PHP:** NimVor
   never created `/run/php-fpm`, where its PHP-FPM pools put their sockets.
   Without RHEL's own php-fpm package the folder did not exist, so the pool
-  could not start and Nginx answered 502. WhaCP now creates it (labelled for
+  could not start and Nginx answered 502. NimVor now creates it (labelled for
   SELinux) and keeps it across reboots (tmpfiles.d).
 - **Webmail failures now explain themselves:** a page that does not load
   shows Nginx's error lines for the webmail socket, the PHP-FPM service's
@@ -884,7 +987,7 @@ All notable changes to WhaCP are documented here. The format follows
 
 ### Fixed
 - **Rspamd on Rocky/Alma** failed: "rspamd is not available". EPEL does
-  not carry it. WhaCP now adds the Rspamd project's own signed repository
+  not carry it. NimVor now adds the Rspamd project's own signed repository
   when rspamd is installed.
 - **`--public-https` on servers with a long host name** (cloud names over
   64 characters) failed: "the certificate could not be created". The
@@ -898,11 +1001,11 @@ All notable changes to WhaCP are documented here. The format follows
   (no_new_privs, no capabilities, ProtectSystem, the account's limits)
   stays on the session unit.
 - **opendkim and other EPEL packages on Rocky/Alma** failed with "nothing
-  provides libmilter…". WhaCP now enables CRB, which EPEL's packages need,
+  provides libmilter…". NimVor now enables CRB, which EPEL's packages need,
   and tries again. If it still fails, it names the repository that
   provides the missing library.
 - **Updating left the old agent running.** If Go was not found, the
-  installer used to install the outdated `dist/whacp-agent` after a
+  installer used to install the outdated `dist/nimvor-agent` after a
   `git pull`. It now stops and asks for `--install-deps`. The agent's
   version also names the commit it was built from.
 - **Greylisting and mail limits on SELinux systems (Rocky, Alma, RHEL)
@@ -959,7 +1062,7 @@ All notable changes to WhaCP are documented here. The format follows
   - New setting: new websites start with shell functions disabled.
   - Outgoing mail limits per website account (Email → Sending limits).
     Recipients are counted per hour at the mail server, PHP's mail() goes
-    through WhaCP's sendmail, and administrators and the website's owner
+    through NimVor's sendmail, and administrators and the website's owner
     are notified when an account hits its limit.
   - New setting: hosting customers may be kept to local-only database
     users.
@@ -971,7 +1074,7 @@ All notable changes to WhaCP are documented here. The format follows
       the test database;
     - a daily host scan: set-user-ID programs and file capabilities not
       installed by a package, world-writable system files, and cron jobs,
-      services or preloaded libraries not from a package or WhaCP.
+      services or preloaded libraries not from a package or NimVor.
     Checks only report; nothing is changed automatically.
 - **Security hardening (low-severity audit findings).**
   - WordPress one-time sign-in links work only over HTTPS.
@@ -986,7 +1089,7 @@ All notable changes to WhaCP are documented here. The format follows
   - Website accounts can no longer create personal crontabs or at jobs:
     scheduled tasks go through the panel.
 - **Turning the firewall on keeps you connected.** The Firewall page lists
-  the ports WhaCP needs (SSH, the panel's HTTPS port, the agent's remote
+  the ports NimVor needs (SSH, the panel's HTTPS port, the agent's remote
   listener, and the ports of running services: websites, webmail, mail,
   FTP with its passive range, DNS) and whether a rule allows each. Turning
   the firewall on first opens SSH and the panel, optionally the services'
@@ -1002,9 +1105,9 @@ All notable changes to WhaCP are documented here. The format follows
   have sidebar menus too (mail server, mailboxes, queue, delivery reports,
   statistics, greylisting, tools; databases and users, database server,
   settings, connections, logs); the new DNS zone form is a modal.
-- **cPHulk Brute Force Protection.** Failed logins from WhaCP, webmail, SSH,
-  IMAP/POP3, SMTP AUTH and FTP lock the account (WhaCP sign-ins) or block
-  the address, for the protection period or one day; blocks apply to WhaCP
+- **cPHulk Brute Force Protection.** Failed logins from NimVor, webmail, SSH,
+  IMAP/POP3, SMTP AUTH and FTP lock the account (NimVor sign-ins) or block
+  the address, for the protection period or one day; blocks apply to NimVor
   and the login services, or at the firewall level (nftables, expiring on
   their own). Commands with the cPHulk variables (run as the panel's
   account, 15-second limit, shell-quoted values), root login and brute
@@ -1016,7 +1119,7 @@ All notable changes to WhaCP are documented here. The format follows
   password strength and password age.
 - **Password Strength Configuration.** Minimum strength and counts of
   special, numeric, alphabet, upper and lower case characters and length,
-  for WhaCP users, mailbox passwords and the root password.
+  for NimVor users, mailbox passwords and the root password.
 - **Compiler Access, SMTP Restrictions, Shell Fork Bomb Protection and
   Traceroute Enable/Disable.** Compilers for root and chosen accounts only;
   only root, the mail server, Mailman and the panel may reach remote SMTP
@@ -1059,7 +1162,7 @@ All notable changes to WhaCP are documented here. The format follows
   account; versioned files, test load, atomic `load_module` switch,
   `nginx -t`, reload; any failure rolls everything back (also after an
   interrupted run). Manual rollback on the page and with
-  `whacp modsec:rollback <id>`; records kept for a configurable time, the
+  `nimvor modsec:rollback <id>`; records kept for a configurable time, the
   one in effect always. *Install Core Rule Set* separately (package or
   pinned release), starting in detection only; a new *Detection only*
   switch holds blocking until an administrator allows it.
@@ -1095,7 +1198,7 @@ All notable changes to WhaCP are documented here. The format follows
   a compromised panel could name such an account and gain root through its
   sudo rights.
 - **ModSecurity build is not trusted blindly.** A pre-existing
-  `whacp-build` account that WhaCP did not create is refused (the name is
+  `nimvor-build` account that NimVor did not create is refused (the name is
   now reserved for websites), build outputs are read without following
   links and only from inside the build folder, and installed files are
   copied only from regular files.
@@ -1107,7 +1210,7 @@ All notable changes to WhaCP are documented here. The format follows
   mode changed at the same time.
 
 ### Changed
-- **File Manager paths:** any path through a `.whacp-*` folder (trash,
+- **File Manager paths:** any path through a `.nimvor-*` folder (trash,
   quarantine, temporary files) is refused, not only one ending in it.
 - **Web terminal sign-in uses the Linux account's password.** A website's
   terminal now signs in as its Linux account with that account's own
@@ -1184,7 +1287,7 @@ All notable changes to WhaCP are documented here. The format follows
   - Signing out ends the sign-in's sessions.
   - *Server → Web terminal* lists open sessions and can close them.
   - Root shells stay off unless root sets `terminal_root` in
-    `/etc/whacp/agent.json`.
+    `/etc/nimvor/agent.json`.
 - **Resource limits per account (cgroups)**: plans set CPU %, memory,
   processes and disk read/write speed. Each limited account gets a systemd
   slice, and everything the account runs is counted in it:
@@ -1203,14 +1306,14 @@ All notable changes to WhaCP are documented here. The format follows
     reserved with a reason), with usage and whether the server has each
     one;
   - routed IPv6 ranges made local through a loopback route kept by
-    `whacp-ipv6-ranges.service`, refused when they overlap an on-link
+    `nimvor-ipv6-ranges.service`, refused when they overlap an on-link
     prefix or contain a gateway, with address allocation;
   - per-website IPv4/IPv6 listen addresses (Nginx checked before reload)
     with A/AAAA records following, rolled back if the DNS server refuses;
   - a migration wizard (review, confirm, per-website results);
   - a non-destructive pool rebuild.
 
-  Network interfaces are not configured by WhaCP; an address must exist
+  Network interfaces are not configured by NimVor; an address must exist
   on the server first.
 - **SSL/TLS section** (administrators):
   - SSL hosts: every host name Nginx serves with its certificate state,
@@ -1222,7 +1325,7 @@ All notable changes to WhaCP are documented here. The format follows
     against the stored key;
   - a server-wide TLS profile (TLS 1.2+1.3 or 1.3 only, Mozilla
     intermediate ciphers, session tickets) in one Nginx snippet included
-    by WhaCP websites and webmail, checked with `nginx -t` and rolled back
+    by NimVor websites and webmail, checked with `nginx -t` and rolled back
     on failure.
 
   Certificate installs now also check the chain order, the validity start
@@ -1232,7 +1335,7 @@ All notable changes to WhaCP are documented here. The format follows
   - status and resources: connections, queries, InnoDB buffer pool,
     temporary tables, traffic, data size;
   - connection details;
-  - a fixed set of settings in WhaCP's own option file, checked by the
+  - a fixed set of settings in NimVor's own option file, checked by the
     server program and applied live where possible, rolled back on
     failure;
   - a restart that checks the option files first, waits for the server to
@@ -1296,7 +1399,7 @@ All notable changes to WhaCP are documented here. The format follows
   (`/settings#dns`), with links to the pages that keep related settings of
   their own (server, PHP, mail server, greylisting, security, plans…). It
   uses the same settings store; nothing moved or was duplicated.
-- **WhaCP services** (Services → WhaCP): state of the agent, panel,
+- **NimVor services** (Services → NimVor): state of the agent, panel,
   scheduler, greylisting, DKIM and FTP services with a restart button
   (server administrators). The agent and the panel restart two seconds
   after answering, so the request is not cut off; the panel can no longer
@@ -1321,7 +1424,7 @@ All notable changes to WhaCP are documented here. The format follows
   (Plans → FFmpeg, off by default): only accounts whose plan includes it
   (for a reseller's customers, the reseller's plan too) and
   administrators' websites can run it. The programs belong to root and the
-  group `whacp-ffmpeg` with mode 0750 (kept through package updates by
+  group `nimvor-ffmpeg` with mode 0750 (kept through package updates by
   dpkg-statoverride, applied again after package jobs on RHEL), and the
   group's members follow the plans (at once when a plan is saved, else
   within five minutes); suspended accounts lose access and PHP is reloaded
@@ -1359,9 +1462,9 @@ All notable changes to WhaCP are documented here. The format follows
   repair of mailbox ownership and permissions (vmail, no access for
   others; links and special files are skipped and never followed).
 - **Greylisting** (Email administration → Greylisting): triplet
-  greylisting (sender IP, from, to) by WhaCP's own Postfix policy service,
+  greylisting (sender IP, from, to) by NimVor's own Postfix policy service,
   which runs as an unprivileged, socket-activated systemd unit
-  (`whacp-greylist`, DynamicUser, no capabilities; `systemd-analyze
+  (`nimvor-greylist`, DynamicUser, no capabilities; `systemd-analyze
   security` exposure 1.1). Settings: on/off, initial deferral, resend
   acceptance period and record expiration (minutes), bypass for senders
   whose SPF passes, automatic trust of newly listed providers. Trusted
@@ -1433,7 +1536,7 @@ All notable changes to WhaCP are documented here. The format follows
   schedule (nightly to monthly, 1:00–6:00) and quarantine. Each website
   has a Malware scan page (scan now, last result, history). clamscan runs
   as the website's own account; quarantine moves infected files into the
-  website's `.whacp-quarantine` folder (mode 0000) without following
+  website's `.nimvor-quarantine` folder (mode 0000) without following
   links out of it. The owner is notified of infected files; a scan
   without signatures fails instead of reporting "clean".
 - **Create a new account:** login, password (generate), plan, PHP
@@ -1489,7 +1592,7 @@ All notable changes to WhaCP are documented here. The format follows
 - **PHP → version → Settings:** manage extensions (install, remove, switch
   on or off; removals that would take other packages along are refused,
   and the panel's own extensions are protected), edit php.ini settings
-  with a form or a text editor (in WhaCP's own `99-whacp.ini`, allowlisted
+  with a form or a text editor (in NimVor's own `99-nimvor.ini`, allowlisted
   and type-checked), and set server-wide PHP-FPM options. Each change is
   checked with `php-fpm -t`, reloaded, and undone on failure.
 - **Website → PHP & settings → Advanced PHP-FPM:** process manager
@@ -1632,12 +1735,12 @@ All notable changes to WhaCP are documented here. The format follows
   passes `\n` for the tools to expand; installed components show their
   version.
 - `install.sh --reinstall` from a source checkout installed the agent
-  built earlier (`dist/whacp-agent`) even after `git pull` brought newer
+  built earlier (`dist/nimvor-agent`) even after `git pull` brought newer
   sources, so agent fixes did not arrive. It now rebuilds when the
   sources are newer than that build (without Go it warns and keeps it).
 - Saving fail2ban settings failed with "Could not find server" when the
   fail2ban service was stopped (e.g. just installed and not running): a
-  reload needs a running service. WhaCP now starts it, waits until it
+  reload needs a running service. NimVor now starts it, waits until it
   answers, and when it does not start shows fail2ban's own log; saving
   unchanged settings also starts a stopped service. BIND checks that
   fail without printing anything now say why (exit status, not found).
@@ -1648,13 +1751,13 @@ All notable changes to WhaCP are documented here. The format follows
   task is followed and a notice says when it is done.
 - **Webmail on Ubuntu 26.04.** Ubuntu's Roundcube 1.6.11 declares its own
   `array_first()`, which PHP 8.5 has built in, so it stopped with a fatal
-  error and WhaCP refused webmail there. On PHP 8.5 and later WhaCP now
+  error and NimVor refused webmail there. On PHP 8.5 and later NimVor now
   turns the built-in off for Roundcube's pool and database step only
   (Roundcube's own function does the same). Websites' PHP is not changed.
 - **Background workers never started on an installed server.** The
-  worker's launcher was kept in `/var/lib/whacp-agent` (0700 root), which
+  worker's launcher was kept in `/var/lib/nimvor-agent` (0700 root), which
   the website account it runs as cannot enter. Launchers are now in
-  `/var/lib/whacp-workers` (0711 root), each readable only by its own
+  `/var/lib/nimvor-workers` (0711 root), each readable only by its own
   website account (it contains the worker's environment variables).
   Workers created before this version: open each one and save it again.
 - Workers could not unpack archives on Ubuntu 26.04: `RestrictSUIDSGID`
@@ -1670,7 +1773,7 @@ All notable changes to WhaCP are documented here. The format follows
 - History no longer grows without limit: the scheduler removes job records
   90 days after they settled, deployments after 90 days (always keeping
   the latest 20 per website) and audit records after 365 days
-  (`audit.retention_days` in `/etc/whacp/panel.php`; `0` keeps them
+  (`audit.retention_days` in `/etc/nimvor/panel.php`; `0` keeps them
   forever). Each audit removal is itself recorded.
 - Backups and restores no longer fill the disk. Backup files and downloads
   stop before less than 512 MiB would be left (the partial files are
@@ -1704,9 +1807,9 @@ All notable changes to WhaCP are documented here. The format follows
 - Deleting a mailbox reports mail it could not move to the trash instead
   of ignoring the error.
 - Deleted websites' files and mailboxes' mail could not be moved to the
-  trash when they were on another filesystem than `/var/lib/whacp-agent`
+  trash when they were on another filesystem than `/var/lib/nimvor-agent`
   (a separate `/home` or `/var/vmail` disk; Ubuntu 26.04's `/tmp` in
-  tests). The trash is now `.whacp-trash` in the websites folder and in
+  tests). The trash is now `.nimvor-trash` in the websites folder and in
   `/var/vmail` (root only, same disk: a rename that keeps owners and
   labels).
 - Upgrades no longer interrupt background jobs: `upgrade.sh` waits until no
@@ -1760,7 +1863,7 @@ runs with `allow_write_actions` (`install.sh --enable-writes`).
   setuid/setgid, a read-only system and an enforced timeout. The agent's
   own unit and sandbox are unchanged (`systemd-analyze security`: 5.8, as
   before). Standard input and output go through named pipes in
-  `/run/whacp-run` that only the account's own process opens; the agent
+  `/run/nimvor-run` that only the account's own process opens; the agent
   never follows a replaced pipe.
 - A command that reached its timeout is always reported as failed.
 - Git deployment webhooks: a captured delivery can no longer be replayed to
@@ -1772,7 +1875,7 @@ runs with `allow_write_actions` (`install.sh --enable-writes`).
 
 ### Added
 - **Write-path infrastructure:** file writer limited to an allowlist of
-  WhaCP-owned paths, change sets with backup/validate/rollback, background
+  NimVor-owned paths, change sets with backup/validate/rollback, background
   jobs with logs, allowlisted command runner extensions (commands for
   site accounts run unprivileged).
 - **Websites (5):** PHP, static and reverse-proxy sites, aliases, redirects,
@@ -1810,11 +1913,11 @@ runs with `allow_write_actions` (`install.sh --enable-writes`).
 - **Installer and upgrades (25–26):** `upgrade.sh` with pre-flight checks,
   backups and automatic rollback; scheduler timer; version file.
 - **Import (27):** take over a website found by discovery — files are copied
-  into a new WhaCP website, the old vhost is disabled and the new one
+  into a new NimVor website, the old vhost is disabled and the new one
   enabled in one validated reload (old configuration restored on any
   failure); the application's database is detected; imports can be undone.
 - **Hardening (28):** two-factor sign-in (TOTP, replay-protected, recovery
-  codes, admin and CLI reset); `bin/whacp doctor` checks PHP, file modes of
+  codes, admin and CLI reset); `bin/nimvor doctor` checks PHP, file modes of
   secrets, schema, database integrity, agent reachability/version and the
   scheduler; the agent's OpenAPI action list is generated from and verified
   against the registry in tests.
@@ -1847,7 +1950,7 @@ runs with `allow_write_actions` (`install.sh --enable-writes`).
   per-database account that is locked between requests (its password is
   rotated each time); built-in MySQL client (native and caching_sha2
   authentication).
-- **FTP and SFTP accounts:** FTPS accounts per website served by WhaCP's own
+- **FTP and SFTP accounts:** FTPS accounts per website served by NimVor's own
   Pure-FTPd service (passive range, TLS, firewall), and SFTP-only accounts
   chrooted to the website with password or SSH keys; accounts are removed
   with their website.
@@ -1855,7 +1958,7 @@ runs with `allow_write_actions` (`install.sh --enable-writes`).
   DMARC), all common record types, secondaries with notify and transfer;
   every change is validated with named-checkzone/named-checkconf, loaded
   and verified by querying the new SOA serial, and rolled back otherwise.
-- **Email hosting:** Postfix, Dovecot and OpenDKIM for WhaCP's mail
+- **Email hosting:** Postfix, Dovecot and OpenDKIM for NimVor's mail
   domains.
   - Mailboxes with quotas, aliases and catch-all.
   - Submission on 587 with sign-in; a user may send only as their own
@@ -1875,12 +1978,12 @@ runs with `allow_write_actions` (`install.sh --enable-writes`).
   - Mail above the *Refuse* score is rejected while the sender is still
     connected, so it bounces rather than disappearing.
   - Senders cannot set the spam header themselves.
-  - WhaCP writes only its own files in Rspamd's local.d; files it did not
+  - NimVor writes only its own files in Rspamd's local.d; files it did not
     write are replaced only after confirmation. Changes are checked with
     `rspamadm configtest`.
 - **Webmail (Roundcube):** installed from the distribution's packages and
   switched on for a host name.
-  - WhaCP keeps Roundcube's configuration and SQLite database in its own
+  - NimVor keeps Roundcube's configuration and SQLite database in its own
     folders and never edits the package's files.
   - Roundcube runs in its own PHP-FPM pool and account, restricted with
     open_basedir, behind its own HTTPS Nginx site that runs only
@@ -1896,12 +1999,12 @@ runs with `allow_write_actions` (`install.sh --enable-writes`).
   relying-party verification; works together with TOTP and recovery codes.
 - **AlmaLinux, Rocky Linux and RHEL 9 and 10**, supported alongside Ubuntu:
   - PHP versions come from Remi (for example `php83-php-fpm`).
-  - Packages are installed with dnf, with WhaCP's package names mapped to
+  - Packages are installed with dnf, with NimVor's package names mapped to
     the distribution's (EPEL and Rspamd's repository included).
   - firewalld is supported as well as UFW: service ports are opened in
     whichever is active, and the firewall rule manager keeps its automatic
     rollback.
-  - SELinux stays enforcing. WhaCP labels what it creates (websites, mail
+  - SELinux stays enforcing. NimVor labels what it creates (websites, mail
     storage, webmail data), turns on the booleans it needs (proxying,
     webmail connections, FTP) and labels a moved SSH port.
   - BIND is opened to the network for hosted zones (after confirmation),
@@ -1917,7 +2020,7 @@ runs with `allow_write_actions` (`install.sh --enable-writes`).
 - Agent errors print their details with `%+v` (tests and logs).
 
 ### Testing
-- `bin/whacp doctor` prints PASS/WARN/FAIL and checks the server through
+- `bin/nimvor doctor` prints PASS/WARN/FAIL and checks the server through
   the agent: disk space, Nginx, PHP-FPM, database server, Redis, certbot
   and backups.
 - Installer end to end in CI on Ubuntu 24.04 and AlmaLinux 9. After
@@ -1945,7 +2048,7 @@ runs with `allow_write_actions` (`install.sh --enable-writes`).
   version sort would have refused 1.0.0-rc1 → 1.0.0 as a downgrade.
 - Restart PHP uses the distribution's FPM unit name (RHEL:
   `php83-php-fpm`).
-- RHEL: the commands WhaCP needs there (dnf, rpm, firewalld and SELinux
+- RHEL: the commands NimVor needs there (dnf, rpm, firewalld and SELinux
   tools) were missing from the agent's allowlist. Atomic writes now keep
   a replaced file's SELinux label, and restored configuration is
   relabelled. Redis 6.2 ACL users (`resetchannels`) are created
@@ -1955,18 +2058,18 @@ runs with `allow_write_actions` (`install.sh --enable-writes`).
 - Roundcube's pool sets `include_path` with `php_value`: Roundcube refuses
   to run when include_path is locked.
 - `uninstall.sh` left the agent's write-mode drop-in behind.
-- Configuration files WhaCP rewrites without owning them (e.g. its include
+- Configuration files NimVor rewrites without owning them (e.g. its include
   in `/etc/named.conf`) keep their owner and group; on RHEL BIND could no
   longer read `named.conf`.
 - RHEL: the DKIM folder is `root:opendkim`, so OpenDKIM starts under
   SELinux; Postfix 3.5 accepts the TLS protocol setting (it had disabled
   TLS on submission) and email setup now checks STARTTLS on 587 and rolls
-  back if it fails; Roundcube 1.5 finds WhaCP's configuration folder, its
+  back if it fails; Roundcube 1.5 finds NimVor's configuration folder, its
   default settings (`root:apache 0640` on RHEL, copied by the agent) and
   its IMAP and SMTP servers.
-- Commands WhaCP runs as a website account (deploy hooks, cron "run now",
+- Commands NimVor runs as a website account (deploy hooks, cron "run now",
   app installers) can send mail with `sendmail` again: inside their units
-  it is WhaCP's own sendmail, which submits the message over SMTP to this
+  it is NimVor's own sendmail, which submits the message over SMTP to this
   machine's mail server (Postfix's hangs there: its setgid `postdrop`
   cannot work with `NoNewPrivileges`). The system's `sendmail` is not
   changed.
@@ -1995,7 +2098,7 @@ Phases 0–4: foundation, panel, agent, server dashboard and read-only discovery
   Administrator/Operator/Viewer roles, panel user management with
   last-administrator protection, settings, audit log, profile and password
   change (other sessions are invalidated), friendly error pages with
-  reference IDs, CLI (`bin/whacp`).
+  reference IDs, CLI (`bin/nimvor`).
 - **Agent (Go):** Unix-socket API with bearer token and SO_PEERCRED checks,
   named action registry with a write gate (`allow_write_actions`, off),
   uniform response envelope, OS abstraction (Debian family; RHEL scaffold),

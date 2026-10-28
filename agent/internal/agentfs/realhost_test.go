@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
 )
 
 // A full disk never leaves a half-written configuration: the write fails
@@ -24,8 +24,8 @@ func TestRealHostFullDiskKeepsTheOldFile(t *testing.T) {
 	defer exec.Command("umount", base).Run()
 	os.MkdirAll(filepath.Join(base, "etc/nginx/sites-available"), 0o755)
 	root, _ := filesystem.NewRoot(base)
-	w := Writer{Root: root, Policy: Policy{Patterns: []string{"/etc/nginx/sites-available/whacp-*.conf"}}}
-	p := "/etc/nginx/sites-available/whacp-a.com.conf"
+	w := Writer{Root: root, Policy: Policy{Patterns: []string{"/etc/nginx/sites-available/nimvor-*.conf"}}}
+	p := "/etc/nginx/sites-available/nimvor-a.com.conf"
 	old := []byte("server { listen 80; }\n")
 	if _, err := w.WriteFile(p, old, 0o644, Keep); err != nil {
 		t.Fatal(err)
@@ -37,7 +37,7 @@ func TestRealHostFullDiskKeepsTheOldFile(t *testing.T) {
 	if got, _ := os.ReadFile(filepath.Join(base, p)); !bytes.Equal(got, old) {
 		t.Fatalf("old file changed: %q", got)
 	}
-	if left, _ := filepath.Glob(filepath.Join(base, "etc/nginx/sites-available/.whacp-tmp-*")); len(left) > 0 {
+	if left, _ := filepath.Glob(filepath.Join(base, "etc/nginx/sites-available/.nimvor-tmp-*")); len(left) > 0 {
 		t.Fatalf("temporary files left: %v", left)
 	}
 }

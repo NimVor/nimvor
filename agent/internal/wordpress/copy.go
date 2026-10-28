@@ -15,12 +15,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/dbmgr"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/dbmgr"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
 // Staging and cloning: an installation's files and database are copied to
@@ -170,7 +170,7 @@ func ListRestorePoints(env *host.Env, domain string) []pointMeta {
 // tarPipe streams dir of one account into dir of another.
 func tarPipe(ctx context.Context, env *host.Env, from *execx.Credential, fromDir string, to *execx.Credential, toDir string, exclude []string, log io.Writer) error {
 	pr, pw := io.Pipe()
-	args := []string{"-C", fromDir, "--exclude=./whacp-login-*.php", "--exclude=./.whacp-trash"}
+	args := []string{"-C", fromDir, "--exclude=./nimvor-login-*.php", "--exclude=./.nimvor-trash"}
 	for _, x := range exclude {
 		args = append(args, "--exclude=./"+x)
 	}
@@ -202,7 +202,7 @@ func tarPipe(ctx context.Context, env *host.Env, from *execx.Credential, fromDir
 // configScript points a copied wp-config.php at its database and address
 // (the values come inside the program, on standard input).
 const configScript = `<?php
-$cfg = getenv('WHACP_FILE');
+$cfg = getenv('NIMVOR_FILE');
 $src = (string) @file_get_contents($cfg);
 $vals = %s;
 foreach ($vals as $name => $v) {
@@ -212,18 +212,18 @@ foreach ($vals as $name => $v) {
         continue;
     }
     if ($n !== 1) {
-        echo "\nWHACP-JSON " . json_encode(['ok' => false, 'error' => "wp-config.php does not set $name in the usual way"]) . "\n";
+        echo "\nNIMVOR-JSON " . json_encode(['ok' => false, 'error' => "wp-config.php does not set $name in the usual way"]) . "\n";
         exit(0);
     }
     $src = preg_replace_callback($re, fn () => "define( '$name', " . var_export($v, true) . " );", $src, 1);
 }
-$tmp = $cfg . '.whacp-' . bin2hex(random_bytes(6));
+$tmp = $cfg . '.nimvor-' . bin2hex(random_bytes(6));
 if (@file_put_contents($tmp, $src) !== strlen($src) || !@chmod($tmp, fileperms($cfg) & 0777) || !@rename($tmp, $cfg)) {
     @unlink($tmp);
-    echo "\nWHACP-JSON " . json_encode(['ok' => false, 'error' => 'wp-config.php could not be written']) . "\n";
+    echo "\nNIMVOR-JSON " . json_encode(['ok' => false, 'error' => 'wp-config.php could not be written']) . "\n";
     exit(0);
 }
-echo "\nWHACP-JSON " . json_encode(['ok' => true]) . "\n";
+echo "\nNIMVOR-JSON " . json_encode(['ok' => true]) . "\n";
 `
 
 func phpArray(m map[string]string) string {
@@ -289,7 +289,7 @@ func savePoint(ctx context.Context, env *host.Env, t Target, cred *execx.Credent
 		return "", err
 	}
 	gz := gzip.NewWriter(f)
-	out, terr := env.Runner.RunWith(ctx, "tar", execx.Opts{As: cred, Dir: "/", Stdout: gz, Timeout: -1}, "-C", dir, "--exclude=./whacp-login-*.php", "-cf", "-", ".")
+	out, terr := env.Runner.RunWith(ctx, "tar", execx.Opts{As: cred, Dir: "/", Stdout: gz, Timeout: -1}, "-C", dir, "--exclude=./nimvor-login-*.php", "-cf", "-", ".")
 	var ee *exec.ExitError
 	if errors.As(terr, &ee) && ee.ExitCode() == 1 {
 		terr = nil
@@ -447,7 +447,7 @@ func copyJob(env *host.Env, in CopyRequest) (func(context.Context, io.Writer) (a
 				OK    bool   `json:"ok"`
 				Error string `json:"error"`
 			}
-			stdout, errOut, err := dst.script(ctx, fmt.Sprintf(configScript, phpArray(vals)), []string{"WHACP_FILE=" + filepath.Join(dstDir, "wp-config.php")}, time.Minute)
+			stdout, errOut, err := dst.script(ctx, fmt.Sprintf(configScript, phpArray(vals)), []string{"NIMVOR_FILE=" + filepath.Join(dstDir, "wp-config.php")}, time.Minute)
 			if rerr := result(stdout, &cr); rerr != nil || err != nil {
 				return nil, fmt.Errorf("wp-config.php of the copy could not be changed: %s", host.Why(errOut, err))
 			}

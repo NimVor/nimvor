@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/monitoring"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/jobs"
+	"github.com/NimVor/nimvor/agent/internal/monitoring"
 )
 
 // Module is implemented by each feature package.

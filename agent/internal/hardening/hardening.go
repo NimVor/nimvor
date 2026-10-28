@@ -2,8 +2,8 @@
 // attacks from a hosting account:
 //
 //   - Compiler access: the C and C++ compilers and the assembler belong to
-//     root and the group whacp-compiler with mode 0750; only its members
-//     (and WhaCP's own build account) may compile.
+//     root and the group nimvor-compiler with mode 0750; only its members
+//     (and NimVor's own build account) may compile.
 //   - Traceroute: traceroute and tracepath can be limited to root (mode
 //     0700), so accounts cannot map the network from the server.
 //   - Shell fork bomb protection: a pam_limits file caps the processes of
@@ -35,25 +35,25 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
 // CompilerGroup may run the compilers while they are restricted.
-const CompilerGroup = "whacp-compiler"
+const CompilerGroup = "nimvor-compiler"
 
-// BuildAccount is WhaCP's own build account (ModSecurity connector).
-const BuildAccount = "whacp-build"
+// BuildAccount is NimVor's own build account (ModSecurity connector).
+const BuildAccount = "nimvor-build"
 
-// Original is a program's owner and mode before WhaCP changed it.
+// Original is a program's owner and mode before NimVor changed it.
 type Original struct {
 	UID  int    `json:"uid"`
 	GID  int    `json:"gid"`
 	Mode uint32 `json:"mode"`
 }
 
-// State is what WhaCP changed.
+// State is what NimVor changed.
 type State struct {
 	Compilers  bool                `json:"compilers_restricted"`
 	Traceroute bool                `json:"traceroute_disabled"`
@@ -317,7 +317,7 @@ func CompilerStatus(env *host.Env) map[string]any {
 }
 
 // SetCompilers restricts (or opens) the compilers; users may use them
-// while restricted (WhaCP's build account always may).
+// while restricted (NimVor's build account always may).
 func SetCompilers(ctx context.Context, env *host.Env, restricted bool, users []string) error {
 	mu.Lock()
 	defer mu.Unlock()
@@ -358,7 +358,7 @@ func SetCompilers(ctx context.Context, env *host.Env, restricted bool, users []s
 	return err
 }
 
-// AllowBuild lets WhaCP's build account compile while compilers are
+// AllowBuild lets NimVor's build account compile while compilers are
 // restricted (called before a source build).
 func AllowBuild(ctx context.Context, env *host.Env) error {
 	if !load(env).Compilers {
@@ -441,7 +441,7 @@ func Reapply(ctx context.Context, env *host.Env) error {
 // Fork bomb protection.
 
 // ForkBombFile caps the processes of accounts in their sessions.
-const ForkBombFile = "/etc/security/limits.d/90-whacp-forkbomb.conf"
+const ForkBombFile = "/etc/security/limits.d/90-nimvor-forkbomb.conf"
 
 // Process limits of accounts (UID 1000 and up).
 const (
@@ -450,13 +450,13 @@ const (
 )
 
 func forkBombBody() string {
-	return fmt.Sprintf("# Managed by WhaCP: Shell Fork Bomb Protection.\n"+
+	return fmt.Sprintf("# Managed by NimVor: Shell Fork Bomb Protection.\n"+
 		"# Accounts (UID 1000 and up; not root or system accounts) may run at most\n"+
 		"# this many processes in their sessions (SSH, cron, su).\n"+
 		"1000: soft nproc %d\n1000: hard nproc %d\n", ForkSoft, ForkHard)
 }
 
-// ForkBombEnabled says whether the limits file is WhaCP's and in place.
+// ForkBombEnabled says whether the limits file is NimVor's and in place.
 func ForkBombEnabled(env *host.Env) bool {
 	b, err := env.Root.ReadFile(ForkBombFile)
 	return err == nil && string(b) == forkBombBody()
@@ -479,13 +479,13 @@ func SetForkBomb(env *host.Env, enabled bool) error {
 
 // SMTPUnit loads the nftables table at boot.
 const (
-	SMTPUnit     = "whacp-smtp-restrict.service"
+	SMTPUnit     = "nimvor-smtp-restrict.service"
 	smtpUnitPath = "/etc/systemd/system/" + SMTPUnit
 )
 
 // SMTPAllowed are the accounts that may connect to remote SMTP servers
 // (those that exist): root, the mail server, Mailman and the panel.
-var SMTPAllowed = []string{"root", "postfix", "exim", "Debian-exim", "mailman", "list", "whacp"}
+var SMTPAllowed = []string{"root", "postfix", "exim", "Debian-exim", "mailman", "list", "nimvor"}
 
 func smtpRules(env *host.Env) (string, []string) {
 	var uids, names []string
@@ -498,11 +498,11 @@ func smtpRules(env *host.Env) (string, []string) {
 	if len(uids) == 0 {
 		uids, names = []string{"0"}, []string{"root"}
 	}
-	return "# Managed by WhaCP: SMTP restrictions. Outgoing connections to SMTP\n" +
+	return "# Managed by NimVor: SMTP restrictions. Outgoing connections to SMTP\n" +
 		"# ports are only allowed for: " + strings.Join(names, ", ") + ".\n" +
-		"table inet whacp_smtp\n" +
-		"delete table inet whacp_smtp\n" +
-		"table inet whacp_smtp {\n" +
+		"table inet nimvor_smtp\n" +
+		"delete table inet nimvor_smtp\n" +
+		"table inet nimvor_smtp {\n" +
 		"\tchain output {\n" +
 		"\t\ttype filter hook output priority 0; policy accept;\n" +
 		"\t\toifname \"lo\" accept\n" +
@@ -513,8 +513,8 @@ func smtpRules(env *host.Env) (string, []string) {
 }
 
 func smtpUnit() string {
-	return "# Managed by WhaCP: SMTP restrictions.\n[Unit]\nDescription=WhaCP SMTP restrictions (nftables)\nAfter=network-pre.target\nBefore=network.target\n\n" +
-		"[Service]\nType=oneshot\nRemainAfterExit=yes\nExecStart=/usr/sbin/nft -f " + execx.NftRulesFile + "\nExecStop=/usr/sbin/nft delete table inet whacp_smtp\n\n[Install]\nWantedBy=multi-user.target\n"
+	return "# Managed by NimVor: SMTP restrictions.\n[Unit]\nDescription=NimVor SMTP restrictions (nftables)\nAfter=network-pre.target\nBefore=network.target\n\n" +
+		"[Service]\nType=oneshot\nRemainAfterExit=yes\nExecStart=/usr/sbin/nft -f " + execx.NftRulesFile + "\nExecStop=/usr/sbin/nft delete table inet nimvor_smtp\n\n[Install]\nWantedBy=multi-user.target\n"
 }
 
 // SMTPStatus is the restriction's state.
@@ -524,7 +524,7 @@ func SMTPStatus(ctx context.Context, env *host.Env) map[string]any {
 	enabled := env.Root.Exists(execx.NftRulesFile) && env.Root.Exists(smtpUnitPath)
 	active := false
 	if enabled && available {
-		_, err := env.Runner.Run(ctx, "nft", "list", "table", "inet", "whacp_smtp")
+		_, err := env.Runner.Run(ctx, "nft", "list", "table", "inet", "nimvor_smtp")
 		active = err == nil
 	}
 	return map[string]any{"enabled": enabled, "active": active, "available": available, "allowed": names, "ports": []int{25, 465, 587}}
@@ -540,7 +540,7 @@ func SetSMTP(ctx context.Context, env *host.Env, enabled bool) error {
 			env.Systemctl(ctx, "disable", SMTPUnit)
 			env.Systemctl(ctx, "stop", SMTPUnit)
 		}
-		env.Runner.Run(ctx, "nft", "delete", "table", "inet", "whacp_smtp")
+		env.Runner.Run(ctx, "nft", "delete", "table", "inet", "nimvor_smtp")
 		set := env.Changes("smtp-restrict")
 		for _, p := range []string{execx.NftRulesFile, smtpUnitPath} {
 			if env.Root.Exists(p) {
@@ -574,14 +574,14 @@ func SetSMTP(ctx context.Context, env *host.Env, enabled bool) error {
 		err = env.Systemctl(ctx, "restart", SMTPUnit)
 	}
 	if err == nil {
-		if out, lerr := env.Runner.Run(ctx, "nft", "list", "table", "inet", "whacp_smtp"); lerr != nil {
+		if out, lerr := env.Runner.Run(ctx, "nft", "list", "table", "inet", "nimvor_smtp"); lerr != nil {
 			err = fmt.Errorf("the rules are not loaded: %s", host.Output(out))
 		}
 	}
 	if err != nil {
 		applied.Rollback()
 		env.DaemonReload(ctx)
-		env.Runner.Run(ctx, "nft", "delete", "table", "inet", "whacp_smtp")
+		env.Runner.Run(ctx, "nft", "delete", "table", "inet", "nimvor_smtp")
 		return err
 	}
 	return denyNobodySubmit(ctx, env)

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Adding the third-party repository with more PHP versions. */
 final class PhpRepositoryTest extends HttpTestCase
@@ -25,7 +25,7 @@ final class PhpRepositoryTest extends HttpTestCase
         $res = $this->post('/php/repository', ['confirm' => 'yes']);
         self::assertSame('/php', $res->header('Location'));
         self::assertSame(1, $this->calls('php.repository.enable'));
-        self::assertSame(1, (int) $this->app->container->get(\WhaCP\Database\Connection::class)->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'php.repository.enable'"));
+        self::assertSame(1, (int) $this->app->container->get(\NimVor\Database\Connection::class)->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'php.repository.enable'"));
     }
 
     public function testOperatorCannotAddRepository(): void

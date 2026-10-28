@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Database\Connection;
-use WhaCP\Hosting\Scope;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
+use NimVor\Agent\AgentClient;
+use NimVor\Database\Connection;
+use NimVor\Hosting\Scope;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
 
 /**
  * DNS zones served by the server's BIND. The panel keeps zones and records;
@@ -459,7 +459,7 @@ final class DnsService
         }
         try {
             $this->agent->call('dns.zone_delete', ['zone' => $zone['name'], 'confirm' => $zone['name']]);
-        } catch (\WhaCP\Agent\AgentException $e) {
+        } catch (\NimVor\Agent\AgentException $e) {
             if ($e->status() !== 404) {
                 throw $e;
             }

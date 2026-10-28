@@ -78,7 +78,7 @@ func TestExtractRefusesHostileEntries(t *testing.T) {
 	s, root := openSite(t)
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
-	for _, name := range []string{"../../escape.txt", "/abs.txt", "ok/../../../x.txt", "good/file.txt", ".whacp-tmp-1"} {
+	for _, name := range []string{"../../escape.txt", "/abs.txt", "ok/../../../x.txt", "good/file.txt", ".nimvor-tmp-1"} {
 		w, _ := zw.Create(name)
 		w.Write([]byte("data"))
 	}
@@ -97,7 +97,7 @@ func TestExtractRefusesHostileEntries(t *testing.T) {
 	if res.Files != 1 || readFile(root, "good/file.txt") != "data" {
 		t.Errorf("result %+v", res)
 	}
-	for _, p := range []string{"escape.txt", "../escape.txt", "abs.txt", "x.txt", "link", ".whacp-tmp-1"} {
+	for _, p := range []string{"escape.txt", "../escape.txt", "abs.txt", "x.txt", "link", ".nimvor-tmp-1"} {
 		if _, err := os.Lstat(filepath.Join(root, p)); err == nil {
 			t.Errorf("%s was written", p)
 		}

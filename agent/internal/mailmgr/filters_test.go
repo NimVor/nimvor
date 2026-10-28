@@ -94,7 +94,7 @@ func TestSieveBehaviour(t *testing.T) {
 		t.Fatal(err)
 	}
 	// sieve-test drops privileges to mail_uid (nobody), which must reach the files.
-	dir, _ := os.MkdirTemp("/tmp", "whacp-sieve-")
+	dir, _ := os.MkdirTemp("/tmp", "nimvor-sieve-")
 	os.Chmod(dir, 0o777)
 	t.Cleanup(func() { os.RemoveAll(dir) })
 	script := filepath.Join(dir, "s.sieve")

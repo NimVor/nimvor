@@ -22,12 +22,12 @@ const OUT = process.env.E2E_OUT || '/tmp';
     await nav(() => page.click('a[href="/settings/tweak"]'));
 
     // Search finds settings on every tab at once.
-    await page.fill('[data-wcp-tweak-search]', 'timeout');
+    await page.fill('[data-nim-tweak-search]', 'timeout');
     const found = await visible();
     if (!found.includes('session_idle_minutes') || !found.includes('terminal_idle_minutes') || found.length > 4) { throw new Error('search: ' + found); }
-    await page.fill('[data-wcp-tweak-search]', 'zzzz-nothing');
-    if (!(await page.isVisible('[data-wcp-tweak-empty]'))) { throw new Error('no "no match" message'); }
-    await page.fill('[data-wcp-tweak-search]', '');
+    await page.fill('[data-nim-tweak-search]', 'zzzz-nothing');
+    if (!(await page.isVisible('[data-nim-tweak-empty]'))) { throw new Error('no "no match" message'); }
+    await page.fill('[data-nim-tweak-search]', '');
     step('search across tabs');
 
     // Change a setting: marked as changed; then reset it.
@@ -36,14 +36,14 @@ const OUT = process.env.E2E_OUT || '/tmp';
     await nav(() => page.click('#general button.btn-primary'));
     if (!(await page.textContent('main')).includes('Saved: Dashboard refresh interval')) { throw new Error('not saved'); }
     if (await page.getAttribute('[data-setting="dashboard_refresh_seconds"]', 'data-changed') !== '1') { throw new Error('not marked changed'); }
-    await page.check('[data-wcp-tweak-changed]');
+    await page.check('[data-nim-tweak-changed]');
     if (!(await visible()).includes('dashboard_refresh_seconds')) { throw new Error('changed filter'); }
-    await page.uncheck('[data-wcp-tweak-changed]');
+    await page.uncheck('[data-nim-tweak-changed]');
     step('changed and marked');
     await page.click('#tw-tab-general');
     await page.click('[data-setting="dashboard_refresh_seconds"] button[name="reset"]');
-    await page.waitForSelector('#wcp-confirm.show');
-    await nav(() => page.click('[data-wcp-confirm-ok]'));
+    await page.waitForSelector('#nim-confirm.show');
+    await nav(() => page.click('[data-nim-confirm-ok]'));
     if (await page.inputValue('#tw-dashboard_refresh_seconds') !== '10') { throw new Error('not reset'); }
     step('reset to default');
 

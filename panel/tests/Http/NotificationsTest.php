@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\JobTracker;
-use WhaCP\Services\MonitoringService;
-use WhaCP\Services\NotificationService;
-use WhaCP\Tests\Support\ArrayMailer;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\JobTracker;
+use NimVor\Services\MonitoringService;
+use NimVor\Services\NotificationService;
+use NimVor\Tests\Support\ArrayMailer;
+use NimVor\Tests\Support\HttpTestCase;
 
 final class NotificationsTest extends HttpTestCase
 {
@@ -27,7 +27,7 @@ final class NotificationsTest extends HttpTestCase
     {
         parent::setUp();
         $this->mailer = new ArrayMailer();
-        $this->app->container->instance(\WhaCP\Mail\Mailer::class, $this->mailer);
+        $this->app->container->instance(\NimVor\Mail\Mailer::class, $this->mailer);
         $this->db = $this->app->container->get(Connection::class);
         $this->admin = $this->seedUser('boss', 'admin');
         $this->reseller = $this->seedUser('res', 'reseller');
@@ -42,7 +42,7 @@ final class NotificationsTest extends HttpTestCase
     {
         $now = gmdate('c');
         $this->db->run(
-            "INSERT INTO websites (server_id, owner_id, domain, system_user, root, document_root, kind, created_at, updated_at) VALUES (1, ?, ?, 'u', '/home/whacp/x', '/home/whacp/x/public_html', 'static', ?, ?)",
+            "INSERT INTO websites (server_id, owner_id, domain, system_user, root, document_root, kind, created_at, updated_at) VALUES (1, ?, ?, 'u', '/home/nimvor/x', '/home/nimvor/x/public_html', 'static', ?, ?)",
             [$owner, $domain, $now, $now]
         );
         return $this->db->lastInsertId();
@@ -222,9 +222,9 @@ final class NotificationsTest extends HttpTestCase
         self::assertStringContainsString('Backup shop.test failed &lt;script&gt;', $page);
         self::assertStringNotContainsString('<script>alert(1)', $page);
         self::assertStringNotContainsString('other.test', $page);
-        self::assertStringContainsString('data-wcp-job-open="aaaaaaaaaaaaaaaa"', $page);
+        self::assertStringContainsString('data-nim-job-open="aaaaaaaaaaaaaaaa"', $page);
         self::assertStringNotContainsString('evil.example', $page, 'only local links are shown');
-        self::assertMatchesRegularExpression('/data-wcp-bell-count>2</', $page, 'unread count in the top bar');
+        self::assertMatchesRegularExpression('/data-nim-bell-count>2</', $page, 'unread count in the top bar');
 
         // Marking another tenant's notification read does nothing.
         $this->post('/notifications/read', ['ids' => [(string) $theirs]]);
@@ -250,7 +250,7 @@ final class NotificationsTest extends HttpTestCase
         self::assertLessThan(time() - 500, (int) $this->session->get('_auth_last_activity'), 'the poll is not activity');
         // Each request gets its own application, as under PHP-FPM.
         $this->app = $this->makeApp();
-        $this->app->container->instance(\WhaCP\Mail\Mailer::class, $this->mailer);
+        $this->app->container->instance(\NimVor\Mail\Mailer::class, $this->mailer);
         $this->request('GET', '/notifications');
         self::assertGreaterThan(time() - 5, (int) $this->session->get('_auth_last_activity'), 'a page view is');
     }
@@ -268,7 +268,7 @@ final class NotificationsTest extends HttpTestCase
         self::assertSame('/backups', $items['Backup <b>x</b> failed']['link']);
         self::assertSame('', $items['Odd link']['link'], 'only links inside the panel');
         self::assertFalse($items['Odd link']['read']);
-        $csrf = ['accept' => 'application/json', 'content-type' => 'application/json', 'x-csrf-token' => $this->app->container->get(\WhaCP\Security\Csrf::class)->token()];
+        $csrf = ['accept' => 'application/json', 'content-type' => 'application/json', 'x-csrf-token' => $this->app->container->get(\NimVor\Security\Csrf::class)->token()];
         $read = json_decode($this->request('POST', '/notifications/read', [], $csrf, json_encode(['ids' => [$items['Odd link']['id']]]))->body(), true);
         self::assertSame(1, $read['unread']);
         $res = json_decode($this->request('GET', '/notifications/summary', [], $json)->body(), true);
@@ -279,7 +279,7 @@ final class NotificationsTest extends HttpTestCase
         self::assertSame(0, $res['unread']);
         // The layout has the dropdown with a link to the full page.
         $page = $this->request('GET', '/notifications')->body();
-        self::assertStringContainsString('data-wcp-bell-menu', $page);
+        self::assertStringContainsString('data-nim-bell-menu', $page);
         self::assertStringContainsString('View all notifications', $page);
     }
 
@@ -298,10 +298,10 @@ final class NotificationsTest extends HttpTestCase
         $n = $this->notifications();
         $mine = (int) $n->notify('a', 'job', 'error', 'Backup shop.test failed', ['website_id' => $this->site, 'job_id' => 'aaaaaaaaaaaaaaaa']);
         $n->notify('b', 'job', 'error', 'Backup other.test failed', ['website_id' => $this->strangerSite]);
-        $tokens = $this->app->container->get(\WhaCP\Services\ApiTokenService::class);
+        $tokens = $this->app->container->get(\NimVor\Services\ApiTokenService::class);
         $read = $tokens->create($this->customer, ['name' => 'r', 'ability' => 'read', 'expires_days' => 30]);
         $write = $tokens->create($this->customer, ['name' => 'w', 'ability' => 'write', 'expires_days' => 30]);
-        $api = fn (string $method, string $path, string $token, array $json = [], array $query = []) => $this->app->handle(new \WhaCP\Http\Request(
+        $api = fn (string $method, string $path, string $token, array $json = [], array $query = []) => $this->app->handle(new \NimVor\Http\Request(
             $method, $path, $query, [], ['REMOTE_ADDR' => '192.0.2.50'], ['content-type' => 'application/json', 'authorization' => 'Bearer ' . $token], $json === [] ? '' : (string) json_encode($json)
         ));
         $res = $api('GET', '/api/v1/notifications', $read);
@@ -331,9 +331,9 @@ final class NotificationsTest extends HttpTestCase
         self::assertSame(403, $this->post('/notifications/read', ['all' => '1'])->status());
         self::assertSame(403, $this->post('/notifications/email', ['notify_email' => '1'])->status());
         self::assertNull($this->db->scalar('SELECT read_at FROM notification_reads WHERE notification_id = ?', [$id]));
-        self::assertStringNotContainsString('data-wcp-bell', $this->request('GET', '/')->body());
-        $token = $this->app->container->get(\WhaCP\Services\ApiTokenService::class)->create($uid, ['name' => 't', 'ability' => 'write', 'expires_days' => 1]);
-        $res = $this->app->handle(new \WhaCP\Http\Request('GET', '/api/v1/notifications', [], [], ['REMOTE_ADDR' => '192.0.2.50'], ['authorization' => 'Bearer ' . $token], ''));
+        self::assertStringNotContainsString('data-nim-bell', $this->request('GET', '/')->body());
+        $token = $this->app->container->get(\NimVor\Services\ApiTokenService::class)->create($uid, ['name' => 't', 'ability' => 'write', 'expires_days' => 1]);
+        $res = $this->app->handle(new \NimVor\Http\Request('GET', '/api/v1/notifications', [], [], ['REMOTE_ADDR' => '192.0.2.50'], ['authorization' => 'Bearer ' . $token], ''));
         self::assertSame(403, $res->status());
     }
 }

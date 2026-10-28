@@ -1,4 +1,4 @@
-// Package sendmail is the sendmail command seen by commands WhaCP runs as a
+// Package sendmail is the sendmail command seen by commands NimVor runs as a
 // website account (deploy hooks, cron "run now", app installers).
 //
 // Those commands run in transient units with NoNewPrivileges=yes, where
@@ -58,7 +58,7 @@ type options struct {
 // name) and returns the exit status.
 func Main(args []string, stdin io.Reader, stderr io.Writer) int {
 	fail := func(code int, format string, a ...any) int {
-		fmt.Fprintf(stderr, "sendmail (WhaCP): "+format+"\n", a...)
+		fmt.Fprintf(stderr, "sendmail (NimVor): "+format+"\n", a...)
 		return code
 	}
 	o, err := parseArgs(args)

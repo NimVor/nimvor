@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Mail;
+namespace NimVor\Mail;
 
-use WhaCP\Support\UserFacingException;
+use NimVor\Support\UserFacingException;
 
 final class MailException extends UserFacingException
 {

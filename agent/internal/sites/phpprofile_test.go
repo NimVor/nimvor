@@ -35,11 +35,11 @@ func TestDisableFunctionsFor(t *testing.T) {
 
 func TestNormalizeRejectsProfile(t *testing.T) {
 	s := Spec{Domain: "a.example.com", User: "sh_user", Kind: "php", PHPVersion: "8.3", PHP: PHPSettings{Profile: "wide-open"}}
-	if err := s.Normalize("/home/whacp", "/var/lib/whacp-agent"); err == nil {
+	if err := s.Normalize("/home/nimvor", "/var/lib/nimvor-agent"); err == nil {
 		t.Fatal("an invalid profile must be rejected")
 	}
 	ok := Spec{Domain: "a.example.com", User: "sh_user", Kind: "php", PHPVersion: "8.3", PHP: PHPSettings{Profile: ProfileRecommended}}
-	if err := ok.Normalize("/home/whacp", "/var/lib/whacp-agent"); err != nil {
+	if err := ok.Normalize("/home/nimvor", "/var/lib/nimvor-agent"); err != nil {
 		t.Fatalf("recommended rejected: %v", err)
 	}
 }

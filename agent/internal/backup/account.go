@@ -19,10 +19,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
 // Account backups put every website backup of a hosting account (files
@@ -31,7 +31,7 @@ import (
 // downloaded, kept anywhere and restored, also after the account was
 // terminated or on another server:
 //
-//	<backup_dir>/accounts/<username>/<id>.whacp-account   a tar holding
+//	<backup_dir>/accounts/<username>/<id>.nimvor-account   a tar holding
 //	  account.json                      (AccountManifest, with a MAC)
 //	  sites/<domain>/<id>/manifest.json (website backups, encrypted)
 //	  sites/<domain>/<id>/<part>
@@ -42,7 +42,7 @@ import (
 // importing that key), so a changed or foreign file is refused.
 
 // AccountSuffix ends every account backup file name.
-const AccountSuffix = ".whacp-account"
+const AccountSuffix = ".nimvor-account"
 
 const (
 	maxAccountMeta   = 1 << 20
@@ -92,7 +92,7 @@ func accountMAC(key []byte, m *AccountManifest) string {
 	}{m.Version, m.ID, m.Username, m.Label, m.CreatedAt, m.KeyID, macMeta(m.Meta), m.Sites}
 	b, _ := json.Marshal(in)
 	derive := hmac.New(sha256.New, key)
-	derive.Write([]byte("whacp-account-mac-v1"))
+	derive.Write([]byte("nimvor-account-mac-v1"))
 	mac := hmac.New(sha256.New, derive.Sum(nil))
 	mac.Write(b)
 	return hex.EncodeToString(mac.Sum(nil))
@@ -311,18 +311,18 @@ func (s Service) readAccountManifest(real string) (*AccountManifest, error) {
 	tr := tar.NewReader(f)
 	h, err := tr.Next()
 	if err != nil || h.Name != "account.json" || h.Typeflag != tar.TypeReg || h.Size > maxAccountHeader {
-		return nil, errors.New("not a WhaCP account backup")
+		return nil, errors.New("not a NimVor account backup")
 	}
 	var m AccountManifest
 	if err := json.NewDecoder(io.LimitReader(tr, maxAccountHeader)).Decode(&m); err != nil {
-		return nil, errors.New("not a WhaCP account backup")
+		return nil, errors.New("not a NimVor account backup")
 	}
 	if m.Version != 1 || !idRe.MatchString(m.ID) || validate.Username("username", m.Username) != nil || len(m.Sites) > maxAccountSites {
-		return nil, errors.New("not a valid WhaCP account backup")
+		return nil, errors.New("not a valid NimVor account backup")
 	}
 	for _, site := range m.Sites {
 		if validate.Domain("domain", site.Domain) != nil || !idRe.MatchString(site.ID) {
-			return nil, errors.New("not a valid WhaCP account backup")
+			return nil, errors.New("not a valid NimVor account backup")
 		}
 	}
 	return &m, nil
@@ -364,7 +364,7 @@ func (s Service) InspectAccount(p string) (*AccountManifest, error) {
 	}
 	m, err := s.readAccountManifest(real)
 	if err != nil {
-		return nil, actions.Failed("The file is not a WhaCP account backup.", err.Error())
+		return nil, actions.Failed("The file is not a NimVor account backup.", err.Error())
 	}
 	if err := s.checkAccountManifest(m); err != nil {
 		return m, actions.Failed("This account backup cannot be restored on this server.", err.Error())

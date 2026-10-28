@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Agent;
+namespace NimVor\Agent;
 
-use WhaCP\Support\UserFacingException;
+use NimVor\Support\UserFacingException;
 
 /**
  * The agent refused or failed an action. The message is safe to display.

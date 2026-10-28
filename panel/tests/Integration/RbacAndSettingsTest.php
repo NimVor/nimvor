@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Integration;
+namespace NimVor\Tests\Integration;
 
-use WhaCP\Repositories\AuditLogRepository;
-use WhaCP\Repositories\SettingRepository;
-use WhaCP\Security\Authorizer;
-use WhaCP\Security\Permissions;
-use WhaCP\Services\SettingsService;
-use WhaCP\Support\ValidationException;
-use WhaCP\Tests\Support\DatabaseTestCase;
+use NimVor\Repositories\AuditLogRepository;
+use NimVor\Repositories\SettingRepository;
+use NimVor\Security\Authorizer;
+use NimVor\Security\Permissions;
+use NimVor\Services\SettingsService;
+use NimVor\Support\ValidationException;
+use NimVor\Tests\Support\DatabaseTestCase;
 
 final class RbacAndSettingsTest extends DatabaseTestCase
 {

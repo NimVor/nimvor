@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\RoleRepository;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Repositories\RoleRepository;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\WebsiteService;
+use NimVor\Tests\Support\HttpTestCase;
 
 final class PluginsTest extends HttpTestCase
 {
@@ -16,10 +16,10 @@ final class PluginsTest extends HttpTestCase
 
     protected function setUp(): void
     {
-        $this->plugins = sys_get_temp_dir() . '/whacp-plugins-' . bin2hex(random_bytes(4));
+        $this->plugins = sys_get_temp_dir() . '/nimvor-plugins-' . bin2hex(random_bytes(4));
         mkdir($this->plugins, 0o755);
         exec('cp -r ' . escapeshellarg(dirname(__DIR__, 3) . '/plugins/example-status') . ' ' . escapeshellarg($this->plugins . '/'));
-        $this->writePlugin('broken', "<?php return function (\\WhaCP\\Plugins\\PluginContext \$ctx): void {\n \$ctx->route('GET', '/', fn () => 'x', 'plugin.broken.view');\n throw new RuntimeException('boom at boot');\n};");
+        $this->writePlugin('broken', "<?php return function (\\NimVor\\Plugins\\PluginContext \$ctx): void {\n \$ctx->route('GET', '/', fn () => 'x', 'plugin.broken.view');\n throw new RuntimeException('boom at boot');\n};");
         $this->writePlugin('unsafe', "<?php return function (\$ctx): void {};");
         chmod($this->plugins . '/unsafe/plugin.php', 0o666);
         exec('chmod -R go-w ' . escapeshellarg($this->plugins . '/example-status') . ' ' . escapeshellarg($this->plugins . '/broken'));
@@ -42,7 +42,7 @@ final class PluginsTest extends HttpTestCase
 
     private function fresh(string $user): void
     {
-        $this->session = new \WhaCP\Http\Session\ArraySession();
+        $this->session = new \NimVor\Http\Session\ArraySession();
         $this->app = $this->makeApp();
         $this->login($user);
     }
@@ -77,7 +77,7 @@ final class PluginsTest extends HttpTestCase
 
         // Events reach plugin listeners.
         $this->app->container->get(WebsiteService::class)->create(['domain' => 'evt.test', 'kind' => 'static'], (array) $this->app->container->get(UserRepository::class)->find($admin));
-        self::assertSame('evt.test', $this->app->container->get(\WhaCP\Repositories\SettingRepository::class)->all()['plugin.example-status.last_website'] ?? null);
+        self::assertSame('evt.test', $this->app->container->get(\NimVor\Repositories\SettingRepository::class)->all()['plugin.example-status.last_website'] ?? null);
 
         // Plugin permissions survive migrations and gate access.
         $this->app->container->get(RoleRepository::class)->syncDefaults();

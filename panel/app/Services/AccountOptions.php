@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Database\Connection;
+use NimVor\Database\Connection;
 
 /**
  * Hosting options of an account. Websites without an owner (the

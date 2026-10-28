@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
-// Spam filtering with Rspamd. WhaCP only writes files in Rspamd's
+// Spam filtering with Rspamd. NimVor only writes files in Rspamd's
 // local.d folder (meant for local settings), marked as its own; it does
 // not replace files there it did not write unless confirmed. Rspamd runs
 // as a milter in front of Postfix: messages above the "add header" score
@@ -26,7 +26,7 @@ const (
 	rspamdPort  = 11332
 	rspamdUnit  = "rspamd.service"
 	rspamdLocal = "/etc/rspamd/local.d"
-	spamMarker  = "# Managed by WhaCP (spam filter). Do not edit: changes are overwritten."
+	spamMarker  = "# Managed by NimVor (spam filter). Do not edit: changes are overwritten."
 )
 
 // DefaultSpam are the usual thresholds.
@@ -49,7 +49,7 @@ func (s Spam) validate() error {
 	return nil
 }
 
-// rspamdFiles are WhaCP's local.d files.
+// rspamdFiles are NimVor's local.d files.
 func rspamdFiles(s Spam) map[string]string {
 	num := func(f float64) string { return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.2f", f), "0"), ".") }
 	return map[string]string{
@@ -74,7 +74,7 @@ func noFilterSettings(domains []string) string {
 	for i, d := range domains {
 		rcpt[i] = `"@` + d + `"`
 	}
-	return "whacp_no_filter {\n  priority = high;\n  rcpt = [" + strings.Join(rcpt, ", ") + "];\n  want_spam = yes;\n}\n"
+	return "nimvor_no_filter {\n  priority = high;\n  rcpt = [" + strings.Join(rcpt, ", ") + "];\n  want_spam = yes;\n}\n"
 }
 
 func (e env) rspamdInstalled() bool {
@@ -83,7 +83,7 @@ func (e env) rspamdInstalled() bool {
 
 // registerSpam adds mail.spam_configure.
 func registerSpam(r *actions.Registry, e env) {
-	r.Register(actions.Action{Name: "mail.spam_configure", Mutating: true, Description: "Turn the spam filter (Rspamd) on or off and set the scores at which mail is filed into Junk or refused. Writes only WhaCP's files in Rspamd's local.d (replacing other files there needs confirm_replace), validates with rspamadm configtest, restarts Rspamd and updates Postfix; rolled back on failure.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "mail.spam_configure", Mutating: true, Description: "Turn the spam filter (Rspamd) on or off and set the scores at which mail is filed into Junk or refused. Writes only NimVor's files in Rspamd's local.d (replacing other files there needs confirm_replace), validates with rspamadm configtest, restarts Rspamd and updates Postfix; rolled back on failure.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		in := struct {
 			Enabled         bool     `json:"enabled"`
 			AddHeader       float64  `json:"add_header"`
@@ -121,7 +121,7 @@ func registerSpam(r *actions.Registry, e env) {
 				}
 			}
 			if len(foreign) > 0 && !in.ConfirmReplace {
-				return nil, actions.Conflict("Rspamd's local.d already has " + strings.Join(foreign, ", ") + ", not written by WhaCP. Confirm to replace (a backup is kept).")
+				return nil, actions.Conflict("Rspamd's local.d already has " + strings.Join(foreign, ", ") + ", not written by NimVor. Confirm to replace (a backup is kept).")
 			}
 			for name, content := range files {
 				set.Write(rspamdLocal+"/"+name, []byte(content), 0o644, agentfs.RootOwner)

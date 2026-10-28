@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Support;
+namespace NimVor\Tests\Support;
 
 use PHPUnit\Framework\TestCase;
-use WhaCP\Agent\AgentTransport;
-use WhaCP\Core\Application;
-use WhaCP\Core\Config;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Repositories\RoleRepository;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Security\Csrf;
-use WhaCP\Security\PasswordHasher;
+use NimVor\Agent\AgentTransport;
+use NimVor\Core\Application;
+use NimVor\Core\Config;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Repositories\RoleRepository;
+use NimVor\Repositories\UserRepository;
+use NimVor\Security\Csrf;
+use NimVor\Security\PasswordHasher;
 
 /**
  * Full-kernel tests with a fake agent and a fresh database.
@@ -31,13 +31,13 @@ abstract class HttpTestCase extends TestCase
 
     protected function setUp(): void
     {
-        $this->dir = sys_get_temp_dir() . '/whacp-http-' . bin2hex(random_bytes(4));
+        $this->dir = sys_get_temp_dir() . '/nimvor-http-' . bin2hex(random_bytes(4));
         mkdir($this->dir);
         file_put_contents($this->dir . '/token', 'test-token');
         $this->session = new ArraySession();
         $this->agent = new FakeTransport();
         $this->agent->succeed('discovery.php', ['versions' => [['version' => '8.3', 'fpm_binary' => '/usr/sbin/php-fpm8.3']]]);
-        $this->agent->succeed('agent.status', ['sites_root' => '/home/whacp', 'write_enabled' => true]);
+        $this->agent->succeed('agent.status', ['sites_root' => '/home/nimvor', 'write_enabled' => true]);
         $this->agent->succeed('sites.apply', ['changed' => []]);
         $this->app = $this->makeApp();
     }
@@ -62,7 +62,7 @@ abstract class HttpTestCase extends TestCase
         $app->migrate();
         // The dashboard opens the setup wizard on the first visit; tests
         // about other pages start past it (SetupWizardTest resets it).
-        $app->container->get(\WhaCP\Services\SettingsService::class)->update(['setup_wizard_seen' => true, 'setup_wizard_done' => true], null);
+        $app->container->get(\NimVor\Services\SettingsService::class)->update(['setup_wizard_seen' => true, 'setup_wizard_done' => true], null);
         return $app;
     }
 

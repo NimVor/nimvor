@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/execx"
 )
 
 func TestKeyExportImport(t *testing.T) {
@@ -80,7 +80,7 @@ func TestAccountBackupOntoANewServer(t *testing.T) {
 	h1, s1 := siteHost(t)
 	cred1, _, _ := h1.Env.Credential("example")
 	req := AccountRequest{Username: "example", Label: "before termination", Meta: json.RawMessage(`{"user":{"username":"example"}}`),
-		Sites: []SiteRequest{{Domain: "example.com", User: "example", Root: "/home/whacp/example.com", Files: true, Databases: []string{"shop"}}}}
+		Sites: []SiteRequest{{Domain: "example.com", User: "example", Root: "/home/nimvor/example.com", Files: true, Databases: []string{"shop"}}}}
 	if err := req.validate(s1); err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func TestAccountBackupOntoANewServer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%v\n%s", err, log.String())
 	}
-	if len(m.Sites) != 1 || m.Mac == "" || !strings.HasPrefix(file, "/var/backups/whacp/accounts/example/") || !strings.HasSuffix(file, AccountSuffix) {
+	if len(m.Sites) != 1 || m.Mac == "" || !strings.HasPrefix(file, "/var/backups/nimvor/accounts/example/") || !strings.HasSuffix(file, AccountSuffix) {
 		t.Fatalf("manifest %+v file %s", m, file)
 	}
 	files := s1.AccountFiles()
@@ -106,14 +106,14 @@ func TestAccountBackupOntoANewServer(t *testing.T) {
 	// The new server: upload in two chunks.
 	h2, s2 := siteHost(t)
 	half := len(raw) / 2
-	if _, _, err := s2.UploadAccountChunk("example.whacp-account", 0, raw[:half], false); err != nil {
+	if _, _, err := s2.UploadAccountChunk("example.nimvor-account", 0, raw[:half], false); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := s2.UploadAccountChunk("example.whacp-account", 5, raw[half:], true); err == nil {
+	if _, _, err := s2.UploadAccountChunk("example.nimvor-account", 5, raw[half:], true); err == nil {
 		t.Fatal("a chunk at the wrong offset was accepted")
 	}
-	_, up, err := s2.UploadAccountChunk("example.whacp-account", int64(half), raw[half:], true)
-	if err != nil || up != "/var/backups/whacp/incoming/example.whacp-account" {
+	_, up, err := s2.UploadAccountChunk("example.nimvor-account", int64(half), raw[half:], true)
+	if err != nil || up != "/var/backups/nimvor/incoming/example.nimvor-account" {
 		t.Fatalf("upload: %v %s", err, up)
 	}
 	if _, err := s2.InspectAccount(up); err == nil || !strings.Contains(err.Error(), "cannot be restored") {
@@ -145,11 +145,11 @@ func TestAccountBackupOntoANewServer(t *testing.T) {
 		t.Fatalf("import result %+v %+v", got, sites)
 	}
 	id := m.Sites[0].ID
-	if !h2.Exists("var/backups/whacp/sites/example.com/" + id + "/manifest.json") {
+	if !h2.Exists("var/backups/nimvor/sites/example.com/" + id + "/manifest.json") {
 		t.Fatal("the website backup was not imported")
 	}
 	cred2, _, _ := h2.Env.Credential("example")
-	if _, err := s2.Restore(ctx, RestoreRequest{Domain: "example.com", User: "example", Root: "/home/whacp/example.com", ID: id, Files: true, Databases: map[string]string{"shop": "shop"}}, cred2, &log); err != nil {
+	if _, err := s2.Restore(ctx, RestoreRequest{Domain: "example.com", User: "example", Root: "/home/nimvor/example.com", ID: id, Files: true, Databases: map[string]string{"shop": "shop"}}, cred2, &log); err != nil {
 		t.Fatalf("restore: %v\n%s", err, log.String())
 	}
 	// Importing again keeps what is there.
@@ -159,11 +159,11 @@ func TestAccountBackupOntoANewServer(t *testing.T) {
 
 	// A changed description (another account name) is refused.
 	write := func(name string, b []byte) string {
-		p := filepath.Join(h2.Base, "var/backups/whacp/incoming", name)
+		p := filepath.Join(h2.Base, "var/backups/nimvor/incoming", name)
 		if err := os.WriteFile(p, b, 0o600); err != nil {
 			t.Fatal(err)
 		}
-		return "/var/backups/whacp/incoming/" + name
+		return "/var/backups/nimvor/incoming/" + name
 	}
 	forged := rewriteTar(t, raw, func(name string, b []byte) []byte {
 		if name == "account.json" {
@@ -171,7 +171,7 @@ func TestAccountBackupOntoANewServer(t *testing.T) {
 		}
 		return b
 	})
-	if _, err := s2.InspectAccount(write("forged.whacp-account", forged)); err == nil || !strings.Contains(err.Error(), "cannot be restored") {
+	if _, err := s2.InspectAccount(write("forged.nimvor-account", forged)); err == nil || !strings.Contains(err.Error(), "cannot be restored") {
 		t.Fatalf("forged description: %v", err)
 	}
 	// A changed part is refused and nothing is left behind.
@@ -185,13 +185,13 @@ func TestAccountBackupOntoANewServer(t *testing.T) {
 		}
 		return b
 	})
-	os.MkdirAll(filepath.Join(h3.Base, "var/backups/whacp/incoming"), 0o700)
-	p3 := filepath.Join(h3.Base, "var/backups/whacp/incoming/damaged.whacp-account")
+	os.MkdirAll(filepath.Join(h3.Base, "var/backups/nimvor/incoming"), 0o700)
+	p3 := filepath.Join(h3.Base, "var/backups/nimvor/incoming/damaged.nimvor-account")
 	os.WriteFile(p3, damaged, 0o600)
-	if _, _, err := s3.ImportAccount(ctx, "/var/backups/whacp/incoming/damaged.whacp-account", &log); err == nil || !strings.Contains(err.Error(), "checksum") {
+	if _, _, err := s3.ImportAccount(ctx, "/var/backups/nimvor/incoming/damaged.nimvor-account", &log); err == nil || !strings.Contains(err.Error(), "checksum") {
 		t.Fatalf("damaged part: %v", err)
 	}
-	entries, _ := os.ReadDir(filepath.Join(h3.Base, "var/backups/whacp/sites/example.com"))
+	entries, _ := os.ReadDir(filepath.Join(h3.Base, "var/backups/nimvor/sites/example.com"))
 	if len(entries) != 0 {
 		t.Fatalf("left behind: %v", entries)
 	}
@@ -199,24 +199,24 @@ func TestAccountBackupOntoANewServer(t *testing.T) {
 
 func TestAccountPathIsConfined(t *testing.T) {
 	h, s := siteHost(t)
-	os.MkdirAll(filepath.Join(h.Base, "var/backups/whacp/incoming"), 0o700)
-	os.WriteFile(filepath.Join(h.Base, "etc/x.whacp-account"), []byte("x"), 0o600)
-	os.Symlink(filepath.Join(h.Base, "etc/x.whacp-account"), filepath.Join(h.Base, "var/backups/whacp/incoming/link.whacp-account"))
+	os.MkdirAll(filepath.Join(h.Base, "var/backups/nimvor/incoming"), 0o700)
+	os.WriteFile(filepath.Join(h.Base, "etc/x.nimvor-account"), []byte("x"), 0o600)
+	os.Symlink(filepath.Join(h.Base, "etc/x.nimvor-account"), filepath.Join(h.Base, "var/backups/nimvor/incoming/link.nimvor-account"))
 	for _, p := range []string{
 		"/etc/passwd",
-		"/etc/x.whacp-account",
-		"/var/backups/whacp/incoming/../../../../etc/x.whacp-account",
-		"/var/backups/whacp/incoming/link.whacp-account",
-		"var/backups/whacp/incoming/a.whacp-account",
+		"/etc/x.nimvor-account",
+		"/var/backups/nimvor/incoming/../../../../etc/x.nimvor-account",
+		"/var/backups/nimvor/incoming/link.nimvor-account",
+		"var/backups/nimvor/incoming/a.nimvor-account",
 	} {
 		if _, err := s.accountPath(p); err == nil {
 			t.Errorf("%s accepted", p)
 		}
 	}
-	if err := s.RemoveAccountFile("/mnt/disk/a.whacp-account"); err == nil {
+	if err := s.RemoveAccountFile("/mnt/disk/a.nimvor-account"); err == nil {
 		t.Error("a file in a mounted folder may not be deleted")
 	}
-	for _, name := range []string{"../x.whacp-account", "x.tar", ".x.whacp-account", "a/b.whacp-account"} {
+	for _, name := range []string{"../x.nimvor-account", "x.tar", ".x.nimvor-account", "a/b.nimvor-account"} {
 		if _, _, err := s.UploadAccountChunk(name, 0, []byte("x"), true); err == nil {
 			t.Errorf("upload name %q accepted", name)
 		}

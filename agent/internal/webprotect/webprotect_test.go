@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 type fixture struct {
@@ -18,14 +18,14 @@ type fixture struct {
 	r *actions.Registry
 }
 
-const vhost = "# Managed by WhaCP.\nserver {\n    listen 80;\n    server_name shop.test;\n    root /home/whacp/shop.test/public_html;\n" +
+const vhost = "# Managed by NimVor.\nserver {\n    listen 80;\n    server_name shop.test;\n    root /home/nimvor/shop.test/public_html;\n" +
 	"    add_header X-Content-Type-Options \"nosniff\" always;\n    location / {\n        try_files $uri $uri/ /index.php?$query_string;\n    }\n}\n"
 
 func setup(t *testing.T) *fixture {
 	t.Helper()
 	h := testhost.New(t)
 	os.MkdirAll(filepath.Join(h.Base, "etc/nginx/sites-available"), 0o755)
-	os.WriteFile(filepath.Join(h.Base, "etc/nginx/sites-available/whacp-shop.test.conf"), []byte(vhost), 0o644)
+	os.WriteFile(filepath.Join(h.Base, "etc/nginx/sites-available/nimvor-shop.test.conf"), []byte(vhost), 0o644)
 	r := actions.NewRegistry(true)
 	Register(r, h.Env)
 	return &fixture{h: h, r: r}
@@ -65,32 +65,32 @@ func TestPasswordProtection(t *testing.T) {
 	if b, _ := json.Marshal(res); strings.Contains(string(b), "$6$") || strings.Contains(string(b), "S3cret") {
 		t.Fatalf("status shows the password or its hash: %s", b)
 	}
-	if !strings.Contains(f.h.Read("etc/nginx/sites-available/whacp-shop.test.conf"), "include /etc/nginx/whacp-protect/shop.test.con[f];") {
-		t.Fatalf("include not added:\n%s", f.h.Read("etc/nginx/sites-available/whacp-shop.test.conf"))
+	if !strings.Contains(f.h.Read("etc/nginx/sites-available/nimvor-shop.test.conf"), "include /etc/nginx/nimvor-protect/shop.test.con[f];") {
+		t.Fatalf("include not added:\n%s", f.h.Read("etc/nginx/sites-available/nimvor-shop.test.conf"))
 	}
-	conf := f.h.Read("etc/nginx/whacp-protect/shop.test.conf")
-	for _, want := range []string{"set $whacp_auth \"Restricted area\";", "auth_basic $whacp_auth;", "auth_basic_user_file $whacp_auth_file;", "acme-challenge", "whacp-protect/htpasswd/shop.test-0"} {
+	conf := f.h.Read("etc/nginx/nimvor-protect/shop.test.conf")
+	for _, want := range []string{"set $nimvor_auth \"Restricted area\";", "auth_basic $nimvor_auth;", "auth_basic_user_file $nimvor_auth_file;", "acme-challenge", "nimvor-protect/htpasswd/shop.test-0"} {
 		if !strings.Contains(conf, want) {
 			t.Fatalf("conf lacks %q:\n%s", want, conf)
 		}
 	}
-	pw := f.h.Read("etc/nginx/whacp-protect/htpasswd/shop.test-0")
+	pw := f.h.Read("etc/nginx/nimvor-protect/htpasswd/shop.test-0")
 	if !strings.HasPrefix(pw, "boss:$6$") || strings.Contains(pw, "S3cret") {
 		t.Fatalf("password file: %q", pw)
 	}
-	if fi, _ := os.Stat(filepath.Join(f.h.Base, "etc/nginx/whacp-protect/htpasswd/shop.test-0")); fi.Mode().Perm() != 0o640 {
+	if fi, _ := os.Stat(filepath.Join(f.h.Base, "etc/nginx/nimvor-protect/htpasswd/shop.test-0")); fi.Mode().Perm() != 0o640 {
 		t.Fatalf("mode %v", fi.Mode())
 	}
 	// A second path: its own file, the longest path last (it wins).
 	f.call(t, "protect.password", map[string]any{"domain": "shop.test", "path": "blog/wp-admin", "enabled": true, "user": "ed", "password": "An0ther-pass"})
-	conf = f.h.Read("etc/nginx/whacp-protect/shop.test.conf")
+	conf = f.h.Read("etc/nginx/nimvor-protect/shop.test.conf")
 	if !strings.Contains(conf, "if ($uri ~ \"^/blog/wp-admin/\")") || strings.Index(conf, "shop.test-0;") > strings.Index(conf, "shop.test-1;") {
 		t.Fatalf("second path:\n%s", conf)
 	}
 	// Off again: files removed, the include stays (it matches nothing).
 	f.call(t, "protect.password", map[string]any{"domain": "shop.test", "path": "/", "enabled": false})
 	f.call(t, "protect.password", map[string]any{"domain": "shop.test", "path": "/blog/wp-admin/", "enabled": false})
-	if f.h.Exists("etc/nginx/whacp-protect/shop.test.conf") || f.h.Exists("etc/nginx/whacp-protect/htpasswd/shop.test-0") {
+	if f.h.Exists("etc/nginx/nimvor-protect/shop.test.conf") || f.h.Exists("etc/nginx/nimvor-protect/htpasswd/shop.test-0") {
 		t.Fatal("files left after turning protection off")
 	}
 }
@@ -118,7 +118,7 @@ func TestInputIsValidated(t *testing.T) {
 			t.Errorf("%v: %v", p, err)
 		}
 	}
-	if f.h.Exists("etc/nginx/whacp-protect/shop.test.conf") {
+	if f.h.Exists("etc/nginx/nimvor-protect/shop.test.conf") {
 		t.Fatal("written despite invalid input")
 	}
 }
@@ -128,12 +128,12 @@ func TestHotlinkProtection(t *testing.T) {
 	if _, err := f.call(t, "protect.hotlink", map[string]any{"domain": "shop.test", "enabled": true, "allowed": []string{"*.Partner.test", "cdn.example.com"}}); err != nil {
 		t.Fatal(err)
 	}
-	conf := f.h.Read("etc/nginx/whacp-protect/shop.test.conf")
+	conf := f.h.Read("etc/nginx/nimvor-protect/shop.test.conf")
 	if !strings.Contains(conf, "valid_referers none blocked server_names *.partner.test cdn.example.com;") || !strings.Contains(conf, "(?!.*/\\.)") || !strings.Contains(conf, "jpg|jpeg|png") {
 		t.Fatalf("conf:\n%s", conf)
 	}
 	f.call(t, "protect.hotlink", map[string]any{"domain": "shop.test", "enabled": false})
-	if f.h.Exists("etc/nginx/whacp-protect/shop.test.conf") {
+	if f.h.Exists("etc/nginx/nimvor-protect/shop.test.conf") {
 		t.Fatal("left after turning off")
 	}
 }
@@ -145,7 +145,7 @@ func TestRolledBackWhenNginxRefuses(t *testing.T) {
 	if _, err := f.call(t, "protect.hotlink", map[string]any{"domain": "shop.test", "enabled": true}); err == nil {
 		t.Fatal("accepted")
 	}
-	if f.h.Exists("etc/nginx/whacp-protect/shop.test.conf") || f.h.Read("etc/nginx/sites-available/whacp-shop.test.conf") != vhost {
+	if f.h.Exists("etc/nginx/nimvor-protect/shop.test.conf") || f.h.Read("etc/nginx/sites-available/nimvor-shop.test.conf") != vhost {
 		t.Fatal("not rolled back")
 	}
 	if len(Load(f.h.Env).Sites) != 0 {
@@ -161,7 +161,7 @@ func TestWordPressRules(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	conf := f.h.Read("etc/nginx/whacp-protect/shop.test.conf")
+	conf := f.h.Read("etc/nginx/nimvor-protect/shop.test.conf")
 	for _, want := range []string{"location = /blog/xmlrpc.php", "^/blog/wp-content/uploads/.*\\.(php", "^/blog/wp-includes/(?!js/tinymce/wp-tinymce\\.php$", "author=[0-9]", "wp-config\\.php", "sqlmap"} {
 		if !strings.Contains(conf, want) {
 			t.Errorf("lacks %q", want)

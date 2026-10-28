@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Http\Request;
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\ApiTokenService;
-use WhaCP\Services\FeatureService;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Http\Request;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\ApiTokenService;
+use NimVor\Services\FeatureService;
+use NimVor\Services\WebsiteService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Feature lists on plans, enforced by the server. */
 final class FeatureManagerTest extends HttpTestCase
@@ -64,7 +64,7 @@ final class FeatureManagerTest extends HttpTestCase
         self::assertStringContainsString(count(FeatureService::FEATURES) - 3 . ' of ' . count(FeatureService::FEATURES), $this->request('GET', '/features')->body());
         self::assertSame('feature_list.save', $this->db->scalar("SELECT action FROM audit_logs WHERE action = 'feature_list.save'"));
 
-        $this->post('/plans', ['plan_id' => (string) $this->plan, 'name' => 'Basic', 'feature_list_id' => (string) $list] + array_fill_keys(array_keys(\WhaCP\Services\PlanService::FIELDS), '0'));
+        $this->post('/plans', ['plan_id' => (string) $this->plan, 'name' => 'Basic', 'feature_list_id' => (string) $list] + array_fill_keys(array_keys(\NimVor\Services\PlanService::FIELDS), '0'));
         self::assertSame($list, (int) $this->db->scalar('SELECT feature_list_id FROM plans WHERE id = ?', [$this->plan]));
     }
 
@@ -270,7 +270,7 @@ final class FeatureManagerTest extends HttpTestCase
         $this->post('/features/' . $list . '/delete');
         self::assertNotNull($this->db->scalar('SELECT id FROM feature_lists WHERE id = ?', [$list]));
         // A reseller's plan cannot pick a feature list.
-        $this->post('/plans', ['name' => 'Mine', 'feature_list_id' => (string) $list] + array_fill_keys(array_keys(\WhaCP\Services\PlanService::FIELDS), '0'));
+        $this->post('/plans', ['name' => 'Mine', 'feature_list_id' => (string) $list] + array_fill_keys(array_keys(\NimVor\Services\PlanService::FIELDS), '0'));
         self::assertNull($this->db->scalar("SELECT feature_list_id FROM plans WHERE name = 'Mine'"));
 
         $this->switchTo('admin');

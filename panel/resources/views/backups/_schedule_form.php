@@ -1,13 +1,13 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var string $action */
 /** @var bool $site */
-use WhaCP\Services\BackupScheduler;
+use NimVor\Services\BackupScheduler;
 ?>
 <form method="post" action="<?= e($action) ?>" class="small">
     <?= $this->csrfField() ?>
     <?php if (!$site): ?>
-        <div class="mb-2" data-wcp-schedule-scope>
+        <div class="mb-2" data-nim-schedule-scope>
             <div class="form-check"><input class="form-check-input" type="radio" name="scope" value="server" id="s-scope-server" checked><label class="form-check-label" for="s-scope-server">The server configuration</label></div>
             <div class="form-check"><input class="form-check-input" type="radio" name="scope" value="all_sites" id="s-scope-all"><label class="form-check-label" for="s-scope-all">Every website (files and databases; each website its own backup, also websites added later)</label></div>
         </div>

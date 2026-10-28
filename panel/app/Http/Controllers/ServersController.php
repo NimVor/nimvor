@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Services\ServerService;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
-use WhaCP\View\View;
+use NimVor\Agent\AgentClient;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Services\ServerService;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
+use NimVor\View\View;
 
 final class ServersController extends Controller
 {
@@ -54,7 +54,7 @@ final class ServersController extends Controller
         } catch (UserFacingException $e) {
             return $this->redirectWithFailure('/servers', $e);
         }
-        return $this->redirectWithSuccess('/servers', 'Server removed from WhaCP. Nothing was changed on it.');
+        return $this->redirectWithSuccess('/servers', 'Server removed from NimVor. Nothing was changed on it.');
     }
 
     public function switch(Request $request): Response

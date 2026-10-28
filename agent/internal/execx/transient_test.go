@@ -78,7 +78,7 @@ func TestTransientStreams(t *testing.T) {
 	// (like systemd's 200/CHDIR when the working directory is missing).
 	done := make(chan error, 1)
 	go func() {
-		_, err := r.runTransient(ctx, sh, "/nonexistent-whacp", nil, Opts{As: &as, Stdin: strings.NewReader("x")}, time.Minute, []string{"-c", "true"})
+		_, err := r.runTransient(ctx, sh, "/nonexistent-nimvor", nil, Opts{As: &as, Stdin: strings.NewReader("x")}, time.Minute, []string{"-c", "true"})
 		done <- err
 	}()
 	select {
@@ -135,8 +135,8 @@ func TestSendmailBinds(t *testing.T) {
 	if b := sendmailBinds(); b != nil {
 		t.Errorf("binds without a shim: %v", b)
 	}
-	SendmailShim = "/usr/local/bin/whacp-agent"
-	if b := sendmailBinds(); len(b) != 1 || b[0] != "/usr/local/bin/whacp-agent:"+real {
+	SendmailShim = "/usr/local/bin/nimvor-agent"
+	if b := sendmailBinds(); len(b) != 1 || b[0] != "/usr/local/bin/nimvor-agent:"+real {
 		t.Errorf("binds = %v", b)
 	}
 }

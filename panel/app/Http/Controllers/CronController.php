@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Services\CronService;
-use WhaCP\Services\JobTracker;
-use WhaCP\Services\ServerContext;
-use WhaCP\Support\UserFacingException;
-use WhaCP\View\View;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Services\CronService;
+use NimVor\Services\JobTracker;
+use NimVor\Services\ServerContext;
+use NimVor\Support\UserFacingException;
+use NimVor\View\View;
 
 final class CronController extends SiteController
 {
@@ -55,7 +55,7 @@ final class CronController extends SiteController
         try {
             $log = $this->cron->runs($site, $j);
             $error = null;
-        } catch (\WhaCP\Agent\AgentException $e) {
+        } catch (\NimVor\Agent\AgentException $e) {
             $log = ['runs' => [], 'truncated' => false, 'size' => 0];
             $error = $e;
         }

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Database\Connection;
+use NimVor\Agent\AgentClient;
+use NimVor\Database\Connection;
 
 /** FTP accounts of users' websites (the accounts live on the server). */
 final class FtpUsage

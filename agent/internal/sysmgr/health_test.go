@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/jobs"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 func wait(t *testing.T, h *testhost.Host, res any) (jobs.Job, string) {

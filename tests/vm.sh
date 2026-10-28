@@ -37,7 +37,7 @@ users:
 ssh_pwauth: false
 growpart: {mode: auto, devices: ["/"]}
 EOF
-    printf 'instance-id: whacp-ci\nlocal-hostname: %s.whacp.test\n' "$os" > "$WORK/meta-data"
+    printf 'instance-id: nimvor-ci\nlocal-hostname: %s.nimvor.test\n' "$os" > "$WORK/meta-data"
     cloud-localds "$WORK/seed.img" "$WORK/user-data" "$WORK/meta-data"
     qemu-system-x86_64 -enable-kvm -machine q35 -cpu host -m 6144 -smp 4 \
         -drive "file=$image,if=virtio,format=qcow2" -drive "file=$WORK/seed.img,if=virtio,format=raw" \

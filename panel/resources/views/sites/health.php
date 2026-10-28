@@ -2,7 +2,7 @@
 /**
  * Site → Health: per-website health overview with fix guidance.
  *
- * @var \WhaCP\View\View $this
+ * @var \NimVor\View\View $this
  * @var array<string, mixed> $site
  * @var list<array<string, mixed>> $checks
  */

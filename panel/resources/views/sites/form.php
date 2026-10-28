@@ -1,5 +1,5 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var array<string, mixed>|null $site */
 $isNew = $site === null;
 $v = static function (string $k, mixed $default = '') use ($old, $site) {
@@ -20,7 +20,6 @@ $kind = (string) $v('kind', 'php');
 // Process limits, hardening and PHP-FPM tuning are the administrator's.
 $serverPhp = $this->serverScope();
 $aliases = $old['aliases'] ?? implode("\n", $site['aliases'] ?? []);
-$redirects = $old['redirects'] ?? \WhaCP\Services\WebsiteService::redirectsText($site['redirects'] ?? []);
 $docSub = $site === null ? '' : ltrim(substr((string) $site['document_root'], strlen((string) $site['root'])), '/');
 $err = static fn (string $k): string => isset($errors[$k]) ? '<div class="invalid-feedback d-block">' . e($errors[$k]) . '</div>' : '';
 $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
@@ -32,7 +31,12 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
     <?= $this->partial('sites/header', ['site' => $site, 'tab' => 'settings']) ?>
 <?php endif; ?>
 
-<form method="post" action="<?= e($isNew ? $this->url('sites.store') : $this->url('sites.update', ['id' => (int) $site['id']])) ?>" data-wcp-busy novalidate>
+<?php /* Errors on fields this page does not show (the account name is derived for customers) would otherwise leave "correct the highlighted fields" with nothing highlighted. */
+$hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $serverPhp ? ['kind', 'app_runtime'] : ['system_user', 'kind', 'app_runtime', 'owner_id'], true), ARRAY_FILTER_USE_KEY); ?>
+<?php if ($hidden !== []): ?>
+    <div class="alert alert-danger"><?php foreach ($hidden as $m): ?><div><?= e((string) $m) ?></div><?php endforeach; ?></div>
+<?php endif; ?>
+<form method="post" action="<?= e($isNew ? $this->url('sites.store') : $this->url('sites.update', ['id' => (int) $site['id']])) ?>" data-nim-busy novalidate>
     <?= $this->csrfField() ?>
     <div class="row g-3">
         <div class="col-lg-6">
@@ -77,7 +81,7 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                         <div class="row row-cols-2 row-cols-sm-4 g-2" role="radiogroup" aria-label="Application type">
                             <?php foreach ($kindCards as $i => [$k, $label, $icon]): $checked = !$kindChosen && $kind === $k; if ($checked) { $kindChosen = true; } ?>
                                 <div class="col">
-                                    <input type="radio" class="btn-check" name="kind" id="f-kind-<?= $i ?>" value="<?= e($k) ?>" data-wcp-toggle-kind autocomplete="off"<?= $checked ? ' checked' : '' ?>>
+                                    <input type="radio" class="btn-check" name="kind" id="f-kind-<?= $i ?>" value="<?= e($k) ?>" data-nim-toggle-kind autocomplete="off"<?= $checked ? ' checked' : '' ?>>
                                     <label class="btn btn-outline-secondary w-100 h-100 py-3 d-flex flex-column align-items-center justify-content-center gap-1" for="f-kind-<?= $i ?>">
                                         <i class="bi bi-<?= e($icon) ?> fs-4" aria-hidden="true"></i>
                                         <span class="small"><?= e($label) ?></span>
@@ -87,7 +91,8 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                         </div>
                         <?= $err('kind') ?>
                     </div>
-                    <div class="mb-3" data-wcp-kind="php">
+                    <?php if ($isNew): ?>
+                    <div class="mb-3" data-nim-kind="php">
                         <label class="form-label" for="f-php">PHP version</label>
                         <select class="form-select<?= $cls('php_version') ?>" id="f-php" name="php_version">
                             <?php if ($phpVersions === []): ?><option value="">No PHP-FPM installed</option><?php endif; ?>
@@ -97,7 +102,8 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                         </select>
                         <?= $err('php_version') ?>
                     </div>
-                    <div class="mb-3" data-wcp-kind="proxy">
+                    <?php endif; ?>
+                    <div class="mb-3" data-nim-kind="proxy">
                         <label class="form-label" for="f-proxy">Upstream address</label>
                         <input class="form-control<?= $cls('proxy_pass') ?>" id="f-proxy" name="proxy_pass" value="<?= e($v('proxy_pass')) ?>" placeholder="http://127.0.0.1:3000">
                         <?= $err('proxy_pass') ?>
@@ -111,7 +117,7 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                         }
                         $opts = array_values(array_filter($runtimes, static fn (string $r): bool => str_starts_with($r, $rp . ':')));
                     ?>
-                    <div data-wcp-kind="<?= e($ak) ?>">
+                    <div data-nim-kind="<?= e($ak) ?>">
                         <div class="row g-2">
                             <div class="col-sm-7">
                                 <label class="form-label" for="f-rt-<?= e($ak) ?>"><?= $ak === 'python' ? 'Python' : 'Node.js' ?> version</label>
@@ -166,8 +172,8 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                 </div>
             </div>
             <?php endif; ?>
-            <?php if ($serverPhp || !$isNew): ?>
-            <div class="card mb-3" data-wcp-kind="php" id="php">
+            <?php if ($isNew && $serverPhp): ?>
+            <div class="card mb-3" data-nim-kind="php" id="php">
                 <div class="card-header"><i class="bi bi-filetype-php me-1"></i>PHP settings</div>
                 <div class="card-body">
                     <div class="row g-2">
@@ -200,7 +206,7 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                                 <option value="<?= $pv ?>"<?= $profileNow === $pv ? ' selected' : '' ?>><?= htmlspecialchars($pl) ?></option>
                             <?php endforeach; ?>
                         </select>
-                        <div class="mt-1<?= $profileNow === 'custom' ? '' : ' d-none' ?>" data-wcp-php-custom>
+                        <div class="mt-1<?= $profileNow === 'custom' ? '' : ' d-none' ?>" data-nim-php-custom>
                             <input class="form-control form-control-sm<?= $cls('disable_functions') ?>" name="disable_functions" value="<?= htmlspecialchars((string) $v('disable_functions', '')) ?>" placeholder="exec, system, shell_exec">
                             <div class="form-text">Comma-separated function names to disable.</div>
                         </div>
@@ -236,50 +242,13 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                 </div>
             </div>
             <?php endif; ?>
-            <?php if (!$isNew): $ini = (array) ($old['ini'] ?? ($site['php_settings']['ini'] ?? [])); $iniErr = array_filter($errors ?? [], static fn ($k) => str_starts_with((string) $k, 'ini'), ARRAY_FILTER_USE_KEY); ?>
-            <div class="card mb-3" data-wcp-kind="php" id="php-ini">
-                <div class="card-header wcp-toolbar">
-                    <span class="wcp-toolbar-title"><i class="bi bi-sliders2 me-1"></i>Additional PHP directives <span class="badge rounded-pill text-bg-light border fw-normal"><?= count(array_filter($ini, static fn ($x) => $x !== '')) ?> set</span></span>
-                    <input class="form-control form-control-sm wcp-filter" type="search" placeholder="Filter directives" aria-label="Filter directives" data-wcp-filter="#php-ini-table">
-                </div>
-                <?php if (isset($iniErr['ini'])): ?><div class="text-danger small px-3 pt-2"><?= e((string) $iniErr['ini']) ?></div><?php endif; ?>
-                <div class="table-responsive wcp-scroll-400">
-                    <table class="table table-sm align-middle mb-0 wcp-table" id="php-ini-table">
-                        <tbody>
-                        <?php foreach (\WhaCP\Services\PhpDirectives::groups() as $group => $keys): ?>
-                            <tr class="table-light"><th colspan="2" class="small"><?= e($group) ?></th></tr>
-                            <?php foreach ($keys as $k): [, $kind, $hint] = \WhaCP\Services\PhpDirectives::ALL[$k]; $val = (string) ($ini[$k] ?? ''); $id = 'ini-' . str_replace('.', '-', $k); $bad = isset($iniErr['ini.' . $k]); ?>
-                                <tr>
-                                    <td class="w-50"><label class="font-monospace small" for="<?= e($id) ?>"><?= e($k) ?></label><?php if ($hint !== ''): ?><div class="small text-body-secondary"><?= e($hint) ?></div><?php endif; ?></td>
-                                    <td>
-                                        <?php if ($kind === 'bool' || str_starts_with($kind, 'enum:')): $opts = $kind === 'bool' ? ['On', 'Off'] : explode('|', substr($kind, 5)); ?>
-                                            <select class="form-select form-select-sm<?= $bad ? ' is-invalid' : '' ?>" id="<?= e($id) ?>" name="ini[<?= e($k) ?>]">
-                                                <option value="">Server default</option>
-                                                <?php foreach ($opts as $o): ?><option value="<?= e($o) ?>"<?= $val === $o ? ' selected' : '' ?>><?= e($o) ?></option><?php endforeach; ?>
-                                            </select>
-                                        <?php else: ?>
-                                            <input class="form-control form-control-sm font-monospace<?= $bad ? ' is-invalid' : '' ?>" id="<?= e($id) ?>" name="ini[<?= e($k) ?>]" value="<?= e($val) ?>" placeholder="Server default" autocomplete="off" spellcheck="false">
-                                        <?php endif; ?>
-                                        <?php if ($bad): ?><div class="invalid-feedback d-block"><?= e((string) $iniErr['ini.' . $k]) ?></div><?php endif; ?>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php endforeach; ?>
-                        <tr class="d-none" data-wcp-filter-empty><td colspan="2" class="small text-body-secondary">No directive matches.</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <?php endif; ?>
             <div class="card mb-3" id="requests">
-                <div class="card-header"><i class="bi bi-signpost me-1"></i>Requests and redirects</div>
+                <div class="card-header"><i class="bi bi-signpost me-1"></i>Requests</div>
                 <div class="card-body">
                     <label class="form-label small" for="f-body">Max request body (MB)</label>
                     <input class="form-control form-control-sm mb-3<?= $cls('client_max_body_mb') ?>" type="number" id="f-body" name="client_max_body_mb" value="<?= e($v('client_max_body_mb', 64)) ?>">
                     <?= $err('client_max_body_mb') ?>
-                    <label class="form-label small" for="f-redirects">Redirects</label>
-                    <textarea class="form-control form-control-sm font-monospace<?= $cls('redirects') ?>" id="f-redirects" name="redirects" rows="3" placeholder="/old-page https://example.com/new-page 301"><?= e($redirects) ?></textarea>
-                    <?= $err('redirects') ?>
+                    <?php if (!$isNew): ?><div class="small text-body-secondary">Redirects are managed one by one on the <a href="<?= e($this->url('sites.redirects', ['id' => (int) $site['id']])) ?>">Redirects</a> page, and PHP version and php.ini settings on the <a href="<?= e($this->url('sites.php', ['id' => (int) $site['id']])) ?>">PHP settings</a> page.</div><?php endif; ?>
                 </div>
             </div>
         </div>

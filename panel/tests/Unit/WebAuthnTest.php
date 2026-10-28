@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Unit;
+namespace NimVor\Tests\Unit;
 
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Security\Cbor;
-use WhaCP\Security\WebAuthn;
-use WhaCP\Security\WebAuthnException;
-use WhaCP\Tests\Support\DatabaseTestCase;
-use WhaCP\Tests\Support\SoftAuthenticator;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Security\Cbor;
+use NimVor\Security\WebAuthn;
+use NimVor\Security\WebAuthnException;
+use NimVor\Tests\Support\DatabaseTestCase;
+use NimVor\Tests\Support\SoftAuthenticator;
 
 require_once __DIR__ . '/../Support/SoftAuthenticator.php';
 
@@ -32,7 +32,7 @@ final class WebAuthnTest extends DatabaseTestCase
 
     private function register(SoftAuthenticator $key, string $name = 'Key'): void
     {
-        $opts = $this->wa->registrationOptions($this->user, self::RP, 'WhaCP');
+        $opts = $this->wa->registrationOptions($this->user, self::RP, 'NimVor');
         $r = $key->create($opts, self::ORIGIN);
         $this->wa->register($this->user, self::ORIGIN, self::RP, $name, $r['client_data'], $r['attestation']);
     }
@@ -60,15 +60,15 @@ final class WebAuthnTest extends DatabaseTestCase
     {
         $key = new SoftAuthenticator();
         // Wrong origin at registration.
-        $opts = $this->wa->registrationOptions($this->user, self::RP, 'WhaCP');
+        $opts = $this->wa->registrationOptions($this->user, self::RP, 'NimVor');
         $r = $key->create($opts, 'https://evil.example');
         $this->assertFails(fn () => $this->wa->register($this->user, self::ORIGIN, self::RP, 'k', $r['client_data'], $r['attestation']), 'different address');
         // Credential made for another relying party.
-        $opts = $this->wa->registrationOptions($this->user, self::RP, 'WhaCP');
+        $opts = $this->wa->registrationOptions($this->user, self::RP, 'NimVor');
         $r = $key->create($opts, self::ORIGIN, 'evil.example');
         $this->assertFails(fn () => $this->wa->register($this->user, self::ORIGIN, self::RP, 'k', $r['client_data'], $r['attestation']), 'different site');
         // Challenge is single use.
-        $opts = $this->wa->registrationOptions($this->user, self::RP, 'WhaCP');
+        $opts = $this->wa->registrationOptions($this->user, self::RP, 'NimVor');
         $r = $key->create($opts, self::ORIGIN);
         $this->wa->register($this->user, self::ORIGIN, self::RP, 'k', $r['client_data'], $r['attestation']);
         $this->assertFails(fn () => $this->wa->register($this->user, self::ORIGIN, self::RP, 'k2', $r['client_data'], $r['attestation']), 'expired');

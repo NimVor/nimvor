@@ -13,10 +13,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/safewalk"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/safewalk"
+	"github.com/NimVor/nimvor/agent/internal/selinux"
 )
 
 // Email administration tools: the mail troubleshooter (how an address is
@@ -32,7 +32,7 @@ type TraceStep struct {
 
 type mxLookup func(ctx context.Context, domain string) ([]*net.MX, error)
 
-// Trace follows an address through WhaCP's mail configuration.
+// Trace follows an address through NimVor's mail configuration.
 func Trace(ctx context.Context, d Data, addr, relayhost string, mx mxLookup) []TraceStep {
 	var steps []TraceStep
 	seen := map[string]bool{}

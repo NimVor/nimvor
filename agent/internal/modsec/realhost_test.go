@@ -15,13 +15,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/config"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/config"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/jobs"
+	"github.com/NimVor/nimvor/agent/internal/platform"
 )
 
 // The real connector and Core Rule Set: every generated file passes the
@@ -62,12 +62,12 @@ func TestRealHostModSecurity(t *testing.T) {
 		time.Sleep(700 * time.Millisecond)
 	}
 
-	const domain = "whacp-modsec-test.test"
-	docroot := "/var/www/whacp-modsec-test"
+	const domain = "nimvor-modsec-test.test"
+	docroot := "/var/www/nimvor-modsec-test"
 	os.MkdirAll(docroot, 0o755)
 	os.WriteFile(filepath.Join(docroot, "index.html"), []byte("ok\n"), 0o644)
-	vhost := filepath.Join(e.M.NginxAvailable, "whacp-"+domain+".conf")
-	link := filepath.Join(e.M.NginxEnabled, "whacp-"+domain+".conf")
+	vhost := filepath.Join(e.M.NginxAvailable, "nimvor-"+domain+".conf")
+	link := filepath.Join(e.M.NginxEnabled, "nimvor-"+domain+".conf")
 	os.WriteFile(vhost, []byte("server {\n    listen 127.0.0.1:18089;\n    server_name "+domain+";\n    root "+docroot+";\n"+vhostMarker+"}\n"), 0o644)
 	if link != vhost {
 		os.Symlink(vhost, link)
@@ -87,14 +87,14 @@ func TestRealHostModSecurity(t *testing.T) {
 	if err := call("modsec.configure", `{"enabled":true,"crs":{"enabled":true,"paranoia":1},"custom":{"enabled":true}}`); err != nil {
 		t.Fatal(err)
 	}
-	if err := call("modsec.custom_set", `{"rules":"SecRule ARGS:whacpprobe \"@streq yes\" \"id:10001,phase:2,deny,status:403,log,msg:'WhaCP probe'\"\n"}`); err != nil {
+	if err := call("modsec.custom_set", `{"rules":"SecRule ARGS:nimvorprobe \"@streq yes\" \"id:10001,phase:2,deny,status:403,log,msg:'NimVor probe'\"\n"}`); err != nil {
 		t.Fatal(err)
 	}
 	// A rule the parser rejects is refused by nginx -t and rolled back.
 	if err := call("modsec.custom_set", `{"rules":"SecRule ARGS \"@rx x\" \"id:10002,deny,nosuchaction\"\n"}`); err == nil {
 		t.Fatal("a broken rule was accepted")
 	}
-	if b, _ := os.ReadFile(filepath.Join(Dir(e), "custom.conf")); !strings.Contains(string(b), "whacpprobe") {
+	if b, _ := os.ReadFile(filepath.Join(Dir(e), "custom.conf")); !strings.Contains(string(b), "nimvorprobe") {
 		t.Fatal("custom rules not restored after the failed change")
 	}
 
@@ -129,7 +129,7 @@ func TestRealHostModSecurity(t *testing.T) {
 		if got := get(sqli); got != c.sqli {
 			t.Errorf("%s: SQL injection answered %d, want %d", c.site, got, c.sqli)
 		}
-		if got := get("?whacpprobe=yes"); got != c.mine {
+		if got := get("?nimvorprobe=yes"); got != c.mine {
 			t.Errorf("%s: custom rule answered %d, want %d", c.site, got, c.mine)
 		}
 		if got := get(""); got != 200 {
@@ -152,9 +152,9 @@ func TestRealHostModSecurity(t *testing.T) {
 // rolling back leaves Nginx as it was. It changes the machine (removes the
 // connector package), so it only runs when asked.
 func TestRealHostBuildConnectorFromSource(t *testing.T) {
-	if os.Getenv("WHACP_REALHOST_BUILD") != "1" {
+	if os.Getenv("NIMVOR_REALHOST_BUILD") != "1" {
 		// Opt-in (it changes the machine): not run is not a skipped check.
-		t.Log("not run: set WHACP_REALHOST_BUILD=1 (removes the connector package, builds from source)")
+		t.Log("not run: set NIMVOR_REALHOST_BUILD=1 (removes the connector package, builds from source)")
 		return
 	}
 	root := filesystem.Host()
@@ -200,7 +200,7 @@ func TestRealHostBuildConnectorFromSource(t *testing.T) {
 }
 
 // The pinned Core Rule Set release downloads, matches its checksum and
-// unpacks into rules WhaCP can load (nothing is installed).
+// unpacks into rules NimVor can load (nothing is installed).
 func TestRealHostCRSRelease(t *testing.T) {
 	// GitHub's release downloads fail now and then: three tries.
 	var b []byte

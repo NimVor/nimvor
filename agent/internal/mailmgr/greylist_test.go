@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/greylist"
+	"github.com/NimVor/nimvor/agent/internal/greylist"
 )
 
 func TestWithGreylisting(t *testing.T) {
@@ -23,7 +23,7 @@ func TestWithGreylisting(t *testing.T) {
 	if got := withGreylisting(on, false); got != "permit_mynetworks, permit_sasl_authenticated, reject_unauth_destination" {
 		t.Fatalf("off: %q", got)
 	}
-	custom := "permit_mynetworks, reject_unauth_destination, check_policy_service { unix:private/whacp-greylist, default_action=DUNNO }, reject_rbl_client zen.example"
+	custom := "permit_mynetworks, reject_unauth_destination, check_policy_service { unix:private/nimvor-greylist, default_action=DUNNO }, reject_rbl_client zen.example"
 	if got := withGreylisting(custom, false); got != "permit_mynetworks, reject_unauth_destination, reject_rbl_client zen.example" {
 		t.Fatalf("custom off: %q", got)
 	}
@@ -107,16 +107,16 @@ func TestGreylistActions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasSuffix(postconf["smtpd_recipient_restrictions"], greylistClause) || checked != "/var/spool/postfix/private/whacp-greylist" {
+	if !strings.HasSuffix(postconf["smtpd_recipient_restrictions"], greylistClause) || checked != "/var/spool/postfix/private/nimvor-greylist" {
 		t.Fatalf("postfix: %q, self-test %q", postconf["smtpd_recipient_restrictions"], checked)
 	}
-	unit := h.Read("etc/systemd/system/whacp-greylist.service")
+	unit := h.Read("etc/systemd/system/nimvor-greylist.service")
 	for _, want := range []string{"DynamicUser=yes", "CapabilityBoundingSet=\n", "LoadCredential=config:" + h.Env.M.MailDir + "/greylist.json", " greylist-policy\n", "NoNewPrivileges=yes"} {
 		if !strings.Contains(unit, want) {
 			t.Errorf("service unit lacks %q:\n%s", want, unit)
 		}
 	}
-	if sock := h.Read("etc/systemd/system/whacp-greylist.socket"); !strings.Contains(sock, "ListenStream=/var/spool/postfix/private/whacp-greylist\nSocketUser=postfix") || !strings.Contains(sock, "SocketMode=0600") {
+	if sock := h.Read("etc/systemd/system/nimvor-greylist.socket"); !strings.Contains(sock, "ListenStream=/var/spool/postfix/private/nimvor-greylist\nSocketUser=postfix") || !strings.Contains(sock, "SocketMode=0600") {
 		t.Fatalf("socket unit:\n%s", sock)
 	}
 	saved, err := loadGL(h.Read(strings.TrimPrefix(h.Env.M.MailDir, "/") + "/greylist.json"))
@@ -130,7 +130,7 @@ func TestGreylistActions(t *testing.T) {
 		t.Fatalf("google ranges looked up when trusted: %+v", g)
 	}
 	_ = res
-	if !strings.Contains(strings.Join(systemctl, "\n"), "restart -- whacp-greylist.service") && !strings.Contains(strings.Join(systemctl, "\n"), "restart whacp-greylist.service") {
+	if !strings.Contains(strings.Join(systemctl, "\n"), "restart -- nimvor-greylist.service") && !strings.Contains(strings.Join(systemctl, "\n"), "restart nimvor-greylist.service") {
 		t.Fatalf("service not (re)started: %v", systemctl)
 	}
 
@@ -154,7 +154,7 @@ func TestGreylistActions(t *testing.T) {
 	if _, err := call(t, r, "mail.greylist_set", map[string]any{"enabled": false, "deferral": 3, "resend": 120, "expire": 2880}); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(postconf["smtpd_recipient_restrictions"], "whacp-greylist") {
+	if strings.Contains(postconf["smtpd_recipient_restrictions"], "nimvor-greylist") {
 		t.Fatalf("still in postfix: %q", postconf["smtpd_recipient_restrictions"])
 	}
 	// Reports need the running service.

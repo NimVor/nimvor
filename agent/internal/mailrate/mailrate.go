@@ -1,11 +1,11 @@
-// Package mailrate is WhaCP's outgoing mail limit for website accounts: a
+// Package mailrate is NimVor's outgoing mail limit for website accounts: a
 // Postfix policy service asked for every recipient of mail submitted over
 // SMTP from this machine. It finds the account that owns the client's
 // socket in the kernel's socket table (/proc/self/net/tcp*), counts that
 // account's recipients per clock hour and defers them past its limit.
 //
-// Website mail reaches it because PHP's mail() and the commands WhaCP runs
-// as an account use WhaCP's sendmail (package sendmail), which submits over
+// Website mail reaches it because PHP's mail() and the commands NimVor runs
+// as an account use NimVor's sendmail (package sendmail), which submits over
 // SMTP to 127.0.0.1, and website accounts may not use Postfix's own
 // sendmail (authorized_submit_users). System accounts (below MinUID) are
 // never limited.

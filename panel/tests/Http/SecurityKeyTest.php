@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Security\Csrf;
-use WhaCP\Services\SettingsService;
-use WhaCP\Tests\Support\HttpTestCase;
-use WhaCP\Tests\Support\SoftAuthenticator;
+use NimVor\Database\Connection;
+use NimVor\Security\Csrf;
+use NimVor\Services\SettingsService;
+use NimVor\Tests\Support\HttpTestCase;
+use NimVor\Tests\Support\SoftAuthenticator;
 
 require_once __DIR__ . '/../Support/SoftAuthenticator.php';
 
@@ -86,7 +86,7 @@ final class SecurityKeyTest extends HttpTestCase
         $this->addKey(new SoftAuthenticator('EdDSA'), 'Laptop passkey');
         self::assertSame(200, $this->request('GET', '/websites')->status());
 
-        $this->session = new \WhaCP\Http\Session\ArraySession();
+        $this->session = new \NimVor\Http\Session\ArraySession();
         $this->app = $this->makeApp();
         $this->login('admin');
         $bob = (int) $db->scalar("SELECT id FROM users WHERE username = 'bob'");

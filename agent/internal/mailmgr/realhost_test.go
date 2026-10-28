@@ -25,13 +25,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/config"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/config"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/jobs"
+	"github.com/NimVor/nimvor/agent/internal/platform"
 )
 
 // Requires postfix, dovecot-imapd, dovecot-lmtpd and opendkim installed,
@@ -104,10 +104,10 @@ func TestRealHostMail(t *testing.T) {
 		}
 		return m
 	}
-	if _, err := call("mail.configure", map[string]any{"hostname": "mail.whacp-rt.test"}); err == nil {
+	if _, err := call("mail.configure", map[string]any{"hostname": "mail.nimvor-rt.test"}); err == nil {
 		t.Fatal("set up without confirmation")
 	}
-	must("mail.configure", map[string]any{"hostname": "mail.whacp-rt.test", "confirm_edit_package_config": true})
+	must("mail.configure", map[string]any{"hostname": "mail.nimvor-rt.test", "confirm_edit_package_config": true})
 	if b, _ := os.ReadFile(env.M.DovecotAuthConf); !strings.Contains(string(b), "#!include auth-system.conf.ext") {
 		t.Fatal("system-account login not disabled")
 	}
@@ -326,7 +326,7 @@ func TestRealHostMail(t *testing.T) {
 		for _, c := range [][]string{
 			{"sh", "-c", "journalctl --no-pager -o cat -u postfix | grep -iE 'warn|fatal|error|tls|key|cert' | tail -20"},
 			{"sh", "-c", "postconf -n | grep -i tls; postconf -M submission/inet"},
-			{"sh", "-c", "ls -lZ /etc/whacp-mail/ | head -20"},
+			{"sh", "-c", "ls -lZ /etc/nimvor-mail/ | head -20"},
 		} {
 			out, _ := exec.Command(c[0], c[1:]...).CombinedOutput()
 			diag += string(out) + "\n"
@@ -431,12 +431,12 @@ func TestRealHostMail(t *testing.T) {
 
 func testWebmail(t *testing.T, env *host.Env, must func(string, any) map[string]any, waitMail func(int) []string) {
 	t.Helper()
-	const hostname = "webmail.whacp-rt.test"
+	const hostname = "webmail.nimvor-rt.test"
 	t.Cleanup(func() {
 		w := env.M
-		os.Remove(filepath.Join(w.NginxEnabled, "whacp-webmail.conf"))
-		os.Remove(filepath.Join(w.NginxAvailable, "whacp-webmail.conf"))
-		pools, _ := filepath.Glob(filepath.Join(w.PoolDir("*"), "whacp-webmail.conf"))
+		os.Remove(filepath.Join(w.NginxEnabled, "nimvor-webmail.conf"))
+		os.Remove(filepath.Join(w.NginxAvailable, "nimvor-webmail.conf"))
+		pools, _ := filepath.Glob(filepath.Join(w.PoolDir("*"), "nimvor-webmail.conf"))
 		for _, p := range pools {
 			os.Remove(p)
 			v := filepath.Base(filepath.Dir(filepath.Dir(p)))
@@ -546,12 +546,12 @@ func testWebmail(t *testing.T, env *host.Env, must func(string, any) map[string]
 		t.Fatal("webmail message not delivered")
 	}
 	// Package files are never changed.
-	if b, _ := os.ReadFile(env.M.RoundcubeDefaults); strings.Contains(string(b), "WhaCP") {
+	if b, _ := os.ReadFile(env.M.RoundcubeDefaults); strings.Contains(string(b), "NimVor") {
 		t.Fatal("package defaults changed")
 	}
 
 	must("mail.webmail_configure", map[string]any{"enabled": false})
-	if _, err := os.Stat(filepath.Join(env.M.NginxEnabled, "whacp-webmail.conf")); err == nil {
+	if _, err := os.Stat(filepath.Join(env.M.NginxEnabled, "nimvor-webmail.conf")); err == nil {
 		t.Fatal("webmail site left enabled")
 	}
 	if _, err := os.Stat(env.M.WebmailData + "/roundcube.db"); err != nil {

@@ -14,13 +14,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/config"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/config"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/jobs"
+	"github.com/NimVor/nimvor/agent/internal/platform"
 )
 
 // The queue actions against a real Postfix: a message to an unresolvable
@@ -55,7 +55,7 @@ func TestRealHostMailQueue(t *testing.T) {
 		exec.Command("postconf", "-e", "defer_transports="+strings.TrimSpace(string(prevDefer))).Run()
 		exec.Command("postfix", "reload").Run()
 	})
-	rcpt := fmt.Sprintf("n%d@whacp-queue-test.invalid", time.Now().UnixNano())
+	rcpt := fmt.Sprintf("n%d@nimvor-queue-test.invalid", time.Now().UnixNano())
 	msg := "From: Tester <tester@example.com>\nTo: " + rcpt + "\nSubject: =?UTF-8?B?UXVldWUgdGVzdCDinJM=?=\n\nhello\n"
 	cmd := exec.Command("sendmail", "-f", "tester@example.com", rcpt)
 	cmd.Stdin = strings.NewReader(msg)

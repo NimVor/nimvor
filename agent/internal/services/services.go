@@ -7,21 +7,21 @@ import (
 	"path"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/systemd"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/systemd"
+	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
-// controllable lists unit patterns WhaCP may operate on.
+// controllable lists unit patterns NimVor may operate on.
 var controllable = []string{
 	"nginx.service", "php*-fpm.service", "php*-php-fpm.service", "mariadb.service", "mysql.service", "mysqld.service",
-	"redis-server.service", "redis.service", "valkey.service", "memcached.service", "mongod.service", "whacp-ftpd.service", "named.service", "postfix.service", "dovecot.service", "whacp-opendkim.service", "rspamd.service", "cron.service", "crond.service", "fail2ban.service", "ssh.service", "sshd.service",
-	"clamav-freshclam.service", "whacp-worker-*.service", "whacp-panel.service",
+	"redis-server.service", "redis.service", "valkey.service", "memcached.service", "mongod.service", "nimvor-ftpd.service", "named.service", "postfix.service", "dovecot.service", "nimvor-opendkim.service", "rspamd.service", "cron.service", "crond.service", "fail2ban.service", "ssh.service", "sshd.service",
+	"clamav-freshclam.service", "nimvor-worker-*.service", "nimvor-panel.service",
 }
 
 // neverStop protects remote access and the panel itself.
-var neverStop = map[string]bool{"ssh.service": true, "sshd.service": true, "whacp-panel.service": true}
+var neverStop = map[string]bool{"ssh.service": true, "sshd.service": true, "nimvor-panel.service": true}
 
 // Allowed reports whether unit may be controlled.
 func Allowed(unit string) bool {
@@ -35,7 +35,7 @@ func Allowed(unit string) bool {
 
 // Register adds services.control.
 func Register(r *actions.Registry, env *host.Env) {
-	registerWhacp(r, env)
+	registerNimvor(r, env)
 	registerRestartAll(r, env)
 	registerSelfUpdate(r, env)
 	r.Register(actions.Action{Name: "services.control", Mutating: true, Description: "Start, stop, restart, reload, enable or disable an allowlisted service.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
@@ -50,13 +50,13 @@ func Register(r *actions.Registry, env *host.Env) {
 			return nil, host.Invalid(err)
 		}
 		if !Allowed(in.Unit) {
-			return nil, actions.InvalidParams("unit: " + in.Unit + " cannot be controlled from WhaCP")
+			return nil, actions.InvalidParams("unit: " + in.Unit + " cannot be controlled from NimVor")
 		}
 		switch in.Op {
 		case "start", "restart", "reload", "enable":
 		case "stop", "disable":
 			if neverStop[in.Unit] {
-				return nil, actions.InvalidParams(in.Unit + " cannot be stopped from WhaCP; you could lock yourself out")
+				return nil, actions.InvalidParams(in.Unit + " cannot be stopped from NimVor; you could lock yourself out")
 			}
 		default:
 			return nil, actions.InvalidParams("op must be start, stop, restart, reload, enable or disable")
@@ -76,7 +76,7 @@ func Register(r *actions.Registry, env *host.Env) {
 			}
 		}
 		if st, err := (systemd.Client{Runner: env.Runner}).Status(ctx, []string{in.Unit}); err == nil && len(st) > 0 && st[0].LoadState == "not-found" {
-			return nil, actions.Conflict(in.Unit + " is not installed on this server (or, for WhaCP's own services, not set up yet).")
+			return nil, actions.Conflict(in.Unit + " is not installed on this server (or, for NimVor's own services, not set up yet).")
 		}
 		if err := env.Systemctl(ctx, in.Op, in.Unit); err != nil {
 			return nil, actions.Failed("The service operation failed.", err.Error())

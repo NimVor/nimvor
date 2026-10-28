@@ -1,8 +1,8 @@
 // Package limits applies hosting accounts' resource limits with systemd
 // and cgroup v2.
 //
-// Each limited account has a slice, whacp-acct<ID>.slice (a child of
-// whacp.slice), with the plan's CPU, memory, process and disk bandwidth
+// Each limited account has a slice, nimvor-acct<ID>.slice (a child of
+// nimvor.slice), with the plan's CPU, memory, process and disk bandwidth
 // limits. The account's PHP-FPM master, workers and cron jobs run in it, so
 // everything they start is counted and cannot leave (moving a process to
 // another cgroup needs delegation, which accounts do not have). Logins
@@ -23,11 +23,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/changeset"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/changeset"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
 // Limits of an account; 0 means no limit.
@@ -64,11 +64,11 @@ func (l Limits) Validate() error {
 var accountRe = regexp.MustCompile(`^acct[0-9]{1,9}$`)
 
 // SliceName is an account's slice.
-func SliceName(account string) string { return "whacp-" + account + ".slice" }
+func SliceName(account string) string { return "nimvor-" + account + ".slice" }
 
 // ValidSlice reports whether s is an account slice name.
 func ValidSlice(s string) bool {
-	return strings.HasPrefix(s, "whacp-") && strings.HasSuffix(s, ".slice") && accountRe.MatchString(strings.TrimSuffix(strings.TrimPrefix(s, "whacp-"), ".slice"))
+	return strings.HasPrefix(s, "nimvor-") && strings.HasSuffix(s, ".slice") && accountRe.MatchString(strings.TrimSuffix(strings.TrimPrefix(s, "nimvor-"), ".slice"))
 }
 
 // Directives renders the [Slice] settings.
@@ -95,7 +95,7 @@ func Directives(l Limits, ioPath string) []string {
 // RenderSlice is the account slice unit.
 func RenderSlice(account string, l Limits, ioPath string) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "# Managed by WhaCP: resource limits of hosting account %s (from its plan). Changes here are overwritten.\n[Unit]\nDescription=WhaCP hosting account %s\n\n[Slice]\n", account, account)
+	fmt.Fprintf(&b, "# Managed by NimVor: resource limits of hosting account %s (from its plan). Changes here are overwritten.\n[Unit]\nDescription=NimVor hosting account %s\n\n[Slice]\n", account, account)
 	for _, d := range Directives(l, ioPath) {
 		b.WriteString(d + "\n")
 	}
@@ -105,7 +105,7 @@ func RenderSlice(account string, l Limits, ioPath string) string {
 // RenderUserDropIn limits a system user's logins (user-<uid>.slice).
 func RenderUserDropIn(account string, l Limits, ioPath string) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "# Managed by WhaCP: logins of hosting account %s have its plan's limits.\n[Slice]\n", account)
+	fmt.Fprintf(&b, "# Managed by NimVor: logins of hosting account %s have its plan's limits.\n[Slice]\n", account)
 	for _, d := range Directives(l, ioPath) {
 		b.WriteString(d + "\n")
 	}
@@ -142,16 +142,16 @@ func LoadState(e *host.Env) State {
 func SliceFor(e *host.Env, user string) string { return e.AccountSlice(user) }
 
 func userDropIn(e *host.Env, uid int) string {
-	return filepath.Join(e.M.UnitDir, fmt.Sprintf("user-%d.slice.d", uid), "50-whacp-limits.conf")
+	return filepath.Join(e.M.UnitDir, fmt.Sprintf("user-%d.slice.d", uid), "50-nimvor-limits.conf")
 }
 
-// CronDenyStart and CronDenyEnd frame the users WhaCP adds to cron.deny.
+// CronDenyStart and CronDenyEnd frame the users NimVor adds to cron.deny.
 const (
-	CronDenyStart = "# BEGIN WhaCP: website accounts use scheduled tasks in the panel"
-	CronDenyEnd   = "# END WhaCP"
+	CronDenyStart = "# BEGIN NimVor: website accounts use scheduled tasks in the panel"
+	CronDenyEnd   = "# END NimVor"
 	// cronDenyStartOld is the line written before every website account
 	// was listed (only accounts with resource limits).
-	cronDenyStartOld = "# BEGIN WhaCP: accounts with resource limits use scheduled tasks in the panel"
+	cronDenyStartOld = "# BEGIN NimVor: accounts with resource limits use scheduled tasks in the panel"
 )
 
 // WebsiteAccounts are the accounts whose home is a website folder directly
@@ -182,7 +182,7 @@ func WebsiteAccounts(e *host.Env) []string {
 
 // DenyPersonalCron lists every website account (and extra ones) in
 // cron.deny and at.deny: their scheduled tasks are the panel's, which run
-// under WhaCP's control (as the account, in its slice when limited); a
+// under NimVor's control (as the account, in its slice when limited); a
 // personal crontab or at job would run outside it, unseen.
 func DenyPersonalCron(e *host.Env, set *changeset.Set, extra []string) {
 	seen := map[string]bool{}
@@ -206,7 +206,7 @@ func DenyPersonalCron(e *host.Env, set *changeset.Set, extra []string) {
 	}
 }
 
-// RenderCronDeny puts WhaCP's block (the limited users) into cron.deny.
+// RenderCronDeny puts NimVor's block (the limited users) into cron.deny.
 func RenderCronDeny(current string, users []string) string {
 	var keep []string
 	in := false
@@ -252,7 +252,7 @@ type Usage struct {
 }
 
 func readUsage(e *host.Env, account string) Usage {
-	dir := filepath.Join("/sys/fs/cgroup/whacp.slice", SliceName(account))
+	dir := filepath.Join("/sys/fs/cgroup/nimvor.slice", SliceName(account))
 	u := Usage{Path: dir}
 	num := func(file string) int64 {
 		b, err := e.Root.ReadFile(filepath.Join(dir, file))
@@ -292,14 +292,14 @@ func readUsage(e *host.Env, account string) Usage {
 // Register adds the limits actions.
 func Register(r *actions.Registry, e *host.Env) {
 	e.Writer.Policy.Patterns = append(e.Writer.Policy.Patterns,
-		filepath.Join(e.M.UnitDir, "whacp.slice"),
-		filepath.Join(e.M.UnitDir, "whacp-acct*.slice"),
+		filepath.Join(e.M.UnitDir, "nimvor.slice"),
+		filepath.Join(e.M.UnitDir, "nimvor-acct*.slice"),
 		filepath.Join(e.M.UnitDir, "user-*.slice.d"),
-		filepath.Join(e.M.UnitDir, "user-*.slice.d/50-whacp-limits.conf"),
+		filepath.Join(e.M.UnitDir, "user-*.slice.d/50-nimvor-limits.conf"),
 		"/etc/cron.deny", "/etc/at.deny",
 	)
 
-	r.Register(actions.Action{Name: "limits.set", Mutating: true, Description: "Set a hosting account's resource limits (CPU %, memory, processes, disk read/write MB/s; 0 = no limit) for its slice whacp-acct<ID>.slice and its system users' logins; all zero removes them. Applied at once and at every boot. Websites, workers and cron jobs follow when they are applied again.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "limits.set", Mutating: true, Description: "Set a hosting account's resource limits (CPU %, memory, processes, disk read/write MB/s; 0 = no limit) for its slice nimvor-acct<ID>.slice and its system users' logins; all zero removes them. Applied at once and at every boot. Websites, workers and cron jobs follow when they are applied again.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var in struct {
 			Account string   `json:"account"`
 			Users   []string `json:"users"`
@@ -332,15 +332,15 @@ func Register(r *actions.Registry, e *host.Env) {
 			uids[u] = acct.UID
 		}
 		if !in.Limits.Empty() && !cgroupV2(e) && !e.Cfg.SimulateCommands {
-			return nil, actions.Conflict("This server does not use the unified cgroup hierarchy (cgroup v2), which WhaCP's resource limits need. Ubuntu 22.04+, Debian 11+ and RHEL/AlmaLinux 9 use it by default.")
+			return nil, actions.Conflict("This server does not use the unified cgroup hierarchy (cgroup v2), which NimVor's resource limits need. Ubuntu 22.04+, Debian 11+ and RHEL/AlmaLinux 9 use it by default.")
 		}
 		st := LoadState(e)
 		prev := st.Accounts[in.Account]
 		ioPath := e.Cfg.SitesRoot
 		set := e.Changes("limits-" + in.Account)
 		slicePath := filepath.Join(e.M.UnitDir, SliceName(in.Account))
-		if !e.Root.Exists(filepath.Join(e.M.UnitDir, "whacp.slice")) {
-			set.Write(filepath.Join(e.M.UnitDir, "whacp.slice"), []byte("# Managed by WhaCP: parent of the hosting accounts' slices.\n[Unit]\nDescription=WhaCP hosting accounts\n"), 0o644, agentfs.RootOwner)
+		if !e.Root.Exists(filepath.Join(e.M.UnitDir, "nimvor.slice")) {
+			set.Write(filepath.Join(e.M.UnitDir, "nimvor.slice"), []byte("# Managed by NimVor: parent of the hosting accounts' slices.\n[Unit]\nDescription=NimVor hosting accounts\n"), 0o644, agentfs.RootOwner)
 		}
 		// Users no longer in the account lose its login limits.
 		for _, u := range prev.Users {
@@ -422,14 +422,14 @@ func Register(r *actions.Registry, e *host.Env) {
 
 // NoSubmitFile is Postfix's table of accounts that may not use Postfix's
 // own sendmail (authorized_submit_users) while outgoing mail limits are
-// on: website accounts send through WhaCP's sendmail, over SMTP, where
+// on: website accounts send through NimVor's sendmail, over SMTP, where
 // their limit applies. Relative to the mail folder.
 const NoSubmitFile = "nosubmit"
 
 // RenderNoSubmit is the table for users (texthash: "name value" lines).
 func RenderNoSubmit(users []string) string {
 	var b strings.Builder
-	b.WriteString("# Managed by WhaCP (outgoing mail limits). Do not edit.\n")
+	b.WriteString("# Managed by NimVor (outgoing mail limits). Do not edit.\n")
 	sorted := append([]string{}, users...)
 	sort.Strings(sorted)
 	for _, u := range sorted {

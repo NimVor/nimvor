@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\WebsiteService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Disk usage by folder: a background job per folder, results kept per folder. */
 final class DiskUsageTest extends HttpTestCase

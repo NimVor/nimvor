@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\RoleRepository;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\MonitoringService;
-use WhaCP\Services\PlanLimits;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Repositories\RoleRepository;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\MonitoringService;
+use NimVor\Services\PlanLimits;
+use NimVor\Services\WebsiteService;
+use NimVor\Support\UserFacingException;
+use NimVor\Tests\Support\HttpTestCase;
 
 final class PlansAndResellersTest extends HttpTestCase
 {
@@ -25,7 +25,7 @@ final class PlansAndResellersTest extends HttpTestCase
 
     private function as(string $user): void
     {
-        $this->session = new \WhaCP\Http\Session\ArraySession();
+        $this->session = new \NimVor\Http\Session\ArraySession();
         $this->app = $this->makeApp();
         $this->login($user);
     }
@@ -100,8 +100,8 @@ final class PlansAndResellersTest extends HttpTestCase
         // Cron jobs count against the plans as well.
         $this->agent->succeed('cron.apply', ['changed' => true]);
         $siteId = (int) $this->db->scalar("SELECT id FROM websites WHERE domain = 'c1.test'");
-        $cron = $this->app->container->get(\WhaCP\Services\CronService::class);
-        $site = $this->app->container->get(\WhaCP\Repositories\WebsiteRepository::class)->find(1, $siteId, null);
+        $cron = $this->app->container->get(\NimVor\Services\CronService::class);
+        $site = $this->app->container->get(\NimVor\Repositories\WebsiteRepository::class)->find(1, $siteId, null);
         $cron->save($site, null, ['schedule' => '@daily', 'command' => 'true']);
         $this->expectException(UserFacingException::class);
         $cron->save($site, null, ['schedule' => '@daily', 'command' => 'true']);

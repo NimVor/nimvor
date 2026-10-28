@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Middleware;
+namespace NimVor\Http\Middleware;
 
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Route;
-use WhaCP\Security\Authorizer;
-use WhaCP\Security\AuthService;
-use WhaCP\Services\AuditLogger;
-use WhaCP\View\View;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Route;
+use NimVor\Security\Authorizer;
+use NimVor\Security\AuthService;
+use NimVor\Services\AuditLogger;
+use NimVor\View\View;
 
 /**
  * Enforces authentication and the route's permission.
@@ -18,20 +18,20 @@ use WhaCP\View\View;
 final class Authenticate implements Middleware
 {
     public function __construct(
-        private readonly \WhaCP\Services\ServerContext $serverContext,
-        private readonly \WhaCP\Services\ServerService $servers,
+        private readonly \NimVor\Services\ServerContext $serverContext,
+        private readonly \NimVor\Services\ServerService $servers,
         private readonly AuthService $auth,
         private readonly Authorizer $authorizer,
         private readonly AuditLogger $audit,
         private readonly View $view,
-        private readonly \WhaCP\Services\AgentStatus $agentStatus,
-        private readonly \WhaCP\Security\TwoFactor $twoFactor,
-        private readonly \WhaCP\Security\WebAuthn $webAuthn,
-        private readonly \WhaCP\Http\Session\SessionInterface $session,
-        private readonly \WhaCP\Services\NotificationService $notifications,
-        private readonly \WhaCP\Services\SettingsService $settings,
-        private readonly \WhaCP\Security\PasswordPolicy $passwordPolicy,
-        private readonly ?\WhaCP\Services\UpdateCheckService $updates = null,
+        private readonly \NimVor\Services\AgentStatus $agentStatus,
+        private readonly \NimVor\Security\TwoFactor $twoFactor,
+        private readonly \NimVor\Security\WebAuthn $webAuthn,
+        private readonly \NimVor\Http\Session\SessionInterface $session,
+        private readonly \NimVor\Services\NotificationService $notifications,
+        private readonly \NimVor\Services\SettingsService $settings,
+        private readonly \NimVor\Security\PasswordPolicy $passwordPolicy,
+        private readonly ?\NimVor\Services\UpdateCheckService $updates = null,
     ) {
     }
 
@@ -54,7 +54,7 @@ final class Authenticate implements Middleware
             if (!$request->wantsJson()) {
                 $this->view->share('agent_status', fn () => $this->agentStatus->get());
                 $this->view->share('password_rules', fn (): string => $this->passwordPolicy->describe());
-                $this->view->share('notification_count', fn (): ?int => $this->authorizer->can($user, \WhaCP\Security\Permissions::NOTIFICATIONS_VIEW)
+                $this->view->share('notification_count', fn (): ?int => $this->authorizer->can($user, \NimVor\Security\Permissions::NOTIFICATIONS_VIEW)
                     ? $this->notifications->unreadCount($user) : null);
                 $this->view->share('update_available', fn (): bool => $this->updates !== null && $this->updates->available());
                 $this->view->share('server_switcher', fn (): array => [
@@ -129,7 +129,7 @@ final class Authenticate implements Middleware
         // SSH keys of administrators grant a root-capable login.
         'security.ssh.key_add', 'security.ssh.key_generate', 'security.ssh.key_remove',
         // Runs the installer as root and restarts everything.
-        'whacp.update.start',
+        'nimvor.update.start',
     ];
 
     /** A local path to return to ('/' when the value is not one). */

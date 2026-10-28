@@ -1,7 +1,7 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var array<string, array<string, mixed>> $definitions */
-$canEdit = $this->can(\WhaCP\Security\Permissions::SETTINGS_MANAGE);
+$canEdit = $this->can(\NimVor\Security\Permissions::SETTINGS_MANAGE);
 // Categories: the settings kept here, and the pages that own related ones
 // (each keeps its own settings; this page links to them).
 $categories = [
@@ -57,9 +57,9 @@ $field = function (string $key, array $def) use ($old, $values): string {
     <?php if ($this->hasRoute('settings.tweak')): ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('settings.tweak')) ?>"><i class="bi bi-sliders2 me-1" aria-hidden="true"></i>Tweak Settings</a><?php endif; ?>
 <?php $this->end('actions'); ?>
 
-<div class="row g-3" data-wcp-settings-tabs>
+<div class="row g-3" data-nim-settings-tabs>
     <div class="col-lg-3">
-        <nav class="nav nav-pills flex-column wcp-settings-nav" role="tablist" aria-label="Setting categories" aria-orientation="vertical">
+        <nav class="nav nav-pills flex-column nim-settings-nav" role="tablist" aria-label="Setting categories" aria-orientation="vertical">
             <?php foreach ($categories as $cat => [$catLabel, $catIcon]): ?>
                 <a class="nav-link<?= $cat === $first ? ' active' : '' ?>" id="tab-<?= e($cat) ?>" href="#<?= e($cat) ?>" data-bs-toggle="pill" data-bs-target="#pane-<?= e($cat) ?>" role="tab" aria-controls="pane-<?= e($cat) ?>" aria-selected="<?= $cat === $first ? 'true' : 'false' ?>"><i class="bi bi-<?= e($catIcon) ?> me-2" aria-hidden="true"></i><?= e($catLabel) ?></a>
             <?php endforeach; ?>
@@ -72,7 +72,7 @@ $field = function (string $key, array $def) use ($old, $values): string {
                     <div class="card mb-3">
                         <div class="card-header"><i class="bi bi-<?= e($catIcon) ?> me-1"></i><?= e($catLabel) ?></div>
                         <div class="card-body">
-                            <form method="post" action="<?= e($this->url('settings.update')) ?>" data-wcp-busy novalidate>
+                            <form method="post" action="<?= e($this->url('settings.update')) ?>" data-nim-busy novalidate>
                                 <?= $this->csrfField() ?><input type="hidden" name="tab" value="<?= e($cat) ?>">
                                 <fieldset<?= $canEdit ? '' : ' disabled' ?>>
                                     <?php foreach ($defs as $key => $def): ?><?= $field($key, $def) ?><?php endforeach; ?>
@@ -87,7 +87,7 @@ $field = function (string $key, array $def) use ($old, $values): string {
                     <div class="card-header"><i class="bi bi-envelope me-1"></i>Email</div>
                     <div class="card-body">
                         <p class="small text-body-secondary">Used for alert notifications and “forgot password” links (which also need the public panel URL under General). Leave the host empty to turn email off.</p>
-                        <form method="post" action="<?= e($this->url('settings.mail')) ?>" data-wcp-busy novalidate>
+                        <form method="post" action="<?= e($this->url('settings.mail')) ?>" data-nim-busy novalidate>
                             <?= $this->csrfField() ?>
                             <fieldset<?= $canEdit ? '' : ' disabled' ?>>
                             <div class="row g-2">
@@ -97,7 +97,7 @@ $field = function (string $key, array $def) use ($old, $values): string {
                             <div class="mb-3">
                                 <label class="form-label" for="mail-enc">Encryption</label>
                                 <select class="form-select" id="mail-enc" name="encryption">
-                                    <?php foreach (\WhaCP\Mail\MailConfig::ENCRYPTION as $k => $label): ?><option value="<?= e($k) ?>"<?= ($old['encryption'] ?? $mail['encryption']) === $k ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?>
+                                    <?php foreach (\NimVor\Mail\MailConfig::ENCRYPTION as $k => $label): ?><option value="<?= e($k) ?>"<?= ($old['encryption'] ?? $mail['encryption']) === $k ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?>
                                 </select>
                             </div>
                             <div class="row g-2">
@@ -120,12 +120,12 @@ $field = function (string $key, array $def) use ($old, $values): string {
                 <div class="card">
                     <div class="card-header"><i class="bi bi-info-circle me-1"></i>Installation</div>
                     <div class="card-body">
-                        <dl class="wcp-dl">
+                        <dl class="nim-dl">
                             <?php foreach ($system as $k => $v): ?>
                                 <dt><?= e($k) ?></dt><dd><?= e($v) ?></dd>
                             <?php endforeach; ?>
                         </dl>
-                        <p class="small text-body-secondary mb-0">Infrastructure settings (socket paths, database location, cookies) live in <code>/etc/whacp/panel.php</code> and are not editable from the browser.</p>
+                        <p class="small text-body-secondary mb-0">Infrastructure settings (socket paths, database location, cookies) live in <code>/etc/nimvor/panel.php</code> and are not editable from the browser.</p>
                     </div>
                 </div>
                 <?php endif; ?>

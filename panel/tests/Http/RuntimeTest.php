@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Server → Runtimes: install/remove Node.js, admin only. */
 final class RuntimeTest extends HttpTestCase
@@ -17,7 +17,7 @@ final class RuntimeTest extends HttpTestCase
         $this->seedUser('cust', 'customer');
         $this->agent->succeed('runtime.status', [
             'arch' => 'x64',
-            'node' => [['kind' => 'node', 'version' => '20.17.0', 'bin' => '/opt/whacp/runtimes/node/20.17.0/bin', 'binary' => '/opt/whacp/runtimes/node/20.17.0/bin/node', 'managed' => true]],
+            'node' => [['kind' => 'node', 'version' => '20.17.0', 'bin' => '/opt/nimvor/runtimes/node/20.17.0/bin', 'binary' => '/opt/nimvor/runtimes/node/20.17.0/bin/node', 'managed' => true]],
             'python' => [],
             'system' => [['kind' => 'python', 'version' => '3.12', 'binary' => '/usr/bin/python3.12']],
         ]);
@@ -88,7 +88,7 @@ final class RuntimeTest extends HttpTestCase
     {
         // A Node.js/Python site can choose a managed runtime or a system
         // Python interpreter (python3.12 here).
-        $sel = $this->app->container->get(\WhaCP\Services\RuntimeService::class)->selectable();
+        $sel = $this->app->container->get(\NimVor\Services\RuntimeService::class)->selectable();
         self::assertContains('node:20.17.0', $sel);
         self::assertContains('python:3.12', $sel, 'system Python versions are selectable');
     }

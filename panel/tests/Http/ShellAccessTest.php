@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Security → Shell access: administrators only, per account or for all. */
 final class ShellAccessTest extends HttpTestCase
@@ -18,7 +18,7 @@ final class ShellAccessTest extends HttpTestCase
         $this->seedUser('resell', 'reseller');
         $this->seedUser('ops', 'operator');
         $this->agent->succeed('shell.status', ['jail_problem' => '', 'accounts' => [
-            ['user' => 'shop', 'folder' => 'shop.test', 'mode' => 'jailed', 'effective' => 'jailed', 'ssh_login' => true, 'keys' => 1, 'password_login' => false, 'login_shell' => '/usr/local/sbin/whacp-jailsh'],
+            ['user' => 'shop', 'folder' => 'shop.test', 'mode' => 'jailed', 'effective' => 'jailed', 'ssh_login' => true, 'keys' => 1, 'password_login' => false, 'login_shell' => '/usr/local/sbin/nimvor-jailsh'],
             ['user' => 'blog', 'folder' => 'blog.test', 'mode' => 'normal', 'effective' => 'disabled', 'ssh_login' => false, 'keys' => 0, 'password_login' => false, 'login_shell' => '/usr/sbin/nologin'],
         ]]);
         $this->agent->succeed('shell.set', ['accounts' => [['user' => 'blog', 'mode' => 'jailed', 'effective' => 'disabled']]]);
@@ -64,10 +64,10 @@ final class ShellAccessTest extends HttpTestCase
     {
         $db = $this->app->container->get(Connection::class);
         $cust = $this->seedUser('cust', 'customer');
-        $list = $this->app->container->get(\WhaCP\Services\FeatureService::class)->save(null, ['name' => 'No SSH', 'features' => array_values(array_diff(array_keys(\WhaCP\Services\FeatureService::FEATURES), ['ssh']))], 1);
+        $list = $this->app->container->get(\NimVor\Services\FeatureService::class)->save(null, ['name' => 'No SSH', 'features' => array_values(array_diff(array_keys(\NimVor\Services\FeatureService::FEATURES), ['ssh']))], 1);
         $db->run("INSERT INTO plans (name, feature_list_id, created_at, updated_at) VALUES ('Basic', ?, 'x', 'x')", [$list]);
         $db->run('UPDATE users SET plan_id = ? WHERE id = ?', [(int) $db->lastInsertId(), $cust]);
-        $db->run("INSERT INTO websites (server_id, domain, kind, root, document_root, system_user, owner_id, status, created_at, updated_at) VALUES (1, 'blog.test', 'static', '/home/whacp/blog.test', '/home/whacp/blog.test/public_html', 'blog', ?, 'active', 'x', 'x')", [$cust]);
+        $db->run("INSERT INTO websites (server_id, domain, kind, root, document_root, system_user, owner_id, status, created_at, updated_at) VALUES (1, 'blog.test', 'static', '/home/nimvor/blog.test', '/home/nimvor/blog.test/public_html', 'blog', ?, 'active', 'x', 'x')", [$cust]);
         $this->login('admin');
         $this->post('/security/shell', ['users' => ['blog'], 'mode' => 'jailed']);
         self::assertSame(0, $this->calls('shell.set'));
@@ -80,7 +80,7 @@ final class ShellAccessTest extends HttpTestCase
 
         // The scheduler takes away a shell the plan no longer includes
         // (blog is "normal" in the agent's status).
-        $lines = $this->app->container->get(\WhaCP\Services\ShellService::class)->reconcile();
+        $lines = $this->app->container->get(\NimVor\Services\ShellService::class)->reconcile();
         self::assertSame(['users' => ['blog'], 'mode' => 'disabled'], $this->lastCall('shell.set'));
         self::assertStringContainsString('blog', $lines[0]);
     }

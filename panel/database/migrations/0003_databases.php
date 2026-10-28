@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-// Phase 7: MySQL/MariaDB databases and users managed by WhaCP.
+// Phase 7: MySQL/MariaDB databases and users managed by NimVor.
 
 return [
     <<<'SQL'

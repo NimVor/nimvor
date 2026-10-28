@@ -1,4 +1,4 @@
-<?php /** @var \WhaCP\View\View $this */ ?>
+<?php /** @var \NimVor\View\View $this */ ?>
 <?php $this->start(); ?>Audit log<?php $this->end('title'); ?>
 <?php $this->start(); ?><?= (int) $total ?> recorded event(s)<?php $this->end('subtitle'); ?>
 
@@ -23,10 +23,10 @@
         </form>
     </div>
     <?php if ($rows === []): ?>
-        <div class="card-body text-center py-5 text-body-secondary wcp-empty"><i class="bi bi-list-check display-6"></i><p class="mt-3 mb-0">No events match.</p></div>
+        <div class="card-body text-center py-5 text-body-secondary nim-empty"><i class="bi bi-list-check display-6"></i><p class="mt-3 mb-0">No events match.</p></div>
     <?php else: ?>
         <div class="table-responsive">
-            <table class="table table-sm table-hover align-middle mb-0 wcp-table">
+            <table class="table table-sm table-hover align-middle mb-0 nim-table">
                 <thead><tr><th>Time (UTC)</th><th>User</th><th>Action</th><th>Target</th><th>Result</th><th>IP</th><th>Details</th></tr></thead>
                 <tbody>
                 <?php foreach ($rows as $r): ?>
@@ -37,7 +37,7 @@
                         <td class="small"><?= e(trim($r['target_type'] . ' ' . $r['target_id'])) ?></td>
                         <td><?= $this->statusBadge((string) $r['result']) ?></td>
                         <td class="small"><?= e($r['ip']) ?></td>
-                        <td class="small"><?php if ($r['details'] !== '{}' && $r['details'] !== '[]'): ?><code class="wcp-break"><?= e($r['details']) ?></code><?php endif; ?></td>
+                        <td class="small"><?php if ($r['details'] !== '{}' && $r['details'] !== '[]'): ?><code class="nim-break"><?= e($r['details']) ?></code><?php endif; ?></td>
                     </tr>
                 <?php endforeach; ?>
                 </tbody>

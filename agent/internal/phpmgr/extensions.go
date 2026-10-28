@@ -11,14 +11,14 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/pkgs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/pkgs"
+	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
-// Extension is a PHP extension WhaCP can install and switch on or off.
+// Extension is a PHP extension NimVor can install and switch on or off.
 type Extension struct {
 	Name        string
 	Description string
@@ -55,7 +55,7 @@ var Extensions = []Extension{
 	{"zip", "Zip archives", "zip", "pecl-zip", []string{"zip"}},
 }
 
-// panelNeeds are the extensions WhaCP's panel needs from the PHP it runs on
+// panelNeeds are the extensions NimVor's panel needs from the PHP it runs on
 // (/usr/bin/php): on Debian they cannot be switched off or removed there.
 var panelNeeds = map[string]bool{"sqlite3": true, "curl": true, "mbstring": true}
 
@@ -139,10 +139,10 @@ func moduleIni(env *host.Env, v, m string) string {
 // activeLine matches an extension= or zend_extension= line.
 var activeLine = regexp.MustCompile(`(?m)^\s*(zend_)?extension\s*=`)
 
-const disabledMark = "; whacp-disabled: "
+const disabledMark = "; nimvor-disabled: "
 
 // moduleEnabled: Debian links the module's ini into conf.d; on RHEL its
-// php.d file loads it unless WhaCP commented the line out.
+// php.d file loads it unless NimVor commented the line out.
 func moduleEnabled(env *host.Env, v, m string) bool {
 	f := moduleIni(env, v, m)
 	if f == "" {
@@ -225,7 +225,7 @@ func ExtensionStates(ctx context.Context, env *host.Env, v string) []ExtensionSt
 			st.Enabled = false
 		}
 		if panel && panelNeeds[e.Name] {
-			st.Protected = "WhaCP's panel runs on PHP " + v + " and needs " + e.Name + "."
+			st.Protected = "NimVor's panel runs on PHP " + v + " and needs " + e.Name + "."
 		}
 		out = append(out, st)
 	}
@@ -289,7 +289,7 @@ func (in *extensionReq) check(env *host.Env) (Extension, error) {
 	}
 	e, ok := findExtension(in.Name)
 	if !ok {
-		return Extension{}, actions.InvalidParams("name: " + in.Name + " is not an extension WhaCP manages")
+		return Extension{}, actions.InvalidParams("name: " + in.Name + " is not an extension NimVor manages")
 	}
 	if !env.Runner.Available(fmt.Sprintf(env.M.PHPFPMBinary, in.Version)) {
 		return Extension{}, actions.Conflict("PHP " + in.Version + " (FPM) is not installed.")
@@ -298,7 +298,7 @@ func (in *extensionReq) check(env *host.Env) (Extension, error) {
 }
 
 func registerExtensions(r *actions.Registry, env *host.Env) {
-	r.Register(actions.Action{Name: "php.extensions", Description: "The PHP extensions WhaCP manages for a version: installed, enabled, protected.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "php.extensions", Description: "The PHP extensions NimVor manages for a version: installed, enabled, protected.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in extensionReq
 		if err := host.Decode(p, &in); err != nil {
 			return nil, err
@@ -356,7 +356,7 @@ func registerExtensions(r *actions.Registry, env *host.Env) {
 			return nil, actions.Conflict(e.Name + " is part of PHP " + in.Version + "'s base packages on this system; switch it off instead.")
 		}
 		if panelVersion(env, in.Version) && panelNeeds[e.Name] {
-			return nil, actions.Conflict("WhaCP's panel runs on PHP " + in.Version + " and needs " + e.Name + ".")
+			return nil, actions.Conflict("NimVor's panel runs on PHP " + in.Version + " and needs " + e.Name + ".")
 		}
 		j := env.Jobs.Start("php.extension_remove", "server:packages", func(ctx context.Context, log io.Writer) (any, error) {
 			if err := pkgs.RemoveNative(ctx, env, log, []string{pkg}); err != nil {
@@ -385,7 +385,7 @@ func registerExtensions(r *actions.Registry, env *host.Env) {
 			return nil, actions.Conflict(e.Name + " is built into PHP " + in.Version + ": there is nothing to install, remove or switch (turn it off with opcache.enable in php.ini).")
 		}
 		if !in.Enabled && panelVersion(env, in.Version) && panelNeeds[e.Name] {
-			return nil, actions.Conflict("WhaCP's panel runs on PHP " + in.Version + " and needs " + e.Name + ".")
+			return nil, actions.Conflict("NimVor's panel runs on PHP " + in.Version + " and needs " + e.Name + ".")
 		}
 		for _, m := range e.Modules {
 			if !moduleAvailable(env, in.Version, m) {

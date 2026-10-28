@@ -1,11 +1,11 @@
 // Package runtimemgr installs extra Node.js runtimes side by side under
-// /opt/whacp/runtimes and reports the Node.js and Python runtimes available
+// /opt/nimvor/runtimes and reports the Node.js and Python runtimes available
 // on the server, so a website's workers can run on a chosen version without
 // touching the system packages.
 //
 // A Node.js runtime is the official linux tarball from nodejs.org, verified
 // against that release's SHASUMS256.txt before it is unpacked. It is placed
-// at /opt/whacp/runtimes/node/<version>; nothing is run as root to install
+// at /opt/nimvor/runtimes/node/<version>; nothing is run as root to install
 // it, and a worker selects it by name (the launcher prepends its bin folder
 // to PATH).
 package runtimemgr
@@ -27,9 +27,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
 // Sources says where runtimes are downloaded from.
@@ -50,7 +50,7 @@ var DefaultSources = Sources{
 const maxDownload = 120 << 20 // a Node tarball is ~30 MB; cap well above that
 
 var (
-	// A WhaCP-managed runtime version (a folder name under the runtimes dir).
+	// A NimVor-managed runtime version (a folder name under the runtimes dir).
 	versionRe = regexp.MustCompile(`^[0-9][0-9A-Za-z.]{0,31}$`)
 	// An exact Node.js release, e.g. 20.17.0.
 	nodeVersionRe = regexp.MustCompile(`^(0|[1-9][0-9]?)\.(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})$`)
@@ -66,7 +66,7 @@ type Runtime struct {
 	Version string `json:"version"` // folder name, e.g. "20.17.0" or "3.12"
 	Bin     string `json:"bin"`     // the bin directory
 	Binary  string `json:"binary"`  // the interpreter path
-	Managed bool   `json:"managed"` // installed by WhaCP (vs. the system's own)
+	Managed bool   `json:"managed"` // installed by NimVor (vs. the system's own)
 }
 
 // Status is the runtimes available on the server.
@@ -94,7 +94,7 @@ func nodeArch() string {
 	return ""
 }
 
-// List reports the runtimes on the server: the WhaCP-managed ones (folders
+// List reports the runtimes on the server: the NimVor-managed ones (folders
 // under the runtimes directory) and the system's own node and python.
 func List(env *host.Env) Status {
 	st := Status{Arch: nodeArch(), Node: []Runtime{}, Python: []Runtime{}, System: []Runtime{}}
@@ -162,7 +162,7 @@ func BinDir(env *host.Env, selection string) (string, error) {
 	}
 	// A Python site may select one of the system's own interpreters
 	// (e.g. python3.10 from the distribution or installed via Packages),
-	// which is not WhaCP-managed; resolve it to the directory holding
+	// which is not NimVor-managed; resolve it to the directory holding
 	// python<version>.
 	if kind == "python" {
 		for _, dir := range []string{"/usr/local/bin", "/usr/bin"} {
@@ -181,7 +181,7 @@ func Register(r *actions.Registry, env *host.Env) {
 
 // RegisterWith is Register with explicit download sources (for tests).
 func RegisterWith(r *actions.Registry, env *host.Env, src Sources) {
-	r.Register(actions.Action{Name: "runtime.status", Description: "List the Node.js and Python runtimes available on the server (WhaCP-managed and the system's own).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "runtime.status", Description: "List the Node.js and Python runtimes available on the server (NimVor-managed and the system's own).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return List(env), nil
 	}})
 	r.Register(actions.Action{Name: "runtime.available", Description: "List the stable Node.js and Python versions that can be installed (from nodejs.org and python-build-standalone).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
@@ -232,7 +232,7 @@ func RegisterWith(r *actions.Registry, env *host.Env, src Sources) {
 		})
 		return map[string]any{"job_id": j.ID}, nil
 	}})
-	r.Register(actions.Action{Name: "runtime.remove", Mutating: true, Description: "Remove a WhaCP-managed runtime.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "runtime.remove", Mutating: true, Description: "Remove a NimVor-managed runtime.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			Kind    string `json:"kind"`
 			Version string `json:"version"`
@@ -332,7 +332,7 @@ func download(ctx context.Context, env *host.Env, client *http.Client, url strin
 	}
 	defer f.Close()
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	req.Header.Set("User-Agent", "WhaCP")
+	req.Header.Set("User-Agent", "NimVor")
 	res, err := client.Do(req)
 	if err != nil {
 		os.Remove(f.Name())
@@ -354,7 +354,7 @@ func download(ctx context.Context, env *host.Env, client *http.Client, url strin
 
 func fetchText(ctx context.Context, client *http.Client, url string) (string, error) {
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	req.Header.Set("User-Agent", "WhaCP")
+	req.Header.Set("User-Agent", "NimVor")
 	res, err := client.Do(req)
 	if err != nil {
 		return "", err

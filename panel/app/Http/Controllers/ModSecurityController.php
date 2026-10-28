@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentException;
-use WhaCP\Hosting\Scope;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Security\Permissions as P;
-use WhaCP\Services\ModSecurityService;
-use WhaCP\Services\SecurityService;
-use WhaCP\Services\ServerContext;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
-use WhaCP\View\View;
+use NimVor\Agent\AgentException;
+use NimVor\Hosting\Scope;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Security\Permissions as P;
+use NimVor\Services\ModSecurityService;
+use NimVor\Services\SecurityService;
+use NimVor\Services\ServerContext;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
+use NimVor\View\View;
 
 /**
  * Security → ModSecurity (administrators: rules and every website) and a
@@ -31,8 +31,8 @@ final class ModSecurityController extends Controller
         private readonly SecurityService $security,
         private readonly WebsiteRepository $websites,
         private readonly ServerContext $server,
-        private readonly \WhaCP\Security\Authorizer $authorizer,
-        private readonly \WhaCP\Services\SettingsService $settings,
+        private readonly \NimVor\Security\Authorizer $authorizer,
+        private readonly \NimVor\Services\SettingsService $settings,
     ) {
         parent::__construct($view, $session);
     }
@@ -118,20 +118,20 @@ final class ModSecurityController extends Controller
                 $i = (int) $index;
                 // The rule must still be the one the page showed.
                 if (!isset($rules[$i]) || !hash_equals(hash('sha256', $rules[$i]['text']), $request->string('sha'))) {
-                    throw new \WhaCP\Support\UserFacingException('The custom rules changed since the page was loaded. Reload the page and try again.');
+                    throw new \NimVor\Support\UserFacingException('The custom rules changed since the page was loaded. Reload the page and try again.');
                 }
                 $target = $i;
             }
             if ($op === 'delete') {
                 if ($target === null) {
-                    throw new \WhaCP\Support\UserFacingException('Choose a rule to delete.');
+                    throw new \NimVor\Support\UserFacingException('Choose a rule to delete.');
                 }
                 array_splice($rules, $target, 1);
                 $this->modsec->saveCustomRules(ModSecurityService::joinRules($rules), $this->userId($request));
                 return 'Rule deleted; Nginx accepted the remaining rules.';
             }
             if ($text === '') {
-                throw new \WhaCP\Support\UserFacingException('Enter the rule.');
+                throw new \NimVor\Support\UserFacingException('Enter the rule.');
             }
             $new = ['text' => $text, 'comment' => $comment];
             if ($target === null) {

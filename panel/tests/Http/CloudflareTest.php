@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Services\CloudflareService;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Services\CloudflareService;
+use NimVor\Support\UserFacingException;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Cloudflare integration: token store + zone/DNS management via a fake API. */
 final class CloudflareTest extends HttpTestCase
@@ -49,7 +49,7 @@ final class CloudflareTest extends HttpTestCase
         self::assertTrue($cf->connected());
         self::assertStringContainsString('/user/tokens/verify', $this->calls[0]['url']);
         // The token is stored encrypted, never in clear.
-        $stored = (string) $this->app->container->get(\WhaCP\Database\Connection::class)->scalar('SELECT token_enc FROM cloudflare_accounts');
+        $stored = (string) $this->app->container->get(\NimVor\Database\Connection::class)->scalar('SELECT token_enc FROM cloudflare_accounts');
         self::assertStringNotContainsString('cf-token-abcdef_ABCDEF12345', $stored);
 
         $zones = $cf->zones();

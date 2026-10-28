@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\PlanLimits;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\PlanLimits;
+use NimVor\Services\WebsiteService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Limit overrides, plan changes, bandwidth over the limit, bulk termination. */
 final class AccountAdminTest extends HttpTestCase

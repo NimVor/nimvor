@@ -13,13 +13,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/capability"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/pkgs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/txn"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/capability"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/pkgs"
+	"github.com/NimVor/nimvor/agent/internal/txn"
 )
 
 // Installing the ModSecurity connector (libmodsecurity 3 and the official
@@ -29,7 +29,7 @@ import (
 //     folder) and an existing connector; a working one is left alone
 //     (unless an upgrade is asked for);
 //  2. snapshot /etc/nginx, the ModSecurity and CRS configuration, the
-//     linker configuration and WhaCP's state before any change;
+//     linker configuration and NimVor's state before any change;
 //  3. prefer the distribution's package when installing it would not
 //     touch Nginx itself (checked with a dry run); otherwise build the
 //     connector from source for the exact installed Nginx version, from
@@ -37,7 +37,7 @@ import (
 //     package, or nginx.org with a checksum the administrator gives),
 //     with pinned, checksum-verified ModSecurity releases, as an
 //     unprivileged build account;
-//  4. install new files under /usr/local/lib/whacp (versioned: nothing
+//  4. install new files under /usr/local/lib/nimvor (versioned: nothing
 //     that works is replaced), check the module's libraries and that
 //     Nginx loads it with a throwaway configuration, switch the load_module
 //     line atomically, run nginx -t, reload, and check again;
@@ -57,11 +57,11 @@ const (
 // Where things go.
 const (
 	TxKind       = "modsec"
-	BuildAccount = "whacp-build"
-	BuildHome    = "/var/lib/whacp-build"
-	LibRoot      = "/usr/local/lib/whacp/modsecurity"
-	ModuleDir    = "/usr/local/lib/whacp/nginx-modules"
-	loadName     = "whacp-modsecurity.conf"
+	BuildAccount = "nimvor-build"
+	BuildHome    = "/var/lib/nimvor-build"
+	LibRoot      = "/usr/local/lib/nimvor/modsecurity"
+	ModuleDir    = "/usr/local/lib/nimvor/nginx-modules"
+	loadName     = "nimvor-modsecurity.conf"
 	maxDownload  = 64 << 20
 	snapshotMax  = 256 << 20
 )
@@ -89,7 +89,7 @@ var DefaultSources = Sources{
 
 // InstallOptions choose how.
 type InstallOptions struct {
-	// Upgrade replaces a working connector built by WhaCP (the working one
+	// Upgrade replaces a working connector built by NimVor (the working one
 	// is the rollback target).
 	Upgrade bool `json:"upgrade"`
 	// Method: "auto" (package when compatible, else source) or "source".
@@ -132,9 +132,9 @@ var installMu sync.Mutex
 // the build account's folder, the load_module file, and nginx.conf only to
 // add an include when it has no module folder.
 var installerPaths = []string{
-	"/usr/local/lib/whacp/modsecurity", LibRoot + "/**", ModuleDir, ModuleDir + "/**", BuildHome, BuildHome + "/**",
+	"/usr/local/lib/nimvor/modsecurity", LibRoot + "/**", ModuleDir, ModuleDir + "/**", BuildHome, BuildHome + "/**",
 	"/etc/nginx/nginx.conf", "/etc/nginx/modules-enabled/50-" + loadName, "/usr/share/nginx/modules/" + loadName,
-	"/etc/nginx/conf.modules.d/" + loadName, "/etc/nginx/whacp-modules", "/etc/nginx/whacp-modules/" + loadName,
+	"/etc/nginx/conf.modules.d/" + loadName, "/etc/nginx/nimvor-modules", "/etc/nginx/nimvor-modules/" + loadName,
 	CRSRoot, CRSRoot + "/**",
 }
 
@@ -184,7 +184,7 @@ func Hooks(e *host.Env, log io.Writer) txn.Hooks {
 		},
 		RemoveAccount: func(ctx context.Context, name string) error {
 			if name != BuildAccount {
-				return fmt.Errorf("not WhaCP's build account: %s", name)
+				return fmt.Errorf("not NimVor's build account: %s", name)
 			}
 			if out, err := e.Runner.Run(ctx, "userdel", "--remove", name); err != nil {
 				return errors.New(host.Output(out))
@@ -391,9 +391,9 @@ func (in *installer) mainConf() string {
 
 var includeRe = regexp.MustCompile(`^\s*include\s+"?([^";\s]*modules[^";\s]*\*\.conf)"?\s*;`)
 
-// loadFile is where WhaCP's load_module line goes: a folder of module
+// loadFile is where NimVor's load_module line goes: a folder of module
 // configuration that nginx.conf includes at its top level. Without one,
-// nginx.conf gets an include of WhaCP's own folder (recorded and rolled
+// nginx.conf gets an include of NimVor's own folder (recorded and rolled
 // back like any other change).
 func (in *installer) loadFile() (file, include string, err error) {
 	conf := in.mainConf()
@@ -419,7 +419,7 @@ func (in *installer) loadFile() (file, include string, err error) {
 		}
 		depth += strings.Count(code, "{") - strings.Count(code, "}")
 	}
-	dir := filepath.Join(filepath.Dir(conf), "whacp-modules")
+	dir := filepath.Join(filepath.Dir(conf), "nimvor-modules")
 	return filepath.Join(dir, loadName), "include " + dir + "/*.conf;", nil
 }
 
@@ -443,11 +443,11 @@ func (in *installer) enable(ctx context.Context, module string) error {
 		if err := in.tx.MkdirAll(filepath.Dir(file), 0o755, agentfs.RootOwner); err != nil {
 			return err
 		}
-		if err := in.tx.WriteFile(conf, append([]byte("# Added by WhaCP: dynamic modules it installs.\n"+include+"\n"), b...), 0o644, agentfs.RootOwner); err != nil {
+		if err := in.tx.WriteFile(conf, append([]byte("# Added by NimVor: dynamic modules it installs.\n"+include+"\n"), b...), 0o644, agentfs.RootOwner); err != nil {
 			return err
 		}
 	}
-	line := "# Managed by WhaCP: the ModSecurity connector. Changes here are overwritten.\nload_module " + module + ";\n"
+	line := "# Managed by NimVor: the ModSecurity connector. Changes here are overwritten.\nload_module " + module + ";\n"
 	if err := in.tx.WriteFile(file, []byte(line), 0o644, agentfs.RootOwner); err != nil {
 		return err
 	}

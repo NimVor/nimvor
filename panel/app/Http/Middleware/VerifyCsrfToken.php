@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Middleware;
+namespace NimVor\Http\Middleware;
 
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Security\Csrf;
-use WhaCP\Services\AuditLogger;
-use WhaCP\View\View;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Security\Csrf;
+use NimVor\Services\AuditLogger;
+use NimVor\View\View;
 
 /**
  * Rejects state-changing requests without a valid CSRF token. The token is
@@ -26,7 +26,7 @@ final class VerifyCsrfToken implements Middleware
     public function process(Request $request, callable $next): Response
     {
         $route = $request->attribute('route');
-        if ($request->isSafeMethod() || ($route instanceof \WhaCP\Http\Route && !$route->requiresCsrf && !$route->requiresAuth)) {
+        if ($request->isSafeMethod() || ($route instanceof \NimVor\Http\Route && !$route->requiresCsrf && !$route->requiresAuth)) {
             return $next($request);
         }
         $token = $request->header('x-csrf-token');

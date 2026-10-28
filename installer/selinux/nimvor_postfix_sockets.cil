@@ -1,0 +1,22 @@
+; Managed by NimVor (installer/install.sh).
+;
+; NimVor's greylisting and mail limits are Postfix policy services started
+; by systemd socket units (nimvor-greylist.socket, nimvor-mailrate.socket).
+; Their sockets live in Postfix's private folder, where smtpd reaches them:
+; /var/spool/postfix/private (postfix_private_t).
+;
+; 1. The distribution policy does not let systemd (init_t) create a socket
+;    there ("avc: denied { add_name } ... comm=systemd ... tclass=dir"), so
+;    the socket units failed. The sockets take the folder's type, as
+;    Postfix's own do.
+; 2. The services run, like the agent, as unconfined_service_t (they are
+;    confined by their systemd sandbox instead: dynamic user, no
+;    capabilities, read-only system), and smtpd may not connect to such a
+;    socket ("avc: denied { connectto } ... comm=smtpd ...
+;    tcontext=system_u:system_r:unconfined_service_t"): Postfix could not
+;    ask them, so greylisting and mail limits had no effect.
+;
+; This allows exactly these, nothing else. SELinux stays enforcing.
+(allow init_t postfix_private_t (dir (search getattr write add_name remove_name)))
+(allow init_t postfix_private_t (sock_file (create unlink getattr setattr)))
+(allow postfix_smtpd_t unconfined_service_t (unix_stream_socket (connectto)))

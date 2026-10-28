@@ -1,5 +1,5 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var array<string, mixed> $found */
 /** @var array<string, mixed>|null $plan */
 /** @var array<string, mixed>|null $preview */
@@ -8,11 +8,11 @@ $ok = $preview !== null && $blockers === [];
 $row = (array) ($plan['row'] ?? []);
 ?>
 <?php $this->start(); ?>Import <?= e($found['domain']) ?><?php $this->end('title'); ?>
-<?php $this->start(); ?>Move this website under WhaCP management<?php $this->end('subtitle'); ?>
+<?php $this->start(); ?>Move this website under NimVor management<?php $this->end('subtitle'); ?>
 
 
 <div class="alert alert-info small"><i class="bi bi-info-circle me-1"></i>
-    WhaCP does not edit configuration it did not create. The import <strong>copies</strong> the website into a new WhaCP website, then switches Nginx over in one validated step. The old configuration file and the old files are kept; the import can be undone from the website's overview.
+    NimVor does not edit configuration it did not create. The import <strong>copies</strong> the website into a new NimVor website, then switches Nginx over in one validated step. The old configuration file and the old files are kept; the import can be undone from the website's overview.
 </div>
 <?php if ($agentError !== null): ?><?= $this->partial('partials/agent_error', ['error' => $agentError]) ?><?php endif; ?>
 <?php if ($planErrors !== null): ?>
@@ -25,7 +25,7 @@ $row = (array) ($plan['row'] ?? []);
         <div class="card mb-3">
             <div class="card-header"><i class="bi bi-list-check me-1"></i>Plan</div>
             <ol class="list-group list-group-flush list-group-numbered small">
-                <li class="list-group-item">Create account <code><?= e($row['system_user'] ?? '') ?></code> and website folder <code><?= e($row['root'] ?? '') ?></code> (<?= e(\WhaCP\Services\WebsiteService::KINDS[$row['kind']] ?? $row['kind']) ?><?= ($row['php_version'] ?? '') !== '' ? ', PHP ' . e($row['php_version']) : '' ?>).</li>
+                <li class="list-group-item">Create account <code><?= e($row['system_user'] ?? '') ?></code> and website folder <code><?= e($row['root'] ?? '') ?></code> (<?= e(\NimVor\Services\WebsiteService::KINDS[$row['kind']] ?? $row['kind']) ?><?= ($row['php_version'] ?? '') !== '' ? ', PHP ' . e($row['php_version']) : '' ?>).</li>
                 <li class="list-group-item">Copy <?= (int) $preview['files'] ?> files (<?= e(format_bytes((int) $preview['bytes'])) ?>) from <code><?= e($preview['source']) ?></code> to <code><?= e($preview['target']) ?></code>.
                     <?php if (!empty($preview['skipped_links'])): ?><div class="text-warning">Links pointing outside the website are not copied: <?= e(implode(', ', array_slice((array) $preview['skipped_links'], 0, 5))) ?></div><?php endif; ?></li>
                 <?php foreach ((array) $preview['steps'] as $st): ?>
@@ -35,7 +35,7 @@ $row = (array) ($plan['row'] ?? []);
                         <?php else: ?>Ignore <code><?= e($st['file']) ?></code> (already disabled).<?php endif; ?>
                     </li>
                 <?php endforeach; ?>
-                <li class="list-group-item">Enable the WhaCP configuration below, test it with <code>nginx -t</code> and reload. If anything fails, the old configuration is put back.</li>
+                <li class="list-group-item">Enable the NimVor configuration below, test it with <code>nginx -t</code> and reload. If anything fails, the old configuration is put back.</li>
                 <?php if (!empty($preview['database'])): ?><li class="list-group-item">Keep using the database <code><?= e($preview['database']) ?></code> (found in <code><?= e($preview['database_source']) ?></code>); it is not changed and will be listed under Databases.</li><?php endif; ?>
             </ol>
         </div>
@@ -51,7 +51,7 @@ $row = (array) ($plan['row'] ?? []);
                     <div class="col-sm-4"><label class="form-label small" for="i-php">PHP version</label><input class="form-control form-control-sm" id="i-php" name="php_version" value="<?= e($row['php_version'] ?? '') ?>"></div>
                     <div class="col-sm-2"><button class="btn btn-sm btn-outline-secondary w-100">Update plan</button></div>
                 </form>
-                <form method="post" action="<?= e($this->url('websites.import.run', ['id' => $found['id']])) ?>" data-wcp-busy>
+                <form method="post" action="<?= e($this->url('websites.import.run', ['id' => $found['id']])) ?>" data-nim-busy>
                     <?= $this->csrfField() ?>
                     <input type="hidden" name="system_user" value="<?= e($row['system_user'] ?? '') ?>">
                     <input type="hidden" name="php_version" value="<?= e($row['php_version'] ?? '') ?>">
@@ -66,8 +66,8 @@ $row = (array) ($plan['row'] ?? []);
         </div>
     </div>
     <div class="col-xl-6">
-        <div class="card mb-3"><div class="card-header">New configuration (generated by WhaCP)</div><pre class="wcp-pre mb-0 small wcp-scroll-400"><?= e((string) $preview['new_config']) ?></pre></div>
-        <div class="card"><div class="card-header">Current configuration (kept, disabled)</div><pre class="wcp-pre mb-0 small wcp-scroll-400"><?= e((string) $preview['old_config']) ?></pre></div>
+        <div class="card mb-3"><div class="card-header">New configuration (generated by NimVor)</div><pre class="nim-pre mb-0 small nim-scroll-400"><?= e((string) $preview['new_config']) ?></pre></div>
+        <div class="card"><div class="card-header">Current configuration (kept, disabled)</div><pre class="nim-pre mb-0 small nim-scroll-400"><?= e((string) $preview['old_config']) ?></pre></div>
     </div>
 </div>
 <?php endif; ?>

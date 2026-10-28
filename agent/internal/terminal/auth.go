@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
 // A website account's terminal is opened with that Linux account's own

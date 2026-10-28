@@ -15,7 +15,7 @@ const JOB = 'abcdef0123456789';
   page.on('pageerror', e => errors.push('pageerror: ' + e.message + ' (' + page.url() + ')\n' + (e.stack || '')));
   const step = (s) => console.log('STEP', s);
   // Bootstrap ignores Escape while the window is still fading in.
-  const opened = async () => { await page.waitForSelector('#wcp-job.show'); await page.waitForTimeout(400); };
+  const opened = async () => { await page.waitForSelector('#nim-job.show'); await page.waitForTimeout(400); };
   let finished = false;
   await page.route('**/jobs/' + JOB + '*', route => route.fulfill({
     contentType: 'application/json',
@@ -30,8 +30,8 @@ const JOB = 'abcdef0123456789';
 
     // Closed after the task ended: the page reloads.
     finished = true;
-    await page.evaluate(id => { window.__before = 1; WhaCP.showJob(id); }, JOB);
-    await page.waitForSelector('[data-wcp-job-status]:text("succeeded")');
+    await page.evaluate(id => { window.__before = 1; NimVor.showJob(id); }, JOB);
+    await page.waitForSelector('[data-nim-job-status]:text("succeeded")');
     await opened();
     await Promise.all([page.waitForNavigation(), page.keyboard.press('Escape')]);
     if (await page.evaluate(() => window.__before === 1)) { throw new Error('the page was not reloaded'); }
@@ -39,11 +39,11 @@ const JOB = 'abcdef0123456789';
 
     // Closed while running: no reload; a notice when it ends.
     finished = false;
-    await page.evaluate(id => { window.__before = 1; WhaCP.showJob(id); }, JOB);
-    await page.waitForSelector('[data-wcp-job-status]:text("running")');
+    await page.evaluate(id => { window.__before = 1; NimVor.showJob(id); }, JOB);
+    await page.waitForSelector('[data-nim-job-status]:text("running")');
     await opened();
     await page.keyboard.press('Escape');
-    await page.waitForSelector('#wcp-job', { state: 'hidden' }).catch(() => {});
+    await page.waitForSelector('#nim-job', { state: 'hidden' }).catch(() => {});
     finished = true;
     await page.waitForSelector('text=Reload the page to see the result', { timeout: 10000 });
     if (!(await page.evaluate(() => window.__before === 1))) { throw new Error('reloaded while the task was running'); }

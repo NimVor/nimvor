@@ -2,24 +2,24 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Integration;
+namespace NimVor\Tests\Integration;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Repositories\DiscoverySnapshotRepository;
-use WhaCP\Repositories\SettingRepository;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Services\DiscoveryService;
-use WhaCP\Services\PlanLimits;
-use WhaCP\Services\ServerContext;
-use WhaCP\Services\SettingsService;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Support\Events;
-use WhaCP\Support\Logger;
-use WhaCP\Support\ValidationException;
-use WhaCP\Tests\Support\DatabaseTestCase;
-use WhaCP\Tests\Support\FakeTransport;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Repositories\DiscoverySnapshotRepository;
+use NimVor\Repositories\SettingRepository;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Services\DiscoveryService;
+use NimVor\Services\PlanLimits;
+use NimVor\Services\ServerContext;
+use NimVor\Services\SettingsService;
+use NimVor\Services\WebsiteService;
+use NimVor\Support\Events;
+use NimVor\Support\Logger;
+use NimVor\Support\ValidationException;
+use NimVor\Tests\Support\DatabaseTestCase;
+use NimVor\Tests\Support\FakeTransport;
 
 final class WebsiteServiceTest extends DatabaseTestCase
 {
@@ -32,10 +32,10 @@ final class WebsiteServiceTest extends DatabaseTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        (new \WhaCP\Database\Migrator($this->db, dirname(__DIR__, 2) . '/database/migrations'))->migrate();
+        (new \NimVor\Database\Migrator($this->db, dirname(__DIR__, 2) . '/database/migrations'))->migrate();
         $this->agent = new FakeTransport();
         $this->agent->succeed('discovery.php', ['versions' => [['version' => '8.3', 'fpm_binary' => '/usr/sbin/php-fpm8.3'], ['version' => '8.1', 'fpm_binary' => '']]]);
-        $this->agent->succeed('agent.status', ['sites_root' => '/home/whacp', 'write_enabled' => true]);
+        $this->agent->succeed('agent.status', ['sites_root' => '/home/nimvor', 'write_enabled' => true]);
         $this->agent->succeed('sites.apply', ['changed' => ['x']]);
         $this->agent->succeed('sites.delete', ['removed' => [], 'warnings' => []]);
         $token = tempnam(sys_get_temp_dir(), 't');
@@ -66,7 +66,7 @@ final class WebsiteServiceTest extends DatabaseTestCase
         self::assertSame('shop.example.com', $site['domain']);
         self::assertSame(['www.shop.example.com'], $site['aliases']);
         self::assertSame('shop', $site['system_user']);
-        self::assertSame('/home/whacp/shop.example.com/public_html', $site['document_root']);
+        self::assertSame('/home/nimvor/shop.example.com/public_html', $site['document_root']);
         self::assertSame('active', $site['status']);
         $spec = $this->lastSpec();
         self::assertSame('8.3', $spec['php_version']);
@@ -126,12 +126,12 @@ final class WebsiteServiceTest extends DatabaseTestCase
 
     public function testFailedCreateLeavesNoRecord(): void
     {
-        $this->agent->fail('sites.apply', 409, 'conflict', 'a.test is already configured in /etc/nginx/sites-enabled/a (configuration not managed by WhaCP, enabled).');
+        $this->agent->fail('sites.apply', 409, 'conflict', 'a.test is already configured in /etc/nginx/sites-enabled/a (configuration not managed by NimVor, enabled).');
         try {
             $this->svc->create(['domain' => 'a.test', 'kind' => 'static'], $this->admin);
             self::fail('expected agent error');
         } catch (AgentException $e) {
-            self::assertStringContainsString('not managed by WhaCP', $e->getMessage());
+            self::assertStringContainsString('not managed by NimVor', $e->getMessage());
         }
         self::assertNull($this->repo->findByDomain(1, 'a.test'));
         self::assertNull($this->repo->domainOwner(1, 'a.test'));

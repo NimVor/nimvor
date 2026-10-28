@@ -12,9 +12,9 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 const fakePhar = "<?php // not really WP-CLI\n"
@@ -30,7 +30,7 @@ func fixture(t *testing.T) (*testhost.Host, Target) {
 	oldLatest := LatestVersion
 	LatestVersion = func(context.Context) string { return "6.9" }
 	t.Cleanup(func() { LatestVersion = oldLatest })
-	os.MkdirAll(filepath.Join(h.Base, "usr/local/lib/whacp"), 0o755)
+	os.MkdirAll(filepath.Join(h.Base, "usr/local/lib/nimvor"), 0o755)
 	os.WriteFile(filepath.Join(h.Base, WPCLIPath), []byte(fakePhar), 0o644)
 	root := filepath.Join(h.Env.Cfg.SitesRoot, "shop.test")
 	os.MkdirAll(filepath.Join(h.Base, root, "public_html"), 0o755)
@@ -232,7 +232,7 @@ func TestScanActionReportsEachWebsite(t *testing.T) {
 			if strings.HasSuffix(e, "/c.test") {
 				return "", os.ErrPermission
 			}
-			if v, ok := strings.CutPrefix(e, "WHACP_ROOT="); ok {
+			if v, ok := strings.CutPrefix(e, "NIMVOR_ROOT="); ok {
 				b, _ := json.Marshal(map[string]any{"installs": []any{map[string]any{"dir": v + "/public_html", "version": "6.8"}}})
 				return marker + string(b) + "\n", nil
 			}
@@ -316,7 +316,7 @@ func TestLoginFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	name := res["file"].(string)
-	if len(name) != len("whacp-login-")+32+len(".php") || !strings.HasPrefix(name, "whacp-login-") {
+	if len(name) != len("nimvor-login-")+32+len(".php") || !strings.HasPrefix(name, "nimvor-login-") {
 		t.Fatalf("%q", name)
 	}
 	var o execx.Opts

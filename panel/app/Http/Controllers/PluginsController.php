@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Plugins\PluginManager;
-use WhaCP\Services\AuditLogger;
-use WhaCP\View\View;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Plugins\PluginManager;
+use NimVor\Services\AuditLogger;
+use NimVor\View\View;
 
 final class PluginsController extends Controller
 {

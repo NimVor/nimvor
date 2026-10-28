@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** On-demand security checks: file integrity, TLS audit, advisories. */
 final class SecurityChecksTest extends HttpTestCase

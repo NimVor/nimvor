@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Database\Connection;
-use WhaCP\Support\UserFacingException;
+use NimVor\Database\Connection;
+use NimVor\Support\UserFacingException;
 
 /**
  * Enforces hosting-plan limits for owned resources.

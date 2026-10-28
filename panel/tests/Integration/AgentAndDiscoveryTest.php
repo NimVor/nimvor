@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Integration;
+namespace NimVor\Tests\Integration;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Agent\AgentUnavailableException;
-use WhaCP\Repositories\DiscoverySnapshotRepository;
-use WhaCP\Repositories\SettingRepository;
-use WhaCP\Services\DiscoveryService;
-use WhaCP\Services\SettingsService;
-use WhaCP\Support\Logger;
-use WhaCP\Tests\Support\DatabaseTestCase;
-use WhaCP\Tests\Support\FakeTransport;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Agent\AgentUnavailableException;
+use NimVor\Repositories\DiscoverySnapshotRepository;
+use NimVor\Repositories\SettingRepository;
+use NimVor\Services\DiscoveryService;
+use NimVor\Services\SettingsService;
+use NimVor\Support\Logger;
+use NimVor\Tests\Support\DatabaseTestCase;
+use NimVor\Tests\Support\FakeTransport;
 
 final class AgentAndDiscoveryTest extends DatabaseTestCase
 {
@@ -24,7 +24,7 @@ final class AgentAndDiscoveryTest extends DatabaseTestCase
     {
         parent::setUp();
         $this->transport = new FakeTransport();
-        $this->tokenFile = tempnam(sys_get_temp_dir(), 'whacp-token');
+        $this->tokenFile = tempnam(sys_get_temp_dir(), 'nimvor-token');
         file_put_contents($this->tokenFile, "secret-token-value\n");
     }
 
@@ -69,7 +69,7 @@ final class AgentAndDiscoveryTest extends DatabaseTestCase
 
     public function testInvalidJsonIsHandled(): void
     {
-        $this->transport->responses['/v1/actions/x'] = new \WhaCP\Agent\AgentHttpResponse(200, '<html>');
+        $this->transport->responses['/v1/actions/x'] = new \NimVor\Agent\AgentHttpResponse(200, '<html>');
         $this->expectException(AgentException::class);
         $this->client()->call('x');
     }

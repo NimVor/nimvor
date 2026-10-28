@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Support;
+namespace NimVor\Support;
 
 /**
  * Removes secrets from data before it is logged or stored in audit records.

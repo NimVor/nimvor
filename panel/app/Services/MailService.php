@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Database\Connection;
-use WhaCP\Hosting\Scope;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Database\Connection;
+use NimVor\Hosting\Scope;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
 
 /**
  * Email domains, mailboxes and aliases. The agent configures the mail
@@ -29,7 +29,7 @@ final class MailService
         private readonly WebsiteRepository $sites,
         private readonly DnsService $dns,
         private readonly ?PlanLimits $limits = null,
-        private readonly ?\WhaCP\Security\PasswordPolicy $policy = null,
+        private readonly ?\NimVor\Security\PasswordPolicy $policy = null,
     ) {
     }
 
@@ -223,6 +223,27 @@ final class MailService
             $added++;
         }
         return $added;
+    }
+
+    /**
+     * Remove a website's mail domain with its mailboxes and aliases when the
+     * website is deleted. A failure stops the website's deletion.
+     *
+     * @param array<string, mixed> $site
+     */
+    public function purgeForWebsite(array $site): void
+    {
+        $domain = $this->forWebsite((int) $site['id']);
+        if ($domain === null) {
+            return;
+        }
+        foreach ($this->mailboxes((int) $domain['id']) as $m) {
+            $this->deleteMailbox($domain, (int) $m['id'], $m['local'] . '@' . $domain['domain']);
+        }
+        foreach ($this->aliases((int) $domain['id']) as $a) {
+            $this->deleteAlias($domain, (int) $a['id']);
+        }
+        $this->removeDomain($domain, (string) $domain['domain']);
     }
 
     /** @param array<string, mixed> $domain */

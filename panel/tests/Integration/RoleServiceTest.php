@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Integration;
+namespace NimVor\Tests\Integration;
 
-use WhaCP\Security\Permissions;
-use WhaCP\Services\RoleService;
-use WhaCP\Services\UserService;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
-use WhaCP\Tests\Support\DatabaseTestCase;
+use NimVor\Security\Permissions;
+use NimVor\Services\RoleService;
+use NimVor\Services\UserService;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
+use NimVor\Tests\Support\DatabaseTestCase;
 
 final class RoleServiceTest extends DatabaseTestCase
 {
@@ -85,7 +85,7 @@ final class RoleServiceTest extends DatabaseTestCase
         $op = $this->roleId('operator');
         $svc->update($op, ['label' => 'ignored', 'permissions' => [Permissions::DASHBOARD_VIEW, Permissions::SETTINGS_VIEW]]);
         self::assertSame([Permissions::DASHBOARD_VIEW, Permissions::SETTINGS_VIEW], $this->roles->permissionsFor($op));
-        self::assertSame('Operator', $this->roles->find($op)['label'], 'built-in labels stay WhaCP\'s');
+        self::assertSame('Operator', $this->roles->find($op)['label'], 'built-in labels stay NimVor\'s');
         $this->roles->syncDefaults();
         self::assertSame([Permissions::DASHBOARD_VIEW, Permissions::SETTINGS_VIEW], $this->roles->permissionsFor($op), 'an upgrade keeps the change');
         self::assertContains(Permissions::WEBSITES_VIEW, $svc->missingDefaults($this->roles->find($op)));

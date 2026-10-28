@@ -171,7 +171,7 @@ func (d Diagnosis) Summary() string {
 	case CatRepository:
 		return "the package repositories could not be reached or returned invalid data"
 	case CatSignature:
-		return "a package or repository signature could not be verified (WhaCP never installs unverified packages)"
+		return "a package or repository signature could not be verified (NimVor never installs unverified packages)"
 	case CatDependency:
 		return "the packages' dependencies cannot be satisfied"
 	case CatScriptlet:
@@ -196,11 +196,11 @@ func (d Diagnosis) Summary() string {
 	return "the package manager failed"
 }
 
-// Hint is what an administrator can do when WhaCP could not recover.
+// Hint is what an administrator can do when NimVor could not recover.
 func (d Diagnosis) Hint() string {
 	switch d.Category {
 	case CatPrivilege:
-		return "Update WhaCP (the agent runs package transactions outside its sandbox since this version) and try again."
+		return "Update NimVor (the agent runs package transactions outside its sandbox since this version) and try again."
 	case CatLocked:
 		return "Wait for the other package manager (e.g. automatic updates) to finish, then try again."
 	case CatNotAvailable:
@@ -235,7 +235,7 @@ func (d Diagnosis) transient() bool {
 	return false
 }
 
-// Error is a package operation that failed after WhaCP's recovery.
+// Error is a package operation that failed after NimVor's recovery.
 type Error struct {
 	Op        string    `json:"op"`
 	Packages  []string  `json:"packages"`

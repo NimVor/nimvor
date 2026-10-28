@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/logging"
+	"github.com/NimVor/nimvor/agent/internal/logging"
 )
 
 // Status values.

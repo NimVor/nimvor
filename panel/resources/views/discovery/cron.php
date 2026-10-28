@@ -1,4 +1,4 @@
-<?php /** @var \WhaCP\View\View $this */ ?>
+<?php /** @var \NimVor\View\View $this */ ?>
 <?php $this->start(); ?>Cron jobs<?php $this->end('title'); ?>
 <?php $this->start(); ?>Scheduled tasks found on the server<?php $this->end('subtitle'); ?>
 
@@ -10,17 +10,17 @@
 
 <div class="card">
     <?php if ($jobs === []): ?>
-        <div class="card-body text-center py-5 text-body-secondary wcp-empty"><i class="bi bi-clock-history display-6"></i><p class="mt-3 mb-0">No cron jobs were found.</p></div>
+        <div class="card-body text-center py-5 text-body-secondary nim-empty"><i class="bi bi-clock-history display-6"></i><p class="mt-3 mb-0">No cron jobs were found.</p></div>
     <?php else: ?>
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0 wcp-table">
+            <table class="table table-hover align-middle mb-0 nim-table">
                 <thead><tr><th>Schedule</th><th>User</th><th>Command</th><th class="d-none d-lg-table-cell">Source</th></tr></thead>
                 <tbody>
                 <?php foreach ($jobs as $j): ?>
                     <tr>
                         <td class="text-nowrap"><code><?= e($j['schedule']) ?></code></td>
                         <td><?= e($j['user']) ?></td>
-                        <td><code class="small wcp-break"><?= e($j['command']) ?></code></td>
+                        <td><code class="small nim-break"><?= e($j['command']) ?></code></td>
                         <td class="d-none d-lg-table-cell small text-body-secondary"><?= e($j['source']) ?>:<?= (int) $j['line'] ?></td>
                     </tr>
                 <?php endforeach; ?>

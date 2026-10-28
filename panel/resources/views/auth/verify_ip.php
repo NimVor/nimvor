@@ -1,10 +1,10 @@
-<?php /** @var \WhaCP\View\View $this */ ?>
-<div class="card wcp-auth-card">
+<?php /** @var \NimVor\View\View $this */ ?>
+<div class="card nim-auth-card">
     <div class="card-body p-4">
         <h1 class="h5 mb-1">Verify this IP address</h1>
         <?= $this->partial('partials/flash') ?>
         <p class="text-body-secondary small mb-4">You are signing in from an IP address that has not been verified for your account. We sent a 6-digit code to your email address; it is valid for 15 minutes.</p>
-        <form method="post" action="<?= e($this->url('login.verify_ip.submit')) ?>" data-wcp-busy novalidate>
+        <form method="post" action="<?= e($this->url('login.verify_ip.submit')) ?>" data-nim-busy novalidate>
             <?= $this->csrfField() ?>
             <div class="mb-4">
                 <label class="form-label" for="code">Code</label>

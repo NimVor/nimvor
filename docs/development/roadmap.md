@@ -1,6 +1,6 @@
 # Roadmap
 
-WhaCP is built phase by phase; each phase must be production-quality before
+NimVor is built phase by phase; each phase must be production-quality before
 the next begins. Write operations start only after read-only discovery is
 proven on real servers.
 
@@ -30,7 +30,7 @@ proven on real servers.
 - Exercise write mode end to end on fresh Ubuntu 22.04, 24.04 and 26.04
   VMs: create, import, back up, restore, upgrade and roll back.
 - Independent security review of the agent action catalogue
-  (`agent/api/openapi.yaml`, `x-whacp-actions`) and the panel's
+  (`agent/api/openapi.yaml`, `x-nimvor-actions`) and the panel's
   authorization (`Permissions.php`, owner scoping).
 - Restore drill on a new VM (the component restore itself is covered by a
   real-host test in CI).

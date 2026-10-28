@@ -1,5 +1,5 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 $withSsl = array_values(array_filter($sites, static fn ($s) => !empty($s['ssl'])));
 usort($withSsl, static fn ($a, $b) => (int) $a['ssl']['days_remaining'] <=> (int) $b['ssl']['days_remaining']);
 $status = static function (array $ssl, int $warn): string {
@@ -20,7 +20,7 @@ $status = static function (array $ssl, int $warn): string {
         <div class="card-body text-body-secondary small">No website references a certificate.</div>
     <?php else: ?>
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0 wcp-table">
+            <table class="table table-hover align-middle mb-0 nim-table">
                 <thead><tr><th>Website</th><th>Status</th><th>Expires</th><th>Issuer</th><th>Matches domain</th><th class="d-none d-xl-table-cell">File</th></tr></thead>
                 <tbody>
                 <?php foreach ($withSsl as $s): $ssl = $s['ssl']; ?>
@@ -45,7 +45,7 @@ $status = static function (array $ssl, int $warn): string {
         <div class="card-body text-body-secondary small">No certbot certificates were found.</div>
     <?php else: ?>
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0 wcp-table">
+            <table class="table table-hover align-middle mb-0 nim-table">
                 <thead><tr><th>Name</th><th>Domains</th><th>Status</th><th>Expires</th><th>Renewal</th><th>Private key</th></tr></thead>
                 <tbody>
                 <?php foreach ($certificates as $c): $cert = $c['certificate']; ?>

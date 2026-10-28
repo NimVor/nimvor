@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Services\WordPressVulnerabilities;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Services\WordPressVulnerabilities;
+use NimVor\Tests\Support\HttpTestCase;
 
 /**
  * WordPress toolkit tools: switches, passwords, logs, security hardening
@@ -33,7 +33,7 @@ final class WordPressToolsTest extends HttpTestCase
         $this->db = $this->app->container->get(Connection::class);
         $add = function (string $domain, string $user, int $owner): int {
             $this->db->run("INSERT INTO websites (server_id, domain, kind, php_version, https, root, document_root, system_user, owner_id, status, created_at, updated_at) VALUES (1, ?, 'php', '8.3', 1, ?, ?, ?, ?, 'active', 'x', 'x')",
-                [$domain, '/home/whacp/' . $domain, '/home/whacp/' . $domain . '/public_html', $user, $owner]);
+                [$domain, '/home/nimvor/' . $domain, '/home/nimvor/' . $domain . '/public_html', $user, $owner]);
             return (int) $this->db->lastInsertId();
         };
         $this->siteId = $add('shop.test', 'shop', $cust);
@@ -67,7 +67,7 @@ final class WordPressToolsTest extends HttpTestCase
         $this->login('cust');
     }
 
-    private function tool(array $body, ?int $wp = null, ?int $site = null): \WhaCP\Http\Response
+    private function tool(array $body, ?int $wp = null, ?int $site = null): \NimVor\Http\Response
     {
         return $this->post('/sites/' . ($site ?? $this->siteId) . '/wordpress/' . ($wp ?? $this->wp) . '/tools', $body);
     }
@@ -89,7 +89,7 @@ final class WordPressToolsTest extends HttpTestCase
         $this->tool(['tool' => 'debug', 'debug' => ['WP_DEBUG', 'WP_DEBUG_LOG', 'WP_HOME']]);
         self::assertSame(['WP_DEBUG', 'WP_DEBUG_LOG'], $this->lastCall('wordpress.manage')['items'], 'only the debugging settings');
 
-        $this->agent->succeed('wordpress.manage', ['op' => 'cron_takeover_on', 'command' => '/usr/bin/php8.3 /usr/local/lib/whacp/wp-cli.phar --path=/home/whacp/shop.test/public_html/blog cron event run --due-now --quiet']);
+        $this->agent->succeed('wordpress.manage', ['op' => 'cron_takeover_on', 'command' => '/usr/bin/php8.3 /usr/local/lib/nimvor/wp-cli.phar --path=/home/nimvor/shop.test/public_html/blog cron event run --due-now --quiet']);
         $this->tool(['tool' => 'cron', 'enabled' => '1']);
         $job = $this->db->fetch('SELECT * FROM cron_jobs WHERE website_id = ?', [$this->siteId]);
         self::assertSame('*/5 * * * *', $job['schedule']);
@@ -254,12 +254,12 @@ final class WordPressToolsTest extends HttpTestCase
             $this->db->run("INSERT INTO agent_jobs (server_id, job_id, kind, target_type, target_id, status, created_at) VALUES (1, ?, 'app', 'website', ?, ?, 'x')", [$job, (string) $this->siteId, $status]);
             $this->db->run("INSERT INTO app_installs (website_id, app, path, database_id, job_id, created_at) VALUES (?, 'wordpress', ?, ?, ?, 'x')", [$this->siteId, $status === 'succeeded' ? 'public_html' : 'public_html/x', $dbId, $job]);
         }
-        $tools = $this->app->container->get(\WhaCP\Services\WordPressToolsService::class);
+        $tools = $this->app->container->get(\NimVor\Services\WordPressToolsService::class);
         $lines = $tools->autoHarden(true);
         self::assertCount(1, $lines, implode("\n", $lines));
         $sent = $this->lastCall('wordpress.security');
         self::assertSame(['apply', 'public_html', '/'], [$sent['op'], $sent['path'], $sent['url_path']]);
-        self::assertSame(\WhaCP\Services\WordPressToolsService::RECOMMENDED, $sent['measures']);
+        self::assertSame(\NimVor\Services\WordPressToolsService::RECOMMENDED, $sent['measures']);
         $n = $this->calls('wordpress.security');
         self::assertSame([], $tools->autoHarden(true), 'once');
         self::assertSame($n, $this->calls('wordpress.security'));
@@ -272,7 +272,7 @@ final class WordPressToolsTest extends HttpTestCase
         // ("account_suspended" is computed from the owner), which made every
         // scheduler run abort before it recorded that it had run.
         $this->db->run('UPDATE wordpress_installs SET vuln_protection = 1 WHERE id = ?', [$this->wp]);
-        $tools = $this->app->container->get(\WhaCP\Services\WordPressToolsService::class);
+        $tools = $this->app->container->get(\NimVor\Services\WordPressToolsService::class);
         $lines = $tools->dailyVulnerabilityCheck();
         self::assertNotSame([], $lines, 'the protected installation was looked at');
         self::assertStringContainsString('shop.test', implode("\n", $lines));

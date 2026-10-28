@@ -18,13 +18,13 @@ import (
 // large archives are encrypted and authenticated without holding them in
 // memory:
 //
-//	magic "WHACPBK1" | 4-byte random nonce prefix
+//	magic "NIMVORBK1" | 4-byte random nonce prefix
 //	repeated: 4-byte big-endian ciphertext length | ciphertext
 //
 // Chunk n uses nonce prefix||uint64(n) and additional data {final flag},
 // so reordering, truncation and appending are all detected.
 const (
-	magic     = "WHACPBK1"
+	magic     = "NIMVORBK1"
 	chunkSize = 64 << 10
 )
 
@@ -32,7 +32,7 @@ var errCorrupt = errors.New("the backup file is damaged or was encrypted with a 
 
 // KeyID is a short, non-secret fingerprint of a key.
 func KeyID(key []byte) string {
-	h := sha256.Sum256(append([]byte("whacp-backup-key-id:"), key...))
+	h := sha256.Sum256(append([]byte("nimvor-backup-key-id:"), key...))
 	return hex.EncodeToString(h[:8])
 }
 

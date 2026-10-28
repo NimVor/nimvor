@@ -16,14 +16,14 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/selinux"
 )
 
 // ServerComponents are the parts of a server backup that can be restored in
 // place. Each replaces one directory as a whole, is validated before any
 // service reloads, and is rolled back if validation or the reload fails.
-// Firewall, SSH, systemd units and /etc/whacp are never restored in place
+// Firewall, SSH, systemd units and /etc/nimvor are never restored in place
 // (a mistake there can lock the operator out or disconnect the panel); use
 // ExtractOnly and copy what you need by hand.
 var ServerComponents = []string{"nginx", "php", "mysql", "redis", "letsencrypt", "fail2ban", "cron"}
@@ -139,7 +139,7 @@ func (s Service) RestoreServer(ctx context.Context, r ServerRestoreRequest, log 
 
 	type swapped struct{ cur, old string }
 	var done2 []swapped
-	suffix := ".whacp-old-" + m.ID[len(m.ID)-6:]
+	suffix := ".nimvor-old-" + m.ID[len(m.ID)-6:]
 	rollback := func() {
 		for i := len(done2) - 1; i >= 0; i-- {
 			sw := done2[i]

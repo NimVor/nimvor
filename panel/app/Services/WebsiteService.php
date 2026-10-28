@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Hosting\Scope;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Support\Events;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Hosting\Scope;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Support\Events;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
 
 /**
- * WhaCP-managed websites.
+ * NimVor-managed websites.
  *
  * The panel stores the desired state; the agent renders, validates and
  * applies it. If the agent rejects a change, the stored record is put back
@@ -179,6 +179,23 @@ final class WebsiteService
         if (!Scope::isAll($actor)) {
             $this->assertNotUnderOthers($data['names'], $ownerId);
         }
+        if ($parent === null && $ownerId !== null && !Scope::isAll($actor) && empty($input['new_system_user'])) {
+            // A customer has one system account, reused by every website
+            // they add, also after all of them were removed.
+            $own = $this->sites->accountOf($serverId, $ownerId);
+            $chosen = trim((string) ($input['system_user'] ?? '')) !== '';
+            if ($own !== null && !$chosen) {
+                $data['row']['system_user'] = $own;
+            } elseif ($own === null && !$chosen && ($login = self::accountNameFromLogin((string) ($actor['username'] ?? ''))) !== '') {
+                // The first website: the account is named after the customer's
+                // own login (nv100), not after the domain.
+                $user = $login;
+                for ($n = 2; $n < 100 && (in_array($user, self::RESERVED_USERS, true) || $this->sites->usingSystemUser($serverId, $user) !== []); $n++) {
+                    $user = substr($login, 0, 28) . $n;
+                }
+                $data['row']['system_user'] = $user;
+            }
+        }
         if (!empty($input['new_system_user'])) {
             // A new hosting account: its own, new system account (the agent
             // refuses one that exists, e.g. a server login).
@@ -194,12 +211,34 @@ final class WebsiteService
         $id = $this->sites->insert($row);
         $this->sites->replaceDomains($serverId, $id, $data['names']);
         $site = $this->sites->find($serverId, $id, null);
-        try {
-            $this->apply($site, $newUser);
-        } catch (\Throwable $e) {
-            $this->sites->delete($id);
-            $this->audit->record('website.create', 'website', $data['row']['domain'], AuditLogger::FAILURE, ['error' => $e->getMessage()]);
-            throw $e;
+        // A name the panel derived (the customer never chose one) may exist on
+        // the server without the panel knowing it, e.g. left from an earlier
+        // website: try the next numbers before giving up.
+        $derived = !Scope::isAll($actor) && $newUser && trim((string) ($input['system_user'] ?? '')) === '';
+        $base = (string) $row['system_user'];
+        $tried = 1;
+        for ($try = 0;; $try++) {
+            try {
+                $this->apply($site, $newUser);
+                break;
+            } catch (\Throwable $e) {
+                if ($derived && $try < 20 && str_contains($e->getMessage(), 'already exists on this server')) {
+                    $n = ++$tried;
+                    while ($this->sites->usingSystemUser($serverId, substr($base, 0, 28) . $n) !== []) {
+                        $n++;
+                    }
+                    $row['system_user'] = substr($base, 0, 28) . $n;
+                    $this->sites->update($id, ['system_user' => $row['system_user']]);
+                    $site = $this->sites->find($serverId, $id, null);
+                    continue;
+                }
+                $this->sites->delete($id);
+                $this->audit->record('website.create', 'website', $data['row']['domain'], AuditLogger::FAILURE, ['error' => $e->getMessage()]);
+                throw $e;
+            }
+        }
+        if ($ownerId !== null && $parent === null) {
+            $this->sites->rememberAccount($serverId, $ownerId, (string) $row['system_user']);
         }
         $this->audit->record('website.create', 'website', (string) $id, AuditLogger::SUCCESS, [
             'domain' => $row['domain'], 'kind' => $row['kind'], 'php' => $row['php_version'], 'user' => $row['system_user'],
@@ -314,6 +353,54 @@ final class WebsiteService
         return $res;
     }
 
+    /**
+     * Who may enable or disable a website: administrators and resellers. A
+     * hosting customer never may: an administrator decides (a website that is
+     * disabled stays disabled until an administrator enables it).
+     *
+     * @param array<string, mixed> $user
+     */
+    public static function mayToggle(array $user): bool
+    {
+        return \NimVor\Hosting\Scope::isAll($user) || ($user['role_name'] ?? '') === 'reseller';
+    }
+
+    /**
+     * Whether $user may delete $site. A customer may not delete a website that
+     * is disabled or whose account is suspended: only an administrator (or a
+     * reseller for their own customers) can remove those.
+     *
+     * @param array<string, mixed> $user
+     * @param array<string, mixed> $site
+     */
+    public static function mayDelete(array $user, array $site): bool
+    {
+        return self::mayToggle($user) || (!empty($site['enabled']) && empty($site['account_suspended']));
+    }
+
+    /**
+     * @param array<string, mixed> $user
+     * @throws UserFacingException
+     */
+    public static function assertMayToggle(array $user): void
+    {
+        if (!self::mayToggle($user)) {
+            throw new UserFacingException('Only an administrator can enable or disable a website.', '', 'Contact your hosting provider if this website needs to be switched.');
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $user
+     * @param array<string, mixed> $site
+     * @throws UserFacingException
+     */
+    public static function assertMayDelete(array $user, array $site): void
+    {
+        if (!self::mayDelete($user, $site)) {
+            throw new UserFacingException('This website is disabled by the administrator, so it cannot be deleted from here.', '', 'Contact your hosting provider to have it enabled or removed.');
+        }
+    }
+
     /** @param array<string, mixed> $site */
     public function setEnabled(array $site, bool $enabled): void
     {
@@ -339,6 +426,9 @@ final class WebsiteService
             'remove_user' => $removeUser,
         ]);
         $this->sites->delete($id);
+        if ($removeUser) {
+            $this->sites->forgetAccount((int) $site['server_id'], (string) $site['system_user']);
+        }
         $this->discovery->invalidate();
         $this->audit->record('website.delete', 'website', (string) $id, AuditLogger::SUCCESS, [
             'domain' => $site['domain'], 'files' => $removeFiles ? ($res['trash'] ?? 'kept') : 'kept', 'user_removed' => $removeUser,
@@ -443,7 +533,8 @@ final class WebsiteService
             'client_max_body_mb' => (int) $site['client_max_body_mb'],
         ] + (!empty($site['directory_listing']) && $site['kind'] !== 'proxy' ? ['autoindex' => true] : [])
           + (!empty($site['ipv4']) ? ['ipv4' => (string) $site['ipv4']] : [])
-          + (!empty($site['ipv6']) ? ['ipv6' => (string) $site['ipv6']] : []);
+          + (!empty($site['ipv6']) ? ['ipv6' => (string) $site['ipv6']] : [])
+          + WebPolicyService::specParts($site);
     }
 
     /** @param array<string, mixed>|null $site */
@@ -461,8 +552,11 @@ final class WebsiteService
     private function checkSystemUser(string $user, ?int $ownerId, array $actor): bool
     {
         $usedBy = $this->sites->usingSystemUser($this->server->id(), $user);
-        if (\WhaCP\Hosting\Scope::isAll($actor)) {
+        if (\NimVor\Hosting\Scope::isAll($actor)) {
             return false;
+        }
+        if ($ownerId !== null && $this->sites->accountBelongsTo($this->server->id(), $ownerId, $user)) {
+            return false; // their own account, kept from an earlier website
         }
         if ($usedBy === []) {
             return true;
@@ -578,7 +672,7 @@ final class WebsiteService
         $id = (int) $previous['id'];
         $fields = array_intersect_key($previous, array_flip([
             'domain', 'system_user', 'root', 'document_root', 'kind', 'php_version', 'php_settings', 'proxy_pass',
-            'https', 'force_https', 'hsts', 'security_headers', 'ssl_mode', 'cert_file', 'key_file', 'redirects', 'client_max_body_mb', 'enabled', 'status', 'directory_listing', 'ipv4', 'ipv6',
+            'https', 'force_https', 'hsts', 'security_headers', 'ssl_mode', 'cert_file', 'key_file', 'redirects', 'client_max_body_mb', 'enabled', 'status', 'directory_listing', 'ipv4', 'ipv6', 'web_policy',
         ]));
         $this->sites->update($id, $fields);
         $this->sites->replaceDomains((int) $previous['server_id'], $id, array_merge([(string) $previous['domain']], $previous['aliases']));
@@ -631,6 +725,8 @@ final class WebsiteService
      * @param array<string, mixed>|null $existing
      * @return array{row: array<string, mixed>, names: list<string>}
      */
+    private const RESERVED_USERS = ['root', 'www-data', 'nobody', 'mysql', 'nimvor', 'admin'];
+
     public function validate(array $input, ?array $existing, bool $serverSettings = true): array
     {
         if (!$serverSettings) {
@@ -718,8 +814,15 @@ final class WebsiteService
         if ($existing === null) {
             if ($user === '') {
                 $user = self::suggestUser($domain);
+                // A derived name another account already has gets a number,
+                // so a customer who never chose it is not stuck.
+                $base = $user;
+                // A reserved name (root, nimvor, ...) is never derived either.
+                for ($n = 2; $n < 100 && (in_array($user, self::RESERVED_USERS, true) || (!$serverSettings && $this->sites->usingSystemUser($this->server->id(), $user) !== [])); $n++) {
+                    $user = substr($base, 0, 28) . $n;
+                }
             }
-            if (!preg_match('/^[a-z][a-z0-9_-]{1,30}$/', $user) || in_array($user, ['root', 'www-data', 'nobody', 'mysql', 'whacp', 'admin'], true)) {
+            if (!preg_match('/^[a-z][a-z0-9_-]{1,30}$/', $user) || in_array($user, self::RESERVED_USERS, true)) {
                 $errors['system_user'] = 'Use 2–31 lowercase letters, digits, - or _, starting with a letter.';
             }
         }
@@ -846,9 +949,9 @@ final class WebsiteService
     {
         try {
             $s = (array) $this->agent->call('agent.status');
-            return (string) ($s['sites_root'] ?? '/home/whacp');
+            return (string) ($s['sites_root'] ?? '/home/nimvor');
         } catch (AgentException) {
-            return '/home/whacp';
+            return '/home/nimvor';
         }
     }
 
@@ -875,6 +978,19 @@ final class WebsiteService
             }
         }
         return true;
+    }
+
+    /** A valid Linux account name from a panel login, or '' when none can be made. */
+    public static function accountNameFromLogin(string $login): string
+    {
+        $name = preg_replace('/[^a-z0-9_-]/', '', strtolower($login)) ?? '';
+        if ($name !== '' && !preg_match('/^[a-z]/', $name)) {
+            $name = 'u' . $name;
+        }
+        if ($name !== '' && strlen($name) < 2) {
+            $name .= 'x';
+        }
+        return substr($name, 0, 24);
     }
 
     public static function suggestUser(string $domain): string

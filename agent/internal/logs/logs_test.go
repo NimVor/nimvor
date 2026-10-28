@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 func TestResolveRefusesArbitraryPaths(t *testing.T) {
@@ -25,7 +25,7 @@ func TestResolveRefusesArbitraryPaths(t *testing.T) {
 
 func TestTailFollowAndFilter(t *testing.T) {
 	h := testhost.New(t)
-	dir := filepath.Join(h.Base, "home/whacp/a.test/logs")
+	dir := filepath.Join(h.Base, "home/nimvor/a.test/logs")
 	os.MkdirAll(dir, 0o755)
 	var b strings.Builder
 	for i := 1; i <= 3000; i++ {

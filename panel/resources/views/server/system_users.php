@@ -1,4 +1,4 @@
-<?php /** @var \WhaCP\View\View $this */ ?>
+<?php /** @var \NimVor\View\View $this */ ?>
 <?php $this->start(); ?>System accounts<?php $this->end('title'); ?>
 <?php $this->start(); ?>Linux accounts from /etc/passwd<?php $this->end('subtitle'); ?>
 <?php $this->start(); ?>
@@ -11,7 +11,7 @@
 
 <div class="card">
     <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0 wcp-table">
+        <table class="table table-hover align-middle mb-0 nim-table">
             <thead><tr><th>User</th><th>UID</th><th>GID</th><th>Home</th><th>Shell</th><th>Login</th></tr></thead>
             <tbody>
             <?php foreach ($users as $u): ?>

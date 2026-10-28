@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Support\UserFacingException;
+use NimVor\Agent\AgentClient;
+use NimVor\Support\UserFacingException;
 
 /**
  * Per-website MongoDB for the customer portal. Databases and users are

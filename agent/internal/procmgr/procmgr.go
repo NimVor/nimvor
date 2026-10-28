@@ -16,9 +16,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
 // Process is one row of the process list.
@@ -132,7 +132,7 @@ const hz = 100.0 // USER_HZ
 
 // privileged runs the agent binary's scan mode in a privileged unit.
 func privileged(ctx context.Context, env *host.Env, v any, args ...string) error {
-	out, err := env.Runner.RunWith(ctx, "whacp-agent", execx.Opts{Capabilities: []string{"CAP_SYS_PTRACE", "CAP_DAC_READ_SEARCH"}, Timeout: 30 * time.Second}, args...)
+	out, err := env.Runner.RunWith(ctx, "nimvor-agent", execx.Opts{Capabilities: []string{"CAP_SYS_PTRACE", "CAP_DAC_READ_SEARCH"}, Timeout: 30 * time.Second}, args...)
 	if err != nil {
 		return fmt.Errorf("%v: %s", err, host.Output(out))
 	}
@@ -266,7 +266,7 @@ func List(ctx context.Context, env *host.Env, interval time.Duration) Snapshot {
 }
 
 // unitOf is the systemd service (or scope) a process runs in, from its
-// cgroup ("0::/system.slice/whacp-greylist.service" → "whacp-greylist.service").
+// cgroup ("0::/system.slice/nimvor-greylist.service" → "nimvor-greylist.service").
 func unitOf(procDir string, pid int) string {
 	b, err := os.ReadFile(filepath.Join(procDir, strconv.Itoa(pid), "cgroup"))
 	if err != nil {
@@ -381,11 +381,11 @@ var kill = syscall.Kill
 func protected(pid int, s stat) string {
 	switch {
 	case pid <= 1:
-		return "PID 1 (systemd) cannot be signalled from WhaCP."
+		return "PID 1 (systemd) cannot be signalled from NimVor."
 	case pid == 2 || s.ppid == 2:
 		return "Kernel threads cannot be signalled."
 	case pid == os.Getpid():
-		return "This is the WhaCP agent itself; restart it on the Services page."
+		return "This is the NimVor agent itself; restart it on the Services page."
 	}
 	return ""
 }
@@ -463,7 +463,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		return map[string]any{"pid": in.PID, "signal": in.Signal}, nil
 	}})
-	r.Register(actions.Action{Name: "processes.kill_user", Mutating: true, Description: "Send a signal (TERM or KILL) to every process of one account (never root or WhaCP's own account).", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "processes.kill_user", Mutating: true, Description: "Send a signal (TERM or KILL) to every process of one account (never root or NimVor's own account).", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var in struct {
 			User   string `json:"user"`
 			Signal string `json:"signal"`
@@ -478,8 +478,8 @@ func Register(r *actions.Registry, env *host.Env) {
 		if err != nil {
 			return nil, actions.NotFound("No account named " + in.User + ".")
 		}
-		if u.UID == 0 || in.User == "whacp" {
-			return nil, actions.Conflict("The processes of " + in.User + " cannot be ended from WhaCP: the server or the panel would stop working.")
+		if u.UID == 0 || in.User == "nimvor" {
+			return nil, actions.Conflict("The processes of " + in.User + " cannot be ended from NimVor: the server or the panel would stop working.")
 		}
 		sent, failed := 0, 0
 		for pid, s := range readStats(env.Cfg.ProcDir) {

@@ -8,7 +8,7 @@
 (function () {
     'use strict';
 
-    var root = document.getElementById('wcp-term');
+    var root = document.getElementById('nim-term');
     if (!root) { return; }
 
     var nonce = root.getAttribute('data-style-nonce') || '';
@@ -27,18 +27,18 @@
         return setAttribute.call(this, name, value);
     };
 
-    var WhaCP = window.WhaCP;
+    var NimVor = window.NimVor;
     var openUrl = root.getAttribute('data-open-url');
-    var unlockForm = document.getElementById('wcp-term-unlock');
+    var unlockForm = document.getElementById('nim-term-unlock');
     // "linux": a website account, signed in with its Linux password, which
     // is sent only to the agent over the WebSocket and never kept here.
     var auth = root.getAttribute('data-auth') || 'panel';
-    var loginForm = document.getElementById('wcp-term-login');
+    var loginForm = document.getElementById('nim-term-login');
     var loginInput = loginForm ? loginForm.querySelector('input[type="password"]') : null;
-    var screen = document.getElementById('wcp-term-screen');
-    var state = document.getElementById('wcp-term-state');
-    var connectBtn = document.getElementById('wcp-term-connect');
-    var closeBtn = document.getElementById('wcp-term-close');
+    var screen = document.getElementById('nim-term-screen');
+    var state = document.getElementById('nim-term-state');
+    var connectBtn = document.getElementById('nim-term-connect');
+    var closeBtn = document.getElementById('nim-term-close');
     var term = null;
     var fit = null;
     var ws = null;
@@ -46,7 +46,7 @@
 
     function setState(text, kind) {
         state.textContent = text;
-        state.className = 'wcp-state ' + (kind || 'is-off');
+        state.className = 'nim-state ' + (kind || 'is-off');
     }
 
     function showUnlock(message) {
@@ -124,7 +124,7 @@
         ensureTerminal();
         connectBtn.disabled = true;
         setState('Connecting…', 'is-warn');
-        WhaCP.fetchJson(openUrl, { method: 'POST', body: JSON.stringify({ cols: term.cols, rows: term.rows }) })
+        NimVor.fetchJson(openUrl, { method: 'POST', body: JSON.stringify({ cols: term.cols, rows: term.rows }) })
             .then(function (res) {
                 var proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 var sock = new WebSocket(proto + '//' + window.location.host + '/terminal/ws');
@@ -144,11 +144,11 @@
                     var msg;
                     try { msg = JSON.parse(ev.data); } catch (e) { return; }
                     if (msg.type === 'auth_failed') {
-                        sock.wcpAwaitPassword = true;
+                        sock.nimAwaitPassword = true;
                         setState('Not signed in', 'is-warn');
                         showLogin(msg.reason + ' ' + msg.attempts_left + ' more ' + (msg.attempts_left === 1 ? 'try' : 'tries') + '.');
                     } else if (msg.type === 'ready') {
-                        sock.wcpAwaitPassword = false;
+                        sock.nimAwaitPassword = false;
                         if (loginForm) { loginForm.hidden = true; }
                         setState('Connected as ' + msg.user + (msg.mode === 'jailed' ? ' (jailed shell)' : msg.mode === 'root' ? ' (root)' : ''), 'is-ok');
                         closeBtn.hidden = false;
@@ -159,7 +159,7 @@
                     }
                 };
                 sock.onclose = function () {
-                    ended(sock.wcpClosing ? 'Session closed.' : (reason || 'The connection closed.'));
+                    ended(sock.nimClosing ? 'Session closed.' : (reason || 'The connection closed.'));
                 };
                 sock.onerror = function () {
                     if (!reason) { reason = 'The terminal connection failed. The web terminal needs the panel served over HTTPS by Nginx (install.sh --public-https).'; }
@@ -193,8 +193,8 @@
             if (pw === '') { showLogin('Enter the password.'); return; }
             loginForm.querySelector('button[type="submit"]').disabled = true;
             loginForm.querySelector('[data-term-error]').hidden = true;
-            if (ws && ws.readyState === 1 && ws.wcpAwaitPassword) {
-                ws.wcpAwaitPassword = false;
+            if (ws && ws.readyState === 1 && ws.nimAwaitPassword) {
+                ws.nimAwaitPassword = false;
                 ws.send(JSON.stringify({ type: 'password', password: pw }));
             } else {
                 connect(pw);
@@ -204,7 +204,7 @@
     }
     closeBtn.addEventListener('click', function () {
         if (ws) {
-            ws.wcpClosing = true;
+            ws.nimClosing = true;
             ws.close();
         }
     });
@@ -213,7 +213,7 @@
         var btn = unlockForm.querySelector('button[type="submit"]');
         btn.disabled = true;
         var body = { password: unlockForm.password.value, code: unlockForm.code ? unlockForm.code.value : '' };
-        WhaCP.fetchJson(unlockForm.getAttribute('action'), { method: 'POST', body: JSON.stringify(body) })
+        NimVor.fetchJson(unlockForm.getAttribute('action'), { method: 'POST', body: JSON.stringify(body) })
             .then(function () {
                 unlockForm.reset();
                 unlockForm.hidden = true;

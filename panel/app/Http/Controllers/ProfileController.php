@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Security\Authorizer;
-use WhaCP\Security\AuthService;
-use WhaCP\Services\UserService;
-use WhaCP\Support\ValidationException;
-use WhaCP\View\View;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Security\Authorizer;
+use NimVor\Security\AuthService;
+use NimVor\Services\UserService;
+use NimVor\Support\ValidationException;
+use NimVor\View\View;
 
 final class ProfileController extends Controller
 {
@@ -23,13 +23,13 @@ final class ProfileController extends Controller
         private readonly UserService $users,
         private readonly AuthService $auth,
         private readonly Authorizer $authorizer,
-        private readonly \WhaCP\Services\ApiTokenService $tokens,
-        private readonly \WhaCP\Security\TwoFactor $twoFactor,
-        private readonly \WhaCP\Security\PasswordHasher $hasher,
-        private readonly \WhaCP\Repositories\UserRepository $userRepo,
-        private readonly \WhaCP\Services\AuditLogger $audit,
-        private readonly \WhaCP\Security\WebAuthn $webAuthn,
-        private readonly \WhaCP\Services\SettingsService $settings,
+        private readonly \NimVor\Services\ApiTokenService $tokens,
+        private readonly \NimVor\Security\TwoFactor $twoFactor,
+        private readonly \NimVor\Security\PasswordHasher $hasher,
+        private readonly \NimVor\Repositories\UserRepository $userRepo,
+        private readonly \NimVor\Services\AuditLogger $audit,
+        private readonly \NimVor\Security\WebAuthn $webAuthn,
+        private readonly \NimVor\Services\SettingsService $settings,
     ) {
         parent::__construct($view, $session);
     }
@@ -45,7 +45,7 @@ final class ProfileController extends Controller
             'twoFactor' => $this->twoFactor->status((int) $user['id']),
             'setupSecret' => $this->session->get(self::SETUP_KEY),
             'setupQr' => is_string($s = $this->session->get(self::SETUP_KEY))
-                ? \WhaCP\Security\QrCode::encode(\WhaCP\Security\TwoFactor::uri($s, (string) $user['username']))->svg(4, 'QR code for your authenticator app')
+                ? \NimVor\Security\QrCode::encode(\NimVor\Security\TwoFactor::uri($s, (string) $user['username']))->svg(4, 'QR code for your authenticator app')
                 : null,
             'recoveryCodes' => $this->session->pullFlash('recovery_codes'),
             'securityKeys' => $this->webAuthn->credentials((int) $user['id']),
@@ -82,7 +82,7 @@ final class ProfileController extends Controller
         if ($this->twoFactor->enabled($this->userId($request))) {
             return $this->redirectWithError('/profile', 'Two-factor sign-in is already on.');
         }
-        $this->session->set(self::SETUP_KEY, \WhaCP\Security\TwoFactor::newSecret());
+        $this->session->set(self::SETUP_KEY, \NimVor\Security\TwoFactor::newSecret());
         return Response::redirect('/profile#two-factor');
     }
 
@@ -103,7 +103,7 @@ final class ProfileController extends Controller
         }
         $this->session->remove(self::SETUP_KEY);
         $this->session->flash('recovery_codes', $codes);
-        $this->audit->record('user.two_factor_enabled', 'user', (string) $id, \WhaCP\Services\AuditLogger::SUCCESS);
+        $this->audit->record('user.two_factor_enabled', 'user', (string) $id, \NimVor\Services\AuditLogger::SUCCESS);
         return $this->redirectWithSuccess('/profile#two-factor', 'Two-factor sign-in is on.');
     }
 
@@ -115,7 +115,7 @@ final class ProfileController extends Controller
         }
         $this->twoFactor->disable($id);
         $this->session->remove(self::SETUP_KEY);
-        $this->audit->record('user.two_factor_disabled', 'user', (string) $id, \WhaCP\Services\AuditLogger::SUCCESS);
+        $this->audit->record('user.two_factor_disabled', 'user', (string) $id, \NimVor\Services\AuditLogger::SUCCESS);
         return $this->redirectWithSuccess('/profile#two-factor', 'Two-factor sign-in is off.');
     }
 
@@ -129,7 +129,7 @@ final class ProfileController extends Controller
             return $this->redirectWithError('/profile#two-factor', 'Your current password is not correct.');
         }
         $this->session->flash('recovery_codes', $this->twoFactor->regenerateRecovery($id));
-        $this->audit->record('user.two_factor_recovery', 'user', (string) $id, \WhaCP\Services\AuditLogger::SUCCESS);
+        $this->audit->record('user.two_factor_recovery', 'user', (string) $id, \NimVor\Services\AuditLogger::SUCCESS);
         return $this->redirectWithSuccess('/profile#two-factor', 'New recovery codes created; the old ones no longer work.');
     }
 
@@ -137,17 +137,17 @@ final class ProfileController extends Controller
 
     public function keyOptions(Request $request): Response
     {
-        $o = \WhaCP\Security\WebAuthnOrigin::of($request, $this->settings);
+        $o = \NimVor\Security\WebAuthnOrigin::of($request, $this->settings);
         $name = $this->settings->string('panel_name');
-        return Response::json(['success' => true, 'data' => $this->webAuthn->registrationOptions($this->user($request), $o['rp_id'], $name !== '' ? $name : 'WhaCP')]);
+        return Response::json(['success' => true, 'data' => $this->webAuthn->registrationOptions($this->user($request), $o['rp_id'], $name !== '' ? $name : 'NimVor')]);
     }
 
     public function keyAdd(Request $request): Response
     {
-        $o = \WhaCP\Security\WebAuthnOrigin::of($request, $this->settings);
+        $o = \NimVor\Security\WebAuthnOrigin::of($request, $this->settings);
         try {
             $this->webAuthn->register($this->user($request), $o['origin'], $o['rp_id'], $request->string('name'), substr($request->string('client_data'), 0, 8192), substr($request->string('attestation'), 0, 16384));
-        } catch (\WhaCP\Security\WebAuthnException $e) {
+        } catch (\NimVor\Security\WebAuthnException $e) {
             return Response::json(['success' => false, 'error' => ['message' => $e->getMessage()]], 400);
         }
         $this->session->flash('success', 'Security key added. You can now use it to sign in.');

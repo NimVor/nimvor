@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
 // Advisory is a pending update with the vulnerability information the OS

@@ -1,12 +1,12 @@
 // Package cronmgr manages website cron jobs.
 //
-// Each website gets one file, /etc/cron.d/whacp-site-<domain>, that WhaCP
+// Each website gets one file, /etc/cron.d/nimvor-site-<domain>, that NimVor
 // owns completely. Jobs always run as the website's (unprivileged) account,
-// in the sandbox of every command WhaCP runs as the account (a transient
+// in the sandbox of every command NimVor runs as the account (a transient
 // service: no capabilities, NoNewPrivileges, read-only system; in the
 // account's slice when it has resource limits), inside the website
 // directory, and append their output to
-// <root>/logs/cron-<id>.log, framed by "### whacp-run" lines (start, end
+// <root>/logs/cron-<id>.log, framed by "### nimvor-run" lines (start, end
 // with exit code) so the panel can list the runs. A job can also have its
 // output mailed (MAILTO for that job, output through tee).
 package cronmgr
@@ -24,11 +24,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
 // Job is one scheduled command.
@@ -42,7 +42,7 @@ type Job struct {
 }
 
 // RunMarker starts the lines that frame each run in a job's log.
-const RunMarker = "### whacp-run"
+const RunMarker = "### nimvor-run"
 
 // emailRe is deliberately narrow: the address goes into a MAILTO line.
 var emailRe = regexp.MustCompile(`^[A-Za-z0-9._+-]{1,64}@[A-Za-z0-9-]{1,63}(\.[A-Za-z0-9-]{1,63})+$`)
@@ -57,7 +57,7 @@ type SiteJobs struct {
 
 // FileName returns the cron.d file for a domain (cron ignores names with dots).
 func FileName(domain string) string {
-	return "whacp-site-" + strings.ReplaceAll(domain, ".", "_")
+	return "nimvor-site-" + strings.ReplaceAll(domain, ".", "_")
 }
 
 func (s *SiteJobs) validate(env *host.Env) error {
@@ -96,7 +96,7 @@ func (s *SiteJobs) validate(env *host.Env) error {
 }
 
 // ScriptDir holds the job scripts.
-const ScriptDir = "/etc/whacp-cron"
+const ScriptDir = "/etc/nimvor-cron"
 
 // jobBody is what a run executes as the website account: the command,
 // framed in its log (or mailed through tee).
@@ -129,7 +129,7 @@ func LauncherPath(domain string, id int) string {
 }
 
 // jobSandbox is the sandbox every cron job runs in: the same as commands
-// WhaCP runs as the account (execx.TransientHardening): no capabilities,
+// NimVor runs as the account (execx.TransientHardening): no capabilities,
 // no privilege gain through setuid binaries, the system read-only.
 func jobSandbox() string {
 	var b strings.Builder
@@ -152,7 +152,7 @@ func jobSandbox() string {
 func render(s SiteJobs, slice string) (string, map[string]string) {
 	var b strings.Builder
 	scripts := map[string]string{}
-	fmt.Fprintf(&b, "# Managed by WhaCP. Do not edit: changes are overwritten from the panel.\n# Website: %s\n", s.Domain)
+	fmt.Fprintf(&b, "# Managed by NimVor. Do not edit: changes are overwritten from the panel.\n# Website: %s\n", s.Domain)
 	b.WriteString("SHELL=/bin/sh\nPATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\nMAILTO=\"\"\n\n")
 	sandbox := jobSandbox()
 	for _, j := range s.Jobs {
@@ -169,8 +169,8 @@ func render(s SiteJobs, slice string) (string, map[string]string) {
 			where = slice
 			sliceArg = " --slice=" + slice
 		}
-		scripts[ScriptPath(s.Domain, j.ID)] = fmt.Sprintf("# Managed by WhaCP: job %d of %s (runs as %s in %s).\ncd %s || exit 1\n%s %s\n", j.ID, s.Domain, s.User, where, s.Root, run, out)
-		scripts[LauncherPath(s.Domain, j.ID)] = fmt.Sprintf("# Managed by WhaCP: starts job %d of %s as %s in %s.\nexec /usr/bin/systemd-run --quiet --collect --wait%s --uid=%s --gid=%s%s --working-directory=%s%s -- /bin/sh %s\n", j.ID, s.Domain, s.User, where, pipe, s.User, s.User, sliceArg, s.Root, sandbox, ScriptPath(s.Domain, j.ID))
+		scripts[ScriptPath(s.Domain, j.ID)] = fmt.Sprintf("# Managed by NimVor: job %d of %s (runs as %s in %s).\ncd %s || exit 1\n%s %s\n", j.ID, s.Domain, s.User, where, s.Root, run, out)
+		scripts[LauncherPath(s.Domain, j.ID)] = fmt.Sprintf("# Managed by NimVor: starts job %d of %s as %s in %s.\nexec /usr/bin/systemd-run --quiet --collect --wait%s --uid=%s --gid=%s%s --working-directory=%s%s -- /bin/sh %s\n", j.ID, s.Domain, s.User, where, pipe, s.User, s.User, sliceArg, s.Root, sandbox, ScriptPath(s.Domain, j.ID))
 		line := fmt.Sprintf("%s root /bin/sh %s", j.Schedule, LauncherPath(s.Domain, j.ID))
 		if !j.Enabled {
 			line = "# disabled: " + line

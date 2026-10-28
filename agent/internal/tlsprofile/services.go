@@ -6,13 +6,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/changeset"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/changeset"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
 // The mail server's TLS (Postfix and Dovecot) and the certificates of
-// WhaCP's own services (the panel, the mail server). They are kept here so
+// NimVor's own services (the panel, the mail server). They are kept here so
 // the mail setup (mailmgr) and the SSL/TLS pages (sslmgr) agree: a mail
 // reconfiguration keeps what the administrator chose.
 
@@ -26,7 +26,7 @@ type Mail struct {
 	Ciphers string `json:"ciphers"`
 }
 
-// MailDefault is what WhaCP set up before the choice existed.
+// MailDefault is what NimVor set up before the choice existed.
 var MailDefault = Mail{Protocols: "tls12", Ciphers: "default"}
 
 // Validate checks a mail profile.
@@ -71,7 +71,7 @@ func (m Mail) PostfixCiphers() [][2]string {
 	return [][2]string{{"smtpd_tls_mandatory_ciphers", "medium"}}
 }
 
-// DovecotLines are the TLS lines of WhaCP's Dovecot drop-in.
+// DovecotLines are the TLS lines of NimVor's Dovecot drop-in.
 func (m Mail) DovecotLines() string {
 	s := "ssl_min_protocol = TLSv1.2\n"
 	if m.Protocols == "tls13" {
@@ -105,7 +105,7 @@ func ReplaceDovecotLines(conf string, m Mail) (string, error) {
 	return strings.Join(out, "\n"), nil
 }
 
-// ServiceCert is a certificate chosen for one of WhaCP's services.
+// ServiceCert is a certificate chosen for one of NimVor's services.
 type ServiceCert struct {
 	Cert string `json:"cert"`
 	Key  string `json:"key"`

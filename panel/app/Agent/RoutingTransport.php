@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Agent;
+namespace NimVor\Agent;
 
-use WhaCP\Database\Connection;
-use WhaCP\Security\Crypto;
-use WhaCP\Services\ServerContext;
+use NimVor\Database\Connection;
+use NimVor\Security\Crypto;
+use NimVor\Services\ServerContext;
 
 /**
  * Sends agent requests to the server selected in the ServerContext: the

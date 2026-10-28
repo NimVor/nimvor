@@ -122,7 +122,7 @@ func TestTrashDistrustsItsContent(t *testing.T) {
 	tl, _ := do(t, r, "files.trash_list", map[string]any{})
 	it := items(t, tl)[0]
 	meta := filepath.Join(root, TrashDir, it.ID, "meta.json")
-	for _, bad := range []string{"../../../etc/evil", "/etc/evil", ".whacp-trash/x", "public_html", ""} {
+	for _, bad := range []string{"../../../etc/evil", "/etc/evil", ".nimvor-trash/x", "public_html", ""} {
 		b, _ := json.Marshal(TrashItem{Path: bad})
 		os.WriteFile(meta, b, 0o600)
 		if _, err := do(t, r, "files.trash_restore", map[string]any{"ids": []string{it.ID}}); err == nil {

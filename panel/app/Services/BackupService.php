@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Database\Connection;
-use WhaCP\Hosting\Scope;
-use WhaCP\Security\Crypto;
-use WhaCP\Support\Events;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Database\Connection;
+use NimVor\Hosting\Scope;
+use NimVor\Security\Crypto;
+use NimVor\Support\Events;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
 
 /**
  * Backups of websites (files + their databases) and of the server
@@ -428,7 +428,7 @@ final class BackupService
             'client_id' => (string) $pending['cfg']['client_id'], 'client_secret' => (string) $pending['cfg']['client_secret'],
         ]);
         if (empty($res['refresh_token']) || !is_string($res['refresh_token'])) {
-            throw new UserFacingException('Google did not grant offline access.', (string) ($res['error_description'] ?? $res['error'] ?? ''), 'Try again; if it keeps failing, remove WhaCP from your Google account\'s third-party access and connect again.');
+            throw new UserFacingException('Google did not grant offline access.', (string) ($res['error_description'] ?? $res['error'] ?? ''), 'Try again; if it keeps failing, remove NimVor from your Google account\'s third-party access and connect again.');
         }
         $cfg = $pending['cfg'] + ['refresh_token' => $res['refresh_token']];
         $this->testStorage($cfg);
@@ -438,7 +438,7 @@ final class BackupService
     public function deleteStorage(int $id): void
     {
         if ($this->db->scalar("SELECT COUNT(*) FROM backups WHERE storage_id = ? AND local = 0 AND status = 'completed'", [$id]) > 0) {
-            throw new UserFacingException('Some backups are only stored there.', 'Deleting the storage would make them unreachable from WhaCP.', 'Delete those backups first.');
+            throw new UserFacingException('Some backups are only stored there.', 'Deleting the storage would make them unreachable from NimVor.', 'Delete those backups first.');
         }
         $this->db->run('DELETE FROM backup_storages WHERE id = ?', [$id]);
         $this->audit->record('backup.storage_delete', 'backup_storage', (string) $id);

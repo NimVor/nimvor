@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
 use DateTimeImmutable;
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\BackupScheduler;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\BackupScheduler;
+use NimVor\Services\WebsiteService;
+use NimVor\Tests\Support\HttpTestCase;
 
 final class BackupsTest extends HttpTestCase
 {
@@ -25,7 +25,7 @@ final class BackupsTest extends HttpTestCase
         $this->db = $this->app->container->get(Connection::class);
         $this->db->run("INSERT INTO databases (website_id, name, created_at) VALUES (?, 'shop_db', '2026-01-01')", [$this->siteId]);
         $this->agent->succeed('backup.create', ['job_id' => 'cccccccccccccccc']);
-        $this->agent->succeed('backup.key_info', ['exists' => true, 'key_id' => 'abcd', 'path' => '/var/lib/whacp-agent/backup.key']);
+        $this->agent->succeed('backup.key_info', ['exists' => true, 'key_id' => 'abcd', 'path' => '/var/lib/nimvor-agent/backup.key']);
     }
 
     private function completeJob(): void
@@ -97,7 +97,7 @@ final class BackupsTest extends HttpTestCase
         // A customer who owns a website cannot send its backups to the admin's storage.
         $cust = $this->seedUser('cust', 'customer');
         $this->db->run('UPDATE websites SET owner_id = ? WHERE id = ?', [$cust, $this->siteId]);
-        $this->session = new \WhaCP\Http\Session\ArraySession();
+        $this->session = new \NimVor\Http\Session\ArraySession();
         $this->app = $this->makeApp();
         $this->login('cust');
         $this->post('/sites/' . $this->siteId . '/backups', ['files' => '1', 'storage_id' => (string) $storage]);
@@ -119,7 +119,7 @@ final class BackupsTest extends HttpTestCase
     {
         foreach (['customer', 'reseller'] as $role) {
             $this->seedUser('u' . $role, $role);
-            $this->session = new \WhaCP\Http\Session\ArraySession();
+            $this->session = new \NimVor\Http\Session\ArraySession();
             $this->app = $this->makeApp();
             $this->login('u' . $role);
             $this->post('/backups/storages', ['name' => 'Internal', 'type' => 'sftp', 'host' => '10.0.0.5', 'username' => 'u1', 'password' => 'pw-internal-1']);
@@ -173,7 +173,7 @@ final class BackupsTest extends HttpTestCase
     public function testStorageValidationPerType(): void
     {
         $this->agent->succeed('backup.remote_test', ['ok' => true]);
-        $this->post('/backups/storages', ['name' => 'Disk', 'type' => 'local', 'path' => '/etc/whacp']);
+        $this->post('/backups/storages', ['name' => 'Disk', 'type' => 'local', 'path' => '/etc/nimvor']);
         self::assertArrayHasKey('path', (array) $this->flash('errors'));
         $this->post('/backups/storages', ['name' => 'Box', 'type' => 'sftp', 'host' => 'bad host', 'username' => 'u', 'private_key' => 'secret-key-material']);
         self::assertArrayHasKey('host', (array) $this->flash('errors'));
@@ -183,14 +183,14 @@ final class BackupsTest extends HttpTestCase
         self::assertSame(0, $this->calls('backup.remote_test'));
 
         // A local folder with no trust step is saved straight away.
-        $this->post('/backups/storages', ['name' => 'Disk', 'type' => 'local', 'path' => '/mnt/backup/whacp/']);
-        self::assertSame('/mnt/backup/whacp', $this->lastCall('backup.remote_test')['remote']['path']);
+        $this->post('/backups/storages', ['name' => 'Disk', 'type' => 'local', 'path' => '/mnt/backup/nimvor/']);
+        self::assertSame('/mnt/backup/nimvor', $this->lastCall('backup.remote_test')['remote']['path']);
         self::assertSame('local', $this->db->scalar('SELECT kind FROM backup_storages'));
     }
 
     public function testGoogleDriveOAuth(): void
     {
-        $oauth = new class () extends \WhaCP\Services\OAuthClient {
+        $oauth = new class () extends \NimVor\Services\OAuthClient {
             /** @var list<array<string, string>> */
             public array $forms = [];
             public function token(array $form): array
@@ -199,14 +199,14 @@ final class BackupsTest extends HttpTestCase
                 return ['access_token' => 'at', 'refresh_token' => 'refresh-token-value'];
             }
         };
-        $this->app->container->instance(\WhaCP\Services\OAuthClient::class, $oauth);
+        $this->app->container->instance(\NimVor\Services\OAuthClient::class, $oauth);
         $input = ['name' => 'Drive', 'type' => 'gdrive', 'client_id' => 'cid.apps.googleusercontent.com', 'client_secret' => 'client-secret-value'];
 
         // Google only redirects to https.
         $this->post('/backups/storages', $input);
         self::assertStringContainsString('HTTPS', (string) $this->flash('error'));
 
-        $this->app->container->get(\WhaCP\Services\SettingsService::class)->update(['panel_url' => 'https://panel.example.com'], null);
+        $this->app->container->get(\NimVor\Services\SettingsService::class)->update(['panel_url' => 'https://panel.example.com'], null);
         $res = $this->post('/backups/storages', $input);
         $loc = (string) $res->header('Location');
         self::assertStringStartsWith('https://accounts.google.com/o/oauth2/v2/auth?', $loc);
@@ -253,12 +253,12 @@ final class BackupsTest extends HttpTestCase
 
         // Customers cannot search a storage.
         $cust = $this->seedUser('cust', 'customer');
-        $this->session = new \WhaCP\Http\Session\ArraySession();
+        $this->session = new \NimVor\Http\Session\ArraySession();
         $this->app = $this->makeApp();
         $this->login('cust');
         $this->post('/backups/storages/' . $storage . '/scan');
         self::assertSame(0, $this->calls('backup.remote_import'));
-        $this->session = new \WhaCP\Http\Session\ArraySession();
+        $this->session = new \NimVor\Http\Session\ArraySession();
         $this->app = $this->makeApp();
         $this->login('admin');
 

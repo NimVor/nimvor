@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/discovery"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/monitoring"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
+	"github.com/NimVor/nimvor/agent/internal/discovery"
+	"github.com/NimVor/nimvor/agent/internal/monitoring"
+	"github.com/NimVor/nimvor/agent/internal/platform"
 )
 
 func bytesReader(b []byte) io.Reader { return bytes.NewReader(b) }

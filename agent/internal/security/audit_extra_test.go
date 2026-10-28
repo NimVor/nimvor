@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/pkgs"
+	"github.com/NimVor/nimvor/agent/internal/pkgs"
 )
 
 func TestDatabaseSupport(t *testing.T) {

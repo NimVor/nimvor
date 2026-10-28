@@ -2,11 +2,11 @@
 /**
  * Server → Nginx.
  *
- * @var \WhaCP\View\View $this
+ * @var \NimVor\View\View $this
  * @var array{installed: bool, running: bool, config_ok: bool, config_error: string, tuning: bool}|null $status
  * @var array<string, mixed> $tuning
  */
-use WhaCP\Security\Permissions as P;
+use NimVor\Security\Permissions as P;
 
 $status ??= null;
 $canManage = $this->can(P::SERVER_MANAGE);
@@ -16,8 +16,8 @@ $canReload = $this->can(P::SERVICES_MANAGE);
 <?php $this->start(); ?>Web server state, configuration test and server-wide tuning<?php $this->end('subtitle'); ?>
 <?php $this->start(); ?>
     <?php if ($status !== null && $status['installed']): ?>
-        <form method="post" action="<?= e($this->url('nginx.test')) ?>" data-wcp-busy class="d-inline"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary"><i class="bi bi-clipboard-check me-1"></i>Test config</button></form>
-        <?php if ($canReload): ?><form method="post" action="<?= e($this->url('nginx.reload')) ?>" data-wcp-busy class="d-inline"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-clockwise me-1"></i>Reload</button></form><?php endif; ?>
+        <form method="post" action="<?= e($this->url('nginx.test')) ?>" data-nim-busy class="d-inline"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary"><i class="bi bi-clipboard-check me-1"></i>Test config</button></form>
+        <?php if ($canReload): ?><form method="post" action="<?= e($this->url('nginx.reload')) ?>" data-nim-busy class="d-inline"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-clockwise me-1"></i>Reload</button></form><?php endif; ?>
     <?php endif; ?>
 <?php $this->end('actions'); ?>
 
@@ -31,7 +31,7 @@ $canReload = $this->can(P::SERVICES_MANAGE);
     <?php return; ?>
 <?php endif; ?>
 
-<div class="wcp-infobar <?= $status['config_ok'] ? '' : 'is-error' ?> mb-3">
+<div class="nim-infobar <?= $status['config_ok'] ? '' : 'is-error' ?> mb-3">
     <i class="bi bi-<?= $status['config_ok'] ? 'check-circle' : 'exclamation-triangle' ?>" aria-hidden="true"></i>
     <span><?= $status['running'] ? 'Running' : 'Stopped' ?> · configuration <?= $status['config_ok'] ? 'valid' : 'invalid' ?><?= !$status['config_ok'] && $status['config_error'] !== '' ? ': ' . e($status['config_error']) : '' ?></span>
 </div>
@@ -40,7 +40,7 @@ $canReload = $this->can(P::SERVICES_MANAGE);
     <div class="card-header">Tuning</div>
     <div class="card-body">
         <p class="small text-body-secondary">These server-wide settings are written to a managed drop-in in <code>conf.d</code> and validated with <code>nginx -t</code>; if a value would make the configuration invalid it is rolled back automatically. Per-website settings are unaffected.</p>
-        <form method="post" action="<?= e($this->url('nginx.tuning')) ?>" data-wcp-busy>
+        <form method="post" action="<?= e($this->url('nginx.tuning')) ?>" data-nim-busy>
             <?= $this->csrfField() ?>
             <div class="row g-3">
                 <div class="col-sm-6 col-lg-3"><?= $this->partial('partials/field', ['name' => 'client_max_body_mb', 'label' => 'Max upload size (MB)', 'type' => 'number', 'value' => (string) $tuning['client_max_body_mb'], 'attrs' => ['min' => '1', 'max' => '4096', 'disabled' => $canManage ? null : 'disabled']]) ?></div>

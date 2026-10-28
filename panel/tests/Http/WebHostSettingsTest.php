@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Mail\MailConfig;
-use WhaCP\Services\SettingsService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Mail\MailConfig;
+use NimVor\Services\SettingsService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Basic WebHost Settings and Tweak Settings. */
 final class WebHostSettingsTest extends HttpTestCase
@@ -63,7 +63,7 @@ final class WebHostSettingsTest extends HttpTestCase
         self::assertStringContainsString('Saved: Panel name, Discovery cache', (string) $this->flash('success'));
 
         $this->post('/settings/tweak', ['tab' => 'general', 'reset' => 'panel_name']);
-        self::assertSame('WhaCP', $this->fresh('panel_name'));
+        self::assertSame('NimVor', $this->fresh('panel_name'));
         self::assertSame(60, $this->fresh('discovery_cache_seconds'), 'only that setting');
         $this->post('/settings/tweak', ['tab' => 'general', 'reset' => 'all']);
         self::assertSame(300, $this->fresh('discovery_cache_seconds'));
@@ -73,7 +73,7 @@ final class WebHostSettingsTest extends HttpTestCase
         self::assertSame(45, $this->fresh('session_idle_minutes'));
         // Invalid values are reported and nothing of the tab is saved.
         $this->post('/settings/tweak', ['tab' => 'general', 'panel_name' => 'X', 'dashboard_refresh_seconds' => '1']);
-        self::assertSame('WhaCP', $this->fresh('panel_name'));
+        self::assertSame('NimVor', $this->fresh('panel_name'));
         // Choices are checked.
         $this->post('/settings/tweak', ['tab' => 'accounts', 'account_mail_routing' => 'pigeon', 'default_php_version' => '8.3; x']);
         self::assertSame('auto', $this->fresh('account_mail_routing'));
@@ -94,7 +94,7 @@ final class WebHostSettingsTest extends HttpTestCase
         // Without settings.manage nothing is changed.
         $this->login('oper');
         $this->post('/settings/tweak', ['tab' => 'general', 'panel_name' => 'Nope']);
-        self::assertSame('WhaCP', $this->fresh('panel_name'));
+        self::assertSame('NimVor', $this->fresh('panel_name'));
     }
 
     public function testBruteForceTabAppliesItsRulesAndKeepsLockoutSettingsOnItsPage(): void

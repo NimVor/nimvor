@@ -48,11 +48,11 @@ func TestBackupStopsWhenTheDiskIsFull(t *testing.T) {
 	fakeFree(t, func(string) int64 { return Reserve - 1 })
 	cred, _, _ := h.Env.Credential("example")
 	var log bytes.Buffer
-	_, err := s.CreateSite(context.Background(), SiteRequest{Domain: "example.com", User: "example", Root: "/home/whacp/example.com", Files: true, Databases: []string{"shop"}}, cred, &log)
+	_, err := s.CreateSite(context.Background(), SiteRequest{Domain: "example.com", User: "example", Root: "/home/nimvor/example.com", Files: true, Databases: []string{"shop"}}, cred, &log)
 	if !errors.Is(err, ErrNoSpace) {
 		t.Fatalf("err = %v", err)
 	}
-	entries, _ := os.ReadDir(filepath.Join(h.Base, "var/backups/whacp/sites/example.com"))
+	entries, _ := os.ReadDir(filepath.Join(h.Base, "var/backups/nimvor/sites/example.com"))
 	if len(entries) != 0 {
 		t.Fatalf("left behind: %v", entries)
 	}
@@ -64,7 +64,7 @@ func TestRestoreChecksRoomForTheData(t *testing.T) {
 	h, s := siteHost(t)
 	cred, _, _ := h.Env.Credential("example")
 	var log bytes.Buffer
-	m, err := s.CreateSite(context.Background(), SiteRequest{Domain: "example.com", User: "example", Root: "/home/whacp/example.com", Files: true, Databases: []string{"shop"}}, cred, &log)
+	m, err := s.CreateSite(context.Background(), SiteRequest{Domain: "example.com", User: "example", Root: "/home/nimvor/example.com", Files: true, Databases: []string{"shop"}}, cred, &log)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +73,7 @@ func TestRestoreChecksRoomForTheData(t *testing.T) {
 			t.Fatalf("unpacked size not recorded: %+v", f)
 		}
 	}
-	site := filepath.Join(h.Base, "home/whacp")
+	site := filepath.Join(h.Base, "home/nimvor")
 	fakeFree(t, func(p string) int64 {
 		if strings.HasPrefix(p, site) {
 			return Reserve + 1 // less than the archive unpacks to
@@ -81,7 +81,7 @@ func TestRestoreChecksRoomForTheData(t *testing.T) {
 		return 1 << 40
 	})
 	calls := len(h.Runner.Calls)
-	_, err = s.Restore(context.Background(), RestoreRequest{Domain: "example.com", User: "example", Root: "/home/whacp/example.com", ID: m.ID, Files: true, Safety: true}, cred, &log)
+	_, err = s.Restore(context.Background(), RestoreRequest{Domain: "example.com", User: "example", Root: "/home/nimvor/example.com", ID: m.ID, Files: true, Safety: true}, cred, &log)
 	if !errors.Is(err, ErrNoSpace) || !strings.Contains(err.Error(), "restored website files") {
 		t.Fatalf("err = %v", err)
 	}

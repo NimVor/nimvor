@@ -20,7 +20,7 @@ func TestAllowPortsOneGuardedChange(t *testing.T) {
 		t.Fatalf("pending: %+v", p)
 	}
 	calls := strings.Join(h.Runner.Calls, "\n")
-	if strings.Contains(calls, "port 80 comment") || !strings.Contains(calls, "ufw allow proto tcp from any to any port 443 comment whacp: Web server") || !strings.Contains(calls, "ufw allow proto udp from any to any port 53") {
+	if strings.Contains(calls, "port 80 comment") || !strings.Contains(calls, "ufw allow proto tcp from any to any port 443 comment nimvor: Web server") || !strings.Contains(calls, "ufw allow proto udp from any to any port 53") {
 		t.Fatalf("calls:\n%s", calls)
 	}
 	waitRollback(t, s)

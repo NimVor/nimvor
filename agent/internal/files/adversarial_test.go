@@ -48,7 +48,7 @@ func snapshot(t *testing.T, base, site string) map[string]string {
 // nor changes anything outside the website.
 func TestAdversarialPathsForEveryAction(t *testing.T) {
 	h, r, root := setup(t)
-	other := filepath.Join(h.Base, "home/whacp/other.test")
+	other := filepath.Join(h.Base, "home/nimvor/other.test")
 	os.MkdirAll(other, 0o755)
 	os.WriteFile(filepath.Join(other, "secret.txt"), []byte("other site"), 0o600)
 	os.Symlink(other, filepath.Join(root, "public_html/other-link"))

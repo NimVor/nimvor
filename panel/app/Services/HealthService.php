@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Database\Connection;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Database\Connection;
 
 /**
  * Server → Health: one page answering "is anything wrong?". It gathers the
  * checks that already exist elsewhere, each with a link to where it is
  * fixed:
- * - WhaCP itself (`bin/whacp doctor`);
+ * - NimVor itself (`bin/nimvor doctor`);
  * - resources (memory, swap, load);
  * - components;
  * - the security audit;
@@ -31,7 +31,7 @@ final class HealthService
     public const UNKNOWN = 'unknown';
 
     public const SECTIONS = [
-        'whacp' => ['WhaCP and the server', 'heart-pulse', 'settings'],
+        'nimvor' => ['NimVor and the server', 'heart-pulse', 'settings'],
         'resources' => ['Resources', 'speedometer', 'monitoring'],
         'components' => ['Components', 'puzzle', 'components'],
         'security' => ['Security', 'shield-check', 'security'],
@@ -88,7 +88,7 @@ final class HealthService
     }
 
     /** @return list<array{status: string, label: string, detail: string, route?: string}> */
-    private function checkWhacp(): array
+    private function checkNimvor(): array
     {
         $out = [];
         foreach ($this->doctor->run() as $r) {

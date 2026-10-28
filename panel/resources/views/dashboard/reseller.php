@@ -2,13 +2,13 @@
 /**
  * A reseller's home: their customers, websites and plan use.
  *
- * @var \WhaCP\View\View $this
+ * @var \NimVor\View\View $this
  * @var list<array<string, mixed>> $customers
  * @var list<array<string, mixed>> $sites
  * @var list<array{key: string, label: string, used: int, limit: int}> $usage
  * @var list<array<string, mixed>> $recent
  */
-use WhaCP\Security\Permissions as P;
+use NimVor\Security\Permissions as P;
 
 $who = !empty($user) ? ($user['display_name'] !== '' ? $user['display_name'] : $user['username']) : '';
 $hour = (int) date('G');
@@ -35,16 +35,16 @@ $fmt = static fn (string $key, int $n): string => in_array($key, ['disk', 'bandw
 <?php $this->start(); ?>Dashboard<?php $this->end('title'); ?>
 <?php $this->start(); ?>Your customers, websites and plan<?php $this->end('subtitle'); ?>
 
-<section class="wcp-hero" aria-label="Welcome">
+<section class="nim-hero" aria-label="Welcome">
     <div class="d-flex flex-wrap align-items-start gap-3">
         <div class="me-auto">
             <h2 class="h4"><?= e($greet) ?><?= $who !== '' ? ', ' . e($who) : '' ?></h2>
-            <div class="wcp-hero-sub">Reseller account · <?= count($customers) ?> customer<?= count($customers) === 1 ? '' : 's' ?> · <?= count($sites) ?> website<?= count($sites) === 1 ? '' : 's' ?></div>
+            <div class="nim-hero-sub">Reseller account · <?= count($customers) ?> customer<?= count($customers) === 1 ? '' : 's' ?> · <?= count($sites) ?> website<?= count($sites) === 1 ? '' : 's' ?></div>
         </div>
-        <?php if ($suspended > 0): ?><span class="wcp-hero-chip"><i class="bi bi-pause-circle" aria-hidden="true"></i><?= $suspended ?> suspended</span><?php endif; ?>
+        <?php if ($suspended > 0): ?><span class="nim-hero-chip"><i class="bi bi-pause-circle" aria-hidden="true"></i><?= $suspended ?> suspended</span><?php endif; ?>
     </div>
     <?php if ($quick !== []): ?>
-    <nav class="wcp-quick" aria-label="Quick actions">
+    <nav class="nim-quick" aria-label="Quick actions">
         <?php foreach ($quick as [$label, $icon, $url]): ?><a href="<?= e($url) ?>"><i class="bi bi-<?= e($icon) ?>" aria-hidden="true"></i><?= e($label) ?></a><?php endforeach; ?>
     </nav>
     <?php endif; ?>
@@ -58,9 +58,9 @@ $fmt = static fn (string $key, int $n): string => in_array($key, ['disk', 'bandw
         ['Notifications', count(array_filter($recent, static fn ($n): bool => empty($n['is_read']))), 'bell', 2, 'unread of the latest'],
     ] as [$label, $value, $icon, $tone, $detail]): ?>
         <div class="col-6 col-xl-3">
-            <div class="card h-100"><div class="card-body wcp-kstat">
-                <span class="wcp-tool-icon wcp-tone-<?= (int) $tone ?>"><i class="bi bi-<?= e($icon) ?>" aria-hidden="true"></i></span>
-                <div><div class="small text-body-secondary"><?= e($label) ?></div><div class="wcp-stat-value"><?= (int) $value ?></div><div class="small text-body-secondary"><?= e($detail) ?></div></div>
+            <div class="card h-100"><div class="card-body nim-kstat">
+                <span class="nim-tool-icon nim-tone-<?= (int) $tone ?>"><i class="bi bi-<?= e($icon) ?>" aria-hidden="true"></i></span>
+                <div><div class="small text-body-secondary"><?= e($label) ?></div><div class="nim-stat-value"><?= (int) $value ?></div><div class="small text-body-secondary"><?= e($detail) ?></div></div>
             </div></div>
         </div>
     <?php endforeach; ?>
@@ -74,14 +74,14 @@ $fmt = static fn (string $key, int $n): string => in_array($key, ['disk', 'bandw
                 <?php $limited = array_values(array_filter($usage, static fn ($u): bool => $u['limit'] > 0)); $open = array_values(array_filter($usage, static fn ($u): bool => $u['limit'] <= 0)); ?>
                 <?php if ($usage === []): ?><div class="text-body-secondary small">No plan is assigned to your account.</div><?php endif; ?>
                 <?php foreach ($limited as $u): $pct = min(100, (int) round($u['used'] * 100 / $u['limit'])); ?>
-                    <div class="wcp-usage">
+                    <div class="nim-usage">
                         <div class="d-flex justify-content-between small"><span><?= e(preg_replace('/ \(MB\)$/', '', $u['label'])) ?></span><span class="text-body-secondary"><?= e($fmt($u['key'], $u['used'])) ?> / <?= e($fmt($u['key'], $u['limit'])) ?></span></div>
                         <div class="progress mt-1" role="progressbar" aria-label="<?= e($u['label']) ?>" aria-valuenow="<?= $pct ?>" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar<?= $pct >= 90 ? ' bg-danger' : ($pct >= 75 ? ' bg-warning' : '') ?>" data-width="<?= $pct ?>"></div></div>
                     </div>
                 <?php endforeach; ?>
                 <?php if ($open !== []): ?>
                     <div class="small text-body-secondary mt-3 mb-1">Unlimited in your plan</div>
-                    <dl class="wcp-dl wcp-dl-compact small mb-0 wcp-usage-open">
+                    <dl class="nim-dl nim-dl-compact small mb-0 nim-usage-open">
                         <?php foreach ($open as $u): ?><dt class="fw-normal"><?= e(preg_replace('/ \(MB\)$/', '', $u['label'])) ?></dt><dd class="text-end mb-0"><?= e($fmt($u['key'], $u['used'])) ?> used</dd><?php endforeach; ?>
                     </dl>
                 <?php endif; ?>
@@ -95,7 +95,7 @@ $fmt = static fn (string $key, int $n): string => in_array($key, ['disk', 'bandw
                 <?php if ($this->hasRoute('users')): ?><a class="small" href="<?= e($this->url('users')) ?>">View all</a><?php endif; ?>
             </div>
             <?php if ($customers === []): ?>
-                <div class="card-body"><div class="wcp-empty-state"><i class="bi bi-person-plus" aria-hidden="true"></i><div class="fw-medium">No customers yet</div>
+                <div class="card-body"><div class="nim-empty-state"><i class="bi bi-person-plus" aria-hidden="true"></i><div class="fw-medium">No customers yet</div>
                     <?php if ($this->hasRoute('accounts.create') && $this->can(P::USERS_MANAGE)): ?><a class="btn btn-sm btn-primary mt-2" href="<?= e($this->url('accounts.create')) ?>">Create a hosting account</a><?php endif; ?></div></div>
             <?php else: ?>
                 <div class="table-responsive"><table class="table align-middle mb-0 small">
@@ -103,10 +103,10 @@ $fmt = static fn (string $key, int $n): string => in_array($key, ['disk', 'bandw
                     <tbody>
                     <?php foreach (array_slice($customers, 0, 8) as $c): $n = count(array_filter($sites, static fn ($s): bool => (int) ($s['owner_id'] ?? 0) === (int) $c['id'])); ?>
                         <tr>
-                            <td><div class="d-flex align-items-center gap-2"><span class="wcp-avatar wcp-avatar-sm" aria-hidden="true"><?= e(mb_strtoupper(mb_substr((string) $c['username'], 0, 1))) ?></span><div><div class="fw-medium"><?= e($c['username']) ?></div><div class="text-body-secondary"><?= e($c['email']) ?></div></div></div></td>
+                            <td><div class="d-flex align-items-center gap-2"><span class="nim-avatar nim-avatar-sm" aria-hidden="true"><?= e(mb_strtoupper(mb_substr((string) $c['username'], 0, 1))) ?></span><div><div class="fw-medium"><?= e($c['username']) ?></div><div class="text-body-secondary"><?= e($c['email']) ?></div></div></div></td>
                             <td><?= e($c['plan_name'] ?? '—') ?></td>
                             <td><?= $n ?></td>
-                            <td><?= !empty($c['suspended']) ? '<span class="wcp-state is-warn">Suspended</span>' : '<span class="wcp-state is-ok">Active</span>' ?></td>
+                            <td><?= !empty($c['suspended']) ? '<span class="nim-state is-warn">Suspended</span>' : '<span class="nim-state is-ok">Active</span>' ?></td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>
@@ -132,7 +132,7 @@ $fmt = static fn (string $key, int $n): string => in_array($key, ['disk', 'bandw
                             <i class="bi bi-<?= !empty($s['https']) ? 'lock-fill text-success' : 'unlock text-body-secondary' ?>" aria-hidden="true"></i>
                             <a class="fw-medium me-auto text-decoration-none" href="<?= e($this->url('sites.show', ['id' => (int) $s['id']])) ?>"><?= e($s['domain']) ?></a>
                             <span class="text-body-secondary"><?= e((string) ($s['owner_name'] ?? '')) ?></span>
-                            <?= ($s['status'] ?? '') === 'active' ? '<span class="wcp-state is-ok">Active</span>' : '<span class="wcp-state is-off">' . e(ucfirst((string) ($s['status'] ?? ''))) . '</span>' ?>
+                            <?= ($s['status'] ?? '') === 'active' ? '<span class="nim-state is-ok">Active</span>' : '<span class="nim-state is-off">' . e(ucfirst((string) ($s['status'] ?? ''))) . '</span>' ?>
                         </li>
                     <?php endforeach; ?>
                 </ul>
@@ -149,7 +149,7 @@ $fmt = static fn (string $key, int $n): string => in_array($key, ['disk', 'bandw
                 <?php if ($recent === []): ?><li class="list-group-item text-body-secondary">Nothing yet.</li><?php endif; ?>
                 <?php foreach ($recent as $n): ?>
                     <li class="list-group-item d-flex justify-content-between gap-2<?= empty($n['is_read']) ? ' fw-medium' : '' ?>">
-                        <span class="wcp-wrap"><?= e($n['title']) ?><?php if (($n['domain'] ?? null) !== null): ?> <span class="text-body-secondary fw-normal">· <?= e($n['domain']) ?></span><?php endif; ?></span>
+                        <span class="nim-wrap"><?= e($n['title']) ?><?php if (($n['domain'] ?? null) !== null): ?> <span class="text-body-secondary fw-normal">· <?= e($n['domain']) ?></span><?php endif; ?></span>
                         <span class="text-body-secondary text-nowrap fw-normal"><?= e(time_ago((string) $n['created_at'])) ?></span>
                     </li>
                 <?php endforeach; ?>

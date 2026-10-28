@@ -1,5 +1,5 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var string $tab */
 $titles = ['server' => 'Mail server', 'queue' => 'Mail queue', 'reports' => 'Delivery reports', 'stats' => 'Statistics', 'greylisting' => 'Greylisting', 'greylist-report' => 'Greylisting report', 'sending-limits' => 'Mail sending limits', 'tools' => 'Mail tools'];
 ?>

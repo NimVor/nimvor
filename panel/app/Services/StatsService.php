@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
+use NimVor\Agent\AgentClient;
 
 /**
  * Website statistics (AWStats, updated every 6 hours as the website's

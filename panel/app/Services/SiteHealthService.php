@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
 /**
  * Per-website security and health checks for the customer portal. Each check

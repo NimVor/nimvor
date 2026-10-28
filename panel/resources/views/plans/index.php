@@ -1,8 +1,8 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var list<array<string, mixed>> $plans */
 /** @var array<string, mixed>|null $edit */
-use WhaCP\Services\PlanService;
+use NimVor\Services\PlanService;
 
 $errorsAll = (array) ($errors ?? []);
 // Which window a refused save reopens: the plan's, or New plan.
@@ -10,7 +10,7 @@ $failedId = $old !== [] ? (int) ($old['plan_id'] ?? 0) : -1;
 // /plans?edit=ID (older links) opens that plan's window.
 $openId = $failedId >= 0 ? $failedId : (is_array($edit ?? null) ? (int) $edit['id'] : -1);
 $lim = static fn ($v): string => (int) $v === 0 ? '∞' : (string) (int) $v;
-$admin = \WhaCP\Hosting\Scope::isAll((array) ($user ?? []));
+$admin = \NimVor\Hosting\Scope::isAll((array) ($user ?? []));
 ?>
 <?php $this->start(); ?>Hosting plans<?php $this->end('title'); ?>
 <?php $this->start(); ?>Limits for hosting customers<?= $admin ? ' and resellers' : '' ?><?php $this->end('subtitle'); ?>
@@ -38,7 +38,7 @@ $admin = \WhaCP\Hosting\Scope::isAll((array) ($user ?? []));
                             <td class="text-center"><?= (int) $p['users'] ?></td>
                             <td class="text-end text-nowrap">
                                 <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#plan-edit-<?= (int) $p['id'] ?>" title="Edit" aria-label="Edit <?= e($p['name']) ?>"><i class="bi bi-pencil"></i></button>
-                                <form class="d-inline" method="post" action="<?= e($this->url('plans.delete', ['id' => (int) $p['id']])) ?>" data-wcp-confirm="Delete the plan <?= e($p['name']) ?>?"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></button></form>
+                                <form class="d-inline" method="post" action="<?= e($this->url('plans.delete', ['id' => (int) $p['id']])) ?>" data-nim-confirm="Delete the plan <?= e($p['name']) ?>?"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></button></form>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -50,7 +50,7 @@ $admin = \WhaCP\Hosting\Scope::isAll((array) ($user ?? []));
 
 <?php
 $planForm = function (array $form, int $pid, string $px, array $ferr) use ($admin, $featureLists): void { ?>
-<form method="post" action="<?= e($this->url('plans.store')) ?>" data-wcp-busy>
+<form method="post" action="<?= e($this->url('plans.store')) ?>" data-nim-busy>
     <?= $this->csrfField() ?>
     <?php if ($pid > 0): ?><input type="hidden" name="plan_id" value="<?= $pid ?>"><?php endif; ?>
     <?= $this->partial('partials/field', ['idPrefix' => $px, 'errors' => $ferr, 'name' => 'name', 'label' => 'Name', 'value' => (string) ($form['name'] ?? ''), 'attrs' => ['required' => 'required', 'maxlength' => '60']]) ?>

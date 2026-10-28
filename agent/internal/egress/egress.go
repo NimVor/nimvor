@@ -1,5 +1,5 @@
 // Package egress limits the outgoing connections of website accounts with
-// an nftables table WhaCP owns (inet whacp_egress), loaded at boot by its
+// an nftables table NimVor owns (inet nimvor_egress), loaded at boot by its
 // own service:
 //
 //   - Cloud metadata (on unless the administrator turns it off): website
@@ -31,17 +31,17 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/limits"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/limits"
 )
 
 // Unit loads the table at boot.
 const (
-	Unit     = "whacp-egress.service"
+	Unit     = "nimvor-egress.service"
 	unitPath = "/etc/systemd/system/" + Unit
-	table    = "whacp_egress"
+	table    = "nimvor_egress"
 )
 
 // Metadata4 and Metadata6 are the instance metadata services: AWS, GCP,
@@ -208,7 +208,7 @@ func ints(l []int) string {
 // isolation is on.
 func Rules(s Settings, ids []string, allow map[string][]int) string {
 	var b strings.Builder
-	b.WriteString("# Managed by WhaCP: outgoing connections of website accounts.\n")
+	b.WriteString("# Managed by NimVor: outgoing connections of website accounts.\n")
 	fmt.Fprintf(&b, "table inet %s\ndelete table inet %s\ntable inet %s {\n\tchain output {\n\t\ttype filter hook output priority 0; policy accept;\n", table, table, table)
 	// Loopback isolation must come before the blanket loopback accept: for
 	// website accounts, the guarded cache ports on 127.0.0.1/::1 are rejected
@@ -258,7 +258,7 @@ func Rules(s Settings, ids []string, allow map[string][]int) string {
 }
 
 func unit() string {
-	return "# Managed by WhaCP: outgoing connections of website accounts.\n[Unit]\nDescription=WhaCP outgoing connection limits of website accounts (nftables)\nAfter=network-pre.target\nBefore=network.target\n\n" +
+	return "# Managed by NimVor: outgoing connections of website accounts.\n[Unit]\nDescription=NimVor outgoing connection limits of website accounts (nftables)\nAfter=network-pre.target\nBefore=network.target\n\n" +
 		"[Service]\nType=oneshot\nRemainAfterExit=yes\nExecStart=/usr/sbin/nft -f " + execx.NftEgressFile + "\nExecStop=/usr/sbin/nft delete table inet " + table + "\n\n[Install]\nWantedBy=multi-user.target\n"
 }
 

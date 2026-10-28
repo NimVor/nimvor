@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Database\Connection;
-use WhaCP\Hosting\Scope;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Support\ValidationException;
+use NimVor\Database\Connection;
+use NimVor\Hosting\Scope;
+use NimVor\Repositories\UserRepository;
+use NimVor\Support\ValidationException;
 
 /**
  * Creates a hosting account in one step (like WHM's "Create a New
@@ -41,7 +41,7 @@ final class AccountService
         $domain = strtolower(trim(rtrim((string) ($input['domain'] ?? ''), '.')));
         $errors = [];
         // Also the name of the website's system account.
-        if (!preg_match('/^[a-z][a-z0-9_-]{2,30}$/', $username) || in_array($username, ['root', 'www-data', 'nobody', 'mysql', 'whacp', 'admin', 'postfix', 'dovecot', 'bind', 'named', 'redis', 'memcache'], true)) {
+        if (!preg_match('/^[a-z][a-z0-9_-]{2,30}$/', $username) || in_array($username, ['root', 'www-data', 'nobody', 'mysql', 'nimvor', 'admin', 'postfix', 'dovecot', 'bind', 'named', 'redis', 'memcache'], true)) {
             $errors['username'] = 'Use 3–31 lowercase letters, digits, - or _, starting with a letter (also the website\'s system account).';
         }
         $reseller = filter_var($input['reseller'] ?? false, FILTER_VALIDATE_BOOL);

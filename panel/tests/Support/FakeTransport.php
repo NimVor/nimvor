@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Support;
+namespace NimVor\Tests\Support;
 
-use WhaCP\Agent\AgentHttpResponse;
-use WhaCP\Agent\AgentTransport;
-use WhaCP\Agent\AgentUnavailableException;
+use NimVor\Agent\AgentHttpResponse;
+use NimVor\Agent\AgentTransport;
+use NimVor\Agent\AgentUnavailableException;
 
 /**
  * Agent transport returning canned responses keyed by path.
@@ -18,6 +18,9 @@ final class FakeTransport implements AgentTransport
 
     /** @var list<array{method: string, path: string, body: ?string, token: string}> */
     public array $requests = [];
+
+    /** @var array<string, list<AgentHttpResponse>> answered once each, before $responses */
+    public array $once = [];
 
     public bool $down = false;
 
@@ -45,11 +48,22 @@ final class FakeTransport implements AgentTransport
         ]));
     }
 
+    /** The next call of an action fails; later calls use the configured response. */
+    public function failOnce(string $action, int $status, string $code, string $message): void
+    {
+        $this->once['/v1/actions/' . $action][] = new AgentHttpResponse($status, (string) json_encode([
+            'success' => false, 'action' => $action, 'message' => $message, 'error' => ['code' => $code, 'message' => $message], 'request_id' => 'rid42',
+        ]));
+    }
+
     public function request(string $method, string $path, ?string $body, string $token, int $timeoutSeconds): AgentHttpResponse
     {
         $this->requests[] = ['method' => $method, 'path' => $path, 'body' => $body, 'token' => $token];
         if ($this->down) {
-            throw new AgentUnavailableException('The WhaCP agent is not reachable.', 'socket missing', 'start it', 'agent_unavailable');
+            throw new AgentUnavailableException('The NimVor agent is not reachable.', 'socket missing', 'start it', 'agent_unavailable');
+        }
+        if (!empty($this->once[$path])) {
+            return array_shift($this->once[$path]);
         }
         if (isset($this->responses[$path])) {
             return $this->responses[$path];

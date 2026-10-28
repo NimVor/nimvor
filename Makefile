@@ -1,4 +1,4 @@
-# WhaCP developer tasks.
+# NimVor developer tasks.
 
 GO      ?= go
 PHP     ?= php
@@ -8,10 +8,10 @@ VERSION ?= $(shell cat VERSION 2>/dev/null || echo dev)
 
 all: lint test
 
-build: dist/whacp-agent
+build: dist/nimvor-agent
 
-dist/whacp-agent: $(shell find agent -name '*.go')
-	cd agent && CGO_ENABLED=0 $(GO) build -trimpath -ldflags "-s -w -X main.version=$(VERSION)" -o ../dist/whacp-agent ./cmd/whacp-agent
+dist/nimvor-agent: $(shell find agent -name '*.go')
+	cd agent && CGO_ENABLED=0 $(GO) build -trimpath -ldflags "-s -w -X main.version=$(VERSION)" -o ../dist/nimvor-agent ./cmd/nimvor-agent
 
 test: test-agent test-panel
 
@@ -24,7 +24,7 @@ test-panel: panel/vendor/autoload.php
 lint: panel/vendor/autoload.php
 	@test -z "$$(cd agent && gofmt -l .)" || (echo "gofmt needed:"; cd agent && gofmt -l .; exit 1)
 	cd panel && find app bin config database public resources routes tests -name '*.php' -print0 | xargs -0 -n1 -P4 $(PHP) -l > /dev/null
-	for f in installer/install.sh installer/upgrade.sh installer/uninstall.sh scripts/dev.sh tests/integration/smoke.sh tests/integration/upgrade.sh tests/integration/public-https.sh tests/e2e/run.sh scripts/release.sh; do bash -n $$f || exit 1; done
+	for f in installer/install.sh installer/upgrade.sh installer/uninstall.sh scripts/dev.sh tests/integration/smoke.sh tests/integration/cli-wrapper.sh installer/config/nimvor-cli tests/integration/upgrade.sh tests/integration/public-https.sh tests/e2e/run.sh scripts/release.sh; do bash -n $$f || exit 1; done
 
 smoke: panel/vendor/autoload.php
 	tests/integration/smoke.sh

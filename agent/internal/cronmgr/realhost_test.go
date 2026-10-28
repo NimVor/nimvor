@@ -20,7 +20,7 @@ func TestRealHostCronJobSandbox(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("needs root")
 	}
-	name := "whacpcr" + strconv.Itoa(os.Getpid()%100000)
+	name := "nimvorcr" + strconv.Itoa(os.Getpid()%100000)
 	home := "/home/" + name
 	if out, err := exec.Command("useradd", "-m", "-d", home, "-s", "/usr/sbin/nologin", name).CombinedOutput(); err != nil {
 		t.Fatalf("useradd: %v %s", err, out)
@@ -31,9 +31,9 @@ func TestRealHostCronJobSandbox(t *testing.T) {
 	os.MkdirAll(filepath.Join(home, "logs"), 0o755)
 	exec.Command("chown", "-R", name+":"+name, home).Run()
 
-	domain := name + ".whacp.test"
+	domain := name + ".nimvor.test"
 	for _, email := range []string{"", "owner@example.test"} {
-		jobs := []Job{{ID: 1, Schedule: "* * * * *", Command: "id -un; grep -E '^(CapEff|CapBnd|NoNewPrivs)' /proc/self/status; touch /etc/whacp-cron-escape && echo WROTE-ETC; echo 100%", Enabled: true, Email: email}}
+		jobs := []Job{{ID: 1, Schedule: "* * * * *", Command: "id -un; grep -E '^(CapEff|CapBnd|NoNewPrivs)' /proc/self/status; touch /etc/nimvor-cron-escape && echo WROTE-ETC; echo 100%", Enabled: true, Email: email}}
 		out, scripts := render(SiteJobs{Domain: domain, User: name, Root: home, Jobs: jobs}, "")
 		// As cron.apply creates them: the scripts' folder is searchable by
 		// everyone, a website's folder only by its group.
@@ -73,7 +73,7 @@ func TestRealHostCronJobSandbox(t *testing.T) {
 			}
 		}
 		if strings.Contains(string(log), "WROTE-ETC") {
-			os.Remove("/etc/whacp-cron-escape")
+			os.Remove("/etc/nimvor-cron-escape")
 			t.Errorf("the job wrote to /etc")
 		}
 		// A mailed job's output reaches cron (which mails it); the others

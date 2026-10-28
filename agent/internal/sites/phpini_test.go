@@ -6,7 +6,7 @@ import (
 )
 
 func TestWebsitePHPDirectives(t *testing.T) {
-	root := "/home/whacp/shop.test"
+	root := "/home/nimvor/shop.test"
 	good := map[string]string{
 		"display_errors": "1", "error_reporting": "E_ALL & ~E_DEPRECATED", "date.timezone": "Asia/Karachi",
 		"post_max_size": "128m", "max_input_vars": "5000", "session.save_path": root + "/tmp/sessions",
@@ -28,7 +28,7 @@ func TestWebsitePHPDirectives(t *testing.T) {
 		"mysqli.default_pw":     "secret",
 		"register_globals":      "On",
 		"memory_limit":          "4G",
-		"session.save_path":     "/home/whacp/other.test/tmp",
+		"session.save_path":     "/home/nimvor/other.test/tmp",
 		"error_log":             root + "/../other.test/log",
 		"auto_append_file":      "/etc/passwd",
 		"date.timezone":         "UTC\nphp_admin_value[open_basedir] = /",
@@ -72,13 +72,13 @@ func TestWebsitePHPDirectives(t *testing.T) {
 	if !strings.Contains(RenderPool(s, Layout{LogDir: root + "/logs", TmpDir: root + "/tmp"}), "disable_functions] = exec,passthru,shell_exec,system,proc_open,popen,pcntl_exec\n") {
 		t.Error("an empty list removed the hardening")
 	}
-	if err := (&Spec{Domain: "shop.test", User: "shop", Kind: "php", PHPVersion: "8.3", PHP: PHPSettings{INI: map[string]string{"open_basedir": "/"}}}).Normalize("/home/whacp", "/var/lib/whacp"); err == nil {
+	if err := (&Spec{Domain: "shop.test", User: "shop", Kind: "php", PHPVersion: "8.3", PHP: PHPSettings{INI: map[string]string{"open_basedir": "/"}}}).Normalize("/home/nimvor", "/var/lib/nimvor"); err == nil {
 		t.Error("Normalize accepted open_basedir")
 	}
 }
 
 func TestPoolSessionDefaults(t *testing.T) {
-	root := "/home/whacp/shop.test"
+	root := "/home/nimvor/shop.test"
 	s := Spec{Domain: "shop.test", User: "shop", Root: root, PHP: PHPSettings{MemoryLimitMB: 256, UploadMaxMB: 64, MaxExecSeconds: 60, MaxChildren: 5, PM: "ondemand", MaxRequests: 500}}
 	l := Layout{LogDir: root + "/logs", TmpDir: root + "/tmp"}
 	pool := RenderPool(s, l)
@@ -105,17 +105,17 @@ func TestPoolSessionDefaults(t *testing.T) {
 	}
 }
 
-// PHP's mail() uses WhaCP's sendmail, fixed by the administrator.
+// PHP's mail() uses NimVor's sendmail, fixed by the administrator.
 func TestPoolSendmailPath(t *testing.T) {
-	root := "/home/whacp/shop.test"
+	root := "/home/nimvor/shop.test"
 	s := Spec{Domain: "shop.test", User: "shop", Root: root, PHP: PHPSettings{MemoryLimitMB: 256, UploadMaxMB: 64, MaxExecSeconds: 60, MaxChildren: 5, PM: "ondemand", MaxRequests: 500}}
 	l := Layout{LogDir: root + "/logs", TmpDir: root + "/tmp"}
 	if strings.Contains(RenderPool(s, l), "sendmail_path") {
-		t.Error("sendmail_path without WhaCP's sendmail")
+		t.Error("sendmail_path without NimVor's sendmail")
 	}
-	l.Sendmail = "/usr/local/bin/whacp-agent sendmail -t -i"
-	if !strings.Contains(RenderPool(s, l), "php_admin_value[sendmail_path] = /usr/local/bin/whacp-agent sendmail -t -i\n") {
-		t.Error("PHP mail does not use WhaCP's sendmail")
+	l.Sendmail = "/usr/local/bin/nimvor-agent sendmail -t -i"
+	if !strings.Contains(RenderPool(s, l), "php_admin_value[sendmail_path] = /usr/local/bin/nimvor-agent sendmail -t -i\n") {
+		t.Error("PHP mail does not use NimVor's sendmail")
 	}
 	if _, err := NormalizeINI(map[string]string{"sendmail_path": "/tmp/x"}, root); err == nil {
 		t.Error("a website may set sendmail_path")

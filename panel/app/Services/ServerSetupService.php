@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Database\Connection;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Database\Connection;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
 
 /**
  * Sets up a server for a profile (Full, Web only, Minimal): the components'
@@ -70,8 +70,8 @@ final class ServerSetupService
 
     /** Feature lists: name => [description, features turned on]. */
     public const FEATURE_LISTS = [
-        'Hosting' => ['Websites without shell access.', ['php', 'mysql', 'email', 'dns', 'file_manager', 'ssl', 'subdomains', 'ftp', 'cron', 'backups', 'apps', 'git', 'workers', 'redis', 'logs', 'stats', 'malware', 'wordpress']],
-        'Hosting with SSH' => ['Every feature, the SSH shell included.', ['php', 'mysql', 'email', 'dns', 'file_manager', 'ssl', 'subdomains', 'ftp', 'cron', 'backups', 'apps', 'git', 'workers', 'redis', 'logs', 'stats', 'malware', 'wordpress', 'ssh']],
+        'Hosting' => ['Websites without shell access.', ['php', 'mysql', 'email', 'dns', 'file_manager', 'ssl', 'subdomains', 'ftp', 'cron', 'backups', 'apps', 'git', 'workers', 'redis', 'logs', 'stats', 'malware', 'wordpress', 'addon_domains', 'cloudflare', 'firewall', 'memcached', 'mongodb', 'nodejs', 'python', 'site_health', 'site_security', 'site_access', 'web_policy', 'redirects', 'type_php', 'type_static']],
+        'Hosting with SSH' => ['Every feature, the SSH shell included.', ['php', 'mysql', 'email', 'dns', 'file_manager', 'ssl', 'subdomains', 'ftp', 'cron', 'backups', 'apps', 'git', 'workers', 'redis', 'logs', 'stats', 'malware', 'wordpress', 'addon_domains', 'cloudflare', 'firewall', 'memcached', 'mongodb', 'nodejs', 'python', 'site_health', 'site_security', 'site_access', 'web_policy', 'redirects', 'type_php', 'type_static', 'ssh']],
         'Email only' => ['Email, DNS and certificates for a domain; no website tools.', ['email', 'dns', 'ssl', 'backups']],
     ];
 
@@ -532,7 +532,7 @@ final class ServerSetupService
         if (!str_contains($hostname, '.') || str_ends_with($hostname, '.localdomain') || str_ends_with($hostname, '.local')) {
             return ['fail', 'The server has no full host name (' . $hostname . '). Run again with --hostname=server.example.com, or set up email on the Email page.'];
         }
-        // Choosing a profile with email is the consent to WhaCP editing
+        // Choosing a profile with email is the consent to NimVor editing
         // Postfix's and Dovecot's configuration (backups are kept).
         $this->agent->call('mail.configure', ['hostname' => $hostname, 'confirm_edit_package_config' => true], 300);
         return ['ok', 'Postfix, Dovecot and OpenDKIM set up for ' . $hostname . '.'];
@@ -559,7 +559,7 @@ final class ServerSetupService
         if (!self::stepTodo($c, 'setup')) {
             return ['skip', 'DNS hosting is on already.'];
         }
-        // Authoritative only: WhaCP's configuration answers for the hosted zones, without recursion.
+        // Authoritative only: NimVor's configuration answers for the hosted zones, without recursion.
         $this->agent->call('dns.configure', ['confirm_edit_package_config' => true], 120);
         return ['ok', 'BIND answers for the zones hosted here (authoritative, no recursion).'];
     }
@@ -715,7 +715,7 @@ final class ServerSetupService
             return ['fail', 'fail2ban is not installed (see the first step).'];
         }
         if (!empty($st['managed_config'])) {
-            return ['skip', 'WhaCP\'s fail2ban jails are configured (left as they are).'];
+            return ['skip', 'NimVor\'s fail2ban jails are configured (left as they are).'];
         }
         $jails = SecurityDefaultsService::JAILS;
         $this->agent->call('fail2ban.configure', ['jails' => $jails, 'ban_minutes' => 60, 'find_minutes' => 10, 'max_retry' => 5, 'ignore' => []], 120);

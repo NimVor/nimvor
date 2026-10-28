@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentException;
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Support\DnsLookup;
-use WhaCP\Support\UserFacingException;
+use NimVor\Agent\AgentException;
+use NimVor\Database\Connection;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Support\DnsLookup;
+use NimVor\Support\UserFacingException;
 
 /**
  * Automatic SSL (like AutoSSL): a new website waits until its domain points
@@ -44,7 +44,7 @@ final class AutoSslService
         private readonly SettingsService $settings,
         private readonly ServerContext $server,
         private readonly DnsLookup $lookup,
-        private readonly \WhaCP\Agent\AgentClient $agent,
+        private readonly \NimVor\Agent\AgentClient $agent,
     ) {
     }
 
@@ -154,7 +154,7 @@ final class AutoSslService
         if ($this->settings->bool('auto_ssl_replace')) {
             $last = (int) json_decode((string) ($this->db->scalar('SELECT value FROM settings WHERE key = ?', [self::LAST_REPLACE_KEY]) ?? '0'), true);
             if ($last < time() - self::REPLACE_EVERY) {
-                (new \WhaCP\Repositories\SettingRepository($this->db))->set(self::LAST_REPLACE_KEY, time(), null);
+                (new \NimVor\Repositories\SettingRepository($this->db))->set(self::LAST_REPLACE_KEY, time(), null);
                 try {
                     if (($n = $this->queue(false)) > 0) {
                         $out[] = "auto SSL: {$n} certificate(s) queued for replacement";

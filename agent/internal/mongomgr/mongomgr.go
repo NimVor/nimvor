@@ -2,7 +2,7 @@
 //
 // Commands run through mongosh against the local server. When MongoDB has
 // authentication enabled, the admin connection string is read from
-// /etc/whacp/mongo-admin.uri (root only); otherwise the local default is
+// /etc/nimvor/mongo-admin.uri (root only); otherwise the local default is
 // used. Names are validated to a strict character set before they are put
 // into the small JavaScript snippets mongosh evaluates, so a database or
 // user name can never break out of its string.
@@ -20,10 +20,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
 // ConfigFile is MongoDB's main configuration file (Debian/Ubuntu and the
@@ -36,7 +36,7 @@ const defaultLogPath = "/var/log/mongodb/mongod.log"
 var bindIpRe = regexp.MustCompile(`^[0-9A-Za-z.:_-]+(,[0-9A-Za-z.:_-]+)*$`)
 
 // AdminURIFile holds the admin connection string when auth is enabled.
-const AdminURIFile = "/etc/whacp/mongo-admin.uri"
+const AdminURIFile = "/etc/nimvor/mongo-admin.uri"
 
 // Unit is the MongoDB service.
 var Units = []string{"mongod.service", "mongod"}
@@ -274,7 +274,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		if !installed(env) {
 			return nil, actions.Conflict("MongoDB is not installed.")
 		}
-		if _, err := c.eval(ctx, "db.getSiblingDB("+jsString(in.Name)+").createCollection('_whacp')"); err != nil {
+		if _, err := c.eval(ctx, "db.getSiblingDB("+jsString(in.Name)+").createCollection('_nimvor')"); err != nil {
 			return nil, actions.Failed("The database could not be created.", err.Error())
 		}
 		return map[string]any{"name": in.Name}, nil
@@ -1347,7 +1347,7 @@ func (c Client) users(ctx context.Context) ([]User, error) {
 	return users, nil
 }
 
-// Config is the subset of mongod.conf WhaCP reads and (for a few keys) edits.
+// Config is the subset of mongod.conf NimVor reads and (for a few keys) edits.
 type Config struct {
 	Path          string `json:"path"`
 	Port          int    `json:"port"`

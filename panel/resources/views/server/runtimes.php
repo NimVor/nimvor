@@ -2,11 +2,11 @@
 /**
  * Server → Runtimes: the Node.js and Python runtimes on the server.
  *
- * @var \WhaCP\View\View $this
+ * @var \NimVor\View\View $this
  * @var array{arch: string, node: list<array<string, mixed>>, python: list<array<string, mixed>>, system: list<array<string, mixed>>}|null $status
  * @var array{node: list<array<string, mixed>>, python: list<array<string, mixed>>, node_error: string, python_error: string}|null $available
  */
-use WhaCP\Security\Permissions as P;
+use NimVor\Security\Permissions as P;
 
 $status ??= null;
 $available ??= null;
@@ -36,14 +36,14 @@ $rtRow = function (array $rt, bool $managed) use ($canManage): string {
         <td class="small text-body-secondary font-monospace text-break"><?= e((string) ($rt['binary'] ?? '')) ?></td>
         <td class="text-end">
             <?php if ($managed && $canManage): ?>
-                <form method="post" action="<?= e($this->url('runtimes.remove')) ?>" data-wcp-confirm="Remove <?= e((string) ($rt['kind'] ?? '') . ' ' . (string) ($rt['version'] ?? '')) ?>? Workers using it will fail to start until changed.">
+                <form method="post" action="<?= e($this->url('runtimes.remove')) ?>" data-nim-confirm="Remove <?= e((string) ($rt['kind'] ?? '') . ' ' . (string) ($rt['version'] ?? '')) ?>? Workers using it will fail to start until changed.">
                     <?= $this->csrfField() ?>
                     <input type="hidden" name="kind" value="<?= e((string) ($rt['kind'] ?? '')) ?>">
                     <input type="hidden" name="version" value="<?= e((string) ($rt['version'] ?? '')) ?>">
                     <button class="btn btn-sm btn-outline-danger" title="Remove"><i class="bi bi-trash"></i></button>
                 </form>
             <?php elseif (!$managed): ?>
-                <span class="wcp-state small">system</span>
+                <span class="nim-state small">system</span>
             <?php endif; ?>
         </td>
     </tr>
@@ -56,9 +56,9 @@ $managed = array_merge($status['node'], $status['python']);
 <div class="card mb-3">
     <div class="card-header">Installed runtimes</div>
     <?php if ($managed === []): ?>
-        <div class="wcp-empty-state"><i class="bi bi-box-seam" aria-hidden="true"></i><div class="fw-medium">No managed runtimes yet</div><div class="small">Install Node.js or Python versions to run apps and workers on them. Downloads are verified against published checksums before use.</div></div>
+        <div class="nim-empty-state"><i class="bi bi-box-seam" aria-hidden="true"></i><div class="fw-medium">No managed runtimes yet</div><div class="small">Install Node.js or Python versions to run apps and workers on them. Downloads are verified against published checksums before use.</div></div>
     <?php else: ?>
-        <div class="wcp-dtable table-responsive">
+        <div class="nim-dtable table-responsive">
             <table class="table align-middle mb-0">
                 <thead><tr><th>Runtime</th><th>Version</th><th>Path</th><th class="text-end">Action</th></tr></thead>
                 <tbody><?php foreach ($managed as $rt) { echo $rtRow($rt, true); } ?></tbody>
@@ -72,7 +72,7 @@ $managed = array_merge($status['node'], $status['python']);
     <?php if ($status['system'] === []): ?>
         <div class="card-body small text-body-secondary">No system Node.js or Python interpreters were found.</div>
     <?php else: ?>
-        <div class="wcp-dtable table-responsive">
+        <div class="nim-dtable table-responsive">
             <table class="table align-middle mb-0">
                 <thead><tr><th>Runtime</th><th>Version</th><th>Path</th><th class="text-end"></th></tr></thead>
                 <tbody><?php foreach ($status['system'] as $rt) { echo $rtRow($rt, false); } ?></tbody>
@@ -88,7 +88,7 @@ $versionModal = function (string $id, string $kind, string $label, string $sourc
     $err = (string) ($available[$kind . '_error'] ?? '');
     echo $this->modalStart($id, 'Install ' . $label);
     ?>
-    <form method="post" action="<?= e($this->url('runtimes.install')) ?>" data-wcp-busy>
+    <form method="post" action="<?= e($this->url('runtimes.install')) ?>" data-nim-busy>
         <div class="p-3">
             <?= $this->csrfField() ?>
             <input type="hidden" name="kind" value="<?= e($kind) ?>">

@@ -1,10 +1,10 @@
-<?php /** @var \WhaCP\View\View $this */ ?>
-<div class="card wcp-auth-card">
+<?php /** @var \NimVor\View\View $this */ ?>
+<div class="card nim-auth-card">
     <div class="card-body p-4">
         <h1 class="h5 mb-1">Sign in</h1>
         <p class="text-body-secondary small mb-4">Server control panel</p>
         <?= $this->partial('partials/flash') ?>
-        <form method="post" action="<?= e($this->url('login.submit')) ?>" data-wcp-busy novalidate>
+        <form method="post" action="<?= e($this->url('login.submit')) ?>" data-nim-busy novalidate>
             <?= $this->csrfField() ?>
             <div class="mb-3">
                 <label class="form-label" for="username">Username or email</label>

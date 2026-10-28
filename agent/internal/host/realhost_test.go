@@ -13,16 +13,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/config"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/jobs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/config"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/jobs"
+	"github.com/NimVor/nimvor/agent/internal/platform"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
-// The PHP-FPM service runs in WhaCP's sandbox: its master and its pools'
+// The PHP-FPM service runs in NimVor's sandbox: its master and its pools'
 // workers cannot gain privileges (NoNewPrivileges) and have no capabilities
 // beyond those the master needs. The drop-in stays: the tests after this
 // one (webmail, WordPress) serve their PHP from the sandboxed service.

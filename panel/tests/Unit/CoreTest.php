@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Unit;
+namespace NimVor\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use WhaCP\Core\Config;
-use WhaCP\Core\Container;
-use WhaCP\Http\Request;
+use NimVor\Core\Config;
+use NimVor\Core\Container;
+use NimVor\Http\Request;
 
 final class CoreTest extends TestCase
 {
     public function testConfigMergesOverridesAndReadsDotPaths(): void
     {
-        $dir = sys_get_temp_dir() . '/whacp-cfg-' . bin2hex(random_bytes(4));
+        $dir = sys_get_temp_dir() . '/nimvor-cfg-' . bin2hex(random_bytes(4));
         mkdir($dir);
         file_put_contents("$dir/a.php", "<?php return ['app' => ['name' => 'X', 'debug' => false], 'list' => [1, 2, 3]];");
         file_put_contents("$dir/b.php", "<?php return ['app' => ['debug' => true], 'list' => [9]];");

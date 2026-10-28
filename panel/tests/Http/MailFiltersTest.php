@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Email filters, autoresponder and mail routing. */
 final class MailFiltersTest extends HttpTestCase

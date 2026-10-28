@@ -1,7 +1,7 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var array<string, mixed> $site */
-$canManage = $this->can(\WhaCP\Security\Permissions::BACKUPS_MANAGE);
+$canManage = $this->can(\NimVor\Security\Permissions::BACKUPS_MANAGE);
 $id = (int) $site['id'];
 $last = null;
 foreach ($backups as $b) {
@@ -14,20 +14,20 @@ foreach ($backups as $b) {
 <?= $this->partial('sites/header', ['site' => $site, 'tab' => 'backups']) ?>
 
 <div class="d-flex flex-wrap align-items-center gap-3 mb-3 small">
-    <span><?= $last !== null ? '<span class="wcp-state is-ok">Last backup ' . e(time_ago((string) $last['created_at'])) . '</span>' : '<span class="wcp-state is-warn">No backup yet</span>' ?></span>
+    <span><?= $last !== null ? '<span class="nim-state is-ok">Last backup ' . e(time_ago((string) $last['created_at'])) . '</span>' : '<span class="nim-state is-warn">No backup yet</span>' ?></span>
     <span class="text-body-secondary"><?= $schedules !== [] ? count($schedules) . ' schedule' . (count($schedules) === 1 ? '' : 's') : 'No automatic backups scheduled' ?></span>
 </div>
 
 <div class="card mb-3" id="backup-list">
-    <div class="card-header wcp-toolbar">
-        <h2 class="wcp-toolbar-title"><i class="bi bi-archive me-1"></i>Backups <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($backups) ?></span></h2>
+    <div class="card-header nim-toolbar">
+        <h2 class="nim-toolbar-title"><i class="bi bi-archive me-1"></i>Backups <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($backups) ?></span></h2>
         <?php if ($canManage): ?>
             <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#backup-now"><i class="bi bi-plus-lg me-1"></i>Back up now</button>
         <?php endif; ?>
     </div>
     <?php if ($canManage): ?>
         <?= $this->modalStart('backup-now', 'Back up now') ?>
-            <form class="p-3" method="post" action="<?= e($this->url('sites.backups.create', ['id' => $id])) ?>" data-wcp-busy>
+            <form class="p-3" method="post" action="<?= e($this->url('sites.backups.create', ['id' => $id])) ?>" data-nim-busy>
                 <?= $this->csrfField() ?>
                 <div class="row g-3">
                     <div class="col-md-6">

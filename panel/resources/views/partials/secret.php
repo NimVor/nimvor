@@ -7,8 +7,8 @@
             <div class="col-sm-9"><code><?= e($secret['user']) ?></code></div>
             <div class="col-sm-3 text-body-secondary">Password</div>
             <div class="col-sm-9 d-flex gap-2 align-items-center">
-                <code class="user-select-all" data-wcp-secret><?= e($secret['password']) ?></code>
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-wcp-copy="[data-wcp-secret]"><i class="bi bi-clipboard"></i> Copy</button>
+                <code class="user-select-all" data-nim-secret><?= e($secret['password']) ?></code>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-nim-copy="[data-nim-secret]"><i class="bi bi-clipboard"></i> Copy</button>
             </div>
         </div>
         <div class="small mt-2">This password is shown only once and is not stored unless you chose to keep it encrypted.</div>

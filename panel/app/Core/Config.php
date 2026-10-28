@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Core;
+namespace NimVor\Core;
 
 /**
  * Read-only configuration with dot-notation access.

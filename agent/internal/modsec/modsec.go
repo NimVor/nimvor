@@ -1,13 +1,13 @@
 // Package modsec manages ModSecurity (libmodsecurity 3 with its Nginx
-// connector) for WhaCP's websites.
+// connector) for NimVor's websites.
 //
-// Layout (all WhaCP's own files):
+// Layout (all NimVor's own files):
 //
-//	<nginx>/whacp-modsec/main.conf    base engine settings + enabled vendors
-//	<nginx>/whacp-modsec/crs.conf     OWASP CRS (the distribution's package)
-//	<nginx>/whacp-modsec/custom.conf  the administrator's own rules
-//	<nginx>/whacp-modsec/sites/D.conf a website's mode and exclusions
-//	<enabled>/whacp-00-modsecurity.conf  http{}: rules loaded once, off
+//	<nginx>/nimvor-modsec/main.conf    base engine settings + enabled vendors
+//	<nginx>/nimvor-modsec/crs.conf     OWASP CRS (the distribution's package)
+//	<nginx>/nimvor-modsec/custom.conf  the administrator's own rules
+//	<nginx>/nimvor-modsec/sites/D.conf a website's mode and exclusions
+//	<enabled>/nimvor-00-modsecurity.conf  http{}: rules loaded once, off
 //
 // The rules are loaded once at http level with "modsecurity off"; a
 // website's vhost includes its own file by a glob that matches nothing
@@ -30,8 +30,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/capability"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/capability"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
 // Modes of a website.
@@ -157,8 +157,8 @@ type State struct {
 
 // Paths.
 
-// Dir holds WhaCP's ModSecurity files.
-func Dir(e *host.Env) string { return filepath.Join(filepath.Dir(e.M.NginxAvailable), "whacp-modsec") }
+// Dir holds NimVor's ModSecurity files.
+func Dir(e *host.Env) string { return filepath.Join(filepath.Dir(e.M.NginxAvailable), "nimvor-modsec") }
 
 // SitePath is a website's file.
 func SitePath(e *host.Env, domain string) string {
@@ -174,13 +174,13 @@ func SiteInclude(e *host.Env, domain string) string {
 
 // HTTPPath is the http{} level file.
 func HTTPPath(e *host.Env) string {
-	return filepath.Join(e.M.NginxEnabled, "whacp-00-modsecurity.conf")
+	return filepath.Join(e.M.NginxEnabled, "nimvor-00-modsecurity.conf")
 }
 
 // AuditLog is where blocked and detected requests are written (next to
 // Nginx's logs, so SELinux lets Nginx write it; not *.log, so logrotate's
 // Nginx rule leaves it alone: the agent trims it).
-func AuditLog(*host.Env) string { return "/var/log/nginx/whacp-modsec-audit.json" }
+func AuditLog(*host.Env) string { return "/var/log/nginx/nimvor-modsec-audit.json" }
 
 func statePath(e *host.Env) string { return filepath.Join(e.Cfg.StateDir, "modsec.json") }
 
@@ -288,13 +288,13 @@ func FindCRS(e *host.Env) CRS {
 		}
 		return c
 	}
-	// A release WhaCP installed (when there is no distribution package).
-	return whacpCRS(e)
+	// A release NimVor installed (when there is no distribution package).
+	return nimvorCRS(e)
 }
 
 // Rendering.
 
-const header = "# Managed by WhaCP (Security → ModSecurity). Changes here are overwritten.\n"
+const header = "# Managed by NimVor (Security → ModSecurity). Changes here are overwritten.\n"
 
 // RenderMain is the base configuration with the enabled vendors.
 func RenderMain(e *host.Env, c Config, crs CRS) string {
@@ -329,7 +329,7 @@ SecAuditLogFormat JSON
 	return b.String()
 }
 
-// RenderCRS includes the Core Rule Set with WhaCP's settings.
+// RenderCRS includes the Core Rule Set with NimVor's settings.
 func RenderCRS(c Config, crs CRS) string {
 	var b strings.Builder
 	b.WriteString(header)

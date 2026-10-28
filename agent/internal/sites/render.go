@@ -2,7 +2,7 @@ package sites
 
 import (
 	"fmt"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/tlsprofile"
+	"github.com/NimVor/nimvor/agent/internal/tlsprofile"
 	"html"
 	"path/filepath"
 	"strings"
@@ -28,13 +28,13 @@ type Layout struct {
 	// ProtectInclude is the website's protection include (password,
 	// hotlink, WordPress rules; a glob that matches nothing without any).
 	ProtectInclude string
-	// Sendmail is PHP's sendmail_path: WhaCP's sendmail, which submits
+	// Sendmail is PHP's sendmail_path: NimVor's sendmail, which submits
 	// over SMTP to this machine, where the account's sending limit
 	// applies (empty: PHP's default).
 	Sendmail string
 }
 
-const header = "Managed by WhaCP. Do not edit: changes are overwritten when the website is saved in the panel."
+const header = "Managed by NimVor. Do not edit: changes are overwritten when the website is saved in the panel."
 
 // RenderNginx produces the server blocks for a site. All values were
 // validated by Spec.Normalize, so none can break out of a directive.
@@ -42,6 +42,7 @@ func RenderNginx(s Spec, l Layout) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n# Website: %s\n\n", header, s.Domain)
 	names := strings.Join(s.Names(), " ")
+	b.WriteString(renderCacheMaps(s))
 
 	// Port 80: either the site itself or a redirect to HTTPS.
 	b.WriteString("server {\n")
@@ -72,7 +73,12 @@ func RenderNginx(s Spec, l Layout) string {
 		} else {
 			b.WriteString(tlsprofile.LegacyBlock)
 		}
-		if s.HSTS {
+		switch {
+		case s.Headers != nil:
+			if v := s.Headers.hstsValue(); v != "" {
+				fmt.Fprintf(&b, "    add_header Strict-Transport-Security %s always;\n", ngxString(v))
+			}
+		case s.HSTS:
 			b.WriteString("    add_header Strict-Transport-Security \"max-age=31536000\" always;\n")
 		}
 		body(&b, s, l)
@@ -124,12 +130,16 @@ func body(b *strings.Builder, s Spec, l Layout) {
 		b.WriteString("    autoindex on;\n")
 	}
 	b.WriteString("    add_header X-Content-Type-Options \"nosniff\" always;\n")
-	if s.SecurityHeaders {
+	if s.Headers != nil {
+		// The customer's choices replace the bundle: no header twice.
+		b.WriteString(s.Headers.headerLines())
+	} else if s.SecurityHeaders {
 		b.WriteString(SecurityHeaders)
 		if s.HTTPS {
 			b.WriteString("    add_header Content-Security-Policy \"upgrade-insecure-requests\" always;\n")
 		}
 	}
+	b.WriteString(cacheDirectives(s))
 	b.WriteString(l.ModSecInclude)
 	b.WriteString(l.ProtectInclude)
 	acme(b, l)
@@ -153,7 +163,7 @@ func body(b *strings.Builder, s Spec, l Layout) {
 		fmt.Fprintf(b, "    location / {\n        proxy_pass %s;\n", s.ProxyPass)
 		b.WriteString("        proxy_http_version 1.1;\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n")
 		b.WriteString("        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n")
-		b.WriteString("        proxy_set_header Upgrade $http_upgrade;\n        proxy_set_header Connection $connection_upgrade_whacp;\n        proxy_read_timeout 300s;\n    }\n")
+		b.WriteString("        proxy_set_header Upgrade $http_upgrade;\n        proxy_set_header Connection $connection_upgrade_nimvor;\n        proxy_read_timeout 300s;\n    }\n")
 	}
 }
 
@@ -164,10 +174,10 @@ const bandwidthExceeded = "    location / {\n        default_type text/html;\n  
 	"<body style='font-family:sans-serif;max-width:40em;margin:4em auto;padding:0 1em'><h1>Bandwidth limit exceeded</h1>" +
 	"<p>This website has used its monthly data transfer. It is available again at the start of next month, or earlier when its hosting plan allows more.</p></body></html>\";\n    }\n"
 
-// RenderProxyMap is included once (whacp-00-proxy-map.conf) so proxied
+// RenderProxyMap is included once (nimvor-00-proxy-map.conf) so proxied
 // sites can upgrade WebSocket connections.
 func RenderProxyMap() string {
-	return "# " + header + "\nmap $http_upgrade $connection_upgrade_whacp {\n    default upgrade;\n    ''      close;\n}\n"
+	return "# " + header + "\nmap $http_upgrade $connection_upgrade_nimvor {\n    default upgrade;\n    ''      close;\n}\n"
 }
 
 // RenderPool produces the PHP-FPM pool for a site. The pool runs as the
@@ -175,7 +185,7 @@ func RenderProxyMap() string {
 // site.
 func RenderPool(s Spec, l Layout) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "; %s\n; Website: %s\n\n[whacp-%s]\n", header, s.Domain, s.Domain)
+	fmt.Fprintf(&b, "; %s\n; Website: %s\n\n[nimvor-%s]\n", header, s.Domain, s.Domain)
 	fmt.Fprintf(&b, "user = %s\ngroup = %s\n", s.User, s.User)
 	fmt.Fprintf(&b, "listen = %s\nlisten.owner = %s\nlisten.group = %s\nlisten.mode = 0660\n", l.Socket, l.WebUser, l.WebUser)
 	p := s.PHP
@@ -191,7 +201,7 @@ func RenderPool(s Spec, l Layout) string {
 		fmt.Fprintf(&b, "request_terminate_timeout = %ds\n", p.RequestTimeoutSec)
 	}
 	fmt.Fprintf(&b, "chdir = /\ncatch_workers_output = yes\nslowlog = %s\nrequest_slowlog_timeout = %ds\n", filepath.Join(l.LogDir, "php-slow.log"), p.SlowlogSec)
-	// The website's confinement, then WhaCP's defaults; the website's own
+	// The website's confinement, then NimVor's defaults; the website's own
 	// directives (validated in Normalize) replace defaults they may change.
 	defaults := []iniLine{
 		{"open_basedir", s.Root + "/:/usr/share/php/:/dev/urandom", true},
@@ -259,7 +269,7 @@ body{min-height:100vh;margin:0;font-family:system-ui,-apple-system,"Segoe UI",Ro
 `
 }
 
-// PlaceholderIndex reports whether b is a placeholder page WhaCP wrote
+// PlaceholderIndex reports whether b is a placeholder page NimVor wrote
 // for the domain (the current one or the one of earlier versions).
 func PlaceholderIndex(b []byte, domain string) bool {
 	legacy := "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><title>" + domain +

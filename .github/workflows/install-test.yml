@@ -1,0 +1,169 @@
+name: Install test
+
+# Real-server tests of how NimVor gets onto a machine, on disposable GitHub
+# runners (full Ubuntu VMs with systemd):
+#   fresh     the one-line installer path (installer/bootstrap.sh fetching the
+#             source from a git repository, then install.sh), the post-install
+#             end-to-end test, and an update through installer/update.sh.
+#   migrate   the WhaCP to NimVor plan (docs/migration/WHACP-TO-NIMVOR.md,
+#             route A) rehearsed end to end: install the former release, remove
+#             it with its own uninstaller, install NimVor, and check that
+#             nothing of the old install is still running.
+# They run for pull requests that touch the installer or the migration plan,
+# and by hand (once this file is on the default branch).
+on:
+  pull_request:
+    paths:
+      - 'installer/**'
+      - 'docs/migration/**'
+      - 'tests/integration/**'
+      - '.github/workflows/install-test.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: install-test-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # The last commit that still carried the former name (the tip of main when
+  # the rename pull request was opened).
+  OLD_REF: cb1fc7e43b3780c557a3270c22effa0b26568b96
+
+jobs:
+  fresh:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install the services the post-install test drives
+        run: |
+          sudo systemctl stop mysql || true
+          sudo DEBIAN_FRONTEND=noninteractive apt-get purge -y -q 'mysql-server*' 'mysql-client*' 'mysql-common' || true
+          sudo rm -rf /var/lib/mysql /etc/mysql
+          sudo apt-get update -q
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends \
+            nginx mariadb-server mariadb-client ufw openssh-server git openssl \
+            php8.3-cli php8.3-fpm php8.3-mysql php8.3-sqlite3 php8.3-mbstring php8.3-xml php8.3-curl php8.3-zip php8.3-intl
+          sudo systemctl start mariadb nginx php8.3-fpm
+      - name: Install through bootstrap.sh (source from a git repository)
+        run: |
+          sudo git config --global --add safe.directory '*'
+          git switch -c ci-install
+          sudo env NIMVOR_ALLOW_LOCAL_SOURCE=1 NIMVOR_REPO="$PWD" \
+            bash installer/bootstrap.sh --branch ci-install --commit "$(git rev-parse HEAD)" \
+            --yes --enable-writes --profile=none --admin-user=admin --admin-email=admin@nimvor.test
+      - name: Nothing of the former name is installed
+        run: |
+          ! ls -d /opt/whacp /etc/whacp /var/lib/whacp 2>/dev/null
+          ! systemctl list-unit-files 'whacp*' --no-legend | grep .
+          systemctl is-active nimvor-agent nimvor-panel
+          getent passwd nimvor
+          sudo -u nimvor test -r /etc/nimvor/panel.php
+      - name: Post-install end-to-end
+        run: sudo tests/integration/postinstall.sh
+      - name: Update through installer/update.sh
+        run: |
+          git -C /usr/local/src/nimvor status -sb | head -1
+          sudo git -C /usr/local/src/nimvor remote -v
+          sudo /usr/local/src/nimvor/installer/update.sh
+          systemctl is-active nimvor-agent nimvor-panel
+          curl -fsS http://127.0.0.1:8090/healthz
+      - name: Bootstrap refuses what it should
+        run: |
+          # A checkout owned by another account is never run as root.
+          sudo mkdir /tmp/evil && sudo chown 1001 /tmp/evil && sudo git -C /tmp/evil init -q
+          ! sudo env NIMVOR_ALLOW_LOCAL_SOURCE=1 NIMVOR_REPO="$PWD" bash installer/bootstrap.sh --dir /tmp/evil --branch ci-install --fetch-only
+          # An unreachable source is an error, not a silent fall back to main.
+          ! sudo bash installer/bootstrap.sh --source https://127.0.0.1:9/none.git --dir /tmp/none --fetch-only
+          # Wrong pinned commit.
+          ! sudo env NIMVOR_ALLOW_LOCAL_SOURCE=1 NIMVOR_REPO="$PWD" bash installer/bootstrap.sh --dir /tmp/pin --branch ci-install --commit abcdef1 --fetch-only
+      - name: Logs
+        if: always()
+        run: |
+          sudo journalctl -u nimvor-agent -u nimvor-panel --no-pager -n 60 -o cat || true
+          sudo tail -40 /var/log/nimvor/panel.log || true
+
+  migrate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          path: new
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.OLD_REF }}
+          path: old
+      - name: Install the services
+        run: |
+          sudo systemctl stop mysql || true
+          sudo DEBIAN_FRONTEND=noninteractive apt-get purge -y -q 'mysql-server*' 'mysql-client*' 'mysql-common' || true
+          sudo rm -rf /var/lib/mysql /etc/mysql
+          sudo apt-get update -q
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends \
+            nginx mariadb-server mariadb-client ufw openssh-server git openssl \
+            php8.3-cli php8.3-fpm php8.3-mysql php8.3-sqlite3 php8.3-mbstring php8.3-xml php8.3-curl php8.3-zip php8.3-intl
+          sudo systemctl start mariadb nginx php8.3-fpm
+      - name: Install the former release (WhaCP) with its own installer
+        run: |
+          cd old
+          sudo ./installer/install.sh --yes --enable-writes --profile=none --admin-user=admin --admin-email=admin@whacp.test
+          systemctl is-active whacp-agent whacp-panel
+      - name: The former install answers (its own end-to-end script predates the setup wizard and is not run)
+        run: |
+          curl -fsS http://127.0.0.1:8090/healthz
+          cat /opt/whacp/panel/VERSION
+          sudo -u whacp test -r /etc/whacp/panel.php
+      - name: Inventory (read-only) shows the old install
+        run: |
+          sudo bash new/docs/migration/whacp-inventory.sh | tee inventory.txt
+          grep -q 'whacp-agent.service' inventory.txt
+      - name: The new installer refuses to run beside it
+        run: |
+          cd new
+          sudo git config --global --add safe.directory '*'
+          git switch -c ci-install
+          if sudo env NIMVOR_ALLOW_LOCAL_SOURCE=1 NIMVOR_REPO="$PWD" bash installer/bootstrap.sh \
+               --dir /usr/local/src/nimvor-blocked --branch ci-install --yes --profile=none > ../refuse.txt 2>&1; then
+            cat ../refuse.txt; echo "the installer ran beside the former install"; exit 1
+          fi
+          cat ../refuse.txt
+          grep -q 'former name of NimVor' ../refuse.txt
+          test -d /opt/whacp
+          systemctl is-active whacp-agent whacp-panel
+      - name: Route A, steps 1-3 (backup, old uninstaller, move the data aside)
+        run: |
+          sudo cp -a old /usr/local/src/whacp-old-checkout
+          sudo tar -C / -czpf /root/whacp-premigration.tgz etc/whacp var/lib/whacp var/lib/whacp-agent
+          cd /usr/local/src/whacp-old-checkout
+          yes | sudo ./installer/uninstall.sh
+          ! systemctl list-unit-files 'whacp-agent.service' --no-legend | grep .
+          sudo mkdir -p /root/whacp-premigration
+          sudo mv /etc/whacp /root/whacp-premigration/etc-whacp
+          sudo mv /var/lib/whacp /root/whacp-premigration/var-lib-whacp
+          systemctl is-active nginx mariadb
+      - name: Route A, steps 4-6 (install NimVor)
+        run: |
+          cd new
+          sudo env NIMVOR_ALLOW_LOCAL_SOURCE=1 NIMVOR_REPO="$PWD" \
+            bash installer/bootstrap.sh --branch ci-install --commit "$(git rev-parse HEAD)" \
+            --yes --enable-writes --profile=none --admin-user=admin --admin-email=admin@nimvor.test
+          systemctl is-active nimvor-agent nimvor-panel nginx mariadb
+      - name: NimVor works and the old one is gone
+        run: |
+          cd new
+          sudo tests/integration/postinstall.sh
+          ! systemctl list-units 'whacp*' --no-legend --all | grep -i running
+          ! pgrep -af whacp
+          ! ls -d /opt/whacp /etc/whacp /var/lib/whacp
+      - name: Logs
+        if: always()
+        run: |
+          sudo journalctl -u nimvor-agent -u nimvor-panel --no-pager -n 60 -o cat || true
+          sudo ls -la /root/whacp-premigration || true

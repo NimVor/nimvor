@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
 )
 
 // User is one account.

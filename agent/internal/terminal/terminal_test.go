@@ -19,9 +19,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/ftpmgr"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/ftpmgr"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 // fixture: a website account "shop" with the given shell mode.
@@ -29,14 +29,14 @@ func fixture(t *testing.T, mode string) (*testhost.Host, *Manager) {
 	t.Helper()
 	h := testhost.New(t)
 	f, _ := os.OpenFile(filepath.Join(h.Base, "etc/passwd"), os.O_APPEND|os.O_WRONLY, 0o644)
-	fmt.Fprintf(f, "shop:x:%d:%d::/home/whacp/shop:/bin/bash\n", h.UID, h.GID)
-	fmt.Fprintf(f, "other:x:%d:%d::/home/whacp/other:/bin/bash\n", h.UID+1, h.GID+1)
+	fmt.Fprintf(f, "shop:x:%d:%d::/home/nimvor/shop:/bin/bash\n", h.UID, h.GID)
+	fmt.Fprintf(f, "other:x:%d:%d::/home/nimvor/other:/bin/bash\n", h.UID+1, h.GID+1)
 	f.Close()
-	os.WriteFile(filepath.Join(h.Base, "etc/group"), []byte(fmt.Sprintf("shop:x:%d:\nwhacp-jail:x:990:shop,other\n", h.GID)), 0o644)
-	os.MkdirAll(filepath.Join(h.Base, "home/whacp/shop"), 0o755)
-	os.MkdirAll(filepath.Join(h.Base, "home/whacp/other"), 0o755)
-	os.WriteFile(filepath.Join(h.Base, "var/lib/whacp-agent/sftp.json"), []byte(`{"users":{"shop":{},"other":{}},"shells":{"shop":"`+mode+`","other":"normal"}}`), 0o600)
-	os.WriteFile(filepath.Join(h.Base, "var/lib/whacp-agent/limits.json"), []byte(`{"accounts":{"acct7":{"users":["shop"]}}}`), 0o600)
+	os.WriteFile(filepath.Join(h.Base, "etc/group"), []byte(fmt.Sprintf("shop:x:%d:\nnimvor-jail:x:990:shop,other\n", h.GID)), 0o644)
+	os.MkdirAll(filepath.Join(h.Base, "home/nimvor/shop"), 0o755)
+	os.MkdirAll(filepath.Join(h.Base, "home/nimvor/other"), 0o755)
+	os.WriteFile(filepath.Join(h.Base, "var/lib/nimvor-agent/sftp.json"), []byte(`{"users":{"shop":{},"other":{}},"shells":{"shop":"`+mode+`","other":"normal"}}`), 0o600)
+	os.WriteFile(filepath.Join(h.Base, "var/lib/nimvor-agent/limits.json"), []byte(`{"accounts":{"acct7":{"users":["shop"]}}}`), 0o600)
 	m := NewManager(h.Env)
 	m.Enabled = true
 	return h, m
@@ -87,7 +87,7 @@ func TestOpenChecksWhoAndWhat(t *testing.T) {
 	os.MkdirAll(filepath.Join(h.Base, "usr/bin"), 0o755)
 	os.WriteFile(filepath.Join(h.Base, "usr/bin/bwrap"), []byte("x"), 0o755)
 	os.MkdirAll(filepath.Join(h.Base, "usr/local/sbin"), 0o755)
-	os.WriteFile(filepath.Join(h.Base, "usr/local/sbin/whacp-jailsh"), []byte("x"), 0o755)
+	os.WriteFile(filepath.Join(h.Base, "usr/local/sbin/nimvor-jailsh"), []byte("x"), 0o755)
 	if res, err := jail.Open(OpenParams{User: "shop"}); err != nil || res["mode"] != "jailed" {
 		t.Fatalf("jailed: %v %v", res, err)
 	}
@@ -102,10 +102,10 @@ func TestSystemdArgs(t *testing.T) {
 	s.TTY, s.Max = "/dev/pts/7", time.Hour
 	a := strings.Join(SystemdArgs(s), "\n")
 	for _, want := range []string{
-		"--unit=whacp-term-" + s.ID + ".service", fmt.Sprintf("--uid=%d", s.UID), "--slice=whacp-acct7.slice",
+		"--unit=nimvor-term-" + s.ID + ".service", fmt.Sprintf("--uid=%d", s.UID), "--slice=nimvor-acct7.slice",
 		"--property=NoNewPrivileges=yes", "--property=CapabilityBoundingSet=", "--property=ProtectSystem=full",
 		"--property=RuntimeMaxSec=3660", "--property=TasksMax=512", "--property=SupplementaryGroups=990",
-		"--\n/bin/sh\n-c\nt=$$1; shift; exec \"$$@\" <\"$$t\" >\"$$t\" 2>&1\nwhacp-term\n/dev/pts/7\n/bin/bash\n-l",
+		"--\n/bin/sh\n-c\nt=$$1; shift; exec \"$$@\" <\"$$t\" >\"$$t\" 2>&1\nnimvor-term\n/dev/pts/7\n/bin/bash\n-l",
 	} {
 		if !strings.Contains(a, want) {
 			t.Errorf("missing %q in\n%s", want, a)
@@ -121,7 +121,7 @@ func TestSystemdArgs(t *testing.T) {
 	if strings.Contains(ja, "ProtectKernelTunables") || strings.Contains(ja, "ProtectKernelLogs") {
 		t.Errorf("jailed session keeps /proc covers:\n%s", ja)
 	}
-	for _, want := range []string{"--property=NoNewPrivileges=yes", "--property=CapabilityBoundingSet=", "--property=ProtectSystem=full", "--property=ProtectControlGroups=yes", "--slice=whacp-acct7.slice"} {
+	for _, want := range []string{"--property=NoNewPrivileges=yes", "--property=CapabilityBoundingSet=", "--property=ProtectSystem=full", "--property=ProtectControlGroups=yes", "--slice=nimvor-acct7.slice"} {
 		if !strings.Contains(ja, want) {
 			t.Errorf("jailed session lacks %q", want)
 		}

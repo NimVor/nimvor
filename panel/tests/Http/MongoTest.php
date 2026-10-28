@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Server → MongoDB: databases and users, admin only. */
 final class MongoTest extends HttpTestCase
@@ -164,7 +164,7 @@ final class MongoTest extends HttpTestCase
     public function testAdminPasswordAndAuthToggle(): void
     {
         $this->login('admin');
-        $this->agent->succeed('mongo.admin_password', ['user' => 'whacpAdmin']);
+        $this->agent->succeed('mongo.admin_password', ['user' => 'nimvorAdmin']);
         $this->post('/mongo/admin-password', ['password' => 'longenough-admin']);
         self::assertSame('longenough-admin', $this->lastCall('mongo.admin_password')['password']);
 
@@ -184,9 +184,9 @@ final class MongoTest extends HttpTestCase
     {
         // A role with only the MongoDB permissions — no server.view/manage —
         // can view and manage MongoDB, proving the new permissions stand alone.
-        $svc = $this->app->container->get(\WhaCP\Services\RoleService::class);
+        $svc = $this->app->container->get(\NimVor\Services\RoleService::class);
         $roleId = $svc->create(['name' => 'mongoadmin', 'label' => 'MongoDB admin', 'permissions' => [
-            \WhaCP\Security\Permissions::MONGO_VIEW, \WhaCP\Security\Permissions::MONGO_MANAGE,
+            \NimVor\Security\Permissions::MONGO_VIEW, \NimVor\Security\Permissions::MONGO_MANAGE,
         ]]);
         $this->app->container->get(Connection::class)->run('UPDATE roles SET scope = ? WHERE id = ?', ['all', $roleId]);
         $this->seedUser('mdba', 'mongoadmin');
@@ -248,7 +248,7 @@ final class MongoTest extends HttpTestCase
         self::assertStringContainsString('/mongo/browser?db=shop', $page);
         // The browser is a full-page tool with a collections sidebar.
         $tool = $this->request('GET', '/mongo/browser')->body();
-        foreach (['MongoDB browser', 'id="wcp-mongo"', 'assets/js/mongobrowser.js', 'Choose a database', 'shop'] as $want) {
+        foreach (['MongoDB browser', 'id="nim-mongo"', 'assets/js/mongobrowser.js', 'Choose a database', 'shop'] as $want) {
             self::assertStringContainsString($want, $tool, $want);
         }
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Update WhaCP from its source checkout in one step:
+# Update NimVor from its source checkout in one step:
 #
 #   sudo ./installer/update.sh [install.sh options]
 #
@@ -30,7 +30,7 @@ main() {
 
     [[ $EUID -eq 0 ]] || die "run as root: sudo $0"
     [[ -d $src/.git ]] || die "$src is not a git checkout; for a release archive, download the new release and run its installer/upgrade.sh"
-    [[ -d /opt/whacp && -d /etc/whacp ]] || die "WhaCP is not installed here; run installer/install.sh"
+    [[ -d /opt/nimvor && -d /etc/nimvor ]] || die "NimVor is not installed here; run installer/install.sh"
     command -v git >/dev/null || die "git is not installed"
 
     owner=$(stat -c %U "$src")
@@ -38,7 +38,7 @@ main() {
         if [[ $owner == root ]]; then "$@"; else runuser -u "$owner" -- "$@"; fi
     }
 
-    log "Updating the WhaCP checkout in $src (owner: $owner)"
+    log "Updating the NimVor checkout in $src (owner: $owner)"
     if [[ $owner != root && -n $(find "$src" ! -user "$owner" -print -quit 2>/dev/null) ]]; then
         chown -R "$owner": "$src"
         ok "gave files left by root back to $owner"
@@ -49,6 +49,7 @@ main() {
         as_owner git -C "$src" status --short --untracked-files=no >&2
         die "the checkout has local changes (above); commit or undo them (git -C $src stash), then run this again"
     fi
+    as_owner git -C "$src" symbolic-ref -q HEAD >/dev/null || die "this checkout is pinned to a release (detached HEAD), so there is no branch to pull. To change release, run the install command again: curl -fsSL https://nimvor.com/install | sudo bash -s -- [--version X]"
     before=$(as_owner git -C "$src" rev-parse --short HEAD)
     as_owner git -C "$src" pull --ff-only --quiet || die "git pull failed (see above); nothing was changed"
     after=$(as_owner git -C "$src" rev-parse --short HEAD)

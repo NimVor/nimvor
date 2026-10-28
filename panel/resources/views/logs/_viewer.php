@@ -1,6 +1,6 @@
-<?php /** @var \WhaCP\View\View $this */ ?>
+<?php /** @var \NimVor\View\View $this */ ?>
 <?php if ($agentError !== null): ?><?= $this->partial('partials/agent_error', ['error' => $agentError]) ?><?php endif; ?>
-<div class="card" id="wcp-logs" data-tail="<?= e($this->url('logs.tail')) ?>" data-download="<?= e($this->url('logs.download')) ?>">
+<div class="card" id="nim-logs" data-tail="<?= e($this->url('logs.tail')) ?>" data-download="<?= e($this->url('logs.download')) ?>">
     <div class="card-header d-flex flex-wrap gap-2 align-items-center">
         <select class="form-select form-select-sm w-auto" data-log-source aria-label="Log">
             <?php if ($sources === []): ?><option value="">No logs yet</option><?php endif; ?>
@@ -20,7 +20,7 @@
             <a class="btn btn-sm btn-outline-secondary" href="#" data-log-download><i class="bi bi-download"></i> Download</a>
         </div>
     </div>
-    <pre class="wcp-pre wcp-logview mb-0 rounded-0" data-log-output aria-live="polite"></pre>
+    <pre class="nim-pre nim-logview mb-0 rounded-0" data-log-output aria-live="polite"></pre>
     <div class="card-footer small text-body-secondary" data-log-status></div>
 </div>
 <script src="<?= e($this->asset('assets/js/logs.js')) ?>" defer></script>

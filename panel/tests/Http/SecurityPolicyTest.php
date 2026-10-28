@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Http\Session\ArraySession;
-use WhaCP\Mail\Mailer;
-use WhaCP\Security\PasswordPolicy;
-use WhaCP\Tests\Support\ArrayMailer;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Http\Session\ArraySession;
+use NimVor\Mail\Mailer;
+use NimVor\Security\PasswordPolicy;
+use NimVor\Tests\Support\ArrayMailer;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Security → Configure Security Policies and Password Strength Configuration. */
 final class SecurityPolicyTest extends HttpTestCase
@@ -54,7 +54,7 @@ final class SecurityPolicyTest extends HttpTestCase
             self::assertStringContainsString($want, $page, $want);
         }
         $this->post('/security/password-strength', ['password_min_strength' => '70', 'password_min_length' => '14', 'password_min_special' => '2', 'password_min_numeric' => '1', 'password_min_alpha' => '4', 'password_min_upper' => '1', 'password_min_lower' => '1']);
-        self::assertSame(2, $this->app->container->get(\WhaCP\Services\SettingsService::class)->int('password_min_special'));
+        self::assertSame(2, $this->app->container->get(\NimVor\Services\SettingsService::class)->int('password_min_special'));
         // Panel users.
         $this->post('/profile/password', ['current_password' => 'a-long-test-password', 'password' => 'Sunflower-2024x', 'password_confirmation' => 'Sunflower-2024x']);
         self::assertStringContainsString('2 special characters', (string) $this->flash('error') . json_encode($this->session->get('_flash')));
@@ -64,7 +64,7 @@ final class SecurityPolicyTest extends HttpTestCase
         self::assertStringContainsString('At least 14 characters, 2 special', $this->request('GET', '/profile')->body());
         // Out of range values are refused.
         $this->post('/security/password-strength', ['password_min_strength' => '101']);
-        self::assertSame(70, $this->app->container->get(\WhaCP\Services\SettingsService::class)->int('password_min_strength'));
+        self::assertSame(70, $this->app->container->get(\NimVor\Services\SettingsService::class)->int('password_min_strength'));
         // Generated passwords meet the policy.
         $policy = $this->app->container->get(PasswordPolicy::class);
         self::assertNull($policy->check($policy->generate(20, ':')));
@@ -82,7 +82,7 @@ final class SecurityPolicyTest extends HttpTestCase
     {
         $this->login('admin');
         $page = $this->request('GET', '/security/policies')->body();
-        foreach (['Limit logins to verified IP addresses', 'Two-Factor Authentication: Google Authenticator', 'Password Strength', 'Password Age', 'WhaCP webmail'] as $want) {
+        foreach (['Limit logins to verified IP addresses', 'Two-Factor Authentication: Google Authenticator', 'Password Strength', 'Password Age', 'NimVor webmail'] as $want) {
             self::assertStringContainsString($want, $page, $want);
         }
         $customer = (int) $this->db()->scalar("SELECT id FROM roles WHERE name = 'customer'");
@@ -157,7 +157,7 @@ final class SecurityPolicyTest extends HttpTestCase
         self::assertNotSame(200, $this->request('GET', '/security/policies')->status());
         $this->post('/security/policies', ['policy_verified_ips' => '1']);
         $this->post('/security/password-strength', ['password_min_strength' => '0']);
-        $settings = $this->app->container->get(\WhaCP\Services\SettingsService::class);
+        $settings = $this->app->container->get(\NimVor\Services\SettingsService::class);
         self::assertFalse($settings->bool('policy_verified_ips'));
         self::assertSame(65, $settings->int('password_min_strength'));
     }
@@ -220,7 +220,7 @@ final class SecurityPolicyTest extends HttpTestCase
         self::assertSame('4444444444444444', $this->flash('job'));
 
         // Remote database users: refused, nothing restarted.
-        $db = $this->app->container->get(\WhaCP\Database\Connection::class);
+        $db = $this->app->container->get(\NimVor\Database\Connection::class);
         $db->run("INSERT INTO database_users (server_id, username, host, created_at) VALUES (1, 'app', '203.0.113.5', '2026-01-01')");
         $this->agent->succeed('db.server_settings', ['changed' => ['bind_address']]);
         $this->post('/security/fix', ['check' => 'database_network', 'op' => 'apply']);

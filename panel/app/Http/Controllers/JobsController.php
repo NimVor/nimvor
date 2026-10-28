@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentException;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Services\JobTracker;
-use WhaCP\View\View;
+use NimVor\Agent\AgentException;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Services\JobTracker;
+use NimVor\View\View;
 
 /**
  * JSON polling endpoint for background job logs.

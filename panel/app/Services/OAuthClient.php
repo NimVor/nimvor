@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Support\UserFacingException;
+use NimVor\Support\UserFacingException;
 
 /**
  * Minimal OAuth 2.0 client for connecting Google Drive: builds the consent

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Security;
+namespace NimVor\Security;
 
 /** ISO 3166-1 countries (code => name), from the iso-codes project. */
 final class Countries

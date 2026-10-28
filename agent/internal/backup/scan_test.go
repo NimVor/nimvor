@@ -27,14 +27,14 @@ func TestRecoverOntoANewServer(t *testing.T) {
 	// server backup, kept in remote storage only.
 	h1, s1 := siteHost(t)
 	cred1, _, _ := h1.Env.Credential("example")
-	enc, err := s1.CreateSite(ctx, SiteRequest{Domain: "example.com", User: "example", Root: "/home/whacp/example.com", Files: true, Databases: []string{"shop"}, Encrypt: true, Remote: remote, KeepLocal: &keep}, cred1, &log)
+	enc, err := s1.CreateSite(ctx, SiteRequest{Domain: "example.com", User: "example", Root: "/home/nimvor/example.com", Files: true, Databases: []string{"shop"}, Encrypt: true, Remote: remote, KeepLocal: &keep}, cred1, &log)
 	if err != nil {
 		t.Fatalf("%v\n%s", err, log.String())
 	}
 	if enc.Mac == "" {
 		t.Fatal("encrypted backup without a manifest MAC")
 	}
-	plain, err := s1.CreateSite(ctx, SiteRequest{Domain: "example.com", User: "example", Root: "/home/whacp/example.com", Files: true, Remote: remote, KeepLocal: &keep}, cred1, &log)
+	plain, err := s1.CreateSite(ctx, SiteRequest{Domain: "example.com", User: "example", Root: "/home/nimvor/example.com", Files: true, Remote: remote, KeepLocal: &keep}, cred1, &log)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,23 +103,23 @@ func TestRecoverOntoANewServer(t *testing.T) {
 			t.Errorf("%s: not found in %+v", c.what, found)
 		}
 	}
-	if h2.Exists("var/backups/whacp/sites/forged.test") || h2.Exists("var/backups/whacp/sites/moved.test") {
+	if h2.Exists("var/backups/nimvor/sites/forged.test") || h2.Exists("var/backups/nimvor/sites/moved.test") {
 		t.Error("an untrusted backup was recorded")
 	}
 
 	// The imported backup restores on the new server from the storage.
 	cred2, _, _ := h2.Env.Credential("example")
-	if _, err := s2.Restore(ctx, RestoreRequest{Domain: "example.com", User: "example", Root: "/home/whacp/example.com", ID: enc.ID, Files: true, Databases: map[string]string{"shop": "shop"}, Remote: remote}, cred2, &log); err != nil {
+	if _, err := s2.Restore(ctx, RestoreRequest{Domain: "example.com", User: "example", Root: "/home/nimvor/example.com", ID: enc.ID, Files: true, Databases: map[string]string{"shop": "shop"}, Remote: remote}, cred2, &log); err != nil {
 		t.Fatalf("restore on the new server: %v\n%s", err, log.String())
 	}
-	if !h2.Runner.Called("tar -C " + filepath.Join(h2.Base, "home/whacp/example.com") + " --no-same-owner -xf -") {
+	if !h2.Runner.Called("tar -C " + filepath.Join(h2.Base, "home/nimvor/example.com") + " --no-same-owner -xf -") {
 		t.Errorf("files not restored: %v", h2.Runner.Calls)
 	}
 
 	// Searching again changes nothing and still lists the backup.
 	again, _ := s2.ImportRemote(ctx, remote)
 	var m Manifest
-	raw, _ := os.ReadFile(filepath.Join(h2.Base, "var/backups/whacp/sites/example.com", enc.ID, "manifest.json"))
+	raw, _ := os.ReadFile(filepath.Join(h2.Base, "var/backups/nimvor/sites/example.com", enc.ID, "manifest.json"))
 	json.Unmarshal(raw, &m)
 	if len(again) != len(found) || m.Local || m.Remote == nil || m.Mac != enc.Mac {
 		t.Fatalf("second search: %d vs %d, manifest %+v", len(again), len(found), m)
@@ -154,7 +154,7 @@ func TestManifestMACSurvivesStorage(t *testing.T) {
 	cred, _, _ := h.Env.Credential("example")
 	var log bytes.Buffer
 	for _, meta := range []string{`{"website":{"domain":"example.com","x":"<a&b>"},"panel_version":1}`, `{"b":1,"a":[1,2]}`} {
-		m, err := s.CreateSite(context.Background(), SiteRequest{Domain: "example.com", User: "example", Root: "/home/whacp/example.com", Files: true, Encrypt: true, Meta: json.RawMessage(meta)}, cred, &log)
+		m, err := s.CreateSite(context.Background(), SiteRequest{Domain: "example.com", User: "example", Root: "/home/nimvor/example.com", Files: true, Encrypt: true, Meta: json.RawMessage(meta)}, cred, &log)
 		if err != nil {
 			t.Fatal(err)
 		}

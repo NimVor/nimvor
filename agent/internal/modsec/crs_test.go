@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/txn"
+	"github.com/NimVor/nimvor/agent/internal/txn"
 )
 
 // crsArchive builds a release-like archive; extra adds hostile entries.
@@ -154,14 +154,14 @@ func TestDetectionOnlyBeforeBlocking(t *testing.T) {
 	if _, err := f.call(t, "modsec.site", `{"domain":"shop.test","mode":"on"}`); err != nil {
 		t.Fatal(err)
 	}
-	site := f.h.Read("etc/nginx/whacp-modsec/sites/shop.test.conf")
+	site := f.h.Read("etc/nginx/nimvor-modsec/sites/shop.test.conf")
 	if !strings.Contains(site, "SecRuleEngine DetectionOnly") {
 		t.Fatalf("blocking before it was allowed:\n%s", site)
 	}
 	if _, err := f.call(t, "modsec.configure", `{"enabled":true,"detection_only":false,"crs":{"enabled":true}}`); err != nil {
 		t.Fatal(err)
 	}
-	if site := f.h.Read("etc/nginx/whacp-modsec/sites/shop.test.conf"); strings.Contains(site, "DetectionOnly") {
+	if site := f.h.Read("etc/nginx/nimvor-modsec/sites/shop.test.conf"); strings.Contains(site, "DetectionOnly") {
 		t.Fatalf("still detection only:\n%s", site)
 	}
 }

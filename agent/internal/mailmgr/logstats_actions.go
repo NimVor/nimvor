@@ -9,8 +9,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
 // Plain mail logs, when the journal has none (rsyslog, Postfix maillog_file).

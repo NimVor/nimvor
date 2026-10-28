@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Agent;
+namespace NimVor\Agent;
 
 /**
  * HTTP over the agent's Unix socket using ext-curl.
@@ -19,9 +19,9 @@ final class UnixSocketTransport implements AgentTransport
     {
         if (!file_exists($this->socketPath)) {
             throw new AgentUnavailableException(
-                'The WhaCP agent is not reachable.',
+                'The NimVor agent is not reachable.',
                 'The agent socket does not exist; the agent service is probably stopped.',
-                'Start the agent with "systemctl start whacp-agent" and check "journalctl -u whacp-agent".',
+                'Start the agent with "systemctl start nimvor-agent" and check "journalctl -u nimvor-agent".',
                 'agent_unavailable',
             );
         }
@@ -55,9 +55,9 @@ final class UnixSocketTransport implements AgentTransport
         if ($ok === false || $errno !== 0) {
             $timeout = $errno === CURLE_OPERATION_TIMEDOUT;
             throw new AgentUnavailableException(
-                $timeout ? 'The WhaCP agent did not respond in time.' : 'The WhaCP agent is not reachable.',
+                $timeout ? 'The NimVor agent did not respond in time.' : 'The NimVor agent is not reachable.',
                 $timeout ? 'The request exceeded the configured timeout.' : 'The connection to the agent socket failed (curl error ' . $errno . ').',
-                'Check that whacp-agent is running and that the panel user belongs to the agent socket group.',
+                'Check that nimvor-agent is running and that the panel user belongs to the agent socket group.',
                 $timeout ? 'agent_timeout' : 'agent_unavailable',
             );
         }

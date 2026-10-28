@@ -1,7 +1,7 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var array<string, mixed> $fw */
-$canManage = $this->can(\WhaCP\Security\Permissions::SECURITY_MANAGE);
+$canManage = $this->can(\NimVor\Security\Permissions::SECURITY_MANAGE);
 $rules = (array) ($fw['rules'] ?? []);
 $errors ??= [];
 // Listening ports: "tcp/22" => reachable from outside (false: loopback only).
@@ -56,38 +56,38 @@ $state = static function (array $r) use ($ports, $listening): ?string {
 };
 $portRules = count(array_filter($rules, static fn ($r) => ($r['port'] ?? '') !== ''));
 $ipRules = count($rules) - $portRules;
-$strategy = ['allow' => ['Allow', 'wcp-good'], 'limit' => ['Allow (rate-limited)', 'wcp-good'], 'deny' => ['Deny', 'wcp-bad'], 'reject' => ['Reject', 'wcp-bad']];
+$strategy = ['allow' => ['Allow', 'nim-good'], 'limit' => ['Allow (rate-limited)', 'nim-good'], 'deny' => ['Deny', 'nim-bad'], 'reject' => ['Reject', 'nim-bad']];
 ?>
 <?= $this->partial('security/_header', get_defined_vars()) ?>
 <?php if ($fw !== [] && empty($fw['installed'])): ?>
-    <div class="wcp-infobar"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>The firewall (<?= ($fw['backend'] ?? '') === 'firewalld' ? 'firewalld' : 'UFW' ?>) is not installed. Install it from <a href="<?= e($this->url('packages')) ?>">Packages</a>.</span></div>
+    <div class="nim-infobar"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>The firewall (<?= ($fw['backend'] ?? '') === 'firewalld' ? 'firewalld' : 'UFW' ?>) is not installed. Install it from <a href="<?= e($this->url('packages')) ?>">Packages</a>.</span></div>
 <?php elseif ($fw !== []): ?>
 <?php $required = (array) ($fw['required'] ?? []); $myIp ??= ''; $active = !empty($fw['active']); ?>
-<div class="wcp-panel mb-3">
-    <div class="wcp-statusbar">
+<div class="nim-panel mb-3">
+    <div class="nim-statusbar">
         <?php if ($canManage && $active): ?>
-            <form method="post" action="<?= e($this->url('security.firewall.toggle')) ?>" data-wcp-confirm="Turn off the firewall? Every listening service becomes reachable.">
+            <form method="post" action="<?= e($this->url('security.firewall.toggle')) ?>" data-nim-confirm="Turn off the firewall? Every listening service becomes reachable.">
                 <?= $this->csrfField() ?><input type="hidden" name="enabled" value="0">
                 <div class="form-check form-switch">
                     <label class="form-check-label fw-medium" for="fw-on">Firewall</label>
-                    <input class="form-check-input" type="checkbox" role="switch" id="fw-on" data-wcp-switch-submit checked>
+                    <input class="form-check-input" type="checkbox" role="switch" id="fw-on" data-nim-switch-submit checked>
                 </div>
             </form>
         <?php else: ?>
             <span class="fw-medium">Firewall</span>
         <?php endif; ?>
-        <span><?= $active ? '<span class="wcp-state is-ok">On</span>' : '<span class="wcp-state is-error">Off</span>' ?></span>
-        <span class="small"><span class="wcp-muted">Backend</span> <?= e(($fw['backend'] ?? 'ufw') === 'firewalld' ? 'firewalld' : 'UFW') ?></span>
-        <?php if (!empty($fw['default_incoming'])): ?><span class="small"><span class="wcp-muted">Incoming</span> <?= e((string) $fw['default_incoming']) ?> · <span class="wcp-muted">Outgoing</span> <?= e((string) ($fw['default_outgoing'] ?? '?')) ?></span><?php endif; ?>
-        <span class="small"><span class="wcp-muted">SSH port</span> <?= (int) ($fw['ssh_port'] ?? 22) ?> <?= !empty($fw['ssh_allowed']) ? '<i class="bi bi-check-circle-fill wcp-good" title="Allowed"></i>' : '<i class="bi bi-exclamation-triangle-fill wcp-warn" title="No rule allows SSH yet"></i>' ?></span>
+        <span><?= $active ? '<span class="nim-state is-ok">On</span>' : '<span class="nim-state is-error">Off</span>' ?></span>
+        <span class="small"><span class="nim-muted">Backend</span> <?= e(($fw['backend'] ?? 'ufw') === 'firewalld' ? 'firewalld' : 'UFW') ?></span>
+        <?php if (!empty($fw['default_incoming'])): ?><span class="small"><span class="nim-muted">Incoming</span> <?= e((string) $fw['default_incoming']) ?> · <span class="nim-muted">Outgoing</span> <?= e((string) ($fw['default_outgoing'] ?? '?')) ?></span><?php endif; ?>
+        <span class="small"><span class="nim-muted">SSH port</span> <?= (int) ($fw['ssh_port'] ?? 22) ?> <?= !empty($fw['ssh_allowed']) ? '<i class="bi bi-check-circle-fill nim-good" title="Allowed"></i>' : '<i class="bi bi-exclamation-triangle-fill nim-warn" title="No rule allows SSH yet"></i>' ?></span>
     </div>
 </div>
 
 <?php if ($required !== []): ?>
-<div class="wcp-panel mb-3" id="fw-required">
-    <div class="fw-semibold mb-1">Ports WhaCP keeps open</div>
+<div class="nim-panel mb-3" id="fw-required">
+    <div class="fw-semibold mb-1">Ports NimVor keeps open</div>
     <div class="small text-body-secondary mb-2">SSH and the panel are always opened before the firewall is turned on, and their last rule cannot be deleted while it is on. Service ports are those of services listening on this server.</div>
-    <div class="wcp-dtable table-responsive">
+    <div class="nim-dtable table-responsive">
         <table class="table align-middle">
             <thead><tr><th>Port</th><th>Protocol</th><th>Used by</th><th>Status</th><?php if ($canManage && $active): ?><th></th><?php endif; ?></tr></thead>
             <tbody>
@@ -96,11 +96,11 @@ $strategy = ['allow' => ['Allow', 'wcp-good'], 'limit' => ['Allow (rate-limited)
                     <td class="font-monospace"><?= e((string) $p['port']) ?><?php if (!empty($p['from'])): ?> <span class="small text-body-secondary">from <?= e((string) $p['from']) ?></span><?php endif; ?></td>
                     <td class="small"><?= e(strtoupper((string) $p['proto'])) ?></td>
                     <td><?= e((string) $p['service']) ?><?php if (!empty($p['critical'])): ?> <span class="badge text-bg-light border fw-normal">access</span><?php endif; ?></td>
-                    <td><?= !empty($p['open']) ? '<span class="wcp-state is-ok">Allowed</span>' : '<span class="wcp-state is-warn">' . ($active ? 'Not allowed' : 'Opened when turned on') . '</span>' ?></td>
+                    <td><?= !empty($p['open']) ? '<span class="nim-state is-ok">Allowed</span>' : '<span class="nim-state is-warn">' . ($active ? 'Not allowed' : 'Opened when turned on') . '</span>' ?></td>
                     <?php if ($canManage && $active): ?>
                         <td class="text-end">
                             <?php if (empty($p['open'])): ?>
-                                <form method="post" action="<?= e($this->url('security.firewall.add')) ?>" data-wcp-busy>
+                                <form method="post" action="<?= e($this->url('security.firewall.add')) ?>" data-nim-busy>
                                     <?= $this->csrfField() ?>
                                     <input type="hidden" name="action" value="allow"><input type="hidden" name="port" value="<?= e((string) $p['port']) ?>"><input type="hidden" name="proto" value="<?= e((string) $p['proto']) ?>"><input type="hidden" name="from" value="<?= e((string) ($p['from'] ?? '')) ?>"><input type="hidden" name="comment" value="<?= e(substr(trim((string) preg_replace(['/[^A-Za-z0-9 ._:\/-]+/', '/ {2,}/'], ' ', (string) $p['service'])), 0, 60)) ?>">
                                     <button class="btn btn-sm btn-outline-primary" aria-label="Allow <?= e($p['port'] . '/' . $p['proto']) ?>">Allow</button>
@@ -117,7 +117,7 @@ $strategy = ['allow' => ['Allow', 'wcp-good'], 'limit' => ['Allow (rate-limited)
 <?php endif; ?>
 
 <?php if ($canManage && !$active): ?>
-<form class="wcp-panel mb-3" method="post" action="<?= e($this->url('security.firewall.toggle')) ?>" data-wcp-busy id="fw-enable">
+<form class="nim-panel mb-3" method="post" action="<?= e($this->url('security.firewall.toggle')) ?>" data-nim-busy id="fw-enable">
     <?= $this->csrfField() ?><input type="hidden" name="enabled" value="1">
     <div class="fw-semibold mb-2">Turn on the firewall</div>
     <div class="form-check mb-1">
@@ -136,28 +136,28 @@ $strategy = ['allow' => ['Allow', 'wcp-good'], 'limit' => ['Allow (rate-limited)
 </form>
 <?php endif; ?>
 
-<div class="wcp-panel" data-wcp-dt id="fw-rules">
-    <div class="wcp-subtabs" role="group" aria-label="Rule kind">
-        <button class="active" type="button" data-wcp-dt-seg data-key="kind" data-value="" aria-pressed="true">All rules: <?= count($rules) ?></button>
-        <button type="button" data-wcp-dt-seg data-key="kind" data-value="port" aria-pressed="false">Port rules: <?= $portRules ?></button>
-        <button type="button" data-wcp-dt-seg data-key="kind" data-value="ip" aria-pressed="false">IP rules: <?= $ipRules ?></button>
+<div class="nim-panel" data-nim-dt id="fw-rules">
+    <div class="nim-subtabs" role="group" aria-label="Rule kind">
+        <button class="active" type="button" data-nim-dt-seg data-key="kind" data-value="" aria-pressed="true">All rules: <?= count($rules) ?></button>
+        <button type="button" data-nim-dt-seg data-key="kind" data-value="port" aria-pressed="false">Port rules: <?= $portRules ?></button>
+        <button type="button" data-nim-dt-seg data-key="kind" data-value="ip" aria-pressed="false">IP rules: <?= $ipRules ?></button>
     </div>
-    <div class="wcp-actionbar">
+    <div class="nim-actionbar">
         <?php if ($canManage): ?>
             <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#new-rule"><i class="bi bi-plus-lg me-1"></i>Add rule</button>
         <?php endif; ?>
-        <div class="wcp-actionbar-end">
-            <div class="wcp-seg" role="group" aria-label="Direction">
-                <button class="active" type="button" data-wcp-dt-seg data-key="dir" data-value="" aria-pressed="true">All directions</button>
-                <button type="button" data-wcp-dt-seg data-key="dir" data-value="in" aria-pressed="false">Inbound</button>
-                <button type="button" data-wcp-dt-seg data-key="dir" data-value="out" aria-pressed="false">Outbound</button>
+        <div class="nim-actionbar-end">
+            <div class="nim-seg" role="group" aria-label="Direction">
+                <button class="active" type="button" data-nim-dt-seg data-key="dir" data-value="" aria-pressed="true">All directions</button>
+                <button type="button" data-nim-dt-seg data-key="dir" data-value="in" aria-pressed="false">Inbound</button>
+                <button type="button" data-nim-dt-seg data-key="dir" data-value="out" aria-pressed="false">Outbound</button>
             </div>
-            <div class="wcp-search"><input class="form-control form-control-sm" type="search" placeholder="Port, address or remark" aria-label="Search rules" data-wcp-dt-search><i class="bi bi-search" aria-hidden="true"></i></div>
+            <div class="nim-search"><input class="form-control form-control-sm" type="search" placeholder="Port, address or remark" aria-label="Search rules" data-nim-dt-search><i class="bi bi-search" aria-hidden="true"></i></div>
         </div>
     </div>
     <?php if ($canManage): ?>
         <?= $this->modalStart('new-rule', 'Add firewall rule', $errors !== []) ?>
-            <form class="wcp-form-panel border rounded-3 p-3 mb-3" method="post" action="<?= e($this->url('security.firewall.add')) ?>" data-wcp-busy>
+            <form class="nim-form-panel border rounded-3 p-3 mb-3" method="post" action="<?= e($this->url('security.firewall.add')) ?>" data-nim-busy>
                 <?= $this->csrfField() ?>
                 <div class="row g-2 align-items-end">
                     <div class="col-6 col-md-2"><label class="form-label small" for="r-action">Strategy</label>
@@ -176,7 +176,7 @@ $strategy = ['allow' => ['Allow', 'wcp-good'], 'limit' => ['Allow (rate-limited)
             </form>
         <?= $this->modalEnd() ?>
     <?php endif; ?>
-    <div class="wcp-dtable table-responsive">
+    <div class="nim-dtable table-responsive">
         <table class="table align-middle">
             <thead><tr><th>Protocol</th><th>Port</th><th>Status</th><th>Strategy</th><th>Direction</th><th>Source IP</th><th>Remarks</th><th class="text-end">Operate</th></tr></thead>
             <tbody>
@@ -186,26 +186,26 @@ $strategy = ['allow' => ['Allow', 'wcp-good'], 'limit' => ['Allow (rate-limited)
                 $st = $state($r);
                 [$act, $actClass] = $strategy[$r['action']] ?? [ucfirst((string) $r['action']), ''];
                 ?>
-                <tr data-wcp-row data-dt-kind="<?= $port !== '' ? 'port' : 'ip' ?>" data-dt-dir="<?= e($dir === 'route' ? 'in out' : $dir) ?>" title="<?= e((string) $r['spec']) ?>">
+                <tr data-nim-row data-dt-kind="<?= $port !== '' ? 'port' : 'ip' ?>" data-dt-dir="<?= e($dir === 'route' ? 'in out' : $dir) ?>" title="<?= e((string) $r['spec']) ?>">
                     <td><?= e(($r['proto'] ?? '') === '' ? 'tcp/udp' : (string) $r['proto']) ?></td>
-                    <td class="fw-semibold"><?= $port !== '' ? e(str_replace(',', ', ', $port)) : '<span class="wcp-muted">All</span>' ?><?php if (!empty($r['ssh'])): ?> <span class="badge text-bg-light border fw-normal">SSH</span><?php endif; ?></td>
-                    <td class="small"><?= match ($st) { 'listening' => '<span class="wcp-good">Listening</span>', 'local' => '<span class="wcp-warn" title="Only on this server (127.0.0.1)">Local only</span>', 'idle' => '<span class="wcp-muted">Not listening</span>', default => '<span class="wcp-muted">—</span>' } ?></td>
+                    <td class="fw-semibold"><?= $port !== '' ? e(str_replace(',', ', ', $port)) : '<span class="nim-muted">All</span>' ?><?php if (!empty($r['ssh'])): ?> <span class="badge text-bg-light border fw-normal">SSH</span><?php endif; ?></td>
+                    <td class="small"><?= match ($st) { 'listening' => '<span class="nim-good">Listening</span>', 'local' => '<span class="nim-warn" title="Only on this server (127.0.0.1)">Local only</span>', 'idle' => '<span class="nim-muted">Not listening</span>', default => '<span class="nim-muted">—</span>' } ?></td>
                     <td><span class="<?= e($actClass) ?>"><?= e($act) ?></span></td>
                     <td><?= $dir === 'out' ? 'Outbound' : ($dir === 'route' ? 'Routed' : 'Inbound') ?></td>
                     <td class="small"><?= ($r['from'] ?? '') !== '' ? '<code>' . e((string) $r['from']) . '</code>' : 'All' ?></td>
                     <td class="small"><?= e((string) ($r['comment'] ?? '')) ?></td>
                     <td class="text-end">
                         <?php if ($canManage): ?>
-                            <span class="wcp-ops"><form method="post" action="<?= e($this->url('security.firewall.delete')) ?>" data-wcp-confirm="Delete the rule “<?= e($r['spec']) ?>”?"><?= $this->csrfField() ?><input type="hidden" name="spec" value="<?= e($r['spec']) ?>"><button class="wcp-op is-danger" aria-label="Delete the rule <?= e($r['spec']) ?>">Delete</button></form></span>
+                            <span class="nim-ops"><form method="post" action="<?= e($this->url('security.firewall.delete')) ?>" data-nim-confirm="Delete the rule “<?= e($r['spec']) ?>”?"><?= $this->csrfField() ?><input type="hidden" name="spec" value="<?= e($r['spec']) ?>"><button class="nim-op is-danger" aria-label="Delete the rule <?= e($r['spec']) ?>">Delete</button></form></span>
                         <?php endif; ?>
                     </td>
                 </tr>
             <?php endforeach; ?>
-            <tr class="<?= $rules === [] ? '' : 'd-none' ?>" data-wcp-dt-empty><td colspan="8" class="text-center py-4 wcp-muted"><?= $rules === [] ? 'No rules yet.' : 'No rule matches.' ?></td></tr>
+            <tr class="<?= $rules === [] ? '' : 'd-none' ?>" data-nim-dt-empty><td colspan="8" class="text-center py-4 nim-muted"><?= $rules === [] ? 'No rules yet.' : 'No rule matches.' ?></td></tr>
             </tbody>
         </table>
     </div>
-    <div class="wcp-pager" data-wcp-dt-pager></div>
+    <div class="nim-pager" data-nim-dt-pager></div>
 </div>
 <?php if (is_array($protection ?? null)):
     $pc = (array) ($protection['config'] ?? []);
@@ -215,14 +215,14 @@ $strategy = ['allow' => ['Allow', 'wcp-good'], 'limit' => ['Allow (rate-limited)
     $pon = !empty($pc['enabled']);
     $dis = $canManage ? '' : ' disabled';
     ?>
-<div class="wcp-panel mt-3" id="fw-protect">
-    <div class="wcp-statusbar">
+<div class="nim-panel mt-3" id="fw-protect">
+    <div class="nim-statusbar">
         <span class="fw-medium">Protection</span>
-        <span><?= !empty($protection['active']) ? '<span class="wcp-state is-ok">On</span>' : '<span class="wcp-state">Off</span>' ?></span>
-        <span class="small wcp-muted">Flood and connection limits in the manner of CSF, next to the firewall: they only drop or refuse traffic, never open a port.</span>
+        <span><?= !empty($protection['active']) ? '<span class="nim-state is-ok">On</span>' : '<span class="nim-state">Off</span>' ?></span>
+        <span class="small nim-muted">Flood and connection limits in the manner of CSF, next to the firewall: they only drop or refuse traffic, never open a port.</span>
     </div>
     <?php if (empty($protection['available'])): ?>
-        <div class="wcp-infobar m-3"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>nftables is not installed. Install <strong>nftables</strong> from <a href="<?= e($this->url('packages')) ?>">Packages</a>.</span></div>
+        <div class="nim-infobar m-3"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>nftables is not installed. Install <strong>nftables</strong> from <a href="<?= e($this->url('packages')) ?>">Packages</a>.</span></div>
     <?php else: ?>
     <?php if (!empty($protection['active']) && $dropped !== []): ?>
         <div class="px-3 pt-3 small">
@@ -234,7 +234,7 @@ $strategy = ['allow' => ['Allow', 'wcp-good'], 'limit' => ['Allow (rate-limited)
             <?php endforeach; ?>
         </div>
     <?php endif; ?>
-    <form class="p-3" method="post" action="<?= e($this->url('security.firewall.protection')) ?>" data-wcp-busy>
+    <form class="p-3" method="post" action="<?= e($this->url('security.firewall.protection')) ?>" data-nim-busy>
         <?= $this->csrfField() ?>
         <div class="form-check form-switch mb-3">
             <input type="hidden" name="enabled" value="0">
@@ -244,7 +244,7 @@ $strategy = ['allow' => ['Allow', 'wcp-good'], 'limit' => ['Allow (rate-limited)
         <div class="form-check mb-3">
             <input type="hidden" name="invalid" value="0">
             <input class="form-check-input" type="checkbox" id="pr-invalid" name="invalid" value="1"<?= ($fresh || !empty($pc['invalid'])) ? ' checked' : '' ?><?= $dis ?>>
-            <label class="form-check-label" for="pr-invalid">Drop invalid packets <span class="small wcp-muted">(of no known connection, and impossible TCP flags used by port scans: NULL, Xmas, SYN+FIN; CSF's PACKET_FILTER)</span></label>
+            <label class="form-check-label" for="pr-invalid">Drop invalid packets <span class="small nim-muted">(of no known connection, and impossible TCP flags used by port scans: NULL, Xmas, SYN+FIN; CSF's PACKET_FILTER)</span></label>
         </div>
         <div class="row g-3">
             <div class="col-md-6">
@@ -282,7 +282,7 @@ $strategy = ['allow' => ['Allow', 'wcp-good'], 'limit' => ['Allow (rate-limited)
         <?php if ($canManage): ?>
             <div class="d-flex align-items-center gap-3 mt-3">
                 <button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Apply</button>
-                <span class="small wcp-muted">Applied at once; undone after 2 minutes unless you click <strong>Keep change</strong>.</span>
+                <span class="small nim-muted">Applied at once; undone after 2 minutes unless you click <strong>Keep change</strong>.</span>
             </div>
         <?php endif; ?>
     </form>

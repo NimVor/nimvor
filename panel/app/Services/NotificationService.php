@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Database\Connection;
-use WhaCP\Hosting\Scope;
-use WhaCP\Mail\MailException;
-use WhaCP\Mail\Mailer;
-use WhaCP\Support\Logger;
-use WhaCP\Support\Redactor;
+use NimVor\Database\Connection;
+use NimVor\Hosting\Scope;
+use NimVor\Mail\MailException;
+use NimVor\Mail\Mailer;
+use NimVor\Support\Logger;
+use NimVor\Support\Redactor;
 
 /**
  * Notifications shown in the panel: results of background jobs and
@@ -230,11 +230,11 @@ final class NotificationService
         $base = rtrim($this->settings->string('panel_url'), '/');
         $text = $n['title'] . "\n\n" . ($n['body'] !== '' ? $n['body'] . "\n\n" : '')
             . ($base !== '' ? "Details: {$base}/notifications\n\n" : '')
-            . "-- \nWhaCP. You receive this because \"Email me about failures\" is on in your profile.";
+            . "-- \nNimVor. You receive this because \"Email me about failures\" is on in your profile.";
         foreach ($to as $address) {
             // One message per recipient: addresses are not disclosed to each other.
             try {
-                $this->mailer->send([$address], '[WhaCP] ' . mb_substr((string) $n['title'], 0, 120), $text);
+                $this->mailer->send([$address], '[NimVor] ' . mb_substr((string) $n['title'], 0, 120), $text);
             } catch (MailException $e) {
                 $this->log->warning('notification email failed', ['notification' => $id]);
             }

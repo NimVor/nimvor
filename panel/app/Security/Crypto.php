@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Security;
+namespace NimVor\Security;
 
 use RuntimeException;
 
@@ -10,7 +10,7 @@ use RuntimeException;
  * Authenticated encryption (libsodium secretbox) for secrets the panel must
  * keep: remote agent tokens, backup keys and — only when a user explicitly
  * asks — database passwords. The key lives in a file readable only by the
- * panel (default /etc/whacp/panel.key), never in the database.
+ * panel (default /etc/nimvor/panel.key), never in the database.
  */
 final class Crypto
 {

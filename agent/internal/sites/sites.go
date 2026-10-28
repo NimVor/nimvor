@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/egress"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/limits"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/modsec"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/netmgr"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/tlsprofile"
+	"github.com/NimVor/nimvor/agent/internal/egress"
+	"github.com/NimVor/nimvor/agent/internal/limits"
+	"github.com/NimVor/nimvor/agent/internal/modsec"
+	"github.com/NimVor/nimvor/agent/internal/netmgr"
+	"github.com/NimVor/nimvor/agent/internal/tlsprofile"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -17,15 +17,15 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/ftpmgr"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/users"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/webprotect"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/ftpmgr"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/selinux"
+	"github.com/NimVor/nimvor/agent/internal/users"
+	"github.com/NimVor/nimvor/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/webprotect"
 )
 
 // Register adds the website actions.
@@ -36,11 +36,11 @@ func Register(r *actions.Registry, env *host.Env) {
 			env.Log.Info("site and pool files made unreadable to other accounts", "files", n)
 		}
 	}
-	r.Register(actions.Action{Name: "sites.apply", Mutating: true, Description: "Create or update a WhaCP website (Nginx, PHP-FPM pool, directories, system user).", Handler: m.handleApply})
+	r.Register(actions.Action{Name: "sites.apply", Mutating: true, Description: "Create or update a NimVor website (Nginx, PHP-FPM pool, directories, system user).", Handler: m.handleApply})
 	m.registerRepair(r)
-	r.Register(actions.Action{Name: "sites.delete", Mutating: true, Description: "Remove a WhaCP website's configuration; optionally move its files to the trash.", Handler: m.handleDelete})
-	r.Register(actions.Action{Name: "sites.inspect", Description: "State of a WhaCP website on disk.", Handler: m.handleInspect})
-	r.Register(actions.Action{Name: "sites.list", Description: "WhaCP-managed websites present on this server.", Handler: m.handleList})
+	r.Register(actions.Action{Name: "sites.delete", Mutating: true, Description: "Remove a NimVor website's configuration; optionally move its files to the trash.", Handler: m.handleDelete})
+	r.Register(actions.Action{Name: "sites.inspect", Description: "State of a NimVor website on disk.", Handler: m.handleInspect})
+	r.Register(actions.Action{Name: "sites.list", Description: "NimVor-managed websites present on this server.", Handler: m.handleList})
 }
 
 // Manager implements the site lifecycle.
@@ -48,11 +48,11 @@ type Manager struct{ Env *host.Env }
 
 func (m *Manager) layout(s Spec) Layout {
 	e := m.Env
-	name := "whacp-" + s.Domain + ".conf"
+	name := "nimvor-" + s.Domain + ".conf"
 	l := Layout{
 		NginxFile:  filepath.Join(e.M.NginxAvailable, name),
 		NginxLink:  filepath.Join(e.M.NginxEnabled, name),
-		Socket:     filepath.Join(e.M.PHPSocketDir, "whacp-"+s.Domain+".sock"),
+		Socket:     filepath.Join(e.M.PHPSocketDir, "nimvor-"+s.Domain+".sock"),
 		LogDir:     filepath.Join(s.Root, "logs"),
 		TmpDir:     filepath.Join(s.Root, "tmp"),
 		ACMERoot:   e.M.ACMERoot,
@@ -210,7 +210,10 @@ func (m *Manager) ApplyIgnoring(ctx context.Context, s Spec, ignore []string) (*
 
 	// 3. Configuration, validated before anything is reloaded.
 	cfg := e.Changes("site-" + s.Domain)
-	cfg.Write(filepath.Join(e.M.NginxEnabled, "whacp-00-proxy-map.conf"), []byte(RenderProxyMap()), 0o644, agentfs.RootOwner)
+	cfg.Write(filepath.Join(e.M.NginxEnabled, "nimvor-00-proxy-map.conf"), []byte(RenderProxyMap()), 0o644, agentfs.RootOwner)
+	if s.Cache != nil {
+		cfg.Write(filepath.Join(e.M.NginxEnabled, "nimvor-00-cache-flags.conf"), []byte(RenderCacheFlags()), 0o644, agentfs.RootOwner)
+	}
 	if s.HTTPS {
 		tlsprofile.Ensure(m.Env, cfg)
 	}
@@ -342,10 +345,10 @@ func (m *Manager) reload(ctx context.Context, t fpmTargets) error {
 }
 
 // checkConflicts refuses hostnames already served by configuration that
-// WhaCP does not manage, or by another WhaCP site.
+// NimVor does not manage, or by another NimVor site.
 func (m *Manager) checkConflicts(ctx context.Context, s Spec, ignore []string) error {
 	ng := m.Env.Discovery.Nginx(ctx)
-	mine := "whacp-" + s.Domain + ".conf"
+	mine := "nimvor-" + s.Domain + ".conf"
 	skip := map[string]bool{}
 	for _, f := range ignore {
 		skip[f] = true
@@ -360,15 +363,15 @@ func (m *Manager) checkConflicts(ctx context.Context, s Spec, ignore []string) e
 		}
 		for _, n := range v.ServerNames {
 			if want[strings.ToLower(n)] {
-				owner := "configuration not managed by WhaCP"
-				if strings.HasPrefix(filepath.Base(v.File), "whacp-") {
-					owner = "another WhaCP website"
+				owner := "configuration not managed by NimVor"
+				if strings.HasPrefix(filepath.Base(v.File), "nimvor-") {
+					owner = "another NimVor website"
 				}
 				state := "enabled"
 				if !v.Enabled {
 					state = "disabled"
 				}
-				return actions.Conflict(fmt.Sprintf("%s is already configured in %s (%s, %s). WhaCP will not take it over automatically; remove or rename that configuration first, or use Import.", n, v.File, owner, state))
+				return actions.Conflict(fmt.Sprintf("%s is already configured in %s (%s, %s). NimVor will not take it over automatically; remove or rename that configuration first, or use Import.", n, v.File, owner, state))
 			}
 		}
 	}
@@ -400,7 +403,7 @@ func (m *Manager) ensureUser(ctx context.Context, s Spec) (users.User, bool, err
 	if !usernameRe.MatchString(s.User) {
 		return users.User{}, false, actions.InvalidParams("user: invalid name")
 	}
-	out, err := e.Runner.Run(ctx, "useradd", "--home-dir", s.Root, "--no-create-home", "--shell", "/usr/sbin/nologin", "--user-group", "--comment", "WhaCP website "+s.Domain, "--", s.User)
+	out, err := e.Runner.Run(ctx, "useradd", "--home-dir", s.Root, "--no-create-home", "--shell", "/usr/sbin/nologin", "--user-group", "--comment", "NimVor website "+s.Domain, "--", s.User)
 	if err != nil {
 		return users.User{}, false, actions.Failed("Could not create the system user "+s.User+".", host.Output(out))
 	}
@@ -429,8 +432,8 @@ func versionOfPool(p string) string {
 
 // poolFiles lists existing pool files for a domain across PHP versions.
 func (m *Manager) poolFiles(domain string) []string {
-	matches, _ := m.Env.Root.Glob(filepath.Join(m.Env.M.PoolDir("*"), "whacp-"+domain+".conf"))
-	acct, _ := m.Env.Root.Glob(filepath.Join(FPMRoot, "*", "pool.d", "whacp-"+domain+".conf"))
+	matches, _ := m.Env.Root.Glob(filepath.Join(m.Env.M.PoolDir("*"), "nimvor-"+domain+".conf"))
+	acct, _ := m.Env.Root.Glob(filepath.Join(FPMRoot, "*", "pool.d", "nimvor-"+domain+".conf"))
 	return append(matches, acct...)
 }
 
@@ -452,7 +455,7 @@ func (m *Manager) handleDelete(ctx context.Context, p json.RawMessage) (any, err
 		return nil, host.Invalid(err)
 	}
 	e := m.Env
-	name := "whacp-" + in.Domain + ".conf"
+	name := "nimvor-" + in.Domain + ".conf"
 	if err := e.PrecheckNginx(ctx); err != nil {
 		return nil, err
 	}
@@ -524,24 +527,24 @@ func errText(err error) string {
 
 var poolUserRe = regexp.MustCompile(`(?m)^user = (\S+)$`)
 
-// sitesUsing returns WhaCP sites whose pool runs as user.
+// sitesUsing returns NimVor sites whose pool runs as user.
 func (m *Manager) sitesUsing(user string) []string {
 	var out []string
-	matches, _ := m.Env.Root.Glob(filepath.Join(m.Env.M.PoolDir("*"), "whacp-*.conf"))
+	matches, _ := m.Env.Root.Glob(filepath.Join(m.Env.M.PoolDir("*"), "nimvor-*.conf"))
 	for _, f := range matches {
 		b, err := m.Env.Root.ReadFile(f)
 		if err != nil {
 			continue
 		}
 		if mm := poolUserRe.FindSubmatch(b); mm != nil && string(mm[1]) == user {
-			d := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(f), "whacp-"), ".conf")
+			d := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(f), "nimvor-"), ".conf")
 			out = append(out, d)
 		}
 	}
 	return out
 }
 
-// Inspection is the on-disk state of a WhaCP site.
+// Inspection is the on-disk state of a NimVor site.
 type Inspection struct {
 	Domain        string   `json:"domain"`
 	ConfigExists  bool     `json:"config_exists"`
@@ -566,7 +569,7 @@ func (m *Manager) handleInspect(ctx context.Context, p json.RawMessage) (any, er
 		return nil, host.Invalid(err)
 	}
 	e := m.Env
-	name := "whacp-" + in.Domain + ".conf"
+	name := "nimvor-" + in.Domain + ".conf"
 	res := Inspection{Domain: in.Domain, PoolVersions: []string{}}
 	if b, err := e.Root.ReadFile(filepath.Join(e.M.NginxAvailable, name)); err == nil {
 		res.ConfigExists = true
@@ -591,10 +594,10 @@ func (m *Manager) handleInspect(ctx context.Context, p json.RawMessage) (any, er
 
 func (m *Manager) handleList(ctx context.Context, p json.RawMessage) (any, error) {
 	e := m.Env
-	matches, _ := e.Root.Glob(filepath.Join(e.M.NginxAvailable, "whacp-*.conf"))
+	matches, _ := e.Root.Glob(filepath.Join(e.M.NginxAvailable, "nimvor-*.conf"))
 	out := []map[string]any{}
 	for _, f := range matches {
-		d := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(f), "whacp-"), ".conf")
+		d := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(f), "nimvor-"), ".conf")
 		if validate.Domain("d", d) != nil {
 			continue
 		}

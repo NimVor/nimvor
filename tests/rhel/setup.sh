@@ -23,10 +23,12 @@ dnf install -y -q --setopt=install_weak_deps=False \
     nginx mariadb-server mariadb "$redis" memcached pure-ftpd bind bind-utils \
     postfix dovecot dovecot-pigeonhole opendkim opendkim-tools rspamd \
     firewalld fail2ban fail2ban-systemd openssh-server git tar rsync curl openssl \
-    policycoreutils-python-utils dnf-utils roundcubemail clamav bubblewrap gcc nftables \
+    policycoreutils-python-utils dnf-utils roundcubemail clamav bubblewrap gcc nftables python3 \
     php-cli php-pdo php-mbstring php-sodium \
     php83-php-fpm php83-php-cli php83-php-mysqlnd php83-php-pdo php83-php-mbstring php83-php-xml \
     php83-php-intl php83-php-zip php83-php-gd php83-php-curl php83-php-opcache
+# Django and FastAPI need Python 3.12 or newer (RHEL 9's default is 3.9; 10 ships 3.12).
+[[ $major -ge 10 ]] || dnf install -y -q python3.12
 # FFmpeg from EPEL (ffmpeg-free); its own line so a missing package does not
 # stop the rest (the FFmpeg real-host test then reports it).
 dnf install -y -q ffmpeg-free || echo 'ffmpeg-free is not available'

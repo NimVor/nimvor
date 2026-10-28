@@ -16,8 +16,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 func sshString(b []byte) []byte {
@@ -100,7 +100,7 @@ func TestParsePublicKey(t *testing.T) {
 func adminHost(t *testing.T) (*Service, string, *testhost.Host) {
 	h, s := setup(t, "")
 	base := h.Base
-	os.WriteFile(filepath.Join(base, "etc/passwd"), []byte("root:x:0:0:root:/root:/bin/bash\nops:x:1000:1000::/home/ops:/bin/bash\nshop:x:1600:1600::/home/whacp/shop.test:/usr/sbin/nologin\n"), 0o644)
+	os.WriteFile(filepath.Join(base, "etc/passwd"), []byte("root:x:0:0:root:/root:/bin/bash\nops:x:1000:1000::/home/ops:/bin/bash\nshop:x:1600:1600::/home/nimvor/shop.test:/usr/sbin/nologin\n"), 0o644)
 	os.WriteFile(filepath.Join(base, "etc/group"), []byte("root:x:0:\nsudo:x:27:ops\nshop:x:1600:\n"), 0o644)
 	os.MkdirAll(filepath.Join(base, "root"), 0o700)
 	os.MkdirAll(filepath.Join(base, "home/ops"), 0o750)

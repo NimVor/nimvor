@@ -11,9 +11,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/ftpmgr"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/ftpmgr"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 // syncBuf is a log sink safe for the session goroutines.
@@ -203,7 +203,7 @@ func TestPrivilegedGroupsAreRefused(t *testing.T) {
 			t.Errorf("%s: %v", g, err)
 		}
 	}
-	// whacp-jail (the jailed shell's group) is fine.
+	// nimvor-jail (the jailed shell's group) is fine.
 	_, m := fixture(t, "normal")
 	if _, err := m.Open(OpenParams{User: "shop"}); err != nil {
 		t.Fatal(err)

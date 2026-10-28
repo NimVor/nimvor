@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
 )
 
 type kind int

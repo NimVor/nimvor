@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use WhaCP\Core\Application;
-use WhaCP\Http\Request;
+use NimVor\Core\Application;
+use NimVor\Http\Request;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 

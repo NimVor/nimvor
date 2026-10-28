@@ -16,11 +16,11 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/changeset"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/selinux"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/changeset"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/selinux"
 )
 
 // SSH keys of the server's administrators: root and the members of the
@@ -29,7 +29,7 @@ import (
 // without locking anyone out.
 //
 // Only plain public keys are accepted: no options (command=, from=,
-// environment=…), no DSA, RSA of 2048 bits and more. Lines WhaCP did not
+// environment=…), no DSA, RSA of 2048 bits and more. Lines NimVor did not
 // add are listed and kept as they are.
 
 // AdminGroups are the groups whose members administer the server.
@@ -48,7 +48,7 @@ type PublicKey struct {
 	Comment     string `json:"comment"`
 	Fingerprint string `json:"fingerprint"`
 	// Options: the line restricts the key (command=, from=…), added by
-	// hand; listed, never written by WhaCP.
+	// hand; listed, never written by NimVor.
 	Options bool   `json:"options,omitempty"`
 	blob    string // base64
 }
@@ -151,7 +151,7 @@ func ParsePublicKey(line string) (PublicKey, error) {
 		if f[0] == "ssh-dss" {
 			return PublicKey{}, errors.New("DSA keys are not accepted (OpenSSH turned them off); create an Ed25519 key: ssh-keygen -t ed25519")
 		}
-		return PublicKey{}, errors.New("not a public key WhaCP accepts: it must start with ssh-ed25519, ssh-rsa, ecdsa-sha2-… or sk-…, without options")
+		return PublicKey{}, errors.New("not a public key NimVor accepts: it must start with ssh-ed25519, ssh-rsa, ecdsa-sha2-… or sk-…, without options")
 	}
 	bits, err := decodeKey(f[0], f[1])
 	if err != nil {

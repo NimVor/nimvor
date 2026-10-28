@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Mail;
+namespace NimVor\Mail;
 
-use WhaCP\Repositories\SettingRepository;
-use WhaCP\Security\Crypto;
-use WhaCP\Services\AuditLogger;
-use WhaCP\Support\ValidationException;
+use NimVor\Repositories\SettingRepository;
+use NimVor\Security\Crypto;
+use NimVor\Services\AuditLogger;
+use NimVor\Support\ValidationException;
 
 /**
  * Outgoing mail (SMTP) settings. The password is stored encrypted with the

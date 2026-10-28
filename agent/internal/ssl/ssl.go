@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
 )
 
 // Certificate describes a leaf certificate.

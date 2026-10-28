@@ -7,10 +7,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
-// RequiredPort is a port the firewall must keep open for WhaCP or a
+// RequiredPort is a port the firewall must keep open for NimVor or a
 // service it runs. Critical ports (SSH, the panel, the agent's remote
 // listener) are what keeps the server manageable: they are opened before
 // the firewall is turned on and their last rule cannot be deleted while it
@@ -26,11 +26,11 @@ type RequiredPort struct {
 }
 
 // PanelSites are the nginx sites the installer writes for the panel.
-var PanelSites = []string{"/etc/nginx/sites-available/whacp-panel.conf", "/etc/nginx/whacp-available/whacp-panel.conf"}
+var PanelSites = []string{"/etc/nginx/sites-available/nimvor-panel.conf", "/etc/nginx/nimvor-available/nimvor-panel.conf"}
 
 var panelListenRe = regexp.MustCompile(`(?m)^\s*listen\s+(?:\[[^\]]*\]:|[0-9.]+:)?([0-9]{1,5})\s+[^;]*ssl`)
 
-// servicePorts: well-known ports of the services WhaCP manages, opened when
+// servicePorts: well-known ports of the services NimVor manages, opened when
 // something listens on them on a public address.
 var servicePorts = []struct {
 	port  int
@@ -61,7 +61,7 @@ func RequiredPorts(ctx context.Context, env *host.Env, rules []Rule) []RequiredP
 	for _, site := range PanelSites {
 		if b, err := env.Root.ReadFile(site); err == nil {
 			for _, m := range panelListenRe.FindAllStringSubmatch(string(b), -1) {
-				add(RequiredPort{Port: m[1], Proto: "tcp", Service: "WhaCP panel (HTTPS)", Critical: true})
+				add(RequiredPort{Port: m[1], Proto: "tcp", Service: "NimVor panel (HTTPS)", Critical: true})
 			}
 		}
 	}
@@ -74,7 +74,7 @@ func RequiredPorts(ctx context.Context, env *host.Env, rules []Rule) []RequiredP
 				clients = []string{""}
 			}
 			for _, c := range clients {
-				add(RequiredPort{Port: port, Proto: "tcp", From: c, Service: "WhaCP agent (panel server)", Critical: true})
+				add(RequiredPort{Port: port, Proto: "tcp", From: c, Service: "NimVor agent (panel server)", Critical: true})
 			}
 		}
 	}

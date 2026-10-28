@@ -17,8 +17,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/agentfs"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
 // manifestMAC authenticates the parts of a manifest a restore relies on
@@ -51,7 +51,7 @@ func manifestMAC(key []byte, m *Manifest) string {
 	}
 	b, _ := json.Marshal(in)
 	derive := hmac.New(sha256.New, key)
-	derive.Write([]byte("whacp-manifest-mac-v1"))
+	derive.Write([]byte("nimvor-manifest-mac-v1"))
 	mac := hmac.New(sha256.New, derive.Sum(nil))
 	mac.Write(b)
 	return hex.EncodeToString(mac.Sum(nil))
@@ -137,7 +137,7 @@ func (d *Drive) Manifests(ctx context.Context, base string) ([]string, error) {
 	}
 	var keys []string
 	for _, f := range fs {
-		if k := f.AppProperties["whacp_key"]; strings.HasPrefix(k, base) {
+		if k := f.AppProperties["nimvor_key"]; strings.HasPrefix(k, base) {
 			keys = append(keys, k)
 		}
 	}
@@ -236,13 +236,13 @@ func (s Service) ImportRemote(ctx context.Context, remote *Remote) ([]Found, err
 		}
 		var m Manifest
 		if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
-			out = append(out, Found{Skipped: k + ": not a WhaCP manifest"})
+			out = append(out, Found{Skipped: k + ": not a NimVor manifest"})
 			continue
 		}
 		f := Found{ID: m.ID, Kind: m.Kind, Domain: m.Domain, Label: m.Label, CreatedAt: m.CreatedAt, Size: m.Size}
 		switch {
 		case !idRe.MatchString(m.ID) || (m.Kind != "site" && m.Kind != "server") || (m.Kind == "site" && validate.Domain("domain", m.Domain) != nil):
-			f.Skipped = "not a valid WhaCP backup"
+			f.Skipped = "not a valid NimVor backup"
 		case remoteKey(remote, &m)+"/manifest.json" != k:
 			f.Skipped = "stored somewhere other than its manifest says"
 		case !m.Encrypted:
@@ -255,7 +255,7 @@ func (s Service) ImportRemote(ctx context.Context, remote *Remote) ([]Found, err
 		if f.Skipped == "" {
 			for _, e := range m.Files {
 				if !nameRe.MatchString(e.Name) {
-					f.Skipped = "not a valid WhaCP backup"
+					f.Skipped = "not a valid NimVor backup"
 				}
 			}
 		}

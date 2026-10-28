@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Hosting\Scope;
-use WhaCP\Repositories\DatabaseRepository;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Security\Crypto;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Hosting\Scope;
+use NimVor\Repositories\DatabaseRepository;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Security\Crypto;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
 
 /**
  * MySQL/MariaDB databases and users.
@@ -249,6 +249,33 @@ final class DatabaseService
         $this->audit->record('database.drop', 'database', (string) $database['name']);
     }
 
+    /**
+     * Drop the databases of a website being deleted, and the database users
+     * that were only used by them. A failure stops the website's deletion
+     * before anything else is removed.
+     *
+     * @param array<string, mixed> $site
+     */
+    public function purgeForWebsite(array $site): void
+    {
+        $userIds = [];
+        foreach ($this->repo->forWebsite((int) $site['id']) as $database) {
+            foreach ($this->repo->userIdsOf((int) $database['id']) as $uid) {
+                $userIds[$uid] = true;
+            }
+            $this->drop($database, (string) $database['name']);
+        }
+        foreach (array_keys($userIds) as $uid) {
+            if ($this->repo->grantsOf($uid) !== []) {
+                continue; // still used by another database
+            }
+            $u = $this->repo->user($this->server->id(), $uid, null);
+            if ($u !== null) {
+                $this->dropUser($u);
+            }
+        }
+    }
+
     /** @param array<string, mixed> $dbUser */
     public function dropUser(array $dbUser): void
     {
@@ -260,7 +287,7 @@ final class DatabaseService
     /**
      * Import a .sql or .sql.gz file of the database's website (a path in
      * its folder) as a job. Only an upload the panel itself named
-     * (tmp/whacp-import-….sql) is removed afterwards.
+     * (tmp/nimvor-import-….sql) is removed afterwards.
      *
      * @param array<string, mixed> $database
      * @param array<string, mixed> $site
@@ -272,7 +299,7 @@ final class DatabaseService
         if (!preg_match('/\.sql(\.gz)?$/', $path) || str_contains($path, '..') || strlen($path) > 255) {
             throw new ValidationException(['path' => 'Choose a .sql or .sql.gz file inside the website folder.']);
         }
-        $remove = $uploaded && preg_match('#^tmp/whacp-import-[a-z0-9]{16}\.sql(\.gz)?$#', $path) === 1;
+        $remove = $uploaded && preg_match('#^tmp/nimvor-import-[a-z0-9]{16}\.sql(\.gz)?$#', $path) === 1;
         $res = (array) $this->agent->call('db.import_site', ['name' => $database['name'], 'domain' => $site['domain'], 'path' => $path, 'remove_after' => $remove]);
         $this->audit->record('database.import', 'database', (string) $database['name'], AuditLogger::SUCCESS, ['website' => $site['domain'], 'file' => $path]);
         return (string) $res['job_id'];

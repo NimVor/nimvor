@@ -3,7 +3,7 @@
 (function () {
     'use strict';
 
-    var root = document.getElementById('wcp-dashboard');
+    var root = document.getElementById('nim-dashboard');
     if (!root) { return; }
     var url = root.getAttribute('data-live-url');
     var interval = Math.max(3, parseInt(root.getAttribute('data-refresh'), 10) || 10) * 1000;
@@ -74,9 +74,9 @@
         if (op === 'stop' && !window.confirm('Stop ' + unit + '? Websites or mail that use it stop working until it is started again.')) { return; }
         busyUnit = unit;
         btn.disabled = true;
-        WhaCP.fetchJson(url, { method: 'POST', body: JSON.stringify({ unit: unit, op: op }) })
-            .then(function (res) { WhaCP.toast(res.message || (op + ' of ' + unit + ' completed.'), 'success'); })
-            .catch(function (err) { WhaCP.toast(err.message, 'danger'); })
+        NimVor.fetchJson(url, { method: 'POST', body: JSON.stringify({ unit: unit, op: op }) })
+            .then(function (res) { NimVor.toast(res.message || (op + ' of ' + unit + ' completed.'), 'success'); })
+            .catch(function (err) { NimVor.toast(err.message, 'danger'); })
             .then(function () { busyUnit = null; tick(); });
     }
 
@@ -106,7 +106,7 @@
             var left = document.createElement('span');
             left.className = 'text-truncate';
             var dot = document.createElement('span');
-            dot.className = 'wcp-service-state' + (s.active_state === 'active' ? ' is-active' : (s.active_state === 'failed' ? ' is-failed' : ''));
+            dot.className = 'nim-service-state' + (s.active_state === 'active' ? ' is-active' : (s.active_state === 'failed' ? ' is-failed' : ''));
             left.appendChild(dot);
             left.appendChild(document.createTextNode(s.unit.replace(/\.service$/, '')));
             var right = document.createElement('span');
@@ -117,7 +117,7 @@
                 [[active ? 'stop' : 'start', active ? 'stop-fill' : 'play-fill', active ? 'Stop' : 'Start'], ['restart', 'arrow-clockwise', 'Restart']].forEach(function (b) {
                     var btn = document.createElement('button');
                     btn.type = 'button';
-                    btn.className = 'btn btn-sm btn-link p-0 ms-1 wcp-service-btn';
+                    btn.className = 'btn btn-sm btn-link p-0 ms-1 nim-service-btn';
                     btn.title = b[2] + ' ' + s.unit;
                     btn.setAttribute('aria-label', b[2] + ' ' + s.unit);
                     btn.disabled = busyUnit === s.unit;
@@ -150,7 +150,7 @@
         if (m.load) {
             setMetric('load', m.load.load1.toFixed(2), m.load.load5.toFixed(2) + ' · ' + m.load.load15.toFixed(2) + ' (5/15 min)', null);
             // The top bar shows the same values.
-            if (window.WhaCP && WhaCP.setTopbarLoad) { WhaCP.setTopbarLoad([m.load.load1, m.load.load5, m.load.load15]); }
+            if (window.NimVor && NimVor.setTopbarLoad) { NimVor.setTopbarLoad([m.load.load1, m.load.load5, m.load.load15]); }
         }
         var up = document.querySelector('[data-uptime]');
         if (up && m.uptime_seconds) { up.textContent = fmtDuration(m.uptime_seconds); }
@@ -181,7 +181,7 @@
 
     function tick() {
         if (document.hidden) { schedule(); return; }
-        WhaCP.fetchJson(url).then(function (data) {
+        NimVor.fetchJson(url).then(function (data) {
             failures = 0;
             render(data);
             if (statusEl) { statusEl.textContent = 'Live · updated ' + new Date().toLocaleTimeString(); }

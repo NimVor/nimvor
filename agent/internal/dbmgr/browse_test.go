@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/mysqlwire"
+	"github.com/NimVor/nimvor/agent/internal/mysqlwire"
 )
 
 func TestLiteral(t *testing.T) {
@@ -70,7 +70,7 @@ func TestBrowserAccountAndReservedNames(t *testing.T) {
 	if !strings.HasPrefix(a, BrowserPrefix) || len(a) > 32 || a == BrowserAccount("shop_db2") {
 		t.Fatalf("account = %q", a)
 	}
-	if err := checkUser("WHACP_B_x", "localhost"); err == nil {
+	if err := checkUser("NIMVOR_B_x", "localhost"); err == nil {
 		t.Fatal("reserved prefix accepted")
 	}
 	if err := checkTable("bad\x00name"); err == nil || checkTable("ok-name with space") != nil {

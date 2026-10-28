@@ -2,7 +2,7 @@
 // route. Regression: its field named "action" (Allow/Deny) shadowed
 // form.action, so the form layer posted to "/security/[object
 // HTMLSelectElement]" and the page answered 404 (the Allow buttons of
-// "Ports WhaCP keeps open" too). (Dev instance: system commands simulated.)
+// "Ports NimVor keeps open" too). (Dev instance: system commands simulated.)
 const { chromium } = require('playwright');
 const BASE = process.env.E2E_BASE || 'http://127.0.0.1:8095';
 const OUT = process.env.E2E_OUT || '/tmp';

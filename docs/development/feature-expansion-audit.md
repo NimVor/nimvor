@@ -36,7 +36,7 @@ and are the agenda for end-to-end verification.
 ## 3. Node.js & Python runtime managers — GO (Node) / PARTIAL (Python)
 
 - Agent `runtimemgr`: install Node.js versions side by side under
-  `/opt/whacp/runtimes/node/<v>` (official nodejs.org tarball verified against
+  `/opt/nimvor/runtimes/node/<v>` (official nodejs.org tarball verified against
   SHASUMS256.txt, unpacked in Go with traversal/symlink guards); discover
   managed + system Node/Python; per-worker runtime selection (launcher PATH).
 - Panel: Server → Runtimes (install/remove Node, see system interpreters);
@@ -98,7 +98,7 @@ and are the agenda for end-to-end verification.
 
 - **Security** — every new privileged path runs through the existing
   changeset/validator + `execx` allowlist. New allowlist entries: `mongosh`,
-  `mongodump`, `mongorestore`; new writable roots: `/opt/whacp/runtimes/**`
+  `mongodump`, `mongorestore`; new writable roots: `/opt/nimvor/runtimes/**`
   and the single Nginx tuning drop-in. Archive extraction (runtimes, apps)
   guards traversal and symlink escape and caps size. Secrets (DB and Mongo
   passwords, Cloudflare token) never reach argv or the clear.

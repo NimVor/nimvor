@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Tests\Support\HttpTestCase;
 
 final class DbServerTest extends HttpTestCase
 {
@@ -15,7 +15,7 @@ final class DbServerTest extends HttpTestCase
         $this->seedUser('admin', 'admin');
         $this->seedUser('cust', 'customer');
         $this->agent->succeed('db.server_status', [
-            'running' => true, 'unit' => 'mariadb.service', 'drop_in' => '/etc/mysql/mariadb.conf.d/zz-whacp.cnf',
+            'running' => true, 'unit' => 'mariadb.service', 'drop_in' => '/etc/mysql/mariadb.conf.d/zz-nimvor.cnf',
             'managed' => ['max_connections' => '300'],
             'settings' => [
                 ['key' => 'max_connections', 'label' => 'Maximum connections', 'help' => 'h', 'kind' => 'int', 'dynamic' => true, 'group' => 'Connections'],
@@ -40,7 +40,7 @@ final class DbServerTest extends HttpTestCase
         // Separate pages (sidebar children of Databases).
         foreach ([
             '/databases/server' => ['10.11.14-MariaDB', '3 / 300', '2.0 /s', '60%'],
-            '/databases/server/settings' => ['zz-whacp.cnf', 'utf8mb4_unicode_ci', 'value="300"', '128 MB'],
+            '/databases/server/settings' => ['zz-nimvor.cnf', 'utf8mb4_unicode_ci', 'value="300"', '128 MB'],
             '/databases/server/connections' => ['SELECT * FROM orders', 'server thread'],
         ] as $path => $wants) {
             $page = $this->request('GET', $path);
@@ -48,7 +48,7 @@ final class DbServerTest extends HttpTestCase
             foreach ($wants as $want) {
                 self::assertStringContainsString($want, $page->body(), $path . ': ' . $want);
             }
-            self::assertStringContainsString('data-wcp-section-menu="databases"', $page->body(), $path . ' shows the Databases menu');
+            self::assertStringContainsString('data-nim-section-menu="databases"', $page->body(), $path . ' shows the Databases menu');
         }
         self::assertStringNotContainsString('SELECT * FROM orders', $this->request('GET', '/databases/server/settings')->body());
         $this->agent->succeed('logs.sources', [['id' => 'system:mysql', 'label' => 'MariaDB error log', 'group' => 'System', 'kind' => 'file'], ['id' => 'nginx:error', 'label' => 'Nginx', 'group' => 'Web', 'kind' => 'file']]);

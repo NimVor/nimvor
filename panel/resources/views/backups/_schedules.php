@@ -1,9 +1,9 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var list<array<string, mixed>> $schedules */
 /** @var string|null $deleteRoute  null: read-only */
 /** @var array<string, int> $routeParams */
-use WhaCP\Services\BackupScheduler;
+use NimVor\Services\BackupScheduler;
 
 $describe = static function (array $s): string {
     $when = sprintf('%02d:00', (int) $s['hour']);
@@ -25,7 +25,7 @@ $describe = static function (array $s): string {
                     <div class="text-body-secondary">Last run: <?= $s['last_run_at'] === null ? 'never' : e(substr((string) $s['last_run_at'], 0, 16)) . ' (' . e($s['last_status']) . ')' ?></div>
                 </div>
                 <?php if ($deleteRoute !== null): ?>
-                <form class="ms-auto" method="post" action="<?= e($this->url($deleteRoute, $routeParams + ['schedule' => (int) $s['id']])) ?>" data-wcp-confirm="Remove this schedule? Existing backups are kept."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger" title="Remove"><i class="bi bi-trash"></i></button></form>
+                <form class="ms-auto" method="post" action="<?= e($this->url($deleteRoute, $routeParams + ['schedule' => (int) $s['id']])) ?>" data-nim-confirm="Remove this schedule? Existing backups are kept."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger" title="Remove"><i class="bi bi-trash"></i></button></form>
                 <?php endif; ?>
             </li>
         <?php endforeach; ?>

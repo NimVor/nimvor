@@ -2,24 +2,24 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers\Api;
+namespace NimVor\Http\Controllers\Api;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Http\Middleware\ApiAuthenticate;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Repositories\DatabaseRepository;
-use WhaCP\Repositories\WebsiteRepository;
-use WhaCP\Services\BackupService;
-use WhaCP\Services\DatabaseService;
-use WhaCP\Services\DeployService;
-use WhaCP\Services\JobTracker;
-use WhaCP\Services\ServerContext;
-use WhaCP\Services\SslService;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Http\Middleware\ApiAuthenticate;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Repositories\DatabaseRepository;
+use NimVor\Repositories\WebsiteRepository;
+use NimVor\Services\BackupService;
+use NimVor\Services\DatabaseService;
+use NimVor\Services\DeployService;
+use NimVor\Services\JobTracker;
+use NimVor\Services\ServerContext;
+use NimVor\Services\SslService;
+use NimVor\Services\WebsiteService;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
 
 /**
  * REST API v1. Every endpoint reuses the same services as the web UI, so
@@ -40,7 +40,7 @@ final class ApiController
         private readonly JobTracker $jobs,
         private readonly AgentClient $agent,
         private readonly ServerContext $server,
-        private readonly \WhaCP\Services\NotificationService $notifications,
+        private readonly \NimVor\Services\NotificationService $notifications,
     ) {
     }
 
@@ -173,7 +173,8 @@ final class ApiController
         if ($s === null) {
             return self::notFound();
         }
-        return $this->guard(function () use ($s, $enabled): Response {
+        return $this->guard(function () use ($r, $s, $enabled): Response {
+            WebsiteService::assertMayToggle($this->user($r));
             $this->websites->setEnabled($s, $enabled);
             return self::ok(self::website((array) $this->sites->find($this->server->id(), (int) $s['id'], null)));
         });
@@ -196,6 +197,7 @@ final class ApiController
             return self::notFound();
         }
         return $this->guard(function () use ($r, $s): Response {
+            WebsiteService::assertMayDelete($this->user($r), $s);
             $warnings = $this->websites->delete($s, $r->query('remove_files') === '1', $r->query('remove_user') === '1');
             return self::ok(['deleted' => (int) $s['id'], 'warnings' => $warnings]);
         });

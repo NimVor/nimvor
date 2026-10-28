@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Hosting\Scope;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Services\AuditLogger;
-use WhaCP\Support\UserFacingException;
-use WhaCP\View\View;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Hosting\Scope;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Services\AuditLogger;
+use NimVor\Support\UserFacingException;
+use NimVor\View\View;
 
 /**
  * Greylisting (Email administration): settings, trusted hosts, trusted
@@ -75,17 +75,17 @@ final class MailGreylistController extends Controller
      * @param callable(array<string, mixed>): array<string, mixed> $change
      * @param array<string, mixed> $details
      */
-    private function change(string $action, callable $change, string $done, array $details = []): Response
+    private function change(string $action, callable $change, string $done, array $details = [], string $to = self::BACK): Response
     {
         try {
             $params = $change(self::params((array) ($this->state()['config'] ?? [])));
             $this->agent->call('mail.greylist_set', $params, 180);
         } catch (UserFacingException $e) {
             $this->audit->record($action, 'server', 'greylisting', AuditLogger::FAILURE, $details + ['error' => $e->getMessage()]);
-            return $this->redirectWithFailure(self::BACK, $e);
+            return $this->redirectWithFailure($to, $e);
         }
         $this->audit->record($action, 'server', 'greylisting', AuditLogger::SUCCESS, $details);
-        return $this->redirectWithSuccess(self::BACK, $done);
+        return $this->redirectWithSuccess($to, $done);
     }
 
     public function index(Request $request): Response
@@ -116,7 +116,7 @@ final class MailGreylistController extends Controller
             'spf_bypass' => $request->input('spf_bypass') === '1',
             'auto_trust_new' => $request->input('auto_trust_new') === '1',
         ];
-        return $this->change('mail.greylist_settings', static fn (array $p): array => array_replace($p, $in), $in['enabled'] ? 'Greylisting settings saved; greylisting is on.' : 'Greylisting settings saved; greylisting is off.', $in);
+        return $this->change('mail.greylist_settings', static fn (array $p): array => array_replace($p, $in), $in['enabled'] ? 'Greylisting settings saved; greylisting is on.' : 'Greylisting settings saved; greylisting is off.', $in, self::BACK . '#greylist-settings');
     }
 
     public function saveTrusted(Request $request): Response
@@ -138,7 +138,7 @@ final class MailGreylistController extends Controller
                 $p['trusted'][] = $entry;
             }
             return $p;
-        }, 'Trusted host ' . $range . ' saved.', ['range' => $range, 'comment' => $comment]);
+        }, 'Trusted host ' . $range . ' saved.', ['range' => $range, 'comment' => $comment], self::BACK . '#trusted');
     }
 
     public function deleteTrusted(Request $request, string $n): Response
@@ -152,7 +152,7 @@ final class MailGreylistController extends Controller
             }
             array_splice($p['trusted'], (int) $n, 1);
             return $p;
-        }, 'Trusted host removed.', ['index' => (int) $n]);
+        }, 'Trusted host removed.', ['index' => (int) $n], self::BACK . '#trusted');
     }
 
     public function saveProviders(Request $request): Response
@@ -169,7 +169,7 @@ final class MailGreylistController extends Controller
             }
             $p['providers'] = (object) $providers;
             return $p;
-        }, 'Mail providers saved.', ['trusted' => $trust]);
+        }, 'Mail providers saved.', ['trusted' => $trust], self::BACK . '#providers');
     }
 
     public function updateProviders(Request $request): Response

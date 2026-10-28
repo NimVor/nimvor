@@ -22,8 +22,8 @@ const OUT = process.env.E2E_OUT || '/tmp';
   page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
   const step = s => console.log('STEP', s);
   const stamp = Date.now().toString(36);
-  const mark = () => page.evaluate(() => { window.__wcpMark = 1; });
-  const same = async () => (await page.evaluate(() => window.__wcpMark)) === 1;
+  const mark = () => page.evaluate(() => { window.__nimMark = 1; });
+  const same = async () => (await page.evaluate(() => window.__nimMark)) === 1;
   // A form submitted in the background: wait for the page swap.
   const swap = async (click) => Promise.all([page.waitForNavigation(), click()]);
   try {
@@ -64,9 +64,9 @@ const OUT = process.env.E2E_OUT || '/tmp';
     await page.screenshot({ path: OUT + '/ajax-cron.png' });
     step('cron job added in its window; the list updated in place');
 
-    await page.click(`form[data-wcp-confirm="Delete this cron job?"] button`);
-    await page.waitForSelector('#wcp-confirm.show');
-    await swap(() => page.click('#wcp-confirm [data-wcp-confirm-ok]'));
+    await page.click(`form[data-nim-confirm="Delete this cron job?"] button`);
+    await page.waitForSelector('#nim-confirm.show');
+    await swap(() => page.click('#nim-confirm [data-nim-confirm-ok]'));
     if (!await same()) { throw new Error('deleting reloaded the page'); }
     if ((await page.textContent('main')).includes('echo ajax-' + stamp)) { throw new Error('job still listed after delete'); }
     step('delete after confirmation, in place');
@@ -107,9 +107,9 @@ const OUT = process.env.E2E_OUT || '/tmp';
     step('a button\'s formaction is honoured');
 
     await page.goto(BASE + site + '/files');
-    if (await page.$('.wcp-content')) { throw new Error('the file manager is now inside the page layout'); }
+    if (await page.$('.nim-content')) { throw new Error('the file manager is now inside the page layout'); }
     await page.goto(BASE + '/profile');
-    if (await page.getAttribute('body', 'data-wcp-ajax') !== 'off') { throw new Error('a page with its own scripts is not left to normal submits'); }
+    if (await page.getAttribute('body', 'data-nim-ajax') !== 'off') { throw new Error('a page with its own scripts is not left to normal submits'); }
     step('file manager untouched; pages with their own scripts keep normal submits');
     if (errors.length) { throw new Error(errors.join('\n')); }
     console.log('OK ajax forms');

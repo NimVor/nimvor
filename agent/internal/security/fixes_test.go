@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/execx"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
+	"github.com/NimVor/nimvor/agent/internal/execx"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/platform"
 )
 
 func platformDetect(env *host.Env) platform.Platform { return platform.Detect(env.Root) }
@@ -21,7 +21,7 @@ func writeSysctl(t *testing.T, base, key, v string) {
 	os.WriteFile(p, []byte(v+"\n"), 0o644)
 }
 
-// The recommended kernel values are written to WhaCP's file and loaded
+// The recommended kernel values are written to NimVor's file and loaded
 // with sysctl -p (with the capabilities they need); undo puts the earlier
 // values back. A router keeps sending redirects.
 func TestFixKernel(t *testing.T) {
@@ -77,7 +77,7 @@ func TestHideProcesses(t *testing.T) {
 	h, s := setup(t, "")
 	env := s.env
 	os.WriteFile(filepath.Join(h.Base, "etc/fstab"), []byte("UUID=abc / ext4 defaults 0 1\n"), 0o644)
-	os.WriteFile(filepath.Join(h.Base, "etc/group"), []byte("root:x:0:\nwhacp-proc:x:991:\n"), 0o644)
+	os.WriteFile(filepath.Join(h.Base, "etc/group"), []byte("root:x:0:\nnimvor-proc:x:991:\n"), 0o644)
 	ctx := context.Background()
 	if err := HideProcesses(ctx, env, true); err != nil {
 		t.Fatal(err)
@@ -159,7 +159,7 @@ func TestPrivilegedArgs(t *testing.T) {
 	}
 }
 
-// On RHEL the install timer is started by its fixed name with WhaCP's
+// On RHEL the install timer is started by its fixed name with NimVor's
 // security-only configuration.
 func TestAutoUpdatesRHEL(t *testing.T) {
 	h, s := setup(t, "")
@@ -173,16 +173,16 @@ func TestAutoUpdatesRHEL(t *testing.T) {
 	if !h.Runner.Called("systemctl enable --now -- dnf-automatic-install.timer") {
 		t.Fatalf("calls %v", h.Runner.Calls)
 	}
-	if b := h.Read("etc/whacp/dnf-automatic.conf"); !strings.Contains(b, "upgrade_type = security") || !strings.Contains(b, "reboot = never") {
+	if b := h.Read("etc/nimvor/dnf-automatic.conf"); !strings.Contains(b, "upgrade_type = security") || !strings.Contains(b, "reboot = never") {
 		t.Errorf("conf:\n%s", b)
 	}
-	if b := h.Read("etc/systemd/system/dnf-automatic-install.service.d/whacp.conf"); !strings.Contains(b, "ExecStart=\nExecStart=/usr/bin/dnf-automatic /etc/whacp/dnf-automatic.conf --timer --installupdates") {
+	if b := h.Read("etc/systemd/system/dnf-automatic-install.service.d/nimvor.conf"); !strings.Contains(b, "ExecStart=\nExecStart=/usr/bin/dnf-automatic /etc/nimvor/dnf-automatic.conf --timer --installupdates") {
 		t.Errorf("drop-in:\n%s", b)
 	}
 	if err := SetAutoUpdates(context.Background(), env, io.Discard, false); err != nil {
 		t.Fatal(err)
 	}
-	if !h.Runner.Called("systemctl disable --now -- dnf-automatic-install.timer") || h.Exists("etc/whacp/dnf-automatic.conf") {
+	if !h.Runner.Called("systemctl disable --now -- dnf-automatic-install.timer") || h.Exists("etc/nimvor/dnf-automatic.conf") {
 		t.Errorf("off: %v", h.Runner.Calls)
 	}
 }

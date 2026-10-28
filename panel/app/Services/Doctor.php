@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Core\Config;
-use WhaCP\Database\Connection;
-use WhaCP\Database\Migrator;
-use WhaCP\Repositories\SettingRepository;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Core\Config;
+use NimVor\Database\Connection;
+use NimVor\Database\Migrator;
+use NimVor\Repositories\SettingRepository;
 
 /**
- * Self-checks for `bin/whacp doctor`: runtime, secrets on disk, database,
+ * Self-checks for `bin/nimvor doctor`: runtime, secrets on disk, database,
  * agent and scheduler. Read-only.
  */
 final class Doctor
@@ -39,7 +39,7 @@ final class Doctor
             $out[] = ['status' => $status, 'check' => $check, 'detail' => $detail];
         };
 
-        $add(PHP_VERSION_ID >= 80300 ? self::OK : self::FAIL, 'PHP version', PHP_VERSION . (PHP_VERSION_ID >= 80300 ? '' : ' — WhaCP needs PHP 8.3 or newer'));
+        $add(PHP_VERSION_ID >= 80300 ? self::OK : self::FAIL, 'PHP version', PHP_VERSION . (PHP_VERSION_ID >= 80300 ? '' : ' — NimVor needs PHP 8.3 or newer'));
         $missing = array_values(array_filter(['pdo_sqlite', 'sodium', 'curl', 'mbstring', 'json'], static fn (string $e): bool => !extension_loaded($e)));
         $add($missing === [] ? self::OK : self::FAIL, 'PHP extensions', $missing === [] ? 'all present' : 'missing: ' . implode(', ', $missing));
         $add($this->config->get('app.debug') ? self::WARN : self::OK, 'Debug mode', $this->config->get('app.debug') ? 'on — error pages show internals; turn it off' : 'off');
@@ -75,7 +75,7 @@ final class Doctor
         }
 
         $pending = $this->migrator->pending();
-        $add($pending === [] ? self::OK : self::FAIL, 'Database schema', $pending === [] ? 'up to date' : count($pending) . ' migration(s) pending — run bin/whacp migrate');
+        $add($pending === [] ? self::OK : self::FAIL, 'Database schema', $pending === [] ? 'up to date' : count($pending) . ' migration(s) pending — run bin/nimvor migrate');
         try {
             $integrity = (string) $this->db->scalar('PRAGMA quick_check');
             $add($integrity === 'ok' ? self::OK : self::FAIL, 'Database integrity', $integrity);
@@ -101,8 +101,8 @@ final class Doctor
         $add(
             $age !== null && $age < 600 ? self::OK : self::WARN,
             'Scheduler',
-            $age === null ? 'has never run — enable whacp-scheduler.timer (monitoring, alerts and scheduled backups depend on it)'
-                : ($age < 600 ? 'last run ' . $last : 'last run ' . $last . ' — check systemctl status whacp-scheduler.timer'),
+            $age === null ? 'has never run — enable nimvor-scheduler.timer (monitoring, alerts and scheduled backups depend on it)'
+                : ($age < 600 ? 'last run ' . $last : 'last run ' . $last . ' — check systemctl status nimvor-scheduler.timer'),
         );
 
         $down = (int) $this->db->scalar("SELECT COUNT(*) FROM servers WHERE id <> 1 AND status NOT IN ('online', 'version_mismatch')");

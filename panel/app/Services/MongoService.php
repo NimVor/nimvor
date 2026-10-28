@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
+use NimVor\Agent\AgentClient;
 
 /**
  * MongoDB server management: databases and users, through the agent (mongosh).
@@ -98,7 +98,7 @@ final class MongoService
         $this->audit->record('mongo.user_create', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['user' => $user, 'db' => $db, 'role' => $role], $userId);
     }
 
-    /** Create or reset the WhaCP MongoDB admin user and store its credentials. */
+    /** Create or reset the NimVor MongoDB admin user and store its credentials. */
     public function setAdminPassword(string $password, ?int $userId): void
     {
         $this->agent->call('mongo.admin_password', ['password' => $password], 60);

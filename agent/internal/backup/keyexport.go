@@ -21,7 +21,7 @@ import (
 // decrypt any backup; with the passphrase it is imported on a new server to
 // restore encrypted backups there.
 const (
-	keyFileFormat     = "whacp-backup-key"
+	keyFileFormat     = "nimvor-backup-key"
 	keyFileIterations = 600_000
 	minPassphrase     = 12
 	maxPassphrase     = 1024
@@ -93,21 +93,21 @@ func ExportKey(key []byte, passphrase string) (*KeyFile, error) {
 // UnwrapKey returns the backup key held in an exported key file.
 func UnwrapKey(doc []byte, passphrase string) ([]byte, error) {
 	if len(doc) > maxKeyFile {
-		return nil, errors.New("not a WhaCP backup key file")
+		return nil, errors.New("not a NimVor backup key file")
 	}
 	var kf KeyFile
 	if err := json.Unmarshal(doc, &kf); err != nil || kf.Format != keyFileFormat || kf.Version != 1 || kf.KDF != "pbkdf2-sha256" {
-		return nil, errors.New("not a WhaCP backup key file")
+		return nil, errors.New("not a NimVor backup key file")
 	}
 	// Bounded: a file cannot make the agent spin for minutes.
 	if kf.Iterations < 100_000 || kf.Iterations > 5_000_000 {
-		return nil, errors.New("not a WhaCP backup key file")
+		return nil, errors.New("not a NimVor backup key file")
 	}
 	salt, err1 := base64.StdEncoding.DecodeString(kf.Salt)
 	nonce, err2 := base64.StdEncoding.DecodeString(kf.Nonce)
 	ct, err3 := base64.StdEncoding.DecodeString(kf.Ciphertext)
 	if err1 != nil || err2 != nil || err3 != nil || len(salt) < 16 {
-		return nil, errors.New("not a WhaCP backup key file")
+		return nil, errors.New("not a NimVor backup key file")
 	}
 	if len(passphrase) > maxPassphrase {
 		return nil, ErrKeyPassphrase
@@ -117,7 +117,7 @@ func UnwrapKey(doc []byte, passphrase string) ([]byte, error) {
 		return nil, err
 	}
 	if len(nonce) != aead.NonceSize() {
-		return nil, errors.New("not a WhaCP backup key file")
+		return nil, errors.New("not a NimVor backup key file")
 	}
 	key, err := aead.Open(nil, nonce, ct, []byte(keyFileFormat+"|"+kf.KeyID))
 	if err != nil || len(key) != 32 || KeyID(key) != kf.KeyID {

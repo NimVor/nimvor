@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Agent;
+namespace NimVor\Agent;
 
 final class AgentHttpResponse
 {

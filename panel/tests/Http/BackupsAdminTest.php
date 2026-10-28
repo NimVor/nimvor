@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\BackupService;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\BackupService;
+use NimVor\Services\WebsiteService;
+use NimVor\Support\UserFacingException;
+use NimVor\Tests\Support\HttpTestCase;
 
 /**
  * Backups for administrators: remote storages turned on only after a
@@ -27,7 +27,7 @@ final class BackupsAdminTest extends HttpTestCase
         parent::setUp();
         $this->admin = $this->seedUser('admin', 'admin');
         $this->db = $this->app->container->get(Connection::class);
-        $this->agent->succeed('backup.key_info', ['exists' => true, 'key_id' => 'abcd', 'path' => '/var/lib/whacp-agent/backup.key']);
+        $this->agent->succeed('backup.key_info', ['exists' => true, 'key_id' => 'abcd', 'path' => '/var/lib/nimvor-agent/backup.key']);
         $this->agent->succeed('backup.account_files', ['files' => []]);
     }
 
@@ -93,7 +93,7 @@ final class BackupsAdminTest extends HttpTestCase
         // /backups itself is accepted (the agent creates it when missing).
         $this->post('/backups/storages', ['name' => 'Local', 'type' => 'local', 'path' => '/backups', 'prefix' => '']);
         self::assertSame('/backups', $this->lastCall('backup.remote_test')['remote']['path']);
-        self::assertSame(1, (int) $this->app->container->get(\WhaCP\Database\Connection::class)->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'backup.storage_folder_create'"));
+        self::assertSame(1, (int) $this->app->container->get(\NimVor\Database\Connection::class)->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'backup.storage_folder_create'"));
         // A mount root or a folder elsewhere is refused before the agent is asked.
         foreach (['/mnt', '/media', '/etc/backups', '/backups/../etc'] as $i => $p) {
             $this->post('/backups/storages', ['name' => 'Bad' . $i, 'type' => 'local', 'path' => $p, 'prefix' => '']);
@@ -103,7 +103,7 @@ final class BackupsAdminTest extends HttpTestCase
 
     public function testKeyDownloadNeedsAnAdministratorAndThePanelPassword(): void
     {
-        $this->agent->succeed('backup.key_export', ['key_id' => 'abcd', 'file' => "{\"format\":\"whacp-backup-key\"}\n"]);
+        $this->agent->succeed('backup.key_export', ['key_id' => 'abcd', 'file' => "{\"format\":\"nimvor-backup-key\"}\n"]);
         $this->seedUser('op', 'operator');
         $this->login('op');
         $this->post('/backups/key/download', ['passphrase' => 'long enough passphrase', 'passphrase_confirmation' => 'long enough passphrase', 'current_password' => 'a-long-test-password']);
@@ -119,9 +119,9 @@ final class BackupsAdminTest extends HttpTestCase
 
         $res = $this->post('/backups/key/download', ['passphrase' => 'long enough passphrase', 'passphrase_confirmation' => 'long enough passphrase', 'current_password' => 'a-long-test-password']);
         self::assertSame(200, $res->status());
-        self::assertStringContainsString('attachment; filename="whacp-backup-key-abcd.json"', (string) $res->header('Content-Disposition'));
+        self::assertStringContainsString('attachment; filename="nimvor-backup-key-abcd.json"', (string) $res->header('Content-Disposition'));
         self::assertSame('no-store', $res->header('Cache-Control'));
-        self::assertStringContainsString('whacp-backup-key', $res->body());
+        self::assertStringContainsString('nimvor-backup-key', $res->body());
         self::assertSame('long enough passphrase', $this->lastCall('backup.key_export')['passphrase']);
         self::assertSame(1, (int) $this->db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'backup.key_export' AND result = 'success'"));
     }
@@ -150,7 +150,7 @@ final class BackupsAdminTest extends HttpTestCase
         $this->db->run('DELETE FROM websites');
         $this->db->run("DELETE FROM users WHERE username = 'carol'");
 
-        $path = '/var/backups/whacp/accounts/carol/carol-20260901T030000Z-a1b2c3.whacp-account';
+        $path = '/var/backups/nimvor/accounts/carol/carol-20260901T030000Z-a1b2c3.nimvor-account';
         $manifest = ['version' => 1, 'id' => '20260901T030000Z-a1b2c3', 'username' => 'carol', 'key_id' => 'abcd', 'created_at' => '2026-09-01T03:00:00Z', 'meta' => $meta, 'sites' => [['domain' => 'carol.test', 'id' => '20260901T030000Z-d4e5f6']]];
         $this->agent->succeed('backup.account_inspect', ['manifest' => $manifest]);
         $page = $this->request('GET', '/backups/accounts/restore', [], [], '', ['path' => $path])->body();
@@ -204,7 +204,7 @@ final class BackupsAdminTest extends HttpTestCase
         $this->login('dave');
         $this->agent->succeed('backup.account', ['job_id' => 'aaaaaaaaaaaaaaaa']);
         $this->post('/backups/accounts', ['user_id' => '1']);
-        $this->post('/backups/accounts/restore', ['path' => '/var/backups/whacp/incoming/x.whacp-account', 'confirm' => 'x']);
+        $this->post('/backups/accounts/restore', ['path' => '/var/backups/nimvor/incoming/x.nimvor-account', 'confirm' => 'x']);
         self::assertSame(0, $this->calls('backup.account'));
         self::assertSame(0, $this->calls('backup.account_import'));
     }

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Tests\Support\HttpTestCase;
 
 final class DbBrowserTest extends HttpTestCase
 {
@@ -30,14 +30,14 @@ final class DbBrowserTest extends HttpTestCase
     }
 
     /** @param array<string, mixed> $body */
-    private function api(string $url, array $body): \WhaCP\Http\Response
+    private function api(string $url, array $body): \NimVor\Http\Response
     {
         $query = [];
         if (str_contains($url, '?')) {
             [$url, $qs] = explode('?', $url, 2);
             parse_str($qs, $query);
         }
-        $token = $this->app->container->get(\WhaCP\Security\Csrf::class)->token();
+        $token = $this->app->container->get(\NimVor\Security\Csrf::class)->token();
         return $this->request('POST', $url, $body, ['content-type' => 'application/json', 'accept' => 'application/json', 'x-csrf-token' => $token], (string) json_encode($body), $query);
     }
 
@@ -86,7 +86,7 @@ final class DbBrowserTest extends HttpTestCase
         self::assertSame(0, (int) $this->db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'database.browser_tables'"));
         self::assertSame(400, $this->api('/databases/' . $this->otherDb . '/browse/api', ['op' => 'drop_everything'])->status());
 
-        // Administrators can open databases WhaCP does not manage by name.
+        // Administrators can open databases NimVor does not manage by name.
         self::assertSame(200, $this->request('GET', '/databases/browse', query: ['name' => 'legacy_db'])->status());
         $this->api('/databases/browse/api?name=legacy_db', ['op' => 'tables']);
         self::assertSame('legacy_db', $this->lastCall('db.browse_tables')['database']);

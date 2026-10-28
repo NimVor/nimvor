@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Database\Connection;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Database\Connection;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Security → Compiler Access, SMTP Restrictions, Shell Fork Bomb Protection, Traceroute. */
 final class HardeningTest extends HttpTestCase
@@ -16,11 +16,11 @@ final class HardeningTest extends HttpTestCase
         $admin = $this->seedUser('admin', 'admin');
         $this->seedUser('cust', 'customer');
         $db = $this->app->container->get(Connection::class);
-        $db->run("INSERT INTO websites (server_id, domain, kind, php_version, https, root, document_root, system_user, owner_id, status, created_at, updated_at) VALUES (1, 'shop.test', 'php', '8.3', 1, '/home/whacp/shop.test', '/home/whacp/shop.test/public_html', 'shop', ?, 'active', 'x', 'x')", [$admin]);
+        $db->run("INSERT INTO websites (server_id, domain, kind, php_version, https, root, document_root, system_user, owner_id, status, created_at, updated_at) VALUES (1, 'shop.test', 'php', '8.3', 1, '/home/nimvor/shop.test', '/home/nimvor/shop.test/public_html', 'shop', ?, 'active', 'x', 'x')", [$admin]);
         $this->agent->succeed('hardening.status', [
-            'compilers' => ['restricted' => true, 'group' => 'whacp-compiler', 'members' => ['shop'], 'programs' => [['path' => '/usr/bin/x86_64-linux-gnu-gcc-13', 'mode' => '750', 'owner' => 'root:whacp-compiler']]],
+            'compilers' => ['restricted' => true, 'group' => 'nimvor-compiler', 'members' => ['shop'], 'programs' => [['path' => '/usr/bin/x86_64-linux-gnu-gcc-13', 'mode' => '750', 'owner' => 'root:nimvor-compiler']]],
             'traceroute' => ['enabled' => false, 'programs' => [['path' => '/usr/bin/traceroute.db', 'mode' => '700', 'owner' => 'root:root']]],
-            'forkbomb' => ['enabled' => true, 'file' => '/etc/security/limits.d/90-whacp-forkbomb.conf', 'soft' => 200, 'hard' => 300],
+            'forkbomb' => ['enabled' => true, 'file' => '/etc/security/limits.d/90-nimvor-forkbomb.conf', 'soft' => 200, 'hard' => 300],
             'smtp' => ['enabled' => true, 'active' => true, 'available' => true, 'allowed' => ['root', 'postfix'], 'ports' => [25, 465, 587]],
             'egress' => ['available' => true, 'active' => true, 'metadata_blocked' => true, 'block_private' => false, 'tcp_ports' => [80, 443], 'udp_ports' => [], 'accounts' => 3, 'metadata' => ['169.254.169.254', 'fd00:ec2::254']],
         ]);
@@ -33,7 +33,7 @@ final class HardeningTest extends HttpTestCase
     {
         $this->login('admin');
         foreach ([
-            '/security/compilers' => ['Many common exploits require a working C compiler', 'x86_64-linux-gnu-gcc-13', 'root:whacp-compiler', 'value="shop" id="cc-u0" checked', 'Compiler Access'],
+            '/security/compilers' => ['Many common exploits require a working C compiler', 'x86_64-linux-gnu-gcc-13', 'root:nimvor-compiler', 'value="shop" id="cc-u0" checked', 'Compiler Access'],
             '/security/smtp' => ['only the MTA, mailman, and root', 'root, postfix', '25, 465, 587', '>Disable<'],
             '/security/egress' => ['cloud credentials', '169.254.169.254, fd00:ec2::254', 'id="eg-meta" checked', 'value="80, 443"', '3 website account(s)', 'Outgoing Connections'],
             '/security/forkbomb' => ['Fork Bomb Protection denies users', 'We recommend that you enable', 'Disable Protection'],
@@ -44,7 +44,7 @@ final class HardeningTest extends HttpTestCase
             foreach ($wants as $want) {
                 self::assertStringContainsString($want, $res->body(), $path . ': ' . $want);
             }
-            self::assertStringContainsString('data-wcp-section-menu="security"', $res->body());
+            self::assertStringContainsString('data-nim-section-menu="security"', $res->body());
         }
     }
 

@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Http\Controllers;
+namespace NimVor\Http\Controllers;
 
-use WhaCP\Agent\AgentException;
-use WhaCP\Http\Request;
-use WhaCP\Http\Response;
-use WhaCP\Http\Session\SessionInterface;
-use WhaCP\Repositories\SettingRepository;
-use WhaCP\Security\Permissions as P;
-use WhaCP\Services\JobTracker;
-use WhaCP\Services\MongoRemoteService;
-use WhaCP\Services\MongoService;
-use WhaCP\Services\ServerContext;
-use WhaCP\View\View;
+use NimVor\Agent\AgentException;
+use NimVor\Http\Request;
+use NimVor\Http\Response;
+use NimVor\Http\Session\SessionInterface;
+use NimVor\Repositories\SettingRepository;
+use NimVor\Security\Permissions as P;
+use NimVor\Services\JobTracker;
+use NimVor\Services\MongoRemoteService;
+use NimVor\Services\MongoService;
+use NimVor\Services\ServerContext;
+use NimVor\View\View;
 
 /**
  * Server → MongoDB: the MongoDB server's databases and users. Administrators
@@ -126,7 +126,7 @@ final class MongoController extends Controller
                 'password' => (string) $request->input('password'), 'auth_db' => $request->string('auth_db'),
                 'tls' => $request->input('tls') === '1',
             ], $this->userId($request));
-        } catch (\WhaCP\Support\UserFacingException $e) {
+        } catch (\NimVor\Support\UserFacingException $e) {
             return $this->redirectWithFailure('/mongo?section=remotes', $e);
         }
         return $this->redirectWithSuccess('/mongo?section=remotes', 'Remote server “' . $name . '” added.');
@@ -148,7 +148,7 @@ final class MongoController extends Controller
         }
         try {
             $r = $this->remotes->ping((int) $request->input('id'));
-        } catch (\WhaCP\Support\UserFacingException $e) {
+        } catch (\NimVor\Support\UserFacingException $e) {
             return $this->redirectWithFailure('/mongo?section=remotes', $e);
         }
         return $this->redirectWithSuccess('/mongo?section=remotes', 'Connected — MongoDB ' . ($r['version'] !== '' ? $r['version'] : '(unknown)') . ', ' . $r['databases'] . ' database(s).');
@@ -162,7 +162,7 @@ final class MongoController extends Controller
         }
         try {
             return Response::json(['success' => true, 'data' => ['databases' => $this->remotes->databases((int) $request->input('id'))]]);
-        } catch (\WhaCP\Support\UserFacingException $e) {
+        } catch (\NimVor\Support\UserFacingException $e) {
             return Response::json(['success' => false, 'error' => $e->toArray()], $e->status() >= 400 && $e->status() < 600 ? $e->status() : 502);
         }
     }
@@ -182,7 +182,7 @@ final class MongoController extends Controller
             );
             $this->jobs->track($job, 'Copy a MongoDB database from a remote server', 'server', (string) $this->server->id(), $this->userId($request));
             $this->flashJob($job);
-        } catch (\WhaCP\Support\UserFacingException $e) {
+        } catch (\NimVor\Support\UserFacingException $e) {
             return $this->redirectWithFailure('/mongo?section=remotes', $e);
         }
         return $this->redirectWithSuccess('/mongo?section=remotes', 'Copying the database from the remote server…');
@@ -192,7 +192,7 @@ final class MongoController extends Controller
     public function note(Request $request): Response
     {
         if (!$this->view->can(P::MONGO_MANAGE)) {
-            return $this->redirectWithFailure('/mongo', new \WhaCP\Support\UserFacingException('You may not do this.'));
+            return $this->redirectWithFailure('/mongo', new \NimVor\Support\UserFacingException('You may not do this.'));
         }
         $name = trim($request->string('name'));
         if ($name === '') {

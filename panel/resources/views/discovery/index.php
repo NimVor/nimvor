@@ -1,16 +1,16 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var array<string, mixed> $inventory */
 $sites = $inventory['websites']['websites'] ?? [];
 $cards = [
-    ['Websites', 'globe2', count($sites), 'websites', \WhaCP\Security\Permissions::WEBSITES_VIEW],
-    ['PHP versions', 'filetype-php', count($inventory['php']['versions'] ?? []), 'php', \WhaCP\Security\Permissions::PHP_VIEW],
-    ['PHP-FPM pools', 'diagram-2', count($inventory['php']['pools'] ?? []), 'php', \WhaCP\Security\Permissions::PHP_VIEW],
-    ['Databases', 'database', count($inventory['databases']['schemas'] ?? []), 'databases', \WhaCP\Security\Permissions::DATABASES_VIEW],
-    ["Let's Encrypt certificates", 'shield-lock', count($inventory['certificates'] ?? []), 'ssl', \WhaCP\Security\Permissions::SSL_VIEW],
-    ['Cron jobs', 'clock-history', count($inventory['cron']['jobs'] ?? []), 'cron', \WhaCP\Security\Permissions::CRON_VIEW],
-    ['Services', 'cpu', count($inventory['services'] ?? []), 'services', \WhaCP\Security\Permissions::SERVICES_VIEW],
-    ['System accounts', 'people', count(array_filter($inventory['users'] ?? [], static fn ($u) => empty($u['system']))), 'system_users', \WhaCP\Security\Permissions::SYSTEM_USERS_VIEW],
+    ['Websites', 'globe2', count($sites), 'websites', \NimVor\Security\Permissions::WEBSITES_VIEW],
+    ['PHP versions', 'filetype-php', count($inventory['php']['versions'] ?? []), 'php', \NimVor\Security\Permissions::PHP_VIEW],
+    ['PHP-FPM pools', 'diagram-2', count($inventory['php']['pools'] ?? []), 'php', \NimVor\Security\Permissions::PHP_VIEW],
+    ['Databases', 'database', count($inventory['databases']['schemas'] ?? []), 'databases', \NimVor\Security\Permissions::DATABASES_VIEW],
+    ["Let's Encrypt certificates", 'shield-lock', count($inventory['certificates'] ?? []), 'ssl', \NimVor\Security\Permissions::SSL_VIEW],
+    ['Cron jobs', 'clock-history', count($inventory['cron']['jobs'] ?? []), 'cron', \NimVor\Security\Permissions::CRON_VIEW],
+    ['Services', 'cpu', count($inventory['services'] ?? []), 'services', \NimVor\Security\Permissions::SERVICES_VIEW],
+    ['System accounts', 'people', count(array_filter($inventory['users'] ?? [], static fn ($u) => empty($u['system']))), 'system_users', \NimVor\Security\Permissions::SYSTEM_USERS_VIEW],
 ];
 $warnings = array_merge($inventory['websites']['warnings'] ?? [], $inventory['php']['warnings'] ?? [], $inventory['databases']['warnings'] ?? [], $inventory['redis']['warnings'] ?? [], $inventory['cron']['warnings'] ?? []);
 $os = $inventory['os'] ?? [];
@@ -36,11 +36,11 @@ $os = $inventory['os'] ?? [];
     <?php foreach ($cards as [$label, $icon, $count, $route, $perm]): ?>
         <div class="col-6 col-md-4 col-xl-3">
             <?php if ($this->can($perm)): ?><a class="text-decoration-none" href="<?= e($this->url($route)) ?>"><?php endif; ?>
-            <div class="card wcp-count-card h-100">
+            <div class="card nim-count-card h-100">
                 <div class="card-body">
                     <i class="bi bi-<?= e($icon) ?>"></i>
-                    <div class="wcp-kpi"><?= (int) $count ?></div>
-                    <div class="wcp-kpi-label"><?= e($label) ?></div>
+                    <div class="nim-kpi"><?= (int) $count ?></div>
+                    <div class="nim-kpi-label"><?= e($label) ?></div>
                 </div>
             </div>
             <?php if ($this->can($perm)): ?></a><?php endif; ?>
@@ -66,7 +66,7 @@ $os = $inventory['os'] ?? [];
         <div class="card h-100">
             <div class="card-header"><i class="bi bi-clock me-1"></i>Snapshot history</div>
             <div class="table-responsive">
-                <table class="table table-sm mb-0 wcp-table">
+                <table class="table table-sm mb-0 nim-table">
                     <thead><tr><th>When</th><th>Websites</th><th>By</th><th>Checksum</th></tr></thead>
                     <tbody>
                     <?php foreach ($history as $h): ?>

@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
 use Closure;
-use WhaCP\Database\Connection;
-use WhaCP\Security\Crypto;
-use WhaCP\Support\UserFacingException;
+use NimVor\Database\Connection;
+use NimVor\Security\Crypto;
+use NimVor\Support\UserFacingException;
 
 /**
  * Per-website Cloudflare for the customer portal. A customer connects their
- * own Cloudflare API token (scoped to their own zone); WhaCP finds the zone of
+ * own Cloudflare API token (scoped to their own zone); NimVor finds the zone of
  * that token whose name matches the website's domain and lets them toggle the
  * common free-plan settings for just that zone. The token is stored encrypted,
  * per website, and never leaves the panel except as a Bearer header to

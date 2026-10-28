@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/testhost"
+	"github.com/NimVor/nimvor/agent/internal/testhost"
 )
 
 func TestDefaultsForNewAndExistingServers(t *testing.T) {

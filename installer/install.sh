@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 #
-# WhaCP installer (development / early-adopter release).
+# NimVor installer (development / early-adopter release).
 #
 # What it does:
 #   1. Detects the OS and checks requirements.
-#   2. Detects conflicts (existing WhaCP install, port in use).
+#   2. Detects conflicts (existing NimVor install, port in use).
 #   3. Installs missing dependencies from the distribution's repositories
 #      (--no-install-deps: only report them).
-#   4. Creates the "whacp" system user and group.
+#   4. Creates the "nimvor" system user and group.
 #   5. Installs the agent binary and the panel files.
-#   6. Writes /etc/whacp configuration and a fresh agent token.
+#   6. Writes /etc/nimvor configuration and a fresh agent token.
 #   7. Installs and starts the systemd services.
 #   8. Creates the first administrator.
 #   9. Runs health checks.
 #
-# Server profile (fresh servers): after installing, WhaCP sets the server up
-# for hosting with one of these profiles (bin/whacp setup:apply):
+# Server profile (fresh servers): after installing, NimVor sets the server up
+# for hosting with one of these profiles (bin/nimvor setup:apply):
 #   full     web server, PHP 8.3 + 8.4, MariaDB, email (Postfix, Dovecot,
 #            OpenDKIM, Rspamd), DNS (BIND, authoritative only), FTP, Redis,
 #            Memcached, ClamAV, firewall + protections, fail2ban, hardening,
@@ -23,13 +23,13 @@
 #   web      the same without email, DNS and ClamAV
 #   minimal  web server, PHP, MariaDB, firewall, fail2ban, certificates,
 #            plans and backups
-#   none     nothing: WhaCP only observes until you enable write mode
+#   none     nothing: NimVor only observes until you enable write mode
 # Default: full with 4 GB of memory or more, web with 2 GB, minimal below,
 # but only on a fresh server (no web, mail, DNS or database service running
 # yet) and never with --reinstall or --agent-only; otherwise none. You are
 # asked before anything is set up (--yes answers yes). A profile needs write
 # mode, which it turns on. Run it later at any time:
-#   sudo -u whacp WHACP_CONFIG=/etc/whacp/panel.php php /opt/whacp/panel/bin/whacp setup:apply --profile=full
+#   sudo -u nimvor NIMVOR_CONFIG=/etc/nimvor/panel.php php /opt/nimvor/panel/bin/nimvor setup:apply --profile=full
 # PHP 8.4 (and 8.3 on older systems) comes from a third-party repository
 # where the system has none: Ondřej Surý's PPA on Ubuntu (pinned signing
 # key), Remi's repository on the RHEL family. --no-third-party-repos keeps
@@ -40,7 +40,7 @@
 #     (except with --public-https, which adds its own Nginx site and opens its
 #     port, and with a server profile, through the panel's own actions);
 #   - reload or restart any existing service (--public-https reloads Nginx);
-#   - overwrite an existing WhaCP installation (use --reinstall explicitly).
+#   - overwrite an existing NimVor installation (use --reinstall explicitly).
 #
 # Usage (from a source checkout or release archive):
 #   sudo ./installer/install.sh [--no-install-deps] [--admin-user=NAME] [--admin-email=EMAIL]
@@ -57,9 +57,9 @@
 # install.sh --reinstall --public-https.
 #
 # --enable-writes switches the agent from read-only discovery to write mode
-# (manage websites, databases, certificates, …). Without it WhaCP only observes.
+# (manage websites, databases, certificates, …). Without it NimVor only observes.
 #
-# --agent-only installs just the agent on a server that another WhaCP panel
+# --agent-only installs just the agent on a server that another NimVor panel
 # will manage; --remote-access exposes it over TLS (pinned self-signed
 # certificate) to the addresses given with --allow-from. The installer
 # prints the address, pin and token to enter under "All servers" in the panel.
@@ -72,11 +72,11 @@ set -Eeuo pipefail
 umask 027
 
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PREFIX=/opt/whacp
-CONF_DIR=/etc/whacp
-DATA_DIR=/var/lib/whacp
-LOG_DIR=/var/log/whacp
-BIN=/usr/local/bin/whacp-agent
+PREFIX=/opt/nimvor
+CONF_DIR=/etc/nimvor
+DATA_DIR=/var/lib/nimvor
+LOG_DIR=/var/log/nimvor
+BIN=/usr/local/bin/nimvor-agent
 PORT=8090
 ADMIN_USER=""
 ADMIN_EMAIL=""
@@ -128,6 +128,21 @@ confirm() {
     fi
     exec 3<&-
     [[ $reply =~ ^[Yy]$ ]]
+}
+
+# ask VAR "question" [default]: asks on the terminal, never on standard input
+# (which is the script itself under `curl | sudo bash`, and would end the
+# installer silently at the first read). Without a terminal the default is
+# used, or, when there is none, the installer stops and names the option.
+ask() {
+    local var=$1 question=$2 default=${3:-} reply=""
+    if { exec 3</dev/tty; } 2>/dev/null; then
+        read -r -u 3 -p "$question" reply || true
+        exec 3<&-
+    fi
+    reply=${reply:-$default}
+    [[ -n $reply ]] || die "no terminal to ask on: $question Pass it as an option (--admin-user=NAME --admin-email=EMAIL)."
+    printf -v "$var" '%s' "$reply"
 }
 
 for arg in "$@"; do
@@ -195,7 +210,7 @@ if [[ $supported -eq 1 ]]; then
     ok "${PRETTY_NAME}"
 elif [[ $preview -eq 1 ]]; then
     ok "${PRETTY_NAME}"
-    warn "${PRETTY_NAME} is a preview system for WhaCP: it installs and is tested, but is not yet recommended for production servers"
+    warn "${PRETTY_NAME} is a preview system for NimVor: it installs and is tested, but is not yet recommended for production servers"
 elif [[ $FORCE_UNSUPPORTED -eq 1 ]]; then
     warn "${PRETTY_NAME:-unknown OS} is not supported; continuing because of --force-unsupported"
 else
@@ -223,7 +238,7 @@ ok "memory ${MEM_MB} MB, free disk ${DISK_FREE_GB:-?} GB on /"
 if [[ -z $PROFILE ]]; then
     busy=()
     # A server that already serves websites, mail, DNS or databases was set
-    # up by hand: WhaCP does not change it unless asked (--profile=…).
+    # up by hand: NimVor does not change it unless asked (--profile=…).
     for u in nginx apache2 httpd postfix exim4 named bind9 mariadb mysql mysqld; do
         if systemctl is-active --quiet "$u" 2>/dev/null; then busy+=("$u"); fi
     done
@@ -285,11 +300,11 @@ if [[ $PROFILE != none ]]; then
         warn "no terminal to ask whether to set up the server: no profile applied (--yes or --profile=… with --yes to apply one)"
     elif [[ $DRY_RUN -eq 0 ]]; then
         exec 3<&- 2>/dev/null || true
-        if confirm "Set up this server as: $desc? (Turns on write mode, the firewall and the services above; existing settings are left alone. No: install WhaCP only.)"; then
+        if confirm "Set up this server as: $desc? (Turns on write mode, the firewall and the services above; existing settings are left alone. No: install NimVor only.)"; then
             ENABLE_WRITES=1
         else
             PROFILE=none
-            ok "no profile: set the server up later with bin/whacp setup:apply --profile=…"
+            ok "no profile: set the server up later with bin/nimvor setup:apply --profile=…"
         fi
     fi
 else
@@ -365,26 +380,26 @@ command -v openssl >/dev/null || missing_pkgs+=(openssl)
 command -v curl >/dev/null || missing_pkgs+=(curl)
 # Jailed shells for website accounts run in a bubblewrap sandbox.
 command -v bwrap >/dev/null || missing_pkgs+=(bubblewrap)
-# SELinux labels for what WhaCP sets up (semanage).
+# SELinux labels for what NimVor sets up (semanage).
 if [[ $PKG == dnf ]] && ! command -v semanage >/dev/null; then missing_pkgs+=(policycoreutils-python-utils); fi
-# --public-https: WhaCP's own Nginx site for the panel, laid out like the
-# webmail site (whacp-panel.conf is not a website: "panel" is no domain).
+# --public-https: NimVor's own Nginx site for the panel, laid out like the
+# webmail site (nimvor-panel.conf is not a website: "panel" is no domain).
 if [[ $PKG == dnf ]]; then
-    PANEL_SITE=/etc/nginx/whacp-available/whacp-panel.conf
-    PANEL_SITE_LINK=/etc/nginx/conf.d/whacp-panel.conf
-    PANEL_CERT=/etc/pki/tls/certs/whacp-panel.crt
-    PANEL_CERT_KEY=/etc/pki/tls/private/whacp-panel.key
+    PANEL_SITE=/etc/nginx/nimvor-available/nimvor-panel.conf
+    PANEL_SITE_LINK=/etc/nginx/conf.d/nimvor-panel.conf
+    PANEL_CERT=/etc/pki/tls/certs/nimvor-panel.crt
+    PANEL_CERT_KEY=/etc/pki/tls/private/nimvor-panel.key
 else
-    PANEL_SITE=/etc/nginx/sites-available/whacp-panel.conf
-    PANEL_SITE_LINK=/etc/nginx/sites-enabled/whacp-panel.conf
-    PANEL_CERT=/etc/ssl/certs/whacp-panel.crt
-    PANEL_CERT_KEY=/etc/ssl/private/whacp-panel.key
+    PANEL_SITE=/etc/nginx/sites-available/nimvor-panel.conf
+    PANEL_SITE_LINK=/etc/nginx/sites-enabled/nimvor-panel.conf
+    PANEL_CERT=/etc/ssl/certs/nimvor-panel.crt
+    PANEL_CERT_KEY=/etc/ssl/private/nimvor-panel.key
 fi
 # A reinstall keeps what the first installation chose: the panel's port and
 # its public HTTPS port (nothing to pass again).
 if [[ $REINSTALL -eq 1 ]]; then
-    if [[ $PORT_SET -eq 0 && -f /etc/systemd/system/whacp-panel.service ]]; then
-        prev=$(grep -oE '127\.0\.0\.1:[0-9]+' /etc/systemd/system/whacp-panel.service | head -1 | cut -d: -f2)
+    if [[ $PORT_SET -eq 0 && -f /etc/systemd/system/nimvor-panel.service ]]; then
+        prev=$(grep -oE '127\.0\.0\.1:[0-9]+' /etc/systemd/system/nimvor-panel.service | head -1 | cut -d: -f2)
         if [[ $prev =~ ^[0-9]+$ ]] && (( prev >= 1024 && prev <= 65535 )); then PORT=$prev; fi
     fi
     if [[ -z $PUBLIC_HTTPS && $AGENT_ONLY -eq 0 && -f $PANEL_SITE ]]; then
@@ -440,22 +455,22 @@ if [[ ${#missing_pkgs[@]} -gt 0 ]]; then
 fi
 # Where AppArmor keeps unprivileged processes from creating user
 # namespaces (Ubuntu 23.10 and later), jailed shells run from a copy of
-# bubblewrap that only members of whacp-jail can execute (the agent keeps
+# bubblewrap that only members of nimvor-jail can execute (the agent keeps
 # it up to date); this profile lets that copy, and nothing else, create
 # them. Other accounts and programs keep the restriction.
 if [[ -r /proc/sys/kernel/apparmor_restrict_unprivileged_userns && $(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns) == 1 ]] && command -v apparmor_parser >/dev/null; then
-    cat > /etc/apparmor.d/whacp-bwrap <<'PROFILE'
-# Managed by WhaCP: jailed shells of website accounts (see the installer).
+    cat > /etc/apparmor.d/nimvor-bwrap <<'PROFILE'
+# Managed by NimVor: jailed shells of website accounts (see the installer).
 abi <abi/4.0>,
 include <tunables/global>
 
-profile whacp-bwrap /usr/local/lib/whacp/bwrap flags=(unconfined) {
+profile nimvor-bwrap /usr/local/lib/nimvor/bwrap flags=(unconfined) {
   userns,
 
-  include if exists <local/whacp-bwrap>
+  include if exists <local/nimvor-bwrap>
 }
 PROFILE
-    if run apparmor_parser -r /etc/apparmor.d/whacp-bwrap; then
+    if run apparmor_parser -r /etc/apparmor.d/nimvor-bwrap; then
         log "AppArmor profile for jailed shells loaded"
     else
         warn "The AppArmor profile for jailed shells could not be loaded; jailed shells stay unavailable"
@@ -482,31 +497,39 @@ install_missing() {
     local f users
     [[ -x $BIN ]] || echo "$BIN"
     for f in agent.json agent.token; do [[ -s $CONF_DIR/$f ]] || echo "$CONF_DIR/$f"; done
-    [[ -f /etc/systemd/system/whacp-agent.service ]] || echo "whacp-agent.service"
+    [[ -f /etc/systemd/system/nimvor-agent.service ]] || echo "nimvor-agent.service"
     [[ $AGENT_ONLY -eq 1 ]] && return 0
     [[ -f $PREFIX/panel/VERSION ]] || echo "$PREFIX/panel"
     for f in panel.php panel.key; do [[ -s $CONF_DIR/$f ]] || echo "$CONF_DIR/$f"; done
-    [[ -f /etc/systemd/system/whacp-panel.service ]] || echo "whacp-panel.service"
+    [[ -f /etc/systemd/system/nimvor-panel.service ]] || echo "nimvor-panel.service"
     if [[ -f $PREFIX/panel/VERSION && -s $CONF_DIR/panel.php ]]; then
-        users=$(runuser -u whacp -- env WHACP_CONFIG="$CONF_DIR/panel.php" "$PHP_BIN" "$PREFIX/panel/bin/whacp" users:count 2>/dev/null || true)
+        users=$(runuser -u nimvor -- env NIMVOR_CONFIG="$CONF_DIR/panel.php" "$PHP_BIN" "$PREFIX/panel/bin/nimvor" users:count 2>/dev/null || true)
         [[ $users =~ ^[1-9][0-9]*$ ]] || echo "the first administrator (panel database)"
     fi
 }
-if [[ -e $PREFIX || -e $CONF_DIR ]]; then
+# A server still running the project's former name (WhaCP) is not touched
+# by this installer: two panels would fight over the same websites, ports and
+# files. Migrate it first (docs/migration/WHACP-TO-NIMVOR.md).
+if [[ -e /opt/whacp || -e /etc/whacp || -e /etc/systemd/system/whacp-agent.service ]]; then
+    die "this server runs the former name of NimVor (WhaCP: /opt/whacp, /etc/whacp or whacp-agent.service). Nothing was changed. Follow docs/migration/WHACP-TO-NIMVOR.md to migrate it before installing."
+fi
+# An empty folder (left by a failed run, a test or a cleaned-up install) is not an installation.
+in_use() { [[ -e $1 ]] && ! { [[ -d $1 && ! -L $1 ]] && [[ -z $(ls -A "$1" 2>/dev/null) ]]; }; }
+if in_use "$PREFIX" || in_use "$CONF_DIR"; then
     mapfile -t missing < <(install_missing)
     if [[ $REINSTALL -eq 1 ]]; then
-        confirm "WhaCP is already installed. Reinstall files (configuration, token and database are kept)?" || die "aborted"
+        confirm "NimVor is already installed. Reinstall files (configuration, token and database are kept)?" || die "aborted"
     elif [[ ${#missing[@]} -gt 0 ]]; then
-        die "an earlier WhaCP installation did not finish (missing: $(IFS=,; echo "${missing[*]}" | sed 's/,/, /g')).
+        die "an earlier NimVor installation did not finish (missing: $(IFS=,; echo "${missing[*]}" | sed 's/,/, /g')).
 Complete it by running the installer again with --resume (or --reinstall) and the same options, e.g.:
     sudo $0 --resume $*
 Existing configuration, agent token, panel key and database are kept; missing parts are created."
     else
-        die "WhaCP is already installed in $PREFIX. To upgrade, run installer/upgrade.sh (it backs up, migrates and rolls back on failure). To repair this version's files, run the installer with --reinstall."
+        die "NimVor is already installed in $PREFIX. To upgrade, run installer/upgrade.sh (it backs up, migrates and rolls back on failure). To repair this version's files, run the installer with --reinstall."
     fi
 fi
 if [[ $AGENT_ONLY -eq 0 ]] && command -v ss >/dev/null && grep -q LISTEN <<<"$(ss -ltn "sport = :$PORT")"; then
-    if ! systemctl is-active --quiet whacp-panel 2>/dev/null; then
+    if ! systemctl is-active --quiet nimvor-panel 2>/dev/null; then
         die "port $PORT is already in use; choose another with --port="
     fi
 fi
@@ -560,18 +583,18 @@ AGENT_SRC=""
 # reinstalling would put the old agent back. Release archives ship the
 # build made after their sources, so they are not rebuilt.
 stale=0
-if [[ -x $SRC_DIR/dist/whacp-agent && -d $SRC_DIR/agent ]] && [[ -n $(find "$SRC_DIR/agent" "$SRC_DIR/VERSION" \( -name '*.go' -o -name go.mod -o -name go.sum -o -name VERSION \) -newer "$SRC_DIR/dist/whacp-agent" -print -quit 2>/dev/null) ]]; then
+if [[ -x $SRC_DIR/dist/nimvor-agent && -d $SRC_DIR/agent ]] && [[ -n $(find "$SRC_DIR/agent" "$SRC_DIR/VERSION" \( -name '*.go' -o -name go.mod -o -name go.sum -o -name VERSION \) -newer "$SRC_DIR/dist/nimvor-agent" -print -quit 2>/dev/null) ]]; then
     stale=1
 fi
 # The agent needs the Go its go.mod names. Go 1.21 and later fetch a newer
 # toolchain themselves (GOTOOLCHAIN=auto, checked against Go's checksum
-# database); older ones (Ubuntu 22.04 ships 1.18) cannot, so WhaCP then
+# database); older ones (Ubuntu 22.04 ships 1.18) cannot, so NimVor then
 # downloads Go from go.dev into its own folder (the system's Go is not
 # touched) and checks the archive's SHA-256 before unpacking it.
 GO_MIN=$(awk '$1 == "go" { print $2; exit }' "$SRC_DIR/agent/go.mod" 2>/dev/null)
 GO_MIN=${GO_MIN:-1.24}
 GO_FETCH_VERSION=1.24.7
-GO_DIR=/usr/local/lib/whacp-go
+GO_DIR=/usr/local/lib/nimvor-go
 ver_ge() { [[ $(printf '%s\n%s\n' "$2" "$1" | sort -V | head -1) == "$2" ]]; }
 go_version() { local v; v=$("$1" env GOVERSION 2>/dev/null || "$1" version 2>/dev/null | awk '{print $3}'); printf '%s\n' "${v#go}"; }
 # Builds the agent: as new as go.mod, or able to fetch that toolchain.
@@ -600,7 +623,7 @@ GO=$(find_go || true)
 if [[ -x $GO_DIR/go/bin/go ]] && { [[ -z $GO ]] || ! go_usable "$GO"; } && go_usable "$GO_DIR/go/bin/go"; then
     GO=$GO_DIR/go/bin/go
 fi
-if [[ ( ! -x $SRC_DIR/dist/whacp-agent || $stale -eq 1 ) && $INSTALL_DEPS -eq 1 ]] && { [[ -z $GO ]] || ! go_usable "$GO"; }; then
+if [[ ( ! -x $SRC_DIR/dist/nimvor-agent || $stale -eq 1 ) && $INSTALL_DEPS -eq 1 ]] && { [[ -z $GO ]] || ! go_usable "$GO"; }; then
     [[ -n $GO ]] && warn "Go $(go_version "$GO") ($GO) is too old to build the agent (it needs ${GO_MIN})"
     if [[ -z $GO && $PKG == dnf ]]; then
         log "Installing Go to build the agent"
@@ -620,12 +643,12 @@ fi
 if [[ $stale -eq 1 && -z $GO ]]; then
     # Installing the older build would silently keep the old agent (and its
     # fixed bugs) while the panel is updated.
-    die "the agent's sources are newer than dist/whacp-agent (e.g. after git pull), but Go was not found to rebuild it (looked in PATH, /usr/local/go/bin, /usr/lib/golang/bin, /usr/lib/go-*/bin). Re-run without --no-install-deps to install Go from the distribution, or install Go yourself."
+    die "the agent's sources are newer than dist/nimvor-agent (e.g. after git pull), but Go was not found to rebuild it (looked in PATH, /usr/local/go/bin, /usr/lib/golang/bin, /usr/lib/go-*/bin). Re-run without --no-install-deps to install Go from the distribution, or install Go yourself."
 fi
-if [[ -x $SRC_DIR/dist/whacp-agent && $stale -eq 0 ]]; then
-    AGENT_SRC=$SRC_DIR/dist/whacp-agent
+if [[ -x $SRC_DIR/dist/nimvor-agent && $stale -eq 0 ]]; then
+    AGENT_SRC=$SRC_DIR/dist/nimvor-agent
 elif [[ -n $GO ]]; then
-    if [[ $stale -eq 1 ]]; then log "Rebuilding the agent: its sources are newer than dist/whacp-agent"; else log "Building agent from source"; fi
+    if [[ $stale -eq 1 ]]; then log "Rebuilding the agent: its sources are newer than dist/nimvor-agent"; else log "Building agent from source"; fi
     run mkdir -p "$SRC_DIR/dist"
     # The version names the commit it was built from (agent:check, health).
     # Read-only git: as root it must not rewrite .git/index (git pull by the
@@ -637,10 +660,10 @@ elif [[ -n $GO ]]; then
     fi
     # A Go older than go.mod asks for downloads the right toolchain itself
     # (GOTOOLCHAIN=auto); GOPATH and caches stay out of the source tree.
-    (cd "$SRC_DIR/agent" && run env CGO_ENABLED=0 HOME="${HOME:-/root}" GOTOOLCHAIN=auto "$GO" build -trimpath -ldflags "-s -w -X main.version=$AGENT_VERSION" -o "$SRC_DIR/dist/whacp-agent" ./cmd/whacp-agent)
-    AGENT_SRC=$SRC_DIR/dist/whacp-agent
+    (cd "$SRC_DIR/agent" && run env CGO_ENABLED=0 HOME="${HOME:-/root}" GOTOOLCHAIN=auto "$GO" build -trimpath -ldflags "-s -w -X main.version=$AGENT_VERSION" -o "$SRC_DIR/dist/nimvor-agent" ./cmd/nimvor-agent)
+    AGENT_SRC=$SRC_DIR/dist/nimvor-agent
 else
-    die "no prebuilt agent (dist/whacp-agent) and Go was not found (looked in PATH, /usr/local/go/bin, /usr/lib/golang/bin, /usr/lib/go-*/bin). Install Go, or re-run without --no-install-deps."
+    die "no prebuilt agent (dist/nimvor-agent) and Go was not found (looked in PATH, /usr/local/go/bin, /usr/lib/golang/bin, /usr/lib/go-*/bin). Install Go, or re-run without --no-install-deps."
 fi
 give_back "$SRC_DIR/dist"
 ok "$AGENT_SRC ($("$AGENT_SRC" -version 2>/dev/null || echo 'version unknown'))"
@@ -674,26 +697,30 @@ fi
 
 # ----------------------------------------------------- 5. user and files ----
 log "Creating system user and directories"
-if ! getent group whacp >/dev/null; then run groupadd --system whacp; fi
-if ! id whacp >/dev/null 2>&1; then
-    run useradd --system --gid whacp --home-dir "$DATA_DIR" --no-create-home --shell /usr/sbin/nologin --comment "WhaCP panel" whacp
+if ! getent group nimvor >/dev/null; then run groupadd --system nimvor; fi
+if ! id nimvor >/dev/null 2>&1; then
+    run useradd --system --gid nimvor --home-dir "$DATA_DIR" --no-create-home --shell /usr/sbin/nologin --comment "NimVor panel" nimvor
 fi
-ok "user whacp"
+ok "user nimvor"
 run install -d -m 0755 -o root -g root "$PREFIX"
-run install -d -m 0750 -o root -g whacp "$CONF_DIR"
-run install -d -m 0750 -o whacp -g whacp "$DATA_DIR" "$DATA_DIR/sessions" "$LOG_DIR"
+run install -d -m 0750 -o root -g nimvor "$CONF_DIR"
+run install -d -m 0750 -o nimvor -g nimvor "$DATA_DIR" "$DATA_DIR/sessions" "$LOG_DIR"
 
 log "Installing files"
 run install -m 0755 -o root -g root "$AGENT_SRC" "$BIN"
+if [[ $AGENT_ONLY -eq 0 ]]; then
+    # The short command: "sudo nimvor user:password admin".
+    run install -m 0755 -o root -g root "$SRC_DIR/installer/config/nimvor-cli" /usr/local/bin/nimvor
+fi
 if [[ $AGENT_ONLY -eq 0 ]]; then
     run rm -rf "$PREFIX/panel.new"
     run mkdir -p "$PREFIX/panel.new"
     run cp -a "$SRC_DIR/panel/app" "$SRC_DIR/panel/bin" "$SRC_DIR/panel/config" "$SRC_DIR/panel/database" \
         "$SRC_DIR/panel/public" "$SRC_DIR/panel/resources" "$SRC_DIR/panel/routes" "$SRC_DIR/panel/vendor" \
         "$SRC_DIR/panel/composer.json" "$SRC_DIR/VERSION" "$PREFIX/panel.new/"
-    run chown -R root:whacp "$PREFIX/panel.new"
+    run chown -R root:nimvor "$PREFIX/panel.new"
     run chmod -R u=rwX,g=rX,o= "$PREFIX/panel.new"
-    run chmod 0750 "$PREFIX/panel.new/bin/whacp"
+    run chmod 0750 "$PREFIX/panel.new/bin/nimvor"
     if [[ -d $PREFIX/panel ]]; then run mv "$PREFIX/panel" "$PREFIX/panel.old.$(date +%s)"; fi
     run mv "$PREFIX/panel.new" "$PREFIX/panel"
 fi
@@ -715,7 +742,7 @@ log "Writing configuration"
 # is treated as missing — nothing can have been encrypted with an empty key.
 new_secret() {
     (umask 077; "${@:2}" > "$1.tmp")
-    chown root:whacp "$1.tmp"
+    chown root:nimvor "$1.tmp"
     chmod 0640 "$1.tmp"
     mv -f "$1.tmp" "$1"
 }
@@ -737,7 +764,7 @@ if [[ ! -s $CONF_DIR/panel.key ]]; then
     fi
 fi
 if [[ ! -f $CONF_DIR/agent.json ]]; then
-    run install -m 0640 -o root -g whacp "$SRC_DIR/installer/config/agent.json" "$CONF_DIR/agent.json"
+    run install -m 0640 -o root -g nimvor "$SRC_DIR/installer/config/agent.json" "$CONF_DIR/agent.json"
 fi
 # Where this installation came from: the panel's update button runs
 # installer/update.sh from here (only when root owns the checkout).
@@ -750,7 +777,7 @@ if [[ $SRC_DIR != *[\"\\]* ]]; then
     fi
 fi
 if [[ $AGENT_ONLY -eq 0 && ! -f $CONF_DIR/panel.php ]]; then
-    run install -m 0640 -o root -g whacp "$SRC_DIR/installer/config/panel.php" "$CONF_DIR/panel.php"
+    run install -m 0640 -o root -g nimvor "$SRC_DIR/installer/config/panel.php" "$CONF_DIR/panel.php"
 fi
 if [[ -n $REMOTE_ACCESS ]]; then
     clients=$(printf '%s' "$ALLOW_FROM" | awk -F, '{for (i = 1; i <= NF; i++) printf "%s\"%s\"", (i > 1 ? ", " : ""), $i}')
@@ -759,8 +786,8 @@ if [[ -n $REMOTE_ACCESS ]]; then
     else
         warn "$CONF_DIR/agent.json already sets listen_tcp or predates it; set listen_tcp and allowed_clients there by hand"
     fi
-    run install -d -m 0755 /etc/systemd/system/whacp-agent.service.d
-    run install -m 0644 "$SRC_DIR/installer/systemd/whacp-agent-remote.conf" /etc/systemd/system/whacp-agent.service.d/20-remote.conf
+    run install -d -m 0755 /etc/systemd/system/nimvor-agent.service.d
+    run install -m 0644 "$SRC_DIR/installer/systemd/nimvor-agent-remote.conf" /etc/systemd/system/nimvor-agent.service.d/20-remote.conf
     if [[ $DRY_RUN -eq 0 ]]; then
         AGENT_PIN=$("$BIN" -config "$CONF_DIR/agent.json" -pin)
     fi
@@ -769,61 +796,61 @@ ok "$CONF_DIR"
 
 # --------------------------------------------------------- 7. services ----
 log "Installing systemd services"
-run install -m 0644 "$SRC_DIR/installer/systemd/whacp-agent.service" /etc/systemd/system/whacp-agent.service
+run install -m 0644 "$SRC_DIR/installer/systemd/nimvor-agent.service" /etc/systemd/system/nimvor-agent.service
 if [[ $DRY_RUN -eq 1 ]]; then
-    echo "    [dry-run] /etc/systemd/system/whacp-scheduler.service (PHP $PHP_BIN)"
+    echo "    [dry-run] /etc/systemd/system/nimvor-scheduler.service (PHP $PHP_BIN)"
 else
-    sed "s#/usr/bin/php #${PHP_BIN} #" "$SRC_DIR/installer/systemd/whacp-scheduler.service" > /etc/systemd/system/whacp-scheduler.service
-    chmod 0644 /etc/systemd/system/whacp-scheduler.service
+    sed "s#/usr/bin/php #${PHP_BIN} #" "$SRC_DIR/installer/systemd/nimvor-scheduler.service" > /etc/systemd/system/nimvor-scheduler.service
+    chmod 0644 /etc/systemd/system/nimvor-scheduler.service
 fi
-run install -m 0644 "$SRC_DIR/installer/systemd/whacp-scheduler.timer" /etc/systemd/system/whacp-scheduler.timer
+run install -m 0644 "$SRC_DIR/installer/systemd/nimvor-scheduler.timer" /etc/systemd/system/nimvor-scheduler.timer
 if [[ $AGENT_ONLY -eq 1 ]]; then
     :
 elif [[ $DRY_RUN -eq 1 ]]; then
-    echo "    [dry-run] install whacp-panel.service (port $PORT)"
+    echo "    [dry-run] install nimvor-panel.service (port $PORT)"
 else
-    sed -e "s/127.0.0.1:8090/127.0.0.1:${PORT}/" -e "s#/usr/bin/php #${PHP_BIN} #" "$SRC_DIR/installer/systemd/whacp-panel.service" > /etc/systemd/system/whacp-panel.service
-    chmod 0644 /etc/systemd/system/whacp-panel.service
+    sed -e "s/127.0.0.1:8090/127.0.0.1:${PORT}/" -e "s#/usr/bin/php #${PHP_BIN} #" "$SRC_DIR/installer/systemd/nimvor-panel.service" > /etc/systemd/system/nimvor-panel.service
+    chmod 0644 /etc/systemd/system/nimvor-panel.service
 fi
 if [[ $ENABLE_WRITES -eq 1 ]]; then
     log "Enabling write mode"
     cat <<'NOTE'
-    In write mode WhaCP creates websites, users, databases and certificates and
+    In write mode NimVor creates websites, users, databases and certificates and
     reloads services. It never edits configuration it did not create, validates
     every change (nginx -t, php-fpm -t, sshd -t) and rolls back on failure.
 NOTE
     confirm "Enable write mode?" || die "aborted (run again without --enable-writes for read-only mode)"
-    run install -d -m 0755 /etc/systemd/system/whacp-agent.service.d
-    run install -m 0644 "$SRC_DIR/installer/systemd/whacp-agent-write-mode.conf" /etc/systemd/system/whacp-agent.service.d/10-write-mode.conf
+    run install -d -m 0755 /etc/systemd/system/nimvor-agent.service.d
+    run install -m 0644 "$SRC_DIR/installer/systemd/nimvor-agent-write-mode.conf" /etc/systemd/system/nimvor-agent.service.d/10-write-mode.conf
     run sed -i 's/"allow_write_actions": false/"allow_write_actions": true/' "$CONF_DIR/agent.json"
-    run install -d -m 0700 -o root -g root /var/lib/whacp-agent /var/backups/whacp
-    run install -d -m 0755 -o root -g root /home/whacp /var/www/whacp-acme
+    run install -d -m 0700 -o root -g root /var/lib/nimvor-agent /var/backups/nimvor
+    run install -d -m 0755 -o root -g root /home/nimvor /var/www/nimvor-acme
 fi
 run systemctl daemon-reload
 if [[ $PKG == dnf && $SELINUX_MODE != none && $SELINUX_MODE != Disabled ]] && command -v semodule >/dev/null; then
-    # Let systemd create the sockets of WhaCP's greylisting and mail limits
+    # Let systemd create the sockets of NimVor's greylisting and mail limits
     # in Postfix's private folder (installer/selinux/*.cil explains it).
     # SELinux stays enforcing; this allows that one thing.
-    log "Installing WhaCP's SELinux policy module"
-    run semodule -i "$SRC_DIR/installer/selinux/whacp_postfix_sockets.cil"
+    log "Installing NimVor's SELinux policy module"
+    run semodule -i "$SRC_DIR/installer/selinux/nimvor_postfix_sockets.cil"
 fi
 
-run systemctl enable --now whacp-agent.service
+run systemctl enable --now nimvor-agent.service
 if [[ $AGENT_ONLY -eq 0 ]]; then
     log "Initialising the panel database"
-    run runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/whacp" migrate
-    run systemctl enable --now whacp-panel.service
-    run systemctl enable --now whacp-scheduler.timer
+    run runuser -u nimvor -- env NIMVOR_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/nimvor" migrate
+    run systemctl enable --now nimvor-panel.service
+    run systemctl enable --now nimvor-scheduler.timer
 fi
 if [[ $REINSTALL -eq 1 || $ENABLE_WRITES -eq 1 || -n $REMOTE_ACCESS ]]; then
-    run systemctl restart whacp-agent.service
-    [[ $AGENT_ONLY -eq 1 ]] || run systemctl restart whacp-panel.service
+    run systemctl restart nimvor-agent.service
+    [[ $AGENT_ONLY -eq 1 ]] || run systemctl restart nimvor-panel.service
 fi
 # Greylisting and outgoing mail limits run the agent's program too: restart
 # them (only where they run) so they use the version just installed.
-# Mail helpers WhaCP set up earlier run the new code (a fresh server has
+# Mail helpers NimVor set up earlier run the new code (a fresh server has
 # none yet: "try-restart" of a unit that does not exist fails).
-for unit in whacp-greylist.service whacp-mailrate.service; do
+for unit in nimvor-greylist.service nimvor-mailrate.service; do
     if [[ -f /etc/systemd/system/$unit ]]; then
         run systemctl try-restart "$unit" || warn "$unit could not be restarted (systemctl status $unit)"
     fi
@@ -831,13 +858,13 @@ done
 
 # ---------------------------------------------------- 8. administrator ----
 if [[ $DRY_RUN -eq 0 && $AGENT_ONLY -eq 0 ]]; then
-    users=$(runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/whacp" users:count 2>/dev/null || echo 0)
+    users=$(runuser -u nimvor -- env NIMVOR_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/nimvor" users:count 2>/dev/null || echo 0)
     if [[ $users == 0 ]]; then
         log "Creating the first administrator"
-        if [[ -z $ADMIN_USER ]]; then read -r -p "  Admin username [admin]: " ADMIN_USER; ADMIN_USER=${ADMIN_USER:-admin}; fi
-        if [[ -z $ADMIN_EMAIL ]]; then read -r -p "  Admin email: " ADMIN_EMAIL; fi
+        if [[ -z $ADMIN_USER ]]; then ask ADMIN_USER "  Admin username [admin]: " admin; fi
+        if [[ -z $ADMIN_EMAIL ]]; then ask ADMIN_EMAIL "  Admin email: "; fi
         ADMIN_PASS="$(openssl rand -base64 18 | tr -d '/+=' | cut -c1-20)"
-        printf '%s\n' "$ADMIN_PASS" | runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/whacp" user:create "$ADMIN_USER" "$ADMIN_EMAIL" --role=admin
+        printf '%s\n' "$ADMIN_PASS" | runuser -u nimvor -- env NIMVOR_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/nimvor" user:create "$ADMIN_USER" "$ADMIN_EMAIL" --role=admin
         CREATED_PASS=$ADMIN_PASS
     else
         ok "administrator already exists"
@@ -871,7 +898,7 @@ if [[ -n $PUBLIC_HTTPS ]]; then
         # the full name.
         cn=$fqdn
         (( ${#cn} <= 64 )) || cn=$(hostname -s 2>/dev/null || true)
-        [[ -n $cn && ${#cn} -le 64 ]] || cn="WhaCP panel"
+        [[ -n $cn && ${#cn} -le 64 ]] || cn="NimVor panel"
         for ip in $(hostname -I 2>/dev/null); do san="${san},IP:${ip}"; done
         run install -d -m 0755 "$(dirname "$PANEL_CERT")"
         run install -d -m 0700 "$(dirname "$PANEL_CERT_KEY")"
@@ -897,7 +924,7 @@ if [[ -n $PUBLIC_HTTPS ]]; then
         # browser uses (security keys check it). Plain HTTP sent to the
         # port (error 497) is redirected to HTTPS.
         cat > "$PANEL_SITE" <<NGINX
-# Managed by WhaCP (install.sh --public-https): the panel over HTTPS.
+# Managed by NimVor (install.sh --public-https): the panel over HTTPS.
 server {
     listen ${PUBLIC_HTTPS} ssl;
 ${listen6}
@@ -958,7 +985,7 @@ NGINX
         fi
         grep -q "'secure_cookie' => true" "$CONF_DIR/panel.php" || warn "set 'secure_cookie' => true in $CONF_DIR/panel.php by hand"
         grep -q "'trusted_proxies' => \[[^]]*'127.0.0.1'" "$CONF_DIR/panel.php" || warn "add '127.0.0.1' to 'trusted_proxies' in $CONF_DIR/panel.php by hand"
-        systemctl restart whacp-panel.service
+        systemctl restart nimvor-panel.service
         # The web terminal's WebSocket listener (loopback; Nginx proxies to it).
         set_terminal=$("$PHP_BIN" -r '$f = $argv[1]; $c = json_decode((string) file_get_contents($f), true);
             if (!is_array($c)) { exit(1); }
@@ -966,7 +993,7 @@ NGINX
                 file_put_contents($f, json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n"); echo "set"; }' "$CONF_DIR/agent.json" "$TERMINAL_PORT") \
             || warn "set \"terminal_listen\": \"127.0.0.1:${TERMINAL_PORT}\" in $CONF_DIR/agent.json by hand for the web terminal"
         if [[ $set_terminal == set ]]; then
-            systemctl restart whacp-agent.service
+            systemctl restart nimvor-agent.service
             ok "web terminal on 127.0.0.1:${TERMINAL_PORT} (behind Nginx)"
         fi
     fi
@@ -985,20 +1012,20 @@ fi
 # ------------------------------------------------------ 9. health checks ----
 log "Running health checks"
 if [[ $DRY_RUN -eq 0 ]]; then
-    for _ in 1 2 3 4 5 6 7 8 9 10; do [[ -S /run/whacp/agent.sock ]] && break; sleep 1; done
-    systemctl is-active --quiet whacp-agent && ok "whacp-agent is running" || warn "whacp-agent is not running: journalctl -u whacp-agent"
+    for _ in 1 2 3 4 5 6 7 8 9 10; do [[ -S /run/nimvor/agent.sock ]] && break; sleep 1; done
+    systemctl is-active --quiet nimvor-agent && ok "nimvor-agent is running" || warn "nimvor-agent is not running: journalctl -u nimvor-agent"
 fi
 if [[ $DRY_RUN -eq 0 && $AGENT_ONLY -eq 0 ]]; then
-    runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/whacp" agent:check && ok "panel can reach the agent" || warn "panel cannot reach the agent"
+    runuser -u nimvor -- env NIMVOR_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/nimvor" agent:check && ok "panel can reach the agent" || warn "panel cannot reach the agent"
     for _ in 1 2 3 4 5; do curl -fsS "http://127.0.0.1:${PORT}/healthz" >/dev/null 2>&1 && break; sleep 1; done
-    curl -fsS "http://127.0.0.1:${PORT}/healthz" >/dev/null && ok "panel answers on 127.0.0.1:${PORT}" || warn "panel is not answering: journalctl -u whacp-panel"
+    curl -fsS "http://127.0.0.1:${PORT}/healthz" >/dev/null && ok "panel answers on 127.0.0.1:${PORT}" || warn "panel is not answering: journalctl -u nimvor-panel"
     if [[ -n $PUBLIC_HTTPS ]]; then
         for _ in 1 2 3 4 5; do curl -fsSk "https://127.0.0.1:${PUBLIC_HTTPS}/healthz" >/dev/null 2>&1 && break; sleep 1; done
         curl -fsSk "https://127.0.0.1:${PUBLIC_HTTPS}/healthz" >/dev/null && ok "panel answers over HTTPS on port ${PUBLIC_HTTPS}" || warn "the panel does not answer on https://127.0.0.1:${PUBLIC_HTTPS}/: journalctl -u nginx"
     fi
-    runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/whacp" discovery:run || warn "initial discovery failed"
+    runuser -u nimvor -- env NIMVOR_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/nimvor" discovery:run || warn "initial discovery failed"
     # Cron schedules in the new agent's form (each job sandboxed).
-    runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/whacp" cron:sync || warn "some cron schedules were not written again (see above)"
+    runuser -u nimvor -- env NIMVOR_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/nimvor" cron:sync || warn "some cron schedules were not written again (see above)"
 fi
 
 # --------------------------------------------------- 10. server profile ----
@@ -1009,23 +1036,23 @@ if [[ $PROFILE != none && $AGENT_ONLY -eq 0 && $DRY_RUN -eq 0 ]]; then
     [[ -z $SETUP_HOSTNAME ]] || setup_args+=("--hostname=$SETUP_HOSTNAME")
     [[ -z $SETUP_PHP ]] || setup_args+=("--php=$SETUP_PHP")
     [[ $THIRD_PARTY_REPOS -eq 1 ]] || setup_args+=(--no-third-party-repos)
-    if ! runuser -u whacp -- env WHACP_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/whacp" "${setup_args[@]}"; then
+    if ! runuser -u nimvor -- env NIMVOR_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/nimvor" "${setup_args[@]}"; then
         SETUP_FAILED=1
-        warn "some setup steps failed (see above). WhaCP itself is installed; fix the cause and run: sudo -u whacp WHACP_CONFIG=$CONF_DIR/panel.php $PHP_BIN $PREFIX/panel/bin/whacp ${setup_args[*]}"
+        warn "some setup steps failed (see above). NimVor itself is installed; fix the cause and run: sudo -u nimvor NIMVOR_CONFIG=$CONF_DIR/panel.php $PHP_BIN $PREFIX/panel/bin/nimvor ${setup_args[*]}"
     fi
 fi
 
 if [[ $AGENT_ONLY -eq 1 ]]; then
     cat <<EOF
 
-The WhaCP agent is installed ($({ [[ $ENABLE_WRITES -eq 1 ]] || grep -q '"allow_write_actions": true' "$CONF_DIR/agent.json" 2>/dev/null; } && echo "write mode" || echo "read-only discovery mode")).
+The NimVor agent is installed ($({ [[ $ENABLE_WRITES -eq 1 ]] || grep -q '"allow_write_actions": true' "$CONF_DIR/agent.json" 2>/dev/null; } && echo "write mode" || echo "read-only discovery mode")).
 EOF
     if [[ -n $REMOTE_ACCESS ]]; then
         cat <<EOF
-Connect it from your WhaCP panel under "All servers" with:
+Connect it from your NimVor panel under "All servers" with:
 
     Agent address:   https://$(hostname -I 2>/dev/null | awk '{print $1}'):${REMOTE_ACCESS##*:}
-    Certificate pin: ${AGENT_PIN:-run: whacp-agent -pin}
+    Certificate pin: ${AGENT_PIN:-run: nimvor-agent -pin}
     Agent token:     $(cat "$CONF_DIR/agent.token" 2>/dev/null)
 
 Only ${ALLOW_FROM} may connect. Allow the port in the firewall for that
@@ -1042,12 +1069,12 @@ fi
 
 cat <<EOF
 
-WhaCP is installed ($({ [[ $ENABLE_WRITES -eq 1 ]] || grep -q '"allow_write_actions": true' "$CONF_DIR/agent.json" 2>/dev/null; } && echo "write mode" || echo "read-only discovery mode")).
+NimVor is installed ($({ [[ $ENABLE_WRITES -eq 1 ]] || grep -q '"allow_write_actions": true' "$CONF_DIR/agent.json" 2>/dev/null; } && echo "write mode" || echo "read-only discovery mode")).
 EOF
 if [[ $PROFILE == none ]]; then
     cat <<EOF
 Nothing in your existing Nginx, PHP, database, SSL or cron configuration was
-changed. WhaCP only ever edits files it creates itself (named whacp-*).
+changed. NimVor only ever edits files it creates itself (named nimvor-*).
 
 EOF
 else
@@ -1056,7 +1083,7 @@ The server is set up as: $PROFILE$([[ $SETUP_FAILED -eq 1 ]] && echo " (some ste
 Server → Components shows each part and what is left to do. The setup can
 run again at any time (finished steps are skipped); its last results:
 
-    sudo -u whacp WHACP_CONFIG=$CONF_DIR/panel.php $PHP_BIN $PREFIX/panel/bin/whacp setup:status
+    sudo -u nimvor NIMVOR_CONFIG=$CONF_DIR/panel.php $PHP_BIN $PREFIX/panel/bin/nimvor setup:status
 
 EOF
 fi

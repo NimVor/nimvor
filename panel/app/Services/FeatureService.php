@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Database\Connection;
-use WhaCP\Security\Permissions as P;
-use WhaCP\Support\UserFacingException;
-use WhaCP\Support\ValidationException;
+use NimVor\Database\Connection;
+use NimVor\Security\Permissions as P;
+use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
 
 /**
  * Feature Manager. A feature list, assigned to a hosting plan, says which
@@ -28,7 +28,8 @@ final class FeatureService
      * feature is on unless a list turns it off.
      */
     public const FEATURES = [
-        'php' => ['PHP & website settings', [], ['sites.edit', 'sites.update'], 'Websites'],
+        'php' => ['PHP & website settings', [], ['sites.edit', 'sites.update', 'sites.php'], 'Websites'],
+        'redirects' => ['Redirects', [], ['sites.redirects'], 'Websites'],
         'mysql' => ['MySQL / MariaDB databases', [P::DATABASES_VIEW, P::DATABASES_MANAGE], [], 'Databases'],
         'mongodb' => ['MongoDB databases', [], ['sites.mongo'], 'Databases'],
         'email' => ['Email', [P::MAIL_MANAGE], [], 'Email'],
@@ -55,6 +56,8 @@ final class FeatureService
         'malware' => ['Malware scan', [], ['sites.malware'], 'Security'],
         'firewall' => ['Web firewall (ModSecurity)', [], ['sites.firewall'], 'Security'],
         'site_security' => ['Site security overview', [], ['sites.security'], 'Security'],
+        'site_access' => ['Site access (password-protect a website)', [], ['sites.access'], 'Security'],
+        'web_policy' => ['Security headers & cache rules', [], ['sites.web_policy'], 'Security'],
         'ssh' => ['SSH shell & web terminal', [], ['sites.terminal'], 'Files'],
         'wordpress' => ['WordPress Toolkit', [], ['sites.wordpress', 'wordpress'], 'Websites'],
         // Which site types a customer may create (type_php and type_static are

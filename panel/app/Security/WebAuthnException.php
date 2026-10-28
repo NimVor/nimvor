@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Security;
+namespace NimVor\Security;
 
-use WhaCP\Support\UserFacingException;
+use NimVor\Support\UserFacingException;
 
 /** A security-key ceremony that failed, with a message for the user. */
 final class WebAuthnException extends UserFacingException

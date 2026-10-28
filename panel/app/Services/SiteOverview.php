@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Services;
+namespace NimVor\Services;
 
-use WhaCP\Agent\AgentClient;
-use WhaCP\Agent\AgentException;
-use WhaCP\Database\Connection;
-use WhaCP\Repositories\DatabaseRepository;
+use NimVor\Agent\AgentClient;
+use NimVor\Agent\AgentException;
+use NimVor\Database\Connection;
+use NimVor\Repositories\DatabaseRepository;
 
 /**
  * Read-only summary of a website for its dashboard: counts and states from

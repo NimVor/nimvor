@@ -1,5 +1,5 @@
 <?php
-/** @var \WhaCP\View\View $this */
+/** @var \NimVor\View\View $this */
 /** @var list<array<string, mixed>> $workers */
 ?>
 <?php $this->start(); ?>Workers<?php $this->end('title'); ?>

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WhaCP\Tests\Http;
+namespace NimVor\Tests\Http;
 
-use WhaCP\Repositories\UserRepository;
-use WhaCP\Services\WebsiteService;
-use WhaCP\Tests\Support\HttpTestCase;
+use NimVor\Repositories\UserRepository;
+use NimVor\Services\WebsiteService;
+use NimVor\Tests\Support\HttpTestCase;
 
 /** Directory listing and file permission repair of a website. */
 final class SiteFilesToolsTest extends HttpTestCase
@@ -44,7 +44,7 @@ final class SiteFilesToolsTest extends HttpTestCase
         $this->login('cust');
         $this->agent->fail('sites.apply', 500, 'failed', 'nginx -t failed');
         $this->post('/sites/' . $this->site . '/directory-listing', ['enabled' => '1']);
-        self::assertSame(0, (int) $this->app->container->get(\WhaCP\Database\Connection::class)->scalar('SELECT directory_listing FROM websites WHERE id = ?', [$this->site]));
+        self::assertSame(0, (int) $this->app->container->get(\NimVor\Database\Connection::class)->scalar('SELECT directory_listing FROM websites WHERE id = ?', [$this->site]));
     }
 
     public function testPermissionsCheckAndRepair(): void

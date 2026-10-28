@@ -11,9 +11,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/filesystem"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/logging"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/platform"
+	"github.com/NimVor/nimvor/agent/internal/filesystem"
+	"github.com/NimVor/nimvor/agent/internal/logging"
+	"github.com/NimVor/nimvor/agent/internal/platform"
 )
 
 // Job is one cron entry.

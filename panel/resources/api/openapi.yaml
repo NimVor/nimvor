@@ -1,13 +1,13 @@
 openapi: 3.1.0
 info:
-  title: WhaCP panel API
+  title: NimVor panel API
   version: "1"
   description: |
-    REST API of the WhaCP panel. Authenticate with a personal token created
-    on your profile page: `Authorization: Bearer whacp_…`. A token acts with
+    REST API of the NimVor panel. Authenticate with a personal token created
+    on your profile page: `Authorization: Bearer nimvor_…`. A token acts with
     its user's permissions and ownership scope (hosting customers only see
     their own websites). Read-only tokens may only use GET. Limit: 120
-    requests per minute per token. Select a server with `X-WhaCP-Server: <id>`
+    requests per minute per token. Select a server with `X-NimVor-Server: <id>`
     (default: this server).
 
     Long operations return `202` with a `job_id`; poll `GET /jobs/{id}`.
@@ -27,7 +27,7 @@ components:
       required: true
       schema: { type: integer }
     Server:
-      name: X-WhaCP-Server
+      name: X-NimVor-Server
       in: header
       required: false
       schema: { type: integer }

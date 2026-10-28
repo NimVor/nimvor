@@ -14,14 +14,14 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/mchkhawarshahzad/whacp/agent/internal/actions"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/host"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/mysqlwire"
-	"github.com/mchkhawarshahzad/whacp/agent/internal/validate"
+	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/mysqlwire"
+	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
 // The database browser never runs SQL as root. Each database has its own
-// browser account (whacp_b_<hash>@localhost) with privileges on that
+// browser account (nimvor_b_<hash>@localhost) with privileges on that
 // database only. The account is locked between uses; for each request it
 // gets a fresh random password, is unlocked, used over the local socket
 // and locked again with another random password. Anything typed in the SQL
@@ -30,7 +30,7 @@ import (
 // from the browser keep a valid definer.)
 
 // BrowserPrefix marks browser accounts; users cannot create such names.
-const BrowserPrefix = "whacp_b_"
+const BrowserPrefix = "nimvor_b_"
 
 var browseMu sync.Mutex
 

@@ -1,11 +1,11 @@
 <?php
 /**
- * @var \WhaCP\View\View $this
+ * @var \NimVor\View\View $this
  * @var array<string, mixed> $domain
  * @var array<string, mixed> $mailbox
  * @var array{filters: list<array<string, mixed>>, responder: array<string, mixed>}|null $data
  */
-use WhaCP\Services\MailFilterService as F;
+use NimVor\Services\MailFilterService as F;
 
 $id = (int) $domain['id'];
 $mb = (int) $mailbox['id'];
@@ -17,7 +17,7 @@ $modal = function (?int $n, ?array $f) use ($id, $mb): string {
     ob_start(); ?>
     <div class="modal fade" id="filter-<?= e($key) ?>" tabindex="-1" aria-labelledby="filter-title-<?= e($key) ?>" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
-            <form class="modal-content" method="post" action="<?= e($this->url('mail.filters.save', ['id' => $id, 'mailbox' => $mb])) ?>" data-wcp-busy>
+            <form class="modal-content" method="post" action="<?= e($this->url('mail.filters.save', ['id' => $id, 'mailbox' => $mb])) ?>" data-nim-busy>
                 <?= $this->csrfField() ?>
                 <?php if ($n !== null): ?><input type="hidden" name="index" value="<?= $n ?>"><?php endif; ?>
                 <input type="hidden" name="enabled" value="<?= $f === null || !empty($f['enabled']) ? '1' : '0' ?>">
@@ -61,14 +61,14 @@ $modal = function (?int $n, ?array $f) use ($id, $mb): string {
 <div class="row g-3">
     <div class="col-xl-7">
         <div class="card" id="filters">
-            <div class="card-header wcp-toolbar">
-                <h2 class="wcp-toolbar-title"><i class="bi bi-funnel me-1"></i>Email filters <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($data['filters']) ?></span></h2>
+            <div class="card-header nim-toolbar">
+                <h2 class="nim-toolbar-title"><i class="bi bi-funnel me-1"></i>Email filters <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($data['filters']) ?></span></h2>
                 <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#filter-new"><i class="bi bi-plus-lg me-1"></i>New filter</button>
             </div>
             <?php if ($data['filters'] === []): ?>
-                <div class="wcp-empty-state"><i class="bi bi-funnel" aria-hidden="true"></i><div class="fw-medium">No filters</div><div class="small">Sort, forward or delete incoming mail by sender, recipient, subject or content.</div></div>
+                <div class="nim-empty-state"><i class="bi bi-funnel" aria-hidden="true"></i><div class="fw-medium">No filters</div><div class="small">Sort, forward or delete incoming mail by sender, recipient, subject or content.</div></div>
             <?php else: ?>
-                <div class="wcp-dtable table-responsive">
+                <div class="nim-dtable table-responsive">
                     <table class="table align-middle mb-0">
                         <thead><tr><th>Filter</th><th>When</th><th>Then</th><th></th></tr></thead>
                         <tbody>
@@ -78,9 +78,9 @@ $modal = function (?int $n, ?array $f) use ($id, $mb): string {
                                 <td class="small"><?= e(implode(!empty($f['any']) ? ' or ' : ' and ', array_map(static fn (array $x): string => (F::PARTS[$x['part']] ?? $x['part']) . ' ' . (F::MATCHES[$x['match']] ?? $x['match']) . ' “' . $x['value'] . '”', $f['rules']))) ?></td>
                                 <td class="small"><?= e(implode(', ', array_map(static fn (array $x): string => (F::ACTIONS[$x['type']] ?? $x['type']) . (($x['value'] ?? '') !== '' ? ' ' . $x['value'] : ''), $f['actions']))) ?></td>
                                 <td class="text-end text-nowrap">
-                                    <form class="d-inline" method="post" action="<?= e($this->url('mail.filters.toggle', ['id' => $id, 'mailbox' => $mb, 'n' => $n])) ?>" data-wcp-busy><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary" title="<?= empty($f['enabled']) ? 'Enable' : 'Disable' ?>" aria-label="<?= empty($f['enabled']) ? 'Enable' : 'Disable' ?> <?= e($f['name']) ?>"><i class="bi bi-<?= empty($f['enabled']) ? 'play' : 'pause' ?>"></i></button></form>
+                                    <form class="d-inline" method="post" action="<?= e($this->url('mail.filters.toggle', ['id' => $id, 'mailbox' => $mb, 'n' => $n])) ?>" data-nim-busy><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary" title="<?= empty($f['enabled']) ? 'Enable' : 'Disable' ?>" aria-label="<?= empty($f['enabled']) ? 'Enable' : 'Disable' ?> <?= e($f['name']) ?>"><i class="bi bi-<?= empty($f['enabled']) ? 'play' : 'pause' ?>"></i></button></form>
                                     <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#filter-<?= $n ?>" aria-label="Edit <?= e($f['name']) ?>"><i class="bi bi-pencil"></i></button>
-                                    <form class="d-inline" method="post" action="<?= e($this->url('mail.filters.delete', ['id' => $id, 'mailbox' => $mb, 'n' => $n])) ?>" data-wcp-confirm="Delete the filter “<?= e($f['name']) ?>”?"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger" aria-label="Delete <?= e($f['name']) ?>"><i class="bi bi-trash"></i></button></form>
+                                    <form class="d-inline" method="post" action="<?= e($this->url('mail.filters.delete', ['id' => $id, 'mailbox' => $mb, 'n' => $n])) ?>" data-nim-confirm="Delete the filter “<?= e($f['name']) ?>”?"><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger" aria-label="Delete <?= e($f['name']) ?>"><i class="bi bi-trash"></i></button></form>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -92,9 +92,9 @@ $modal = function (?int $n, ?array $f) use ($id, $mb): string {
     </div>
     <div class="col-xl-5">
         <div class="card" id="autoresponder">
-            <div class="card-header d-flex align-items-center"><i class="bi bi-reply me-1"></i>Autoresponder<span class="ms-auto"><?= !empty($r['enabled']) ? '<span class="wcp-state is-ok">On</span>' : '<span class="wcp-state is-off">Off</span>' ?></span></div>
+            <div class="card-header d-flex align-items-center"><i class="bi bi-reply me-1"></i>Autoresponder<span class="ms-auto"><?= !empty($r['enabled']) ? '<span class="nim-state is-ok">On</span>' : '<span class="nim-state is-off">Off</span>' ?></span></div>
             <div class="card-body">
-                <form method="post" action="<?= e($this->url('mail.responder', ['id' => $id, 'mailbox' => $mb])) ?>" data-wcp-busy>
+                <form method="post" action="<?= e($this->url('mail.responder', ['id' => $id, 'mailbox' => $mb])) ?>" data-nim-busy>
                     <?= $this->csrfField() ?>
                     <div class="form-check form-switch mb-3"><input type="hidden" name="enabled" value="0"><input class="form-check-input" type="checkbox" role="switch" id="ar-on" name="enabled" value="1"<?= !empty($r['enabled']) ? ' checked' : '' ?>><label class="form-check-label" for="ar-on">Reply automatically to incoming mail</label></div>
                     <label class="form-label" for="ar-subject">Subject</label>

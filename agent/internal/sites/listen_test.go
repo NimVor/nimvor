@@ -7,7 +7,7 @@ import (
 
 func TestListenAddresses(t *testing.T) {
 	s := Spec{Domain: "shop.test", User: "shop", Kind: "static", Enabled: true, IPv4: "203.0.113.11", IPv6: "2001:DB8:5::0010", HTTPS: true, CertFile: "/etc/letsencrypt/live/shop.test/fullchain.pem", KeyFile: "/etc/letsencrypt/live/shop.test/privkey.pem"}
-	if err := s.Normalize("/home/whacp", "/var/lib/whacp-agent"); err != nil {
+	if err := s.Normalize("/home/nimvor", "/var/lib/nimvor-agent"); err != nil {
 		t.Fatal(err)
 	}
 	if s.IPv6 != "2001:db8:5::10" {
@@ -29,7 +29,7 @@ func TestListenAddresses(t *testing.T) {
 	}
 	for _, bad := range []Spec{{IPv4: "2001:db8::1"}, {IPv4: "127.0.0.1"}, {IPv4: "1.2.3.4; include /etc/x"}, {IPv6: "203.0.113.1"}, {IPv6: "fe80::1"}, {IPv6: "fe80::1%eth0"}, {IPv4: "0.0.0.0"}} {
 		b := Spec{Domain: "x.test", User: "x", Kind: "static", IPv4: bad.IPv4, IPv6: bad.IPv6}
-		if err := b.Normalize("/home/whacp", "/var/lib/whacp-agent"); err == nil {
+		if err := b.Normalize("/home/nimvor", "/var/lib/nimvor-agent"); err == nil {
 			t.Errorf("accepted %+v", bad)
 		}
 	}

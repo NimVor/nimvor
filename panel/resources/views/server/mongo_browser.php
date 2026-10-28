@@ -9,7 +9,7 @@
  * The same view backs the per-website browser (SiteMongoController::browser);
  * $canDelete is false for a read-only viewer.
  *
- * @var \WhaCP\View\View $this
+ * @var \NimVor\View\View $this
  * @var string $api        the JSON endpoint (mongo.browse)
  * @var string $export     the download endpoint (mongo.export)
  * @var string $back       the MongoDB page URL
@@ -21,15 +21,15 @@
 <?php $this->start(); ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($back) ?>"><i class="bi bi-arrow-left"></i> MongoDB</a><?php $this->end('back'); ?>
 <?php $this->start(); ?><i class="bi bi-hdd-network me-1"></i>MongoDB browser<?php $this->end('title'); ?>
 
-<div class="wcp-mongo3" id="wcp-mongo"
+<div class="nim-mongo3" id="nim-mongo"
      data-api="<?= e($api) ?>"
      data-export="<?= e($export) ?>"
      data-current="<?= e($current) ?>"
      data-can-delete="<?= $canDelete ? '1' : '0' ?>">
 
     <!-- Left: databases + collections -->
-    <aside class="wcp-mongo-side">
-        <div class="wcp-mongo-side-head"><i class="bi bi-hdd-stack me-1" aria-hidden="true"></i>Databases</div>
+    <aside class="nim-mongo-side">
+        <div class="nim-mongo-side-head"><i class="bi bi-hdd-stack me-1" aria-hidden="true"></i>Databases</div>
         <div class="p-2 border-bottom">
             <select class="form-select form-select-sm" id="mb-db" aria-label="Database" data-mb-db>
                 <option value="">Choose a database…</option>
@@ -44,24 +44,24 @@
             <button class="btn btn-sm btn-outline-primary text-nowrap" type="button" data-mb-newcoll disabled title="Create a collection"><i class="bi bi-plus-lg"></i></button>
             <?php endif; ?>
         </div>
-        <ul class="list-group list-group-flush wcp-mongo-colls" data-mb-colls aria-label="Collections"></ul>
+        <ul class="list-group list-group-flush nim-mongo-colls" data-mb-colls aria-label="Collections"></ul>
         <div class="small text-body-secondary px-2 py-2" data-mb-colls-count></div>
     </aside>
 
     <!-- Centre: header, query, tabs, documents -->
-    <section class="wcp-mongo-center">
-        <div class="wcp-mongo-head">
-            <nav class="wcp-mongo-bc small text-body-secondary" aria-label="Breadcrumb">
+    <section class="nim-mongo-center">
+        <div class="nim-mongo-head">
+            <nav class="nim-mongo-bc small text-body-secondary" aria-label="Breadcrumb">
                 <span data-mb-bc-db>—</span>
                 <i class="bi bi-chevron-right mx-1" aria-hidden="true"></i>
                 <span>Collections</span>
                 <i class="bi bi-chevron-right mx-1" aria-hidden="true"></i>
                 <span class="text-body-emphasis" data-mb-bc-coll>—</span>
             </nav>
-            <div class="wcp-mongo-title">
+            <div class="nim-mongo-title">
                 <h1 class="h4 mb-0 font-monospace text-truncate" data-mb-title>No collection selected</h1>
                 <span class="badge rounded-pill text-bg-light border" data-mb-kind hidden>Collection</span>
-                <div class="wcp-mongo-actions ms-auto">
+                <div class="nim-mongo-actions ms-auto">
                     <?php if ($canDelete): ?>
                     <button class="btn btn-sm btn-primary" type="button" data-mb-new disabled><i class="bi bi-plus-lg me-1"></i>Insert Document</button>
                     <button class="btn btn-sm btn-outline-secondary" type="button" data-mb-import disabled><i class="bi bi-upload me-1"></i>Import</button>
@@ -88,13 +88,13 @@
             </div>
         </div>
 
-        <div class="wcp-mongo-query">
-            <div class="input-group input-group-sm wcp-mongo-queryin">
+        <div class="nim-mongo-query">
+            <div class="input-group input-group-sm nim-mongo-queryin">
                 <span class="input-group-text"><i class="bi bi-funnel"></i></span>
                 <input class="form-control font-monospace" type="text" placeholder='Enter query (JSON), e.g. { "status": "active" }' aria-label="JSON filter" data-mb-filter autocomplete="off" spellcheck="false" disabled>
                 <button class="btn btn-primary" type="button" data-mb-run disabled><i class="bi bi-play-fill me-1"></i>Run</button>
             </div>
-            <div class="wcp-mongo-limit">
+            <div class="nim-mongo-limit">
                 <label class="form-label small mb-0 me-1" for="mb-limit">Show</label>
                 <select class="form-select form-select-sm" id="mb-limit" data-mb-pagesize aria-label="Documents per page">
                     <option>10</option>
@@ -105,7 +105,7 @@
             </div>
         </div>
 
-        <ul class="nav nav-tabs wcp-tabs wcp-mongo-tabs" role="tablist">
+        <ul class="nav nav-tabs nim-tabs nim-mongo-tabs" role="tablist">
             <?php foreach ([
                 'documents' => ['Documents', 'grid-3x3'],
                 'aggregate' => ['Aggregation', 'diagram-3'],
@@ -119,15 +119,15 @@
             <?php endforeach; ?>
         </ul>
 
-        <div class="wcp-mongo-toolbar d-none" data-mb-toolbar>
+        <div class="nim-mongo-toolbar d-none" data-mb-toolbar>
             <span class="small text-body-secondary text-nowrap" data-mb-count></span>
-            <div class="wcp-mongo-toolbar-end">
-                <span class="wcp-mongo-docfilters" data-mb-docfilters>
-                    <div class="input-group input-group-sm wcp-mongo-mini">
+            <div class="nim-mongo-toolbar-end">
+                <span class="nim-mongo-docfilters" data-mb-docfilters>
+                    <div class="input-group input-group-sm nim-mongo-mini">
                         <span class="input-group-text" title="Sort">⇅</span>
                         <input class="form-control font-monospace" type="text" placeholder='{ "age": -1 }' aria-label="JSON sort" title="Sort" data-mb-sort autocomplete="off" spellcheck="false" disabled>
                     </div>
-                    <div class="input-group input-group-sm wcp-mongo-mini">
+                    <div class="input-group input-group-sm nim-mongo-mini">
                         <span class="input-group-text" title="Fields (projection)"><i class="bi bi-list-columns-reverse"></i></span>
                         <input class="form-control font-monospace" type="text" placeholder='{ "name": 1 }' aria-label="JSON projection" title="Fields (projection)" data-mb-projection autocomplete="off" spellcheck="false" disabled>
                     </div>
@@ -143,37 +143,37 @@
             </div>
         </div>
 
-        <div class="wcp-mongo-pane" data-mb-pane aria-live="polite">
-            <div class="wcp-db-empty"><i class="bi bi-hdd-stack"></i><div class="fw-semibold">Choose a database, then a collection</div><div class="small text-body-secondary">Pick one on the left to browse its documents.</div></div>
+        <div class="nim-mongo-pane" data-mb-pane aria-live="polite">
+            <div class="nim-db-empty"><i class="bi bi-hdd-stack"></i><div class="fw-semibold">Choose a database, then a collection</div><div class="small text-body-secondary">Pick one on the left to browse its documents.</div></div>
         </div>
 
-        <div class="wcp-mongo-pager" data-mb-pager hidden>
+        <div class="nim-mongo-pager" data-mb-pager hidden>
             <div class="btn-group btn-group-sm" role="group" aria-label="Pages" data-mb-pages></div>
             <span class="small text-body-secondary ms-auto text-nowrap" data-mb-range></span>
         </div>
     </section>
 
     <!-- Right: document preview, indexes, stats, quick actions -->
-    <aside class="wcp-mongo-rail">
-        <div class="wcp-mongo-card">
-            <div class="wcp-mongo-card-head"><i class="bi bi-file-earmark-text me-1"></i>Document
+    <aside class="nim-mongo-rail">
+        <div class="nim-mongo-card">
+            <div class="nim-mongo-card-head"><i class="bi bi-file-earmark-text me-1"></i>Document
                 <button class="btn btn-sm btn-outline-secondary ms-auto py-0" type="button" data-mb-doc-copy disabled><i class="bi bi-clipboard me-1"></i>Copy</button>
             </div>
-            <pre class="wcp-mongo-rail-json" data-mb-doc-json><span class="text-body-secondary">Select a document to preview it here.</span></pre>
+            <pre class="nim-mongo-rail-json" data-mb-doc-json><span class="text-body-secondary">Select a document to preview it here.</span></pre>
         </div>
-        <div class="wcp-mongo-card">
-            <div class="wcp-mongo-card-head"><i class="bi bi-key me-1"></i>Indexes
+        <div class="nim-mongo-card">
+            <div class="nim-mongo-card-head"><i class="bi bi-key me-1"></i>Indexes
                 <button class="btn btn-sm btn-link ms-auto p-0 text-decoration-none" type="button" data-mb-rail-indexes-all>View all</button>
             </div>
-            <div class="wcp-mongo-rail-body" data-mb-rail-indexes><span class="small text-body-secondary">—</span></div>
+            <div class="nim-mongo-rail-body" data-mb-rail-indexes><span class="small text-body-secondary">—</span></div>
         </div>
-        <div class="wcp-mongo-card">
-            <div class="wcp-mongo-card-head"><i class="bi bi-bar-chart me-1"></i>Collection stats</div>
-            <div class="wcp-mongo-rail-body" data-mb-rail-stats><span class="small text-body-secondary">—</span></div>
+        <div class="nim-mongo-card">
+            <div class="nim-mongo-card-head"><i class="bi bi-bar-chart me-1"></i>Collection stats</div>
+            <div class="nim-mongo-rail-body" data-mb-rail-stats><span class="small text-body-secondary">—</span></div>
         </div>
-        <div class="wcp-mongo-card">
-            <div class="wcp-mongo-card-head"><i class="bi bi-lightning-charge me-1"></i>Quick actions</div>
-            <div class="list-group list-group-flush wcp-mongo-qa">
+        <div class="nim-mongo-card">
+            <div class="nim-mongo-card-head"><i class="bi bi-lightning-charge me-1"></i>Quick actions</div>
+            <div class="list-group list-group-flush nim-mongo-qa">
                 <?php if ($canDelete): ?>
                 <button class="list-group-item list-group-item-action d-flex align-items-center" type="button" data-mb-qa="index" disabled><i class="bi bi-plus-square me-2"></i>Create index<i class="bi bi-chevron-right ms-auto"></i></button>
                 <?php endif; ?>
