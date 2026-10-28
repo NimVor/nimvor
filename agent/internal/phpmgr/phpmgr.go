@@ -28,6 +28,7 @@ func Register(r *actions.Registry, env *host.Env) {
 	registerFPMGlobal(r, env)
 	registerRepository(r, env)
 	registerProfile(r, env)
+	registerUpdates(r, env)
 	r.Register(actions.Action{Name: "php.available", Description: "PHP versions offered by the configured package repositories.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		return Available(ctx, env), nil
 	}})

@@ -326,6 +326,8 @@ paths:
               - php.repository
               - php.repository.enable
               - php.set_enabled
+              - php.update
+              - php.updates
               - processes.kill_user
               - processes.list
               - processes.signal
@@ -809,6 +811,8 @@ x-nimvor-actions:
   php.repository: { mutating: false, description: "The third-party repository with more PHP versions for this system, and whether it is enabled." }
   php.repository.enable: { mutating: true, description: "Add the repository with more PHP versions (Ubuntu: Ondřej Surý's PPA, pinned key; RHEL family: Remi) and refresh the package index." }
   php.set_enabled: { mutating: true, description: "Start and enable, or stop and disable, the FPM service of a PHP version." }
+  php.update: { mutating: true, description: "Update an installed PHP version's own packages (PHP, PHP-FPM and its extensions) to the repositories' newest release (job); PHP-FPM is tested and reloaded." }
+  php.updates: { mutating: false, description: "Pending updates of each installed PHP version's own packages (from the last package index refresh)." }
   processes.kill_user: { mutating: true, description: "Send a signal (TERM or KILL) to every process of one account (never root or NimVor's own account)." }
   processes.list: { mutating: false, description: "Every process: owner, priority, CPU and memory use, command line, executable and listening ports, and why a process looks suspicious (miners, deleted or temporary programs, fake kernel threads, shells listening on a port)." }
   processes.signal: { mutating: true, description: "Send a signal (TERM, KILL, HUP, STOP, CONT) to one process; start (from processes.list) makes sure it is still the same process." }

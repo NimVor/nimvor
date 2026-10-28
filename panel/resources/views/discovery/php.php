@@ -29,6 +29,12 @@ $installable = array_values(array_diff($php_available ?? [], $installed));
                 <button class="btn btn-sm btn-primary text-nowrap" type="submit"<?= $installable === [] ? ' disabled' : '' ?>><span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span><i class="bi bi-download me-1"></i>Install</button>
             </form>
             <span class="small text-body-secondary flex-grow-1">Versions offered by the server's package repositories (FPM, CLI and common extensions are installed).</span>
+            <?php if (is_array($php_updates ?? null)): ?>
+                <span class="small text-body-secondary text-nowrap">Updates checked: <?= !empty($php_updates['index_refreshed']) ? e((string) $php_updates['index_refreshed']) : 'never' ?><?= !empty($php_updates['index_stale']) ? ' (out of date)' : '' ?></span>
+                <?php if ($this->can(\NimVor\Security\Permissions::PACKAGES_MANAGE)): ?>
+                    <form method="post" action="<?= e($this->url('php.refresh')) ?>" data-nim-busy><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary text-nowrap" type="submit"><i class="bi bi-arrow-repeat me-1"></i>Check for updates</button></form>
+                <?php endif; ?>
+            <?php endif; ?>
             <?php $repo = $php_repository ?? null; ?>
             <?php if (is_array($repo) && ($repo['kind'] ?? '') !== ''): ?>
                 <?php if (!empty($repo['enabled'])): ?>
@@ -94,6 +100,17 @@ $installable = array_values(array_diff($php_available ?? [], $installed));
                         <?php $svc = ($php_services ?? [])[(string) ($v['fpm_service'] ?? '') ?: 'php' . $v['version'] . '-fpm.service'] ?? null; ?>
                         <?php if ($svc !== null): ?><dt>Service</dt><dd><?= $this->statusBadge((string) $svc['active_state']) ?></dd><?php endif; ?>
                     </dl>
+                    <?php $upd = (array) (($php_updates['versions'] ?? [])[$v['version']] ?? []); ?>
+                    <?php if ($canManage && $upd !== []): ?>
+                        <div class="alert alert-<?= (int) $upd['security'] > 0 ? 'danger' : 'warning' ?> small mt-2 mb-0 py-2">
+                            <strong><?= (int) $upd['security'] > 0 ? 'Security update available' : 'Update available' ?></strong>
+                            <div><?= (int) $upd['count'] ?> package<?= (int) $upd['count'] === 1 ? '' : 's' ?><?= (int) $upd['security'] > 0 ? ', ' . (int) $upd['security'] . ' security' : '' ?>: <?= e(implode(', ', array_map(static fn (array $u): string => $u['name'] . ' ' . $u['current'] . ' → ' . $u['new'], array_slice((array) $upd['updates'], 0, 3)))) ?><?= (int) $upd['count'] > 3 ? ' …' : '' ?></div>
+                        </div>
+                        <form method="post" action="<?= e($this->url('php.update', ['version' => $v['version']])) ?>" class="mt-2" data-nim-busy data-nim-confirm="Update PHP <?= e($v['version']) ?>? PHP-FPM is reloaded; websites keep running.">
+                            <?= $this->csrfField() ?>
+                            <button class="btn btn-sm btn-<?= (int) $upd['security'] > 0 ? 'danger' : 'warning' ?> w-100" type="submit"><span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span><i class="bi bi-arrow-up-circle me-1"></i>Update PHP <?= e($v['version']) ?></button>
+                        </form>
+                    <?php endif; ?>
                     <?php if ($canManage && !empty($v['fpm_binary'])): ?>
                         <?php $running = $svc !== null && $svc['active_state'] === 'active'; ?>
                         <form method="post" action="<?= e($this->url('php.toggle', ['version' => $v['version']])) ?>" class="mt-2" data-nim-busy

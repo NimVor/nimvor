@@ -55,6 +55,15 @@ final class DiscoveryController extends Controller
             }
         }
         $this->view->share('php_available', $available);
+        $updates = null;
+        if ($this->view->can(\NimVor\Security\Permissions::PHP_MANAGE)) {
+            try {
+                $updates = (array) $this->agent->call('php.updates');
+            } catch (AgentException) {
+                // An agent without the action, or no package manager: no update column.
+            }
+        }
+        $this->view->share('php_updates', $updates);
         if ($this->view->can(\NimVor\Security\Permissions::PHP_MANAGE)) {
             try {
                 $repository = (array) $this->agent->call('php.repository');

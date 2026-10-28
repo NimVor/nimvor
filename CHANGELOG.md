@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Update PHP from the PHP page.** Each installed version's card shows pending updates of its own packages (marked as security updates where the OS says so) with an **Update PHP x.y** button, and a **Check for updates** button refreshes the package index. The agent upgrades only that version's packages, tests PHP-FPM and reloads it. New agent actions `php.updates` and `php.update`.
+
 ## [1.0.0] — 2026-10-28
 
 General availability. Everything since 1.0.0-rc1:

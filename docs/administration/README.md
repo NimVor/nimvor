@@ -642,6 +642,22 @@ move it to another server (an imported profile is reviewed first). The
 PHP page and each version's page (extensions, php.ini, PHP-FPM) stay as
 they were.
 
+### Updating PHP (security fixes)
+
+The **PHP** page shows, on each installed version's card, when the
+repositories have a newer release of that version's own packages (PHP,
+PHP-FPM and its extensions): a red **Security update available** card when
+at least one of them is a security update, otherwise a yellow **Update
+available** one. **Update PHP x.y** upgrades exactly those packages (nothing
+else on the server), then tests (`php-fpm -t`) and reloads PHP-FPM; follow
+it in the job log. The card shows what the package index looked like when it
+was last refreshed: **Check for updates** (needs *Install and update
+packages*) downloads the index again, then reload the page. The PHP
+Manager's *to update* list shows the same updates.
+
+The ionCube Loader is not a package, so updates do not touch it; if you
+need a newer loader, remove and install it again.
+
 ## Setup wizard
 
 **Server → Setup wizard** (administrators). It opens by itself on an
