@@ -187,6 +187,10 @@ func TestRealHostCatalogDownloads(t *testing.T) {
 			continue
 		}
 		slug, def := slug, def
+		if def.Unverified != "" {
+			t.Logf("UNVERIFIED %s: %s", slug, def.Unverified)
+			continue
+		}
 		t.Run(slug, func(t *testing.T) {
 			url, err := ResolveURL(context.Background(), client, def)
 			if err != nil {

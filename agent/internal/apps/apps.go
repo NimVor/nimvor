@@ -87,8 +87,12 @@ type AppDef struct {
 	// release (for projects whose files carry the version in their name).
 	GitHub  string
 	AssetRe string
-	Package string   // Composer package: installed with create-project instead of a download
-	Touch   []string // files created (empty) under the install folder after unpacking, e.g. TYPO3's FIRST_INSTALL
+	// Unverified, when set, says why the download could not be checked by the
+	// CI download test (for example the vendor refuses the runners); the entry
+	// still works where the vendor answers.
+	Unverified string
+	Package    string   // Composer package: installed with create-project instead of a download
+	Touch      []string // files created (empty) under the install folder after unpacking, e.g. TYPO3's FIRST_INSTALL
 }
 
 // Catalog of staged applications. URLs are the vendors' official "latest
@@ -97,8 +101,8 @@ type AppDef struct {
 var Catalog = map[string]AppDef{
 	"joomla":     {Name: "Joomla", GitHub: "joomla/joomla-cms", AssetRe: `Full_Package\.tar\.gz$`, Format: "targz", Strip: 0, Ext: []string{"mysqli", "json", "mbstring", "xml", "zip", "gd"}, Finish: "/installation/"},
 	"drupal":     {Name: "Drupal", URL: "https://www.drupal.org/download-latest/tar.gz", Format: "targz", Strip: 1, Ext: []string{"pdo_mysql", "gd", "xml", "mbstring"}, Finish: "/core/install.php"},
-	"phpbb":      {Name: "phpBB", GitHub: "phpbb/phpbb", AssetRe: `^phpBB-[0-9.]+\.tar\.bz2$`, Format: "tarbz2", Strip: 1, Ext: []string{"mysqli", "json", "gd"}, Finish: "/install/"},
-	"smf":        {Name: "SMF (Simple Machines Forum)", GitHub: "SimpleMachines/SMF2.1", AssetRe: `install\.tar\.gz$`, Format: "targz", Strip: 0, Ext: []string{"mysqli", "gd"}, Finish: "/install.php"},
+	"phpbb":      {Name: "phpBB", URL: "https://download.phpbb.com/pub/release/3.3/latest/phpBB-latest.tar.bz2", Format: "tarbz2", Strip: 1, Ext: []string{"mysqli", "json", "gd"}, Finish: "/install/", Unverified: "download.phpbb.com answers HTTP 403 to the CI runners; the download could not be checked there"},
+	"smf":        {Name: "SMF (Simple Machines Forum)", URL: "https://download.simplemachines.org/index.php?thanks;filename=smf_latest_install.tar.gz", Format: "targz", Strip: 0, Ext: []string{"mysqli", "gd"}, Finish: "/install.php", Unverified: "download.simplemachines.org answers HTTP 403 to the CI runners; the download could not be checked there"},
 	"prestashop": {Name: "PrestaShop", GitHub: "PrestaShop/PrestaShop", AssetRe: `^prestashop_[0-9.]+\.zip$`, Format: "zip", Strip: 0, Ext: []string{"pdo_mysql", "gd", "intl", "zip", "curl"}, Finish: "/index.php"},
 	"opencart":   {Name: "OpenCart", GitHub: "opencart/opencart", AssetRe: `^opencart-[0-9.]+\.zip$`, Format: "zip", Strip: 0, DocRoot: "upload", Ext: []string{"mysqli", "gd", "curl", "zip"}, Finish: "/install/"},
 	"abantecart": {Name: "AbanteCart", URL: "https://github.com/abantecart/abantecart-src/archive/refs/heads/master.tar.gz", Format: "targz", Strip: 1, DocRoot: "public_html", Ext: []string{"mysqli", "gd", "curl", "zip"}, Finish: "/install/"},
@@ -129,7 +133,7 @@ var Catalog = map[string]AppDef{
 	// More CMS, business, finance
 	"kirby":          {Name: "Kirby", Package: "getkirby/plainkit", NoDB: true, Ext: []string{"mbstring", "gd", "curl", "ctype", "dom", "json", "libxml"}, Finish: "/panel"},
 	"craft":          {Name: "Craft CMS", Package: "craftcms/craft", DocRoot: "web", Ext: []string{"pdo_mysql", "gd", "intl", "mbstring", "xml", "curl", "zip", "bcmath", "dom"}, Finish: "/admin/install"},
-	"invoiceninja":   {Name: "Invoice Ninja", GitHub: "invoiceninja/invoiceninja", AssetRe: `^invoiceninja\.tar\.gz$`, Format: "targz", Strip: 1, DocRoot: "public", Ext: []string{"pdo_mysql", "gd", "mbstring", "xml", "curl", "zip", "bcmath", "intl", "fileinfo"}, Finish: "/setup"},
+	"invoiceninja":   {Name: "Invoice Ninja", GitHub: "invoiceninja/invoiceninja", AssetRe: `^invoiceninja\.tar\.gz$`, Format: "targz", Strip: 0, DocRoot: "public", Ext: []string{"pdo_mysql", "gd", "mbstring", "xml", "curl", "zip", "bcmath", "intl", "fileinfo"}, Finish: "/setup"},
 	"facturascripts": {Name: "FacturaScripts", URL: "https://facturascripts.com/DownloadBuild/1/stable", Format: "zip", Strip: 1, Ext: []string{"mysqli", "gd", "mbstring", "xml", "curl", "zip", "openssl"}, Finish: "/"},
 	// Media, marketing
 	"piwigo": {Name: "Piwigo", URL: "https://piwigo.org/download/dlcounter.php?code=latest", Format: "zip", Strip: 1, Ext: []string{"mysqli", "gd", "mbstring", "exif", "json", "zip"}, Finish: "/install.php"},
