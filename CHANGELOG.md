@@ -10,7 +10,7 @@ All notable changes to NimVor are documented here. The format follows
 - **Deleting a website removes everything that belongs to it**: its databases and the database users only they used, its email domain with all mailboxes and aliases, plus the cron jobs, workers and statistics it already removed. The system user stays unless the option is ticked. If one removal fails the website is left in place.
 
 ### Fixed
-- A customer keeps **one system account** across their websites: it is created with the first website and reused by every later one, also after all were removed. Adding a website again no longer fails with “The system user … already exists”.
+- A customer keeps **one system account** across their websites: it is created with the first website and reused by every later one, also after all were removed. Adding a website again no longer fails with “The system user … already exists”; if a name the panel derived already exists on the server (left from an earlier website), the next free number is used.
 - Adding a website a customer had removed no longer fails with “Please correct the highlighted fields” and nothing highlighted: errors on fields the page does not show are now listed, and a derived account name that is reserved (a domain such as nimvor.com gives “nimvor”) or already used by another account gets a number.
 
 ### Added

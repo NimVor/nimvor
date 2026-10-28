@@ -253,6 +253,19 @@ final class SiteStateTest extends HttpTestCase
         self::assertArrayNotHasKey('new_user', $this->lastCall('sites.apply'));
     }
 
+    public function testADerivedAccountNameThatExistsOnTheServerIsNumbered(): void
+    {
+        // The agent knows an account the panel does not (left from an earlier website).
+        $this->agent->failOnce('sites.apply', 409, 'conflict', 'The system user nimvor2 already exists on this server. Choose another name.');
+        $this->switchTo('cust');
+        $this->post('/websites/new', ['domain' => 'nimvor.com', 'kind' => 'static']);
+        $site = $this->db->fetch("SELECT system_user FROM websites WHERE domain = 'nimvor.com'");
+        self::assertNotNull($site, (string) $this->flash('error'));
+        self::assertSame('nimvor3', $site['system_user']);
+        self::assertSame('nimvor3', $this->lastCall('sites.apply')['user']);
+        self::assertSame(2, $this->calls('sites.apply'));
+    }
+
     public function testAdministratorsCanDeleteADisabledWebsite(): void
     {
         $this->login('admin');

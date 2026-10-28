@@ -202,12 +202,30 @@ final class WebsiteService
         $id = $this->sites->insert($row);
         $this->sites->replaceDomains($serverId, $id, $data['names']);
         $site = $this->sites->find($serverId, $id, null);
-        try {
-            $this->apply($site, $newUser);
-        } catch (\Throwable $e) {
-            $this->sites->delete($id);
-            $this->audit->record('website.create', 'website', $data['row']['domain'], AuditLogger::FAILURE, ['error' => $e->getMessage()]);
-            throw $e;
+        // A name the panel derived (the customer never chose one) may exist on
+        // the server without the panel knowing it, e.g. left from an earlier
+        // website: try the next numbers before giving up.
+        $derived = !Scope::isAll($actor) && $newUser && trim((string) ($input['system_user'] ?? '')) === '';
+        $base = preg_replace('/[0-9]+$/', '', (string) $row['system_user']) ?? (string) $row['system_user'];
+        for ($try = 0;; $try++) {
+            try {
+                $this->apply($site, $newUser);
+                break;
+            } catch (\Throwable $e) {
+                if ($derived && $try < 20 && str_contains($e->getMessage(), 'already exists on this server')) {
+                    $n = max(2, (int) substr((string) $row['system_user'], strlen($base)) + 1);
+                    while ($this->sites->usingSystemUser($serverId, substr($base, 0, 28) . $n) !== []) {
+                        $n++;
+                    }
+                    $row['system_user'] = substr($base, 0, 28) . $n;
+                    $this->sites->update($id, ['system_user' => $row['system_user']]);
+                    $site = $this->sites->find($serverId, $id, null);
+                    continue;
+                }
+                $this->sites->delete($id);
+                $this->audit->record('website.create', 'website', $data['row']['domain'], AuditLogger::FAILURE, ['error' => $e->getMessage()]);
+                throw $e;
+            }
         }
         if ($ownerId !== null && $parent === null) {
             $this->sites->rememberAccount($serverId, $ownerId, (string) $row['system_user']);
