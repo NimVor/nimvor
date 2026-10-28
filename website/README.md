@@ -73,6 +73,8 @@ classes, and `composer.json` is only used to run the tests.
 
 If the site is configured with environment variables or `SITE_CONFIG` instead, the setup page never appears.
 
+**Apache.** The files include the Apache rules: `public/.htaccess` sends every request that is not a real file to `index.php`, and `.htaccess` in the site's own folder does the same if you cannot change the web root, while answering 403 or 404 for `config/`, `storage/`, `app/` and the other private folders. They need `mod_rewrite` and `AllowOverride All` for the site's folder (see `deploy/apache.conf`). If you see Apache's own "Not Found" page for `/setup`, those rules are not being applied: the web root is probably not `public/` or `.htaccess` files are ignored. On Nginx use `deploy/nginx.conf`.
+
 ## Deploy
 
 1. A web server user with PHP 8.3 (`pdo_mysql`, `mbstring`, `sodium`, and `redis` or `memcached`), a database and a database user with rights on that database only.
