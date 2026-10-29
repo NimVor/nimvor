@@ -320,6 +320,8 @@ paths:
               - php.ini_get
               - php.ini_set
               - php.install
+              - php.ioncube_install
+              - php.ioncube_remove
               - php.modules
               - php.profile_apply
               - php.profile_plan
@@ -805,6 +807,8 @@ x-nimvor-actions:
   php.ini_get: { mutating: false, description: "NimVor's php.ini settings for a PHP version, the settings that may be changed and the values PHP-FPM uses now." }
   php.ini_set: { mutating: true, description: "Write NimVor's php.ini settings for a PHP version (allowed directives only; empty removes them), checked with php-fpm -t (warnings count as errors) and applied with a reload; rolled back on failure." }
   php.install: { mutating: true, description: "Install a PHP version (FPM, CLI and common extensions) with the package manager." }
+  php.ioncube_install: { mutating: true, description: "Install the ionCube Loader for a PHP version from ionCube's website (job): only that version's loader is taken from the archive, PHP must load it, and PHP-FPM is reloaded; everything is undone on failure." }
+  php.ioncube_remove: { mutating: true, description: "Remove the ionCube Loader from a PHP version (job); PHP-FPM is reloaded." }
   php.modules: { mutating: false, description: "Loaded modules of a PHP version." }
   php.profile_apply: { mutating: true, description: "Apply a PHP profile (job): the plan is computed again; removals need confirm_removals. Versions used by websites or by the panel are never removed." }
   php.profile_plan: { mutating: false, description: "Compare a PHP profile (versions and extensions) with the server: what would be installed, updated, switched on or off, removed, left unchanged or kept (read-only)." }
