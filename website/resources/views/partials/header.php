@@ -2,7 +2,7 @@
 <div class="announce"><span class="tag">FREE</span>NimVor is free and open source under the MIT licence.<a href="https://github.com/NimVor/nimvor" rel="noopener">Read the code &rarr;</a></div>
 <header class="site-header">
     <div class="container bar">
-        <a class="brand" href="/" aria-label="NimVor home"><img src="<?= e($v->asset('img/logo.svg')) ?>" width="36" height="36" alt="">NimVor</a>
+        <a class="brand" href="/" aria-label="NimVor home"><img src="<?= e($v->asset('img/logo-light.png')) ?>" width="44" height="44" alt="">NimVor</a>
         <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><?= $v->icon('menu', 22) ?></button>
         <nav class="nav" id="site-nav" aria-label="Main">
             <a href="/"<?= $path === '/' ? ' aria-current="page"' : '' ?>>Home</a>

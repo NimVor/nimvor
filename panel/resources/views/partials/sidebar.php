@@ -9,7 +9,7 @@ $groups = Navigation::visible($this);
 <nav class="nim-sidebar" id="nim-sidebar" aria-label="Main navigation">
     <div class="nim-sidebar-head">
     <a class="nim-brand" href="<?= e($this->url('dashboard')) ?>">
-        <img src="<?= e($this->asset('assets/img/logo.svg')) ?>" alt="" width="28" height="28">
+        <img src="<?= e($this->asset('assets/img/logo-dark.png')) ?>" alt="" width="32" height="32">
         <span><?= e($panel_name ?? 'NimVor') ?></span>
     </a>
     <?php $st = isset($agent_status) && is_callable($agent_status) ? $agent_status() : null; ?>
