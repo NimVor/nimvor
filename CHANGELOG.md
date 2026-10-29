@@ -6,23 +6,28 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-10-29
+
+PHP management, and the project website.
+
+### Added
+- **Update PHP from the PHP page.** Each installed version's card shows pending updates of its own packages (marked as security updates where the OS says so) with an **Update PHP x.y** button, and a **Check for updates** button refreshes the package index. The agent upgrades only that version's packages, tests PHP-FPM and reloads it. New agent actions `php.updates` and `php.update`.
+- **ionCube Loader** in the PHP Manager (per PHP version, Extensions tab): downloaded from ionCube's own host, only that version's loader is extracted, PHP must load it before it is kept, and PHP-FPM must accept it or everything is undone. Switch on/off and remove work like other extensions. New agent actions `php.ioncube_install` / `php.ioncube_remove`.
+- **Anonymous install statistics.** The installer and upgrader send one small report (random id, version, system name and version, processor type) to nimvor.com, shown at `/resources/stats` and on the home page. No host name or address is sent. The report is part of installing; it is not sent with `--dry-run` or in CI, and it never makes an installation fail.
+
 ### Changed
 - **New logo** (the NimVor badger mark, without the name, which is written as text next to it) in the panel sign-in page, sidebar and top bar and on the website, with a light and a dark version, favicon and touch icon. The website now uses the NimVor palette: blue `#3B82F6` / `#60A5FA`, orange `#EA6113`, sand `#FFE3B3` and green `#30B155`.
 
 ### Website
+The website (`website/`) is deployed on its own and is not part of the release archive. Upgrading its database: import `website/database/sql/0002_docs_problems_stats.sql` (or run `bin/site migrate`).
 - **Features page lists everything the panel does** (PHP Manager, WordPress and applications, monitoring and health, server management, ModSecurity, MongoDB, Cloudflare and more).
 - **The install page is laid out in steps** (before you start, build your command with the command and its options side by side, after the install, reference tables) instead of one long column.
 - **Tagline** "Your server. Your sites. Your rules." with a short animation above the footer; the footer now reads "A product of WhaSys" and links to whasys.com. The old project name is no longer mentioned on the site.
-- **Product tour video** in the home page section "Everything in its place.": a six-minute silent tour with captions, from the install command to a first website (setup wizard, hosting plan, customer and site, WordPress, backups, security), recorded on a demo server.
-
-### Added
 - **Website: documentation inside the site.** The repository's docs, contributing guide, code of conduct, security policy and changelog are fetched from GitHub and shown at `/docs` in the site's design: sidebar by topic, "On this page" list, search, previous/next, copy buttons, and links that stay on the site. The Community cards open these pages instead of GitHub.
 - **Website: problems board** (`/resources/problems`): the project's issues sorted into reported, in progress and resolved, with the report button going to GitHub.
 - **Website: sponsors from GitHub Sponsors** plus the ones added by an administrator (needs a GitHub token for the sync).
 - **Website: an Install page** (`/get-started`) with its own title for search engines and a command builder: choose the profile, PHP versions, host name, administrator and options, and copy the exact installer command. Inputs are checked against the installer's own patterns before they reach the command.
-- **Anonymous install statistics.** The installer and upgrader send one small report (random id, version, system name and version, processor type) to nimvor.com, shown at `/resources/stats` and on the home page. No host name or address is sent. The report is part of installing; it is not sent with `--dry-run` or in CI, and it never makes an installation fail.
-- **Update PHP from the PHP page.** Each installed version's card shows pending updates of its own packages (marked as security updates where the OS says so) with an **Update PHP x.y** button, and a **Check for updates** button refreshes the package index. The agent upgrades only that version's packages, tests PHP-FPM and reloads it. New agent actions `php.updates` and `php.update`.
-- **ionCube Loader** in the PHP Manager (per PHP version, Extensions tab): downloaded from ionCube's own host, only that version's loader is extracted, PHP must load it before it is kept, and PHP-FPM must accept it or everything is undone. Switch on/off and remove work like other extensions. New agent actions `php.ioncube_install` / `php.ioncube_remove`.
+- **Product tour video** in the home page section "Everything in its place.": a six-minute silent tour with captions, from the install command to a first website (setup wizard, hosting plan, customer and site, WordPress, backups, security), recorded on a demo server.
 
 ## [1.0.0] — 2026-10-28
 
