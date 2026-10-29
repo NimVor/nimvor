@@ -7,6 +7,9 @@ All notable changes to NimVor are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **ionCube Loader install failed with "The Loader must appear as the first entry in the php.ini file".** The check that PHP can load the loader now runs PHP without its other configuration files, so the loader is the first Zend extension (as ionCube requires), and after the loader is switched on PHP is asked again with the real configuration; if anything else loads before it, everything is undone with a clear message.
+
+### Fixed
 - `installer/update.sh` no longer fails with "no such ref was fetched" on a checkout that tracks a branch which has been removed upstream (for example after the default branch was renamed): it switches to the remote's current default branch and updates from there.
 
 ### Website
