@@ -13,7 +13,7 @@ final class PagesTest extends SiteTestCase
     {
         return [
             'home' => ['/', 'in your hands'],
-            'features' => ['/features', 'Websites and applications'],
+            'features' => ['/features', 'Websites and domains'],
             'resources' => ['/resources', 'Build services'],
             'documentation' => ['/resources/documentation', 'Administrator commands'],
             'install' => ['/get-started', 'Your command'],
@@ -154,6 +154,14 @@ final class PagesTest extends SiteTestCase
         self::assertStringContainsString('/get-started', $this->get('/')->body, 'the home page links to the install page');
         self::assertStringContainsString('/get-started', $this->get('/features')->body);
         $home = $this->get('/')->body;
+        self::assertStringContainsString('<a href="https://whasys.com" rel="noopener">WhaSys</a>', $home, 'the footer credits WhaSys');
+        self::assertStringContainsString('data-tagline', $home, 'the tagline is shown above the footer');
+        self::assertStringNotContainsString('Not affiliated with any other control panel', $home);
+        self::assertStringNotContainsStringIgnoringCase('whacp', $this->get('/about')->body, 'the old project name is not mentioned');
+        $features = $this->get('/features')->body;
+        foreach (['ModSecurity', 'ionCube', 'MongoDB', 'Cloudflare', 'Greylisting', 'WordPress Toolkit', 'Node.js and Python', 'Monitoring and health'] as $topic) {
+            self::assertStringContainsString($topic, $features, $topic . ' is on the features page');
+        }
         self::assertStringContainsString('<video class="tour-video"', $home, 'the home page shows the product tour');
         self::assertStringContainsString('media/nimvor-panel-tour.mp4', $home);
         self::assertFileExists(dirname(__DIR__, 2) . '/public/assets/media/nimvor-panel-tour.mp4');

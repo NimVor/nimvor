@@ -33,6 +33,7 @@ $desc = $v->meta('description', 'NimVor is a free, open-source hosting control p
     <?php endif; ?>
     <?= $content ?>
 </main>
+<?= $v->partial('partials/tagline') ?>
 <?= $v->partial('partials/footer') ?>
 <a class="chat-fab" href="/support/contact" aria-label="Contact us"><?= $v->icon('chat', 26) ?></a>
 </body>

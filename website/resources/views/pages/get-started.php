@@ -9,19 +9,46 @@ $recommended = "curl -fsSL https://nimvor.com/install | sudo bash -s -- \\\n  --
 $phpChoices = ['8.0' => false, '8.1' => false, '8.2' => false, '8.3' => true, '8.4' => true];
 ?>
 <?= $v->partial('partials/page-head', ['title' => 'Install NimVor', 'intro' => 'One command sets up the panel, and a server for hosting if you want it. Choose your options below and copy the command.', 'crumbs' => [['Install NimVor', '']]]) ?>
-<section class="section" id="install">
-    <div class="container split">
-        <div class="prose" data-doc-body>
-            <h2 class="mt-0">Before you start</h2>
-            <p>You need a server running <strong>Ubuntu 22.04 or 24.04, AlmaLinux 9, Rocky Linux 9 or RHEL 9</strong> (preview: Ubuntu 26.04 and AlmaLinux, Rocky Linux or RHEL 10), a root login or <code>sudo</code>, systemd and internet access. A fresh server is best; on an existing one, websites and services stay untouched until you import them. The full hosting profile wants 4&nbsp;GB of memory or more.</p>
+<nav class="subnav" aria-label="On this page"><div class="container">
+    <a href="#before">Before you start</a><a href="#install">Build your command</a><a href="#after">After the install</a><a href="#options">Every option</a><a href="#places">Where things go</a>
+</div></nav>
 
-            <h2>Build your install command</h2>
+<div data-doc-body>
+<section class="section" id="before">
+    <div class="container">
+        <div class="step-head"><span class="step-no">1</span><h2>Before you start</h2></div>
+        <div class="grid grid-3">
+            <div class="card prose-card">
+                <h3>What you need</h3>
+<p>You need a server running <strong>Ubuntu 22.04 or 24.04, AlmaLinux 9, Rocky Linux 9 or RHEL 9</strong> (preview: Ubuntu 26.04 and AlmaLinux, Rocky Linux or RHEL 10), a root login or <code>sudo</code>, systemd and internet access. A fresh server is best; on an existing one, websites and services stay untouched until you import them. The full hosting profile wants 4&nbsp;GB of memory or more.</p>
+            </div>
+            <div class="card prose-card">
+                <h3>The short version</h3>
+            <p>The default install is <strong>read-only</strong>: NimVor inventories the server and changes nothing.</p>
+            <?= $v->partial('partials/install', ['command' => $install]) ?>
+            </div>
+            <div class="card prose-card">
+                <h3>Administrator commands</h3>
+                <p class="muted">The server administrator&rsquo;s command-line tool:</p>
+                <pre class="codeblock"><code>sudo nimvor user:password admin
+sudo nimvor doctor
+sudo nimvor help</code></pre>
+                <p class="muted"><code>user:password</code> sets a new password for a user, <code>doctor</code> checks the installation. More in the <a href="/docs/installation">installation guide</a>.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section section-soft" id="install">
+    <div class="container">
+        <div class="step-head"><span class="step-no">2</span><h2>Build your install command</h2></div>
             <div id="install-static">
                 <p>Run this on the server (it sets up a full hosting server; change the user name and email):</p>
                 <pre class="codeblock"><code><?= e($recommended) ?></code></pre>
                 <p class="muted">Turn on JavaScript to choose the options and get your own command.</p>
             </div>
             <form id="install-builder" class="builder" hidden novalidate aria-label="Install command builder">
+<div class="builder-fields">
                 <fieldset>
                     <legend>What do you want to install?</legend>
                     <label class="opt"><input type="radio" name="mode" value="hosting" checked> <span><strong>A hosting server</strong> (recommended)<small>Sets the server up for websites, with write mode on.</small></span></label>
@@ -97,7 +124,8 @@ $phpChoices = ['8.0' => false, '8.1' => false, '8.2' => false, '8.3' => true, '8
                     </div>
                 </details>
 
-                <div class="builder-out">
+                </div>
+<div class="builder-out">
                     <h3 class="mt-0">Your command</h3>
                     <ul id="ib-errors" class="alert alert-error list-plain" role="alert" hidden></ul>
                     <pre class="codeblock"><code id="ib-command"><?= e($recommended) ?></code></pre>
@@ -106,12 +134,33 @@ $phpChoices = ['8.0' => false, '8.1' => false, '8.2' => false, '8.3' => true, '8
                     <p class="muted mb-0 mt-1">Run it on the server, as root or with <code>sudo</code>. The installer prints the administrator password <strong>once</strong> at the end: store it.</p>
                 </div>
             </form>
+    </div>
+</section>
 
-            <h2>The short version</h2>
-            <p>The default install is <strong>read-only</strong>: NimVor inventories the server and changes nothing.</p>
-            <?= $v->partial('partials/install', ['command' => $install]) ?>
+<section class="section" id="after">
+    <div class="container">
+        <div class="step-head"><span class="step-no">3</span><h2>After the install</h2></div>
+        <div class="grid grid-2">
+            <div class="card prose-card">
+                <h3>Open the panel</h3>
+            <p>With <code>--public-https</code>: browse to <code>https://SERVER-IP:8443/</code> (the browser warns once about the self-signed certificate). Otherwise use an SSH tunnel from your computer:</p>
+            <pre class="codeblock"><code>ssh -L 8090:127.0.0.1:8090 you@server.example.com
+# then open http://127.0.0.1:8090/</code></pre>
+            <p>Sign in with the administrator and password the installer printed, then turn on two-factor sign-in in your profile.</p>
+            </div>
+            <div class="card prose-card">
+                <h3>Update</h3>
+            <p>From the source checkout. It keeps your configuration, database, write mode and ports:</p>
+            <pre class="codeblock"><code>cd /usr/local/src/nimvor &amp;&amp; sudo ./installer/update.sh</code></pre>
+            <p>Running the one-line installer again does the same. If an installation was interrupted, run the same command again with <code>--resume</code>. When NimVor is installed or upgraded, the installer sends one anonymous report that feeds the <a href="/resources/stats">statistics</a>.</p>
+            </div>
+        </div>
+    </div>
+</section>
 
-            <h2>Every option</h2>
+<section class="section section-soft" id="options">
+    <div class="container">
+        <h2 class="mt-0">Every option</h2>
             
             <div class="table-wrap"><table class="data"><thead><tr><th>Option</th><th>What it does</th></tr></thead><tbody>
                 <tr><td><code>--yes</code></td><td>Answer yes to every question (needed in scripts; without a terminal and without it, no server profile is applied).</td></tr>
@@ -133,7 +182,12 @@ $phpChoices = ['8.0' => false, '8.1' => false, '8.2' => false, '8.3' => true, '8
             <p class="mt-2">The one-line script has its own options too, given before the installer&rsquo;s: <code>--version X.Y.Z</code> (default: the newest stable release), <code>--branch NAME</code>, <code>--commit SHA</code> (stop unless the source is exactly that commit), <code>--source URL</code> (a mirror), <code>--dir PATH</code> (where the source is kept) and <code>--fetch-only</code> (download the source, so you can read it first). Example:</p>
             <pre class="codeblock"><code>curl -fsSL https://nimvor.com/install | sudo bash -s -- --version 1.0.0 --commit SHA --yes</code></pre>
 
-            <h2>Where things are installed</h2>
+    </div>
+</section>
+
+<section class="section" id="places">
+    <div class="container">
+        <h2 class="mt-0">Where things are installed</h2>
             <div class="table-wrap"><table class="data"><thead><tr><th>What</th><th>Where</th></tr></thead><tbody>
                 <tr><td>Source checkout (what the installer ran from, used to update)</td><td><code>/usr/local/src/nimvor</code></td></tr>
                 <tr><td>The panel (PHP)</td><td><code>/opt/nimvor</code></td></tr>
@@ -145,27 +199,6 @@ $phpChoices = ['8.0' => false, '8.1' => false, '8.2' => false, '8.3' => true, '8
                 <tr><td>Backups and the agent&rsquo;s state (write mode)</td><td><code>/var/backups/nimvor</code>, <code>/var/lib/nimvor-agent</code></td></tr>
                 <tr><td>Services</td><td><code>nimvor-agent</code>, <code>nimvor-panel</code>, <code>nimvor-scheduler.timer</code> (systemd)</td></tr>
             </tbody></table></div>
-
-            <h2>Open the panel</h2>
-            <p>With <code>--public-https</code>: browse to <code>https://SERVER-IP:8443/</code> (the browser warns once about the self-signed certificate). Otherwise use an SSH tunnel from your computer:</p>
-            <pre class="codeblock"><code>ssh -L 8090:127.0.0.1:8090 you@server.example.com
-# then open http://127.0.0.1:8090/</code></pre>
-            <p>Sign in with the administrator and password the installer printed, then turn on two-factor sign-in in your profile.</p>
-
-            <h2>Update</h2>
-            <p>From the source checkout. It keeps your configuration, database, write mode and ports:</p>
-            <pre class="codeblock"><code>cd /usr/local/src/nimvor &amp;&amp; sudo ./installer/update.sh</code></pre>
-            <p>Running the one-line installer again does the same. If an installation was interrupted, run the same command again with <code>--resume</code>. When NimVor is installed or upgraded, the installer sends one anonymous report that feeds the <a href="/resources/stats">statistics</a>.</p>
-        </div>
-        <aside>
-            <div class="card">
-                <h3>Administrator commands</h3>
-                <p class="muted">The server administrator&rsquo;s command-line tool:</p>
-                <pre class="codeblock"><code>sudo nimvor user:password admin
-sudo nimvor doctor
-sudo nimvor help</code></pre>
-                <p class="muted"><code>user:password</code> sets a new password for a user, <code>doctor</code> checks the installation. More in the <a href="/docs/installation">installation guide</a>.</p>
-            </div>
-        </aside>
     </div>
 </section>
+</div>
