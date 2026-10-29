@@ -83,6 +83,15 @@
                         </tbody>
                     </table>
                 </div>
+                <div class="p-3 border-top small" data-nim-ioncube>
+                    <span class="fw-semibold">ionCube Loader</span>
+                    <span class="nim-muted">(runs ionCube-encoded PHP files) is downloaded from ionCube and set up for one PHP version at a time, so it is switched on from each version's own page:</span>
+                    <?php if ($current['installed'] === []): ?>
+                        <span class="nim-muted">no PHP version with PHP-FPM yet.</span>
+                    <?php else: foreach ($current['installed'] as $v): ?>
+                        <a class="btn btn-sm btn-outline-secondary ms-1" href="<?= e('/php/' . rawurlencode((string) $v) . '?tab=extensions') ?>">PHP <?= e((string) $v) ?></a>
+                    <?php endforeach; endif; ?>
+                </div>
                 <div class="small nim-muted p-3">The ticked extensions are installed and switched on for every ticked version; unticked ones are removed (or switched off when they are part of PHP's base packages). Extensions NimVor's panel needs are always kept.</div>
             </div>
         </div>

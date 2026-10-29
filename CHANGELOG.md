@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- The PHP Manager page now tells you where the ionCube Loader is switched on (it is set up per PHP version, so it is on each version's own Extensions tab) and links to every installed version.
+
 ### Fixed
 - `installer/update.sh` no longer fails with "no such ref was fetched" on a checkout that tracks a branch which has been removed upstream (for example after the default branch was renamed): it switches to the remote's current default branch and updates from there.
 
