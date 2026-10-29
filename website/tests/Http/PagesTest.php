@@ -153,6 +153,10 @@ final class PagesTest extends SiteTestCase
         }
         self::assertStringContainsString('/get-started', $this->get('/')->body, 'the home page links to the install page');
         self::assertStringContainsString('/get-started', $this->get('/features')->body);
+        $home = $this->get('/')->body;
+        self::assertStringContainsString('<video class="tour-video"', $home, 'the home page shows the product tour');
+        self::assertStringContainsString('media/nimvor-panel-tour.mp4', $home);
+        self::assertFileExists(dirname(__DIR__, 2) . '/public/assets/media/nimvor-panel-tour.mp4');
         self::assertStringContainsString('/get-started', $this->get('/sitemap.xml')->body);
         $docs = $this->get('/resources/documentation')->body;
         self::assertStringContainsString('<h1>Documentation</h1>', $docs);
