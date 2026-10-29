@@ -20,6 +20,7 @@ The website (`website/`) is deployed on its own and is not part of the release a
 - **Website: documentation inside the site.** The repository's docs, contributing guide, code of conduct, security policy and changelog are fetched from GitHub and shown at `/docs` in the site's design: sidebar by topic, "On this page" list, search, previous/next, copy buttons, and links that stay on the site. The Community cards open these pages instead of GitHub.
 - **Website: problems board** (`/resources/problems`): the project's issues sorted into reported, in progress and resolved, with the report button going to GitHub.
 - **Website: sponsors from GitHub Sponsors** plus the ones added by an administrator (needs a GitHub token for the sync).
+- **Website: an Install page** (`/get-started`) with its own title for search engines and a command builder: choose the profile, PHP versions, host name, administrator and options, and copy the exact installer command. Inputs are checked against the installer's own patterns before they reach the command.
 
 ## [1.0.0] — 2026-10-28
 

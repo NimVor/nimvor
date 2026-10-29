@@ -85,6 +85,7 @@
     if (!body) { return; }
 
     body.querySelectorAll('pre.codeblock').forEach(function (pre) {
+        if (pre.closest('#install-builder')) { return; } // the builder has its own copy button
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'copy-code';

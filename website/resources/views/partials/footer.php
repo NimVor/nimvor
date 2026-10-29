@@ -11,7 +11,7 @@
                 <ul>
                     <li><a href="/features">Features</a></li>
                     <li><a href="/docs">Documentation</a></li>
-                    <li><a href="/resources/documentation#install">Install</a></li>
+                    <li><a href="/get-started">Install</a></li>
                     <li><a href="https://github.com/NimVor/nimvor/releases" rel="noopener">Releases</a></li>
                 </ul>
             </div>

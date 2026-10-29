@@ -32,7 +32,7 @@
                 <form method="post" action="/logout" class="inline-form"><?= $v->csrf() ?><button class="btn btn-dark btn-sm" type="submit">Log out</button></form>
             <?php else: ?>
                 <a class="link-plain" href="/login">Log in</a>
-                <a class="btn btn-dark" href="/resources/documentation#install">Get started</a>
+                <a class="btn btn-dark" href="/get-started">Get started</a>
             <?php endif; ?>
         </div>
     </div>
