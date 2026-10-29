@@ -163,6 +163,9 @@ a.row-cell:hover .arrow { color: var(--orange-ink); }
 .walk { background: #fffdf8; border: 1px solid #d8d4c6; color: var(--text); font-size: 14px; box-shadow: 0 30px 80px rgba(0, 0, 0, .35); overflow: hidden; }
 .walk-top { display: flex; justify-content: space-between; align-items: center; background: var(--sage); padding: 11px 20px; font-family: var(--mono); font-size: .76rem; letter-spacing: .08em; text-transform: uppercase; }
 .walk-top .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin-right: 10px; }
+.tour { margin: 0; }
+.tour-video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #0a1a12; }
+.tour figcaption { padding: 14px 20px; font-size: .92rem; color: var(--muted); border-top: 1px solid #d8d4c6; }
 .walk-body { display: grid; grid-template-columns: 210px minmax(0, 1fr); min-height: 380px; }
 .walk-side { background: #f4f1e8; border-right: 1px solid #e0dccf; padding: 16px 12px; display: grid; gap: 2px; align-content: start; }
 .walk-side .who { display: flex; align-items: center; gap: 10px; font-weight: 700; padding: 4px 8px 14px; font-family: var(--display); font-size: 1.05rem; }

@@ -21,6 +21,7 @@ The website (`website/`) is deployed on its own and is not part of the release a
 - **Website: problems board** (`/resources/problems`): the project's issues sorted into reported, in progress and resolved, with the report button going to GitHub.
 - **Website: sponsors from GitHub Sponsors** plus the ones added by an administrator (needs a GitHub token for the sync).
 - **Website: an Install page** (`/get-started`) with its own title for search engines and a command builder: choose the profile, PHP versions, host name, administrator and options, and copy the exact installer command. Inputs are checked against the installer's own patterns before they reach the command.
+- **Product tour video** in the home page section "Everything in its place.": a six-minute silent tour with captions, from the install command to a first website (setup wizard, hosting plan, customer and site, WordPress, backups, security), recorded on a demo server.
 
 ## [1.0.0] — 2026-10-28
 
