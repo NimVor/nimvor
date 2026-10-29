@@ -110,7 +110,7 @@ jobs:
         run: |
           (cd panel && composer install --no-dev --no-interaction --no-progress --optimize-autoloader)
           mkdir -p dist && (cd agent && CGO_ENABLED=0 go build -trimpath -o ../dist/nimvor-agent ./cmd/nimvor-agent)
-          sudo NIMVOR_TELEMETRY=0 installer/install.sh --yes --enable-writes --profile=none --admin-user=admin --admin-email=admin@nimvor.test
+          sudo NIMVOR_TESTING=1 installer/install.sh --yes --enable-writes --profile=none --admin-user=admin --admin-email=admin@nimvor.test
           sudo tests/integration/postinstall.sh
           sudo tests/integration/public-https.sh
       - name: Agent sandbox diagnostics (Ubuntu)
@@ -191,7 +191,7 @@ jobs:
       - name: Installer and post-install end-to-end
         if: always()
         run: |
-          tests/vm.sh ssh 'cd /root/nimvor && NIMVOR_TELEMETRY=0 installer/install.sh --install-deps --yes --enable-writes --profile=none --admin-user=admin --admin-email=admin@nimvor.test'
+          tests/vm.sh ssh 'cd /root/nimvor && NIMVOR_TESTING=1 installer/install.sh --install-deps --yes --enable-writes --profile=none --admin-user=admin --admin-email=admin@nimvor.test'
           tests/vm.sh ssh 'curl -fsS http://127.0.0.1:8090/healthz && runuser -u nimvor -- env NIMVOR_CONFIG=/etc/nimvor/panel.php php /opt/nimvor/panel/bin/nimvor agent:check'
           tests/vm.sh ssh 'cd /root/nimvor && tests/integration/postinstall.sh'
           tests/vm.sh ssh 'cd /root/nimvor && tests/integration/public-https.sh'

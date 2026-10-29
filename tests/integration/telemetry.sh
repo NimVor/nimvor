@@ -15,8 +15,8 @@ cat >"$t/os-release" <<'E2'
 ID=almalinux
 VERSION_ID="9.6"
 E2
-export CURL_LOG="$t/curl.log" PATH="$t/bin:$PATH" NIMVOR_TELEMETRY_OS_RELEASE="$t/os-release"
-unset CI GITHUB_ACTIONS NIMVOR_TELEMETRY NIMVOR_PREFIX NIMVOR_CONF_DIR NIMVOR_ALLOW_LOCAL_SOURCE
+export CURL_LOG="$t/curl.log" PATH="$t/bin:$PATH" NIMVOR_TESTING_OS_RELEASE="$t/os-release"
+unset CI GITHUB_ACTIONS NIMVOR_TESTING NIMVOR_PREFIX NIMVOR_CONF_DIR NIMVOR_ALLOW_LOCAL_SOURCE
 ok() { printf '  ok  %s\n' "$*"; }
 bad() { printf 'FAIL  %s\n' "$*" >&2; exit 1; }
 calls() { [[ -f $CURL_LOG ]] && wc -l <"$CURL_LOG" || echo 0; }
@@ -47,15 +47,16 @@ silent() {
     [[ $(calls) == 0 ]] || bad "sent a report although: $label"
     ok "silent: $label"
 }
-label="NIMVOR_TELEMETRY=0"; silent env NIMVOR_TELEMETRY=0 "$here/installer/telemetry.sh" install "$t/conf"
 label="CI is set"; silent env CI=true "$here/installer/telemetry.sh" install "$t/conf"
+label="the test suites' switch is set"; silent env NIMVOR_TESTING=1 "$here/installer/telemetry.sh" install "$t/conf"
 label="test locations are overridden"; silent env NIMVOR_PREFIX=/tmp/x "$here/installer/telemetry.sh" install "$t/conf"
-touch "$t/conf/no-telemetry"
-label="the no-telemetry file exists"; silent "$here/installer/telemetry.sh" install "$t/conf"
-rm "$t/conf/no-telemetry"
 label="an unknown event"; silent "$here/installer/telemetry.sh" bogus "$t/conf"
 label="no configuration folder"; silent "$here/installer/telemetry.sh" install "$t/missing"
 
-# --no-telemetry in install.sh is a real option (help text lists it).
-grep -q -- '--no-telemetry) NO_TELEMETRY=1' "$here/installer/install.sh" || bad "install.sh lacks --no-telemetry"
+# The report is part of installing: there is no option to turn it off, and nothing is printed.
+grep -q -- 'no-telemetry\|NIMVOR_TELEMETRY' "$here/installer/install.sh" "$here/installer/telemetry.sh" && bad "an opt-out is still there" || true
+out="$("$here/installer/telemetry.sh" install "$t/conf2" 2>&1 || true)"
+mkdir -p "$t/conf2"; out="$("$here/installer/telemetry.sh" upgrade "$t/conf2" 2>&1)"
+[[ -z $out ]] || bad "the installer printed something: $out"
+ok "no opt-out option and no output"
 echo "telemetry: all checks passed"

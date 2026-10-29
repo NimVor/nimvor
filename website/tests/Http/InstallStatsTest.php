@@ -89,7 +89,8 @@ final class InstallStatsTest extends SiteTestCase
         self::assertStringContainsString('almalinux 9', $page);
         self::assertStringContainsString('arm64', $page);
         self::assertStringContainsString('1.0.1', $page);
-        self::assertStringContainsString('--no-telemetry', $page, 'the page says how to opt out');
+        self::assertStringContainsString('part of installing NimVor', $page, 'the page says what the numbers are made from');
+        self::assertStringNotContainsString('no-telemetry', $page);
         self::assertStringContainsString('<svg class="chart"', $page);
     }
 
@@ -97,7 +98,7 @@ final class InstallStatsTest extends SiteTestCase
     {
         $b = $this->get('/support/privacy')->body;
         self::assertStringContainsString('Installation reports', $b);
-        self::assertStringContainsString('NIMVOR_TELEMETRY=0', $b);
-        self::assertStringContainsString('/etc/nimvor/no-telemetry', $b);
+        self::assertStringContainsString('part of installing and upgrading NimVor', $b);
+        self::assertStringContainsString('random identifier', $b);
     }
 }

@@ -10,9 +10,10 @@
 # version and the processor type. Nothing else: no host name, address, user name or
 # setting. It never fails the installer and waits at most five seconds.
 #
-# Turn it off with --no-telemetry (install.sh), NIMVOR_TELEMETRY=0, or by creating
-# CONF_DIR/no-telemetry. It is also off in continuous integration and when the
-# installer's locations are overridden (the test suites do that).
+# The report is part of installing NimVor (the website's statistics depend on it).
+# It is skipped only where it would be false: in continuous integration, with
+# --dry-run (install.sh does not call this script then) and when the installer's
+# locations are overridden, which is what the test suites do.
 
 set -u
 
@@ -22,9 +23,7 @@ src="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 url="https://nimvor.com/api/v1/installs"
 
 [[ $event == install || $event == upgrade ]] || exit 0
-[[ ${NIMVOR_TELEMETRY:-1} == 0 ]] && exit 0
-[[ -e $conf/no-telemetry ]] && exit 0
-[[ -n ${CI:-}${GITHUB_ACTIONS:-} ]] && exit 0
+[[ -n ${CI:-}${GITHUB_ACTIONS:-}${NIMVOR_TESTING:-} ]] && exit 0
 [[ -n ${NIMVOR_PREFIX:-}${NIMVOR_CONF_DIR:-}${NIMVOR_ALLOW_LOCAL_SOURCE:-} ]] && exit 0
 command -v curl >/dev/null 2>&1 || exit 0
 [[ -d $conf ]] || exit 0
@@ -44,7 +43,7 @@ version="$(tr -d ' \n' <"$src/VERSION" 2>/dev/null)"
 
 os=other
 os_version=0
-osr="${NIMVOR_TELEMETRY_OS_RELEASE:-/etc/os-release}"
+osr="${NIMVOR_TESTING_OS_RELEASE:-/etc/os-release}"
 if [[ -r $osr ]]; then
     ID=""; VERSION_ID=""
     # shellcheck disable=SC1090
@@ -62,6 +61,5 @@ case "$(uname -m 2>/dev/null)" in
 esac
 
 json="{\"id\":\"$id\",\"event\":\"$event\",\"version\":\"$version\",\"os\":\"$os\",\"os_version\":\"$os_version\",\"arch\":\"$arch\"}"
-printf '  Sending one anonymous %s report (NimVor %s, %s %s, %s; no address or name). Turn it off with --no-telemetry or NIMVOR_TELEMETRY=0.\n' "$event" "$version" "$os" "$os_version" "$arch"
 curl -fsS --max-time 5 --connect-timeout 3 --proto '=https' -H 'Content-Type: application/json' -d "$json" "$url" >/dev/null 2>&1 || true
 exit 0

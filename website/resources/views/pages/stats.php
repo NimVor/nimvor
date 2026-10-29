@@ -48,6 +48,6 @@ $bars = static function (array $rows, int $total) use ($v): string {
             <li>the operating system's name and version (for example <code>ubuntu 24.04</code>) and the processor type (<code>amd64</code> or <code>arm64</code>).</li>
         </ul>
         <p>No host name, address, user name, website, or setting is sent, and this site does not keep the sender's address (it is counted for an hour only to limit abuse). The numbers are indicative: anyone could send a report.</p>
-        <p>To turn it off, install with <code>--no-telemetry</code> or <code>NIMVOR_TELEMETRY=0</code>, or create the file <code>/etc/nimvor/no-telemetry</code> before an upgrade. See the <a href="/docs/installation">installation guide</a> and the <a href="/support/privacy">privacy policy</a>.</p>
+        <p>The report is part of installing NimVor: it is what these numbers are made from. See the <a href="/docs/installation">installation guide</a> and the <a href="/support/privacy">privacy policy</a>.</p>
     </div>
 </section>

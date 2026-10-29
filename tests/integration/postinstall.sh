@@ -9,7 +9,7 @@
 # Leaves nothing behind (the website is deleted at the end).
 
 set -Eeuo pipefail
-export NIMVOR_TELEMETRY=0 # the installer must not report test servers
+export NIMVOR_TESTING=1 # the installer must not report test servers
 PORT=${PORT:-8090}
 P="http://127.0.0.1:${PORT}"
 RUN=$(date +%s | tail -c 6)

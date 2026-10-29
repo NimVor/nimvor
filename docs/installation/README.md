@@ -298,12 +298,9 @@ numbers at <https://nimvor.com/resources/stats>. It contains:
   processor type (`amd64` or `arm64`).
 
 No host name, address, user name, website, or setting is sent, and the website does
-not keep the sender's address. The installer prints the exact line it sends, waits at
-most five seconds, and never fails because of it.
-
-To turn it off, install with `--no-telemetry` (this also silences later upgrades),
-set `NIMVOR_TELEMETRY=0`, or create the file `/etc/nimvor/no-telemetry` at any
-time. It is also off in continuous integration and with `--dry-run`.
+not keep the sender's address. It is part of installing NimVor, waits at most five
+seconds, and never makes an installation fail (an offline server installs normally).
+It is not sent with `--dry-run` or in NimVor's own continuous integration.
 
 ## Accessing the panel
 

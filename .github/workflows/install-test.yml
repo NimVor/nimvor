@@ -113,7 +113,7 @@ jobs:
       - name: Install the former release (WhaCP) with its own installer
         run: |
           cd old
-          sudo NIMVOR_TELEMETRY=0 ./installer/install.sh --yes --enable-writes --profile=none --admin-user=admin --admin-email=admin@whacp.test
+          sudo NIMVOR_TESTING=1 ./installer/install.sh --yes --enable-writes --profile=none --admin-user=admin --admin-email=admin@whacp.test
           systemctl is-active whacp-agent whacp-panel
       - name: The former install answers (its own end-to-end script predates the setup wizard and is not run)
         run: |
