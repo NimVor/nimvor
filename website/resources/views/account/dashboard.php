@@ -26,7 +26,7 @@ $badge = static fn (string $s): string => match ($s) { 'new' => 'badge-new', 'qu
     <?php endif; ?>
 </div>
 <div class="grid grid-3">
-    <a class="card card-link" href="/resources/documentation#install"><h3>Install NimVor</h3><p class="muted mb-0">The one-line installer and its options.</p></a>
+    <a class="card card-link" href="/get-started"><h3>Install NimVor</h3><p class="muted mb-0">The one-line installer and its options.</p></a>
     <a class="card card-link" href="/resources/documentation"><h3>Documentation</h3><p class="muted mb-0">Guides for administrators.</p></a>
     <a class="card card-link" href="/support/contact"><h3>Contact us</h3><p class="muted mb-0">Ask a question.</p></a>
 </div>

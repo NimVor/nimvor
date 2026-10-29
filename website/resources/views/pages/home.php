@@ -13,7 +13,7 @@ $v->set('description', 'NimVor is a free, open-source hosting control panel for 
             <h1>Your servers, in your hands.</h1>
             <p class="lead">Websites, email, DNS and backups on your own server. One free control panel that checks before it changes anything.</p>
             <div class="cta-row">
-                <a class="btn btn-primary btn-lg" href="/resources/documentation#install">Install free <?= $v->icon('arrow', 18) ?></a>
+                <a class="btn btn-primary btn-lg" href="/get-started">Install free <?= $v->icon('arrow', 18) ?></a>
                 <a class="link-arrow" href="/features">Explore features</a>
             </div>
             <?= $v->partial('partials/install', ['command' => $install]) ?>
@@ -96,7 +96,7 @@ $v->set('description', 'NimVor is a free, open-source hosting control panel for 
             <span class="eyebrow">Yours to build on</span>
             <h2>Open source. Room to grow.</h2>
             <p class="lead">Start with the free panel. Add the help and services that make sense for you.</p>
-            <a class="btn btn-dark mt-2" href="/resources/documentation#install">Install NimVor <?= $v->icon('arrow', 18) ?></a>
+            <a class="btn btn-dark mt-2" href="/get-started">Install NimVor <?= $v->icon('arrow', 18) ?></a>
             <div class="pills mt-3">
                 <span class="pill">Ubuntu 22.04</span><span class="pill">Ubuntu 24.04</span><span class="pill">AlmaLinux 9</span><span class="pill">Rocky Linux 9</span><span class="pill">RHEL 9</span>
                 <span class="pill preview">Ubuntu 26.04 · preview</span><span class="pill preview">AlmaLinux 10 · preview</span><span class="pill preview">Rocky Linux 10 · preview</span>
@@ -143,7 +143,7 @@ $v->set('description', 'NimVor is a free, open-source hosting control panel for 
             <h2>Free to use. Free to read. Free to change.</h2>
             <p>Install it, read the code, or help build it.</p>
             <div class="cta-row flush">
-                <a class="btn btn-primary btn-lg" href="/resources/documentation#install">Install NimVor</a>
+                <a class="btn btn-primary btn-lg" href="/get-started">Install NimVor</a>
                 <a class="btn btn-ghost btn-lg" href="/resources/community">Join the community</a>
             </div>
         </div>

@@ -46,7 +46,12 @@ final class PageController extends Controller
 
     public function documentation(Ctx $ctx): Response
     {
-        return $ctx->render('pages/documentation', ['install' => self::INSTALL]);
+        return $ctx->render('pages/documentation');
+    }
+
+    public function getStarted(Ctx $ctx): Response
+    {
+        return $ctx->render('pages/get-started', ['install' => self::INSTALL]);
     }
 
     public function blog(Ctx $ctx): Response
@@ -156,7 +161,7 @@ final class PageController extends Controller
     public function sitemap(Ctx $ctx): Response
     {
         $base = (string) $this->app->config['url'];
-        $paths = ['/', '/features', '/resources', '/resources/documentation', '/resources/blog', '/resources/community', '/resources/build-services', '/resources/sponsors', '/resources/problems', '/resources/stats', '/docs', '/resources/about', '/support', '/support/contact', '/support/privacy'];
+        $paths = ['/', '/features', '/get-started', '/resources', '/resources/documentation', '/resources/blog', '/resources/community', '/resources/build-services', '/resources/sponsors', '/resources/problems', '/resources/stats', '/docs', '/resources/about', '/support', '/support/contact', '/support/privacy'];
         foreach ($this->posts() as $p) {
             $paths[] = '/resources/blog/' . $p['slug'];
         }
