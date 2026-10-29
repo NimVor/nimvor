@@ -121,7 +121,11 @@ final class PhpController extends Controller
                 $this->audit->record($on ? 'php.extension_enable' : 'php.extension_disable', 'php', $version, AuditLogger::SUCCESS, ['extension' => $name]);
                 return $this->redirectWithSuccess($to, $name . ($on ? ' switched on' : ' switched off') . ' for PHP ' . $version . '; PHP-FPM was reloaded.');
             }
-            $action = $op === 'remove' ? 'php.extension_remove' : 'php.extension_install';
+            // The ionCube Loader is not in any package repository: the agent
+            // downloads it from ionCube and checks that PHP loads it.
+            $action = $name === 'ioncube'
+                ? ($op === 'remove' ? 'php.ioncube_remove' : 'php.ioncube_install')
+                : ($op === 'remove' ? 'php.extension_remove' : 'php.extension_install');
             $res = (array) $this->agent->call($action, ['version' => $version, 'name' => $name]);
         } catch (AgentException $e) {
             $this->audit->record('php.extension_' . $op, 'php', $version, AuditLogger::FAILURE, ['extension' => $name, 'error' => $e->getMessage()]);

@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **ionCube Loader** in the PHP Manager (per PHP version, Extensions tab): downloaded from ionCube's own host, only that version's loader is extracted, PHP must load it before it is kept, and PHP-FPM must accept it or everything is undone. Switch on/off and remove work like other extensions. New agent actions `php.ioncube_install` / `php.ioncube_remove`.
+
 ## [1.0.0] — 2026-10-28
 
 General availability. Everything since 1.0.0-rc1:
