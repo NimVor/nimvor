@@ -168,12 +168,27 @@ func fetchIonCubeLoader(ctx context.Context, src IonCubeSource, v string) ([]byt
 // ionCubeLoads asks PHP v to load the loader and checks that ionCube's
 // banner appears in its version line.
 func ionCubeLoads(ctx context.Context, env *host.Env, v string) error {
-	out, err := env.Runner.Run(ctx, fmt.Sprintf(env.M.PHPFPMBinary, v), "-d", "zend_extension="+ionCubeLoaderPath(v), "-v")
+	// -n: without any php.ini or conf.d file, so the loader is the first Zend extension, as it insists on
+	// (a command-line -d is read after the files, where opcache and others would already be loaded).
+	out, err := env.Runner.Run(ctx, fmt.Sprintf(env.M.PHPFPMBinary, v), "-n", "-d", "zend_extension="+ionCubeLoaderPath(v), "-v")
 	if err != nil {
 		return fmt.Errorf("PHP %s could not load the ionCube loader: %s", v, host.Why(out, err))
 	}
 	if !strings.Contains(strings.ToLower(string(out)), "ioncube") {
 		return fmt.Errorf("PHP %s started but did not load the ionCube loader", v)
+	}
+	return nil
+}
+
+// ionCubeActive asks PHP with its real configuration (everything in conf.d) whether the loader is in
+// use, which is only so when nothing else is loaded before it.
+func ionCubeActive(ctx context.Context, env *host.Env, v string) error {
+	out, err := env.Runner.Run(ctx, fmt.Sprintf(env.M.PHPFPMBinary, v), "-v")
+	if err != nil {
+		return fmt.Errorf("PHP %s does not start with the ionCube Loader switched on: %s", v, host.Why(out, err))
+	}
+	if !strings.Contains(strings.ToLower(string(out)), "ioncube") {
+		return fmt.Errorf("PHP %s does not use the ionCube Loader with its present configuration", v)
 	}
 	return nil
 }
@@ -203,7 +218,11 @@ func installIonCube(ctx context.Context, env *host.Env, log io.Writer, v string)
 		removeIonCubeFiles(ctx, env, v)
 		return err
 	}
-	if err := env.ReloadFPM(ctx, v); err != nil {
+	err = env.ReloadFPM(ctx, v)
+	if err == nil {
+		err = ionCubeActive(ctx, env, v)
+	}
+	if err != nil {
 		_ = setModules(ctx, env, v, IonCube.Modules, false)
 		removeIonCubeFiles(ctx, env, v)
 		_ = env.ReloadFPM(ctx, v)

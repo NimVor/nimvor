@@ -60,7 +60,7 @@ func ionCubeHost(t *testing.T, banner bool) (*testhost.Host, *actions.Registry) 
 	r := actions.NewRegistry(true)
 	Register(r, h.Env)
 	h.Respond = func(id string, args []string) (string, error, bool) {
-		if id == "php-fpm8.3" && len(args) == 3 && args[0] == "-d" {
+		if id == "php-fpm8.3" && (len(args) == 4 && args[0] == "-n" && args[1] == "-d" || len(args) == 1 && args[0] == "-v") {
 			if banner {
 				return "PHP 8.3.6 (fpm-fcgi)\n    with the ionCube PHP Loader v14.4.0, by ionCube Ltd.\n", nil, true
 			}
@@ -92,7 +92,7 @@ func TestIonCubeInstallDebian(t *testing.T) {
 	if h.Exists("etc/ioncube_loader_lin_8.3.so") || h.Exists("../../etc/ioncube_loader_lin_8.3.so") {
 		t.Error("an archive entry outside the folder was used")
 	}
-	for _, c := range []string{"php-fpm8.3 -d zend_extension=/usr/local/lib/nimvor/ioncube/8.3/ioncube_loader_lin_8.3.so -v", "phpenmod -v 8.3 ioncube", "php-fpm8.3 -t"} {
+	for _, c := range []string{"php-fpm8.3 -n -d zend_extension=/usr/local/lib/nimvor/ioncube/8.3/ioncube_loader_lin_8.3.so -v", "phpenmod -v 8.3 ioncube", "php-fpm8.3 -t"} {
 		if !h.Runner.Called(c) {
 			t.Errorf("not run: %s (calls %v)", c, h.Runner.Calls)
 		}
@@ -203,7 +203,7 @@ func TestIonCubeInstallRHEL(t *testing.T) {
 	h.Env.M = h.Env.Platform.Managed()
 	write(t, h, "etc/opt/remi/php83/php.d/20-opcache.ini", "zend_extension=opcache\n") // PHP 8.3's own php.d
 	h.Respond = func(id string, args []string) (string, error, bool) {
-		if strings.HasPrefix(id, "php-fpm") && len(args) == 3 && args[0] == "-d" {
+		if strings.HasPrefix(id, "php-fpm") && (len(args) == 4 && args[0] == "-n" || len(args) == 1 && args[0] == "-v") {
 			return "PHP 8.3.6\n    with the ionCube PHP Loader v14\n", nil, true
 		}
 		return "", nil, false
@@ -235,5 +235,32 @@ func TestIonCubeRejectsBadVersion(t *testing.T) {
 		if _, err := call(t, r, "php.ioncube_install", map[string]any{"version": v}); err == nil {
 			t.Errorf("accepted %q", v)
 		}
+	}
+}
+
+// The loader loads on its own but, with the server's real configuration, something else is loaded before
+// it (ionCube refuses to start then): everything is put back.
+func TestIonCubeUndoneWhenNotFirst(t *testing.T) {
+	serveIonCube(t, ionCubeArchive(t, "8.3"), http.StatusOK)
+	h, r := ionCubeHost(t, true)
+	h.Respond = func(id string, args []string) (string, error, bool) {
+		if id != "php-fpm8.3" {
+			return "", nil, false
+		}
+		if len(args) == 4 && args[0] == "-n" {
+			return "PHP 8.3.6 (fpm-fcgi)\n    with the ionCube PHP Loader v14.4.0, by ionCube Ltd.\n", nil, true
+		}
+		if len(args) == 1 && args[0] == "-v" {
+			return "PHP 8.3.6 (fpm-fcgi)\n", nil, true
+		}
+		return "", nil, false
+	}
+	res, _ := call(t, r, "php.ioncube_install", map[string]any{"version": "8.3"})
+	j := waitJob(t, h, res)
+	if j.Status != jobs.Failed || !strings.Contains(j.Error, "removed again") {
+		t.Fatalf("%s %s", j.Status, j.Error)
+	}
+	if !h.Runner.Called("phpdismod -v 8.3 ioncube") || h.Exists("etc/php/8.3/mods-available/ioncube.ini") {
+		t.Errorf("not undone: %v", h.Runner.Calls)
 	}
 }

@@ -6,7 +6,7 @@ NimVor is a free, MIT-licensed control panel for VPS and dedicated servers. It i
 built around one rule: **a control panel has root-level consequences, so every
 privileged operation must be explicit, validated, audited and reversible.**
 
-> **Status: 1.1.0.** See the [changelog](CHANGELOG.md) for what changed since the
+> **Status: 1.1.1.** See the [changelog](CHANGELOG.md) for what changed since the
 > 1.0.0 general availability release. What was tested in 1.0.0, and what was
 > not, is listed in [docs/release/1.0.0-ga-report.md](docs/release/1.0.0-ga-report.md)
 > and [docs/security/ga-assessment.md](docs/security/ga-assessment.md). NimVor
