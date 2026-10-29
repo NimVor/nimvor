@@ -43,7 +43,11 @@ final class CacheDriversTest extends TestCase
         if (!class_exists(\Memcached::class)) {
             self::markTestSkipped('ext-memcached is not installed here, so the Memcached driver is not exercised.');
         }
-        $c = new \NimVorSite\Cache\MemcachedCache(['host' => getenv('MEMCACHED_HOST') ?: '127.0.0.1', 'port' => 11211], 'unit' . bin2hex(random_bytes(4)) . ':');
+        try {
+            $c = new \NimVorSite\Cache\MemcachedCache(['host' => getenv('MEMCACHED_HOST') ?: '127.0.0.1', 'port' => 11211], 'unit' . bin2hex(random_bytes(4)) . ':');
+        } catch (\RuntimeException) {
+            self::markTestSkipped('ext-memcached is installed but no Memcached server answers here, so the Memcached driver is not exercised.');
+        }
         $c->set('k', ['v' => 1], 30);
         self::assertSame(['v' => 1], $c->get('k'));
         self::assertSame(1, $c->increment('n', 30));
