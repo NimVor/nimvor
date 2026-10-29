@@ -77,3 +77,52 @@
         });
     });
 })();
+
+// Documentation pages: a copy button on every code block, and the table of contents follows the reading position.
+(function () {
+    'use strict';
+    var body = document.querySelector('[data-doc-body]');
+    if (!body) { return; }
+
+    body.querySelectorAll('pre.codeblock').forEach(function (pre) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'copy-code';
+        btn.textContent = 'Copy';
+        btn.addEventListener('click', function () {
+            var text = pre.querySelector('code') ? pre.querySelector('code').textContent : pre.textContent;
+            var done = function () {
+                btn.classList.add('done');
+                btn.textContent = 'Copied';
+                setTimeout(function () { btn.classList.remove('done'); btn.textContent = 'Copy'; }, 1800);
+            };
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(done, function () {});
+            }
+        });
+        pre.appendChild(btn);
+    });
+
+    var links = document.querySelectorAll('.doc-toc a');
+    if (!links.length || !('IntersectionObserver' in window)) { return; }
+    var byId = {};
+    links.forEach(function (a) { byId[a.getAttribute('href').slice(1)] = a; });
+    var obs = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+            if (en.isIntersecting && byId[en.target.id]) {
+                links.forEach(function (a) { a.classList.remove('on'); });
+                byId[en.target.id].classList.add('on');
+            }
+        });
+    }, { rootMargin: '0px 0px -75% 0px' });
+    body.querySelectorAll('h2[id], h3[id]').forEach(function (h) { obs.observe(h); });
+})();
+
+// The documentation menu starts closed on a phone, so the page itself is the first thing seen.
+(function () {
+    'use strict';
+    var menu = document.querySelector('details.doc-menu');
+    if (menu && window.matchMedia && window.matchMedia('(max-width: 800px)').matches) {
+        menu.removeAttribute('open');
+    }
+})();

@@ -16,7 +16,22 @@ final class PageController extends Controller
 
     public function home(Ctx $ctx): Response
     {
-        return $ctx->render('pages/home', ['install' => self::INSTALL, 'posts' => array_slice($this->posts(), 0, 3)]);
+        return $ctx->render('pages/home', ['install' => self::INSTALL, 'posts' => array_slice($this->posts(), 0, 3), 'servers' => $this->app->stats->headline()]);
+    }
+
+    public function problems(Ctx $ctx): Response
+    {
+        $status = $ctx->req->input('status');
+        return $ctx->render('pages/problems', [
+            'board' => $this->app->problems->board(),
+            'status' => in_array($status, ['reported', 'progress', 'resolved'], true) ? $status : '',
+            'repo' => $this->app->github->repoUrl(),
+        ]);
+    }
+
+    public function stats(Ctx $ctx): Response
+    {
+        return $ctx->render('pages/stats', ['stats' => $this->app->stats->public()]);
     }
 
     public function features(Ctx $ctx): Response
@@ -141,9 +156,14 @@ final class PageController extends Controller
     public function sitemap(Ctx $ctx): Response
     {
         $base = (string) $this->app->config['url'];
-        $paths = ['/', '/features', '/resources', '/resources/documentation', '/resources/blog', '/resources/community', '/resources/build-services', '/resources/sponsors', '/resources/about', '/support', '/support/contact', '/support/privacy'];
+        $paths = ['/', '/features', '/resources', '/resources/documentation', '/resources/blog', '/resources/community', '/resources/build-services', '/resources/sponsors', '/resources/problems', '/resources/stats', '/docs', '/resources/about', '/support', '/support/contact', '/support/privacy'];
         foreach ($this->posts() as $p) {
             $paths[] = '/resources/blog/' . $p['slug'];
+        }
+        foreach ($this->app->docs->menu() as $d) {
+            if ($d['slug'] !== 'index') {
+                $paths[] = '/docs/' . $d['slug'];
+            }
         }
         $xml = '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
         foreach ($paths as $p) {

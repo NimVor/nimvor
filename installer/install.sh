@@ -47,7 +47,7 @@
 #                               [--port=8090] [--dry-run] [--yes] [--reinstall|--resume] [--force-unsupported]
 #                               [--enable-writes] [--public-https[=8443]]
 #                               [--profile=full|web|minimal|none] [--hostname=server.example.com]
-#                               [--php=8.3,8.4] [--no-third-party-repos]
+#                               [--php=8.3,8.4] [--no-third-party-repos] [--no-telemetry]
 #                               [--agent-only --remote-access=0.0.0.0:8443 --allow-from=PANEL_IP[,...]]
 #
 # --public-https serves the panel at https://SERVER-IP:8443/ (or the port
@@ -63,6 +63,11 @@
 # will manage; --remote-access exposes it over TLS (pinned self-signed
 # certificate) to the addresses given with --allow-from. The installer
 # prints the address, pin and token to enter under "All servers" in the panel.
+#
+# When the installation finishes it sends one anonymous report (a random id, the
+# NimVor version, the system's name and version, the processor type) that feeds
+# nimvor.com/resources/stats; installer/telemetry.sh says exactly what. Turn it
+# off with --no-telemetry or NIMVOR_TELEMETRY=0 (upgrades then stay silent too).
 #
 # A reinstall (--reinstall) keeps the configuration, token, database, write
 # mode, the panel's port and its public HTTPS port: no options are needed
@@ -84,6 +89,7 @@ INSTALL_DEPS=1
 PORT_SET=0
 DRY_RUN=0
 ASSUME_YES=0
+NO_TELEMETRY=0
 REINSTALL=0
 FORCE_UNSUPPORTED=0
 ENABLE_WRITES=0
@@ -166,7 +172,8 @@ for arg in "$@"; do
         --hostname=*) SETUP_HOSTNAME="${arg#*=}" ;;
         --php=*) SETUP_PHP="${arg#*=}" ;;
         --no-third-party-repos) THIRD_PARTY_REPOS=0 ;;
-        -h|--help) sed -n '2,70p' "$0"; exit 0 ;;
+        --no-telemetry) NO_TELEMETRY=1 ;;
+        -h|--help) sed -n '2,74p' "$0"; exit 0 ;;
         *) die "unknown option: $arg" ;;
     esac
 done
@@ -1039,6 +1046,16 @@ if [[ $PROFILE != none && $AGENT_ONLY -eq 0 && $DRY_RUN -eq 0 ]]; then
     if ! runuser -u nimvor -- env NIMVOR_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/nimvor" "${setup_args[@]}"; then
         SETUP_FAILED=1
         warn "some setup steps failed (see above). NimVor itself is installed; fix the cause and run: sudo -u nimvor NIMVOR_CONFIG=$CONF_DIR/panel.php $PHP_BIN $PREFIX/panel/bin/nimvor ${setup_args[*]}"
+    fi
+fi
+
+# One anonymous report (version, system type; see installer/telemetry.sh) feeds the
+# statistics on nimvor.com. --no-telemetry turns it off, now and for upgrades.
+if [[ $DRY_RUN -eq 0 ]]; then
+    if [[ $NO_TELEMETRY -eq 1 ]]; then
+        : >"$CONF_DIR/no-telemetry" 2>/dev/null || true
+    else
+        "$SRC_DIR/installer/telemetry.sh" install "$CONF_DIR" || true
     fi
 fi
 

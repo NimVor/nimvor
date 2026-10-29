@@ -10,15 +10,27 @@ use NimVorSite\Http\AccountController;
 use NimVorSite\Http\AdminController;
 use NimVorSite\Http\AuthController;
 use NimVorSite\Http\PageController;
+use NimVorSite\Http\ApiController;
+use NimVorSite\Http\DocsController;
 use NimVorSite\Repositories\BuildRequests;
+use NimVorSite\Repositories\Docs;
+use NimVorSite\Repositories\Installs;
 use NimVorSite\Repositories\Messages;
 use NimVorSite\Repositories\Posts;
 use NimVorSite\Repositories\Sponsors;
+use NimVorSite\Repositories\State;
 use NimVorSite\Repositories\Users;
 use NimVorSite\Repositories\Visits;
 use NimVorSite\Services\Auth;
+use NimVorSite\Services\CurlHttp;
+use NimVorSite\Services\DocsService;
+use NimVorSite\Services\GitHub;
+use NimVorSite\Services\Http;
+use NimVorSite\Services\Problems;
 use NimVorSite\Services\RateLimiter;
 use NimVorSite\Services\Reports;
+use NimVorSite\Services\SponsorSync;
+use NimVorSite\Services\Stats;
 
 final class App
 {
@@ -30,10 +42,20 @@ final class App
     public readonly Visits $visits;
     public readonly RateLimiter $limiter;
     public readonly Reports $reports;
+    public readonly State $state;
+    public readonly Docs $docs;
+    public readonly Installs $installs;
+    public readonly GitHub $github;
+    public readonly DocsService $docsService;
+    public readonly Problems $problems;
+    public readonly SponsorSync $sponsorSync;
+    public readonly Stats $stats;
+    /** Work to do after the answer has been sent (a documentation refresh). */
+    private array $afterResponse = [];
     private readonly Router $router;
 
     /** @param array<string, mixed> $config */
-    public function __construct(public readonly array $config, public readonly Db $db, public readonly Cache $cache, private readonly string $root)
+    public function __construct(public readonly array $config, public readonly Db $db, public readonly Cache $cache, private readonly string $root, ?Http $http = null)
     {
         $this->users = new Users($db);
         $this->posts = new Posts($db);
@@ -43,14 +65,43 @@ final class App
         $this->visits = new Visits($db);
         $this->limiter = new RateLimiter($cache);
         $this->reports = new Reports($db, $cache, $this->visits);
+        $this->state = new State($db);
+        $this->docs = new Docs($db);
+        $this->installs = new Installs($db);
+        $gh = (array) ($config['github'] ?? []);
+        $ghConfig = ['repo' => (string) ($gh['repo'] ?? 'NimVor/nimvor'), 'branch' => (string) ($gh['branch'] ?? 'main'), 'token' => (string) ($gh['token'] ?? '')];
+        $this->github = new GitHub($http ?? new CurlHttp(), $ghConfig);
+        $this->docsService = new DocsService($this->docs, $this->state, $this->github, $ghConfig['branch']);
+        $this->problems = new Problems($this->github, $cache);
+        $this->sponsorSync = new SponsorSync($this->github, $this->sponsors, $cache, (string) ($gh['sponsorable'] ?? 'NimVor'));
+        $this->stats = new Stats($this->installs, $cache);
         $this->router = new Router();
         $this->routes();
     }
 
     /** @param array<string, mixed> $config */
-    public static function boot(array $config, string $root): self
+    public static function boot(array $config, string $root, ?Http $http = null): self
     {
-        return new self($config, new Db($config['db']), CacheFactory::make($config['cache']), $root);
+        return new self($config, new Db($config['db']), CacheFactory::make($config['cache']), $root, $http);
+    }
+
+    /** @param callable(): void $job */
+    public function after(callable $job): void
+    {
+        $this->afterResponse[] = $job;
+    }
+
+    /** Runs what was queued with after(); the front controller calls it once the answer is out. */
+    public function finish(): void
+    {
+        foreach ($this->afterResponse as $job) {
+            try {
+                $job();
+            } catch (\Throwable $e) {
+                error_log('nimvor-site background: ' . $e->getMessage());
+            }
+        }
+        $this->afterResponse = [];
     }
 
     public function root(): string
@@ -65,6 +116,8 @@ final class App
         $a = new AuthController($this);
         $c = new AccountController($this);
         $m = new AdminController($this);
+        $d = new DocsController($this);
+        $api = new ApiController($this);
 
         $r->add('GET', '/', [$p, 'home']);
         $r->add('GET', '/features', [$p, 'features']);
@@ -76,6 +129,13 @@ final class App
         $r->add('GET', '/resources/build-services', [$p, 'buildServices']);
         $r->add('POST', '/resources/build-services', [$p, 'buildServicesSubmit']);
         $r->add('GET', '/resources/sponsors', [$p, 'sponsors']);
+        $r->add('GET', '/resources/problems', [$p, 'problems']);
+        $r->add('GET', '/resources/stats', [$p, 'stats']);
+        $r->add('GET', '/docs', [$d, 'show']);
+        $r->add('GET', '/docs/search', [$d, 'search']);
+        $r->add('GET', '/docs/{a}', [$d, 'show']);
+        $r->add('GET', '/docs/{a}/{b}', [$d, 'show']);
+        $r->add('POST', '/api/v1/installs', [$api, 'install']);
         $r->add('GET', '/resources/about', [$p, 'about']);
         $r->add('GET', '/support', [$p, 'support']);
         $r->add('GET', '/support/contact', [$p, 'contact']);
@@ -115,6 +175,9 @@ final class App
         $r->add('POST', '/admin/posts/{id}/delete', [$m, 'postDelete'], 'admin');
         $r->add('GET', '/admin/sponsors', [$m, 'sponsors'], 'admin');
         $r->add('POST', '/admin/sponsors', [$m, 'sponsorAdd'], 'admin');
+        $r->add('POST', '/admin/sponsors/sync', [$m, 'sponsorSync'], 'admin');
+        $r->add('GET', '/admin/content', [$m, 'content'], 'admin');
+        $r->add('POST', '/admin/content/docs-sync', [$m, 'docsSync'], 'admin');
         $r->add('POST', '/admin/sponsors/{id}/delete', [$m, 'sponsorDelete'], 'admin');
     }
 
@@ -163,7 +226,8 @@ final class App
             return $this->error($ctx, 405)->header('Allow', 'GET, POST');
         }
         $route = ['pattern' => $m['route']['pattern'], 'auth' => $m['route']['auth']];
-        if ($req->method === 'POST' && !$ctx->session->checkCsrf($req->input('_token'))) {
+        // The install report comes from a server's installer, not a browser: it has no session or token.
+        if ($req->method === 'POST' && $route['pattern'] !== '/api/v1/installs' && !$ctx->session->checkCsrf($req->input('_token'))) {
             return $this->error($ctx, 419);
         }
         if ($m['route']['auth'] !== null) {

@@ -6,6 +6,12 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Website: documentation inside the site.** The repository's docs, contributing guide, code of conduct, security policy and changelog are fetched from GitHub and shown at `/docs` in the site's design: sidebar by topic, "On this page" list, search, previous/next, copy buttons, and links that stay on the site. The Community cards open these pages instead of GitHub.
+- **Website: problems board** (`/resources/problems`): the project's issues sorted into reported, in progress and resolved, with the report button going to GitHub.
+- **Website: sponsors from GitHub Sponsors** plus the ones added by an administrator (needs a GitHub token for the sync).
+- **Anonymous install statistics.** The installer and upgrader send one small report (random id, version, system name and version, processor type) to nimvor.com, shown at `/resources/stats` and on the home page. No host name or address is sent. Turn it off with `--no-telemetry`, `NIMVOR_TELEMETRY=0` or `/etc/nimvor/no-telemetry`; it is also off in CI and with `--dry-run`.
+
 ## [1.0.0] — 2026-10-28
 
 General availability. Everything since 1.0.0-rc1:

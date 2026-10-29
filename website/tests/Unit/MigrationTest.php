@@ -11,7 +11,7 @@ final class MigrationTest extends SiteTestCase
     public function testMigrationsAreAppliedOnce(): void
     {
         self::assertSame([], $this->app->db->migrate(dirname(__DIR__, 2) . '/database/migrations'));
-        self::assertSame('0001_init', $this->app->db->scalar('SELECT name FROM migrations'));
+        self::assertSame(['0001_init', '0002_docs_problems_stats'], array_column($this->app->db->all('SELECT name FROM migrations ORDER BY name'), 'name'));
     }
 
     public function testTablesAreInnoDbUtf8mb4(): void

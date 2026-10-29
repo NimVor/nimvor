@@ -2,6 +2,7 @@
 /** @var \NimVorSite\Core\View $v */
 /** @var string $install */
 /** @var list<array<string, mixed>> $posts */
+/** @var ?int $servers */
 $v->layout('layouts/site');
 $v->set('description', 'NimVor is a free, open-source hosting control panel for VPS and dedicated servers. Websites, email, DNS, databases, SSL and backups, with every change validated and reversible.');
 ?>
@@ -25,6 +26,11 @@ $v->set('description', 'NimVor is a free, open-source hosting control panel for 
     </div>
 </section>
 
+<?php if (($servers ?? null) !== null): ?>
+<section class="strip" aria-label="Usage">
+    <div class="container strip-in"><strong><?= number_format($servers) ?></strong><span>server<?= $servers === 1 ? '' : 's' ?> have installed NimVor</span><a class="link-arrow" href="/resources/stats">See the numbers <?= $v->icon('arrow', 14) ?></a></div>
+</section>
+<?php endif; ?>
 <section class="section">
     <div class="container">
         <div class="section-head split-head">

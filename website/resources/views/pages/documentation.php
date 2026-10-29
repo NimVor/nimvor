@@ -4,20 +4,19 @@
 $v->layout('layouts/site');
 $v->set('title', 'Documentation');
 $v->set('description', 'Install NimVor, update it, reset an administrator password and find the full documentation.');
-$base = 'https://github.com/NimVor/nimvor/blob/main/docs/';
 $docs = [
-    ['Installation', 'installation/README.md', 'Requirements, every installer option, accessing the panel, verifying, updating and uninstalling.'],
-    ['Administration', 'administration/README.md', 'Day-to-day use of every area of the panel.'],
-    ['Security', 'security/README.md', 'The security model, what is protected and how to report a problem.'],
-    ['Agent', 'agent/README.md', 'The Go service: actions, the write gate and what it will and will not run.'],
-    ['REST API', 'api/README.md', 'Personal tokens and the /api/v1 endpoints.'],
-    ['Architecture', 'architecture/README.md', 'How the panel, agent and installer fit together.'],
-    ['Plugins', 'plugins/README.md', 'Extending the panel.'],
-    ['Troubleshooting', 'troubleshooting/README.md', 'Common problems and how to find the cause.'],
-    ['Development', 'development/README.md', 'Building, testing and contributing to NimVor.'],
+    ['Installation', '/docs/installation', 'Requirements, every installer option, accessing the panel, verifying, updating and uninstalling.'],
+    ['Administration', '/docs/administration', 'Day-to-day use of every area of the panel.'],
+    ['Security', '/docs/security', 'The security model, what is protected and how to report a problem.'],
+    ['Agent', '/docs/agent', 'The Go service: actions, the write gate and what it will and will not run.'],
+    ['REST API', '/docs/api', 'Personal tokens and the /api/v1 endpoints.'],
+    ['Architecture', '/docs/architecture', 'How the panel, agent and installer fit together.'],
+    ['Plugins', '/docs/plugins', 'Extending the panel.'],
+    ['Troubleshooting', '/docs/troubleshooting', 'Common problems and how to find the cause.'],
+    ['Development', '/docs/development', 'Building, testing and contributing to NimVor.'],
 ];
 ?>
-<?= $v->partial('partials/page-head', ['title' => 'Documentation', 'intro' => 'The full documentation lives with the code, so it always matches the version you run.', 'crumbs' => [['Resources', '/resources'], ['Documentation', '']]]) ?>
+<?= $v->partial('partials/page-head', ['title' => 'Documentation', 'intro' => 'The full documentation is kept with the code and shown here, so it matches the release you run.', 'crumbs' => [['Resources', '/resources'], ['Documentation', '']]]) ?>
 <section class="section" id="install">
     <div class="container split">
         <div class="prose">
@@ -54,10 +53,10 @@ curl -fsSL https://nimvor.com/install | sudo bash -s -- --commit SHA</code></pre
 </section>
 <section class="section section-soft">
     <div class="container">
-        <div class="section-head"><span class="eyebrow">Read more</span><h2>The full documentation</h2></div>
+        <div class="section-head"><span class="eyebrow">Read more</span><h2>The full documentation</h2><p><a class="btn btn-outline" href="/docs">Browse all pages <?= $v->icon('arrow', 16) ?></a></p></div>
         <div class="grid grid-3">
             <?php foreach ($docs as [$title, $file, $text]): ?>
-                <a class="card card-link" href="<?= e($base . $file) ?>" rel="noopener"><h3><?= e($title) ?> <?= $v->icon('arrow', 16) ?></h3><p class="muted"><?= e($text) ?></p></a>
+                <a class="card card-link" href="<?= e($file) ?>"><h3><?= e($title) ?> <?= $v->icon('arrow', 16) ?></h3><p class="muted"><?= e($text) ?></p></a>
             <?php endforeach; ?>
         </div>
     </div>

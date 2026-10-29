@@ -25,6 +25,16 @@ $config = [
         'memcached' => ['host' => $env('MEMCACHED_HOST', '127.0.0.1'), 'port' => (int) $env('MEMCACHED_PORT', '11211')],
         'file_dir' => $env('CACHE_DIR', dirname(__DIR__) . '/storage/cache'),
     ],
+    // Where the documentation, problems board and sponsors come from. The token is optional
+    // (a higher rate limit) except for sponsors: GitHub only shows them to a signed-in maintainer.
+    'github' => [
+        'repo' => $env('GITHUB_REPO', 'NimVor/nimvor'),
+        'branch' => $env('GITHUB_BRANCH', 'main'),
+        'token' => $env('GITHUB_TOKEN', ''),
+        'sponsorable' => $env('GITHUB_SPONSORABLE', 'NimVor'),
+    ],
+    // Fetch the documentation from GitHub on a visit when it is missing or older than six hours.
+    'docs_auto_sync' => $env('DOCS_AUTO_SYNC', '1') === '1',
     'session_ttl' => (int) $env('SESSION_TTL', '7200'),
     'trusted_proxy' => $env('TRUSTED_PROXY', '127.0.0.1'),
 ];

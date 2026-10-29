@@ -34,3 +34,8 @@ try {
 }
 
 $app->handle(Request::fromGlobals())->send();
+// Work queued during the request (a documentation refresh) runs once the visitor has their answer.
+if (function_exists('fastcgi_finish_request')) {
+    fastcgi_finish_request();
+}
+$app->finish();

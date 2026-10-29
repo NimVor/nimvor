@@ -60,6 +60,22 @@ php -S 127.0.0.1:8099 -t public public/index.php
 | `TRUSTED_PROXY` | `127.0.0.1` | The only address whose `X-Forwarded-For` and `X-Forwarded-Proto` are believed |
 | `SITE_CONFIG` | none | A PHP file (outside the web root) returning an array that overrides the settings |
 
+## Documentation, problems, sponsors and statistics
+
+These pages read from GitHub on the server (visitors' browsers never contact GitHub):
+
+- **Documentation** (`/docs`): the repository's `docs/**/*.md` plus `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md` and `CHANGELOG.md` are fetched and shown in the site's design, with a sidebar, an "On this page" list, search and links rewritten to stay on the site. Which files are published, and how they are grouped, is `app/Services/DocsCatalog.php`. The first visit fetches them; after that they are refreshed after the answer is sent when they are older than six hours (`DOCS_AUTO_SYNC=0` turns that off), or at once with **Admin → Docs and stats → Sync documentation now**. If GitHub cannot be reached the stored pages keep being served.
+- **Problems** (`/resources/problems`): the repository's issues (not pull requests), read at most every ten minutes. Closed = resolved; open with an assignee or a label such as "in progress"/"confirmed" = in progress; other open = reported. If GitHub fails, the last good list is shown marked as old. Reporting happens on GitHub.
+- **Sponsors** (`/resources/sponsors`): sponsors you add under Admin → Sponsors, plus the public ones from GitHub Sponsors copied in by **Sync from GitHub now**. GitHub only shows sponsors to a signed-in maintainer, so this needs `GITHUB_TOKEN` (a token that can read the organisation's sponsors; `GITHUB_SPONSORABLE` names the organisation or user, default `NimVor`). Tiers follow the monthly amount (silver from $25, gold from $100). The token is only ever sent to `api.github.com`.
+- **Statistics** (`/resources/stats`): counts from the anonymous reports installers send to `POST /api/v1/installs` (a random id, the version, the system's name and version, the processor type; no address is stored, and sending is rate limited per address). The counts are indicative: anyone can send a report.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `GITHUB_REPO` / `GITHUB_BRANCH` | `NimVor/nimvor` / `main` | Where the documentation and issues come from |
+| `GITHUB_TOKEN` | none | Needed for sponsors; also lifts GitHub's anonymous rate limit |
+| `GITHUB_SPONSORABLE` | `NimVor` | The organisation or user whose sponsors are shown |
+| `DOCS_AUTO_SYNC` | `1` | Refresh the documentation when a visitor finds it older than six hours |
+
 ## Deploy without a terminal
 
 You do not need a command line, and you do not need Composer: the site loads its own
@@ -83,7 +99,7 @@ If the site is configured with environment variables or `SITE_CONFIG` instead, t
 4. Run `php bin/site migrate`, then `php bin/site seed`, then create the first administrator with `php bin/site user:create`.
 5. Check `https://your-site/health` (`ok`, or `503` if the database or cache is down).
 
-Updating: pull the new code and run `php bin/site migrate`.
+Updating: pull the new code and run `php bin/site migrate`. To load the documentation without waiting for a first visit: `php bin/site docs:sync`; to copy the sponsors: `php bin/site sponsors:sync`.
 
 ## Tests
 

@@ -285,6 +285,26 @@ reload any existing service. A profile makes its changes through the
 panel's own actions (see "Server profile"), never by editing files from the
 installer.
 
+### Anonymous install report
+
+When an installation or an upgrade finishes, `installer/telemetry.sh` sends **one**
+small report to `https://nimvor.com/api/v1/installs`, which feeds the public
+numbers at <https://nimvor.com/resources/stats>. It contains:
+
+- a random identifier the installer made (kept in `/etc/nimvor/install-id`; it is not
+  derived from anything on the server),
+- the NimVor version,
+- the system's name and version (for example `ubuntu 24.04`, `almalinux 9`) and the
+  processor type (`amd64` or `arm64`).
+
+No host name, address, user name, website, or setting is sent, and the website does
+not keep the sender's address. The installer prints the exact line it sends, waits at
+most five seconds, and never fails because of it.
+
+To turn it off, install with `--no-telemetry` (this also silences later upgrades),
+set `NIMVOR_TELEMETRY=0`, or create the file `/etc/nimvor/no-telemetry` at any
+time. It is also off in continuous integration and with `--dry-run`.
+
 ## Accessing the panel
 
 ### Opening the panel

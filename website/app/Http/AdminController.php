@@ -9,6 +9,7 @@ use NimVorSite\Core\Response;
 use NimVorSite\Repositories\BuildRequests;
 use NimVorSite\Repositories\Messages;
 use NimVorSite\Repositories\Sponsors;
+use NimVorSite\Services\GitHubException;
 use NimVorSite\Support\Text;
 use NimVorSite\Support\Validator;
 
@@ -161,7 +162,41 @@ final class AdminController extends Controller
 
     public function sponsors(Ctx $ctx): Response
     {
-        return $ctx->render('admin/sponsors', ['sponsors' => $this->app->sponsors->all(), 'tiers' => Sponsors::TIERS]);
+        return $ctx->render('admin/sponsors', ['sponsors' => $this->app->sponsors->all(), 'tiers' => Sponsors::TIERS, 'hasToken' => $this->app->github->hasToken()]);
+    }
+
+    /** Copies the public GitHub sponsors in; the ones added by hand stay. */
+    public function sponsorSync(Ctx $ctx): Response
+    {
+        try {
+            $r = $this->app->sponsorSync->sync();
+            $ctx->flash('success', 'Synced with GitHub: ' . $r['total'] . ' public sponsor(s), ' . $r['removed'] . ' no longer sponsoring.');
+        } catch (GitHubException $e) {
+            $ctx->flash('error', $e->getMessage());
+        }
+        return $ctx->redirect('/admin/sponsors');
+    }
+
+    public function content(Ctx $ctx): Response
+    {
+        return $ctx->render('admin/content', [
+            'pages' => $this->app->docs->menu(),
+            'syncedAt' => $this->app->docsService->lastSync(),
+            'stats' => $this->app->stats->public(),
+            'repo' => $this->app->github->repoUrl(),
+            'hasToken' => $this->app->github->hasToken(),
+        ]);
+    }
+
+    public function docsSync(Ctx $ctx): Response
+    {
+        try {
+            $r = $this->app->docsService->sync();
+            $ctx->flash('success', 'Documentation synced from GitHub: ' . $r['total'] . ' page(s), ' . $r['changed'] . ' changed, ' . $r['removed'] . ' removed.');
+        } catch (GitHubException $e) {
+            $ctx->flash('error', $e->getMessage());
+        }
+        return $ctx->redirect('/admin/content');
     }
 
     public function sponsorAdd(Ctx $ctx): Response
@@ -173,7 +208,7 @@ final class AdminController extends Controller
             $v->fail('url', 'Enter a link that starts with https://.');
         }
         if ($v->fails()) {
-            return $this->invalid($ctx, 'admin/sponsors', $v->errors(), ['sponsors' => $this->app->sponsors->all(), 'tiers' => Sponsors::TIERS]);
+            return $this->invalid($ctx, 'admin/sponsors', $v->errors(), ['sponsors' => $this->app->sponsors->all(), 'tiers' => Sponsors::TIERS, 'hasToken' => $this->app->github->hasToken()]);
         }
         $this->app->sponsors->create($v->value('name'), $url, $v->value('tier'));
         $this->app->cache->delete('sponsors:list');
