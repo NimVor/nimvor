@@ -4,6 +4,7 @@ package apps
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -161,12 +162,27 @@ func TestRealHostCatalogDownloads(t *testing.T) {
 		t.Skip("needs NIMVOR_NETWORK=1")
 	}
 	client := &http.Client{Timeout: 10 * time.Minute}
+	// A host that answers 429 (too many requests) is limiting the CI runner, which says nothing about
+	// whether the download works: wait and try again, and if it still refuses, skip that application.
+	errRateLimited := errors.New("rate limited by the host (HTTP 429)")
 	fetch := func(url string) (string, error) {
-		req, _ := http.NewRequest(http.MethodGet, url, nil)
-		req.Header.Set("User-Agent", userAgent)
-		res, err := client.Do(req)
-		if err != nil {
-			return "", err
+		var res *http.Response
+		for attempt := 1; ; attempt++ {
+			req, _ := http.NewRequest(http.MethodGet, url, nil)
+			req.Header.Set("User-Agent", userAgent)
+			var err error
+			res, err = client.Do(req)
+			if err != nil {
+				return "", err
+			}
+			if res.StatusCode != http.StatusTooManyRequests {
+				break
+			}
+			res.Body.Close()
+			if attempt == 3 {
+				return "", errRateLimited
+			}
+			time.Sleep(time.Duration(attempt) * 20 * time.Second)
 		}
 		defer res.Body.Close()
 		if res.StatusCode != http.StatusOK {
@@ -198,6 +214,9 @@ func TestRealHostCatalogDownloads(t *testing.T) {
 				return
 			}
 			file, err := fetch(url)
+			if errors.Is(err, errRateLimited) {
+				t.Skipf("%s: %s refused after retries (%v); not verified in this run", slug, url, err)
+			}
 			if err != nil {
 				t.Errorf("%s: download %s: %v", slug, url, err)
 				return
