@@ -64,6 +64,10 @@
 # certificate) to the addresses given with --allow-from. The installer
 # prints the address, pin and token to enter under "All servers" in the panel.
 #
+# When the installation finishes it sends one anonymous report (a random id, the
+# NimVor version, the system's name and version, the processor type) that feeds
+# nimvor.com/resources/stats; installer/telemetry.sh says exactly what.
+#
 # A reinstall (--reinstall) keeps the configuration, token, database, write
 # mode, the panel's port and its public HTTPS port: no options are needed
 # again. To update a source checkout in one step: sudo ./installer/update.sh
@@ -166,7 +170,7 @@ for arg in "$@"; do
         --hostname=*) SETUP_HOSTNAME="${arg#*=}" ;;
         --php=*) SETUP_PHP="${arg#*=}" ;;
         --no-third-party-repos) THIRD_PARTY_REPOS=0 ;;
-        -h|--help) sed -n '2,70p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,73p' "$0"; exit 0 ;;
         *) die "unknown option: $arg" ;;
     esac
 done
@@ -1040,6 +1044,12 @@ if [[ $PROFILE != none && $AGENT_ONLY -eq 0 && $DRY_RUN -eq 0 ]]; then
         SETUP_FAILED=1
         warn "some setup steps failed (see above). NimVor itself is installed; fix the cause and run: sudo -u nimvor NIMVOR_CONFIG=$CONF_DIR/panel.php $PHP_BIN $PREFIX/panel/bin/nimvor ${setup_args[*]}"
     fi
+fi
+
+# One anonymous report (version, system type; see installer/telemetry.sh) feeds the
+# statistics on nimvor.com.
+if [[ $DRY_RUN -eq 0 ]]; then
+    "$SRC_DIR/installer/telemetry.sh" install "$CONF_DIR" || true
 fi
 
 if [[ $AGENT_ONLY -eq 1 ]]; then

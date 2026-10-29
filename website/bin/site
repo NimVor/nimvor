@@ -7,6 +7,8 @@ declare(strict_types=1);
  * NimVor website command-line tool.
  *
  *   bin/site migrate                          Create or update the database tables
+ *   bin/site docs:sync                        Fetch the documentation from GitHub
+ *   bin/site sponsors:sync                    Copy the public GitHub sponsors (needs GITHUB_TOKEN)
  *   bin/site seed                             Add the first blog post (once)
  *   bin/site user:create EMAIL NAME [--role=admin|client]   Create a user (password prompted or read from stdin)
  *   bin/site user:password EMAIL              Reset a user's password
@@ -111,6 +113,24 @@ switch ($cmd) {
         out('Password updated.');
         break;
 
+    case 'docs:sync':
+        try {
+            $r = $app->docsService->sync();
+            out("Documentation synced: {$r['total']} page(s), {$r['changed']} changed, {$r['removed']} removed.");
+        } catch (Throwable $e) {
+            fail($e->getMessage());
+        }
+        break;
+
+    case 'sponsors:sync':
+        try {
+            $r = $app->sponsorSync->sync();
+            out("Sponsors synced: {$r['total']} public sponsor(s), {$r['removed']} removed.");
+        } catch (Throwable $e) {
+            fail($e->getMessage());
+        }
+        break;
+
     default:
-        out("Commands: migrate, seed, user:create EMAIL NAME [--role=admin|client], user:password EMAIL");
+        out("Commands: migrate, seed, docs:sync, sponsors:sync, user:create EMAIL NAME [--role=admin|client], user:password EMAIL");
 }

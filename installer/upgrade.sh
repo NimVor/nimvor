@@ -362,6 +362,7 @@ panel_cli cron:sync || warn "some cron schedules were not written again (see abo
 
 # Keep the newest $KEEP backups.
 ls -1d "$BACKUP_ROOT"/*/ 2>/dev/null | sort | head -n -$KEEP | xargs -r rm -rf
+"$SRC_DIR/installer/telemetry.sh" upgrade "$CONF_DIR" || true
 cat <<EOF
 
 NimVor was upgraded from $OLD to $NEW.

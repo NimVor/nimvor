@@ -100,4 +100,30 @@ final class PagesTest extends SiteTestCase
         self::assertStringNotContainsString('Secret draft', $this->get('/resources/blog')->body);
         self::assertStringNotContainsString('/resources/blog/secret', $this->get('/sitemap.xml')->body);
     }
+
+    /** The install instructions name only options and folders the installer really has. */
+    public function testInstallInstructionsMatchTheInstaller(): void
+    {
+        $installer = dirname(__DIR__, 3) . '/installer';
+        if (!is_file($installer . '/install.sh')) {
+            self::markTestSkipped('the installer is not next to the site');
+        }
+        $source = (string) file_get_contents($installer . '/install.sh') . (string) file_get_contents($installer . '/bootstrap.sh');
+        $body = $this->get('/resources/documentation')->body;
+        self::assertStringContainsString('id="install"', $body);
+        preg_match_all('/<code>(--[a-z-]+)/', $body, $m);
+        self::assertGreaterThan(15, count(array_unique($m[1])), 'the options table is there');
+        foreach (array_unique($m[1]) as $option) {
+            self::assertStringContainsString($option, $source, $option . ' is not an option of the installer');
+        }
+        foreach (['--yes', '--resume', '--enable-writes', '--php=8.3,8.4', '--profile=full', '--hostname=', '--admin-user=', '--admin-email=', '--public-https'] as $needed) {
+            self::assertStringContainsString($needed, $body, $needed . ' is missing from the install instructions');
+        }
+        foreach (['PREFIX=/opt/nimvor', 'CONF_DIR=/etc/nimvor', 'DATA_DIR=/var/lib/nimvor', 'LOG_DIR=/var/log/nimvor', 'BIN=/usr/local/bin/nimvor-agent', 'DIR=${NIMVOR_DIR:-/usr/local/src/nimvor}'] as $path) {
+            self::assertStringContainsString($path, $source, $path);
+        }
+        foreach (['/opt/nimvor', '/etc/nimvor', '/var/lib/nimvor', '/var/log/nimvor', '/usr/local/bin/nimvor-agent', '/usr/local/src/nimvor'] as $dir) {
+            self::assertStringContainsString('<code>' . $dir . '</code>', $body, $dir . ' is not on the page');
+        }
+    }
 }

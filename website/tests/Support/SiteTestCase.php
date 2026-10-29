@@ -18,6 +18,7 @@ use PHPUnit\Framework\TestCase;
 abstract class SiteTestCase extends TestCase
 {
     protected App $app;
+    protected FakeHttp $http;
     /** @var array<string, string> */
     protected array $cookies = [];
     protected string $ip = '203.0.113.7';
@@ -40,17 +41,18 @@ abstract class SiteTestCase extends TestCase
             'session_ttl' => 600,
             'trusted_proxy' => '127.0.0.1',
         ];
-        $this->app = App::boot($config, dirname(__DIR__, 2));
+        $this->http = new FakeHttp();
+        $this->app = App::boot($config, dirname(__DIR__, 2), $this->http);
         $db = $this->app->db;
         if (!self::$schema) {
-            foreach (['visits', 'sponsors', 'build_requests', 'contact_messages', 'posts', 'users', 'migrations'] as $t) {
+            foreach (['visits', 'sponsors', 'build_requests', 'contact_messages', 'posts', 'users', 'docs_pages', 'installs', 'site_state', 'migrations'] as $t) {
                 $db->run("DROP TABLE IF EXISTS {$t}");
             }
             $db->migrate(dirname(__DIR__, 2) . '/database/migrations');
             self::$schema = true;
         }
         $db->run('SET FOREIGN_KEY_CHECKS = 0');
-        foreach (['visits', 'sponsors', 'build_requests', 'contact_messages', 'posts', 'users'] as $t) {
+        foreach (['visits', 'sponsors', 'build_requests', 'contact_messages', 'posts', 'users', 'docs_pages', 'installs', 'site_state'] as $t) {
             $db->run("TRUNCATE TABLE {$t}");
         }
         $db->run('SET FOREIGN_KEY_CHECKS = 1');

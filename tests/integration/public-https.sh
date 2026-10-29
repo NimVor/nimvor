@@ -7,6 +7,7 @@
 # the firewall (UFW or firewalld, when active) allows the port.
 
 set -Eeuo pipefail
+export NIMVOR_TESTING=1 # the installer must not report test servers
 HTTPS_PORT=${HTTPS_PORT:-8443}
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 CLI=(runuser -u nimvor -- env NIMVOR_CONFIG=/etc/nimvor/panel.php php /opt/nimvor/panel/bin/nimvor)

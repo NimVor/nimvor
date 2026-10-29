@@ -8,12 +8,13 @@ $v->set('description', 'What the NimVor website stores about you, why, and for h
 <section class="section">
     <div class="container">
         <article class="prose">
-            <p class="muted">Applies to this website, not to the NimVor software you install on your own server: that software sends nothing to us.</p>
+            <p class="muted">Applies to this website and to the one anonymous report the NimVor installer sends (described below). Once installed, the NimVor software on your server sends nothing to us.</p>
             <h2>What we store</h2>
             <ul>
                 <li><strong>Visitors.</strong> We count page visits per day and per page. We do not store your address, a cookie or any other identifier for this, and we use no analytics service.</li>
                 <li><strong>Accounts.</strong> If you register: your name, email address, a hash of your password (we never store the password), the time you registered and last signed in.</li>
                 <li><strong>Messages and requests.</strong> What you type into the contact and build-service forms, with your name and email, so we can reply.</li>
+                <li><strong>Installation reports.</strong> When NimVor is installed or upgraded, the installer sends one report: a random identifier it made up, the NimVor version, the operating system's name and version (such as <code>ubuntu 24.04</code>) and the processor type. It contains no host name, address, user name, website or setting, and we do not keep the sender's address (it is counted for an hour only, to limit abuse). It feeds the public <a href="/resources/stats">statistics</a> and is part of installing and upgrading NimVor.</li>
                 <li><strong>Server logs.</strong> The web server keeps ordinary access and error logs (including addresses) for security and fixing faults.</li>
             </ul>
             <h2>Cookies</h2>
@@ -23,10 +24,11 @@ $v->set('description', 'What the NimVor website stores about you, why, and for h
             <h2>Who sees it</h2>
             <p>The people who run the NimVor project, and the hosting provider that runs this site. We share it with others only if the law requires.</p>
             <h2>How long we keep it</h2>
-            <p>Account details until you ask us to delete the account. Messages and requests until they are no longer needed to help you. Visit counts, which are not personal, indefinitely.</p>
+            <p>Account details until you ask us to delete the account. Messages and requests until they are no longer needed to help you. Visit counts and installation reports, which are not personal, indefinitely.</p>
             <h2>Your choices</h2>
             <p>You can ask to see, correct or delete what we hold about you through the <a href="/support/contact">contact form</a>, or change your name and password under your account.</p>
-            <p class="muted">Last updated: 28 October 2026.</p>
+            <p class="muted">The documentation, the problems list and the sponsors shown on this site are fetched by the site's server from GitHub; your browser does not contact GitHub for them.</p>
+            <p class="muted">Last updated: 29 October 2026.</p>
         </article>
     </div>
 </section>

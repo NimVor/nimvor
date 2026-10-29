@@ -10,7 +10,7 @@
                 <h4>Product</h4>
                 <ul>
                     <li><a href="/features">Features</a></li>
-                    <li><a href="/resources/documentation">Documentation</a></li>
+                    <li><a href="/docs">Documentation</a></li>
                     <li><a href="/resources/documentation#install">Install</a></li>
                     <li><a href="https://github.com/NimVor/nimvor/releases" rel="noopener">Releases</a></li>
                 </ul>
@@ -22,6 +22,8 @@
                     <li><a href="/resources/community">Community &amp; source</a></li>
                     <li><a href="/resources/build-services">Build services</a></li>
                     <li><a href="/resources/sponsors">Sponsors</a></li>
+                    <li><a href="/resources/problems">Problems</a></li>
+                    <li><a href="/resources/stats">Statistics</a></li>
                     <li><a href="/resources/about">About us</a></li>
                 </ul>
             </div>
@@ -30,7 +32,7 @@
                 <ul>
                     <li><a href="/support/contact">Contact us</a></li>
                     <li><a href="/support/privacy">Privacy policy</a></li>
-                    <li><a href="https://github.com/NimVor/nimvor/security/policy" rel="noopener">Report a vulnerability</a></li>
+                    <li><a href="/docs/security-policy">Report a vulnerability</a></li>
                     <li><a href="/login">Log in</a></li>
                 </ul>
             </div>

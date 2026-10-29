@@ -20,7 +20,10 @@ $labels = ['gold' => 'Gold sponsors', 'silver' => 'Silver sponsors', 'supporter'
                 <h2 class="mt-3"><?= e($labels[$tier]) ?></h2>
                 <div class="grid grid-3">
                     <?php foreach ($list as $s): ?>
-                        <a class="card card-link" href="<?= e($s['url']) ?>" rel="sponsored noopener"><h3 class="mb-0"><?= e($s['name']) ?></h3><p class="muted mb-0"><?= e(parse_url((string) $s['url'], PHP_URL_HOST) ?: '') ?></p></a>
+                        <a class="card card-link sponsor" href="<?= e($s['url']) ?>" rel="sponsored noopener">
+                            <span class="avatar" aria-hidden="true"><?= e(mb_strtoupper(mb_substr(ltrim((string) $s['name'], '@'), 0, 1))) ?></span>
+                            <span><h3 class="mb-0"><?= e($s['name']) ?></h3><span class="muted"><?= e(parse_url((string) $s['url'], PHP_URL_HOST) ?: '') ?><?= ($s['source'] ?? '') === 'github' ? ' · GitHub Sponsors' : '' ?></span></span>
+                        </a>
                     <?php endforeach; ?>
                 </div>
             <?php endforeach; ?>
@@ -41,8 +44,8 @@ $labels = ['gold' => 'Gold sponsors', 'silver' => 'Silver sponsors', 'supporter'
         </div>
         <div class="card">
             <h3>Become a sponsor</h3>
-            <p class="muted">Tell us who you are and what you would like to support. We will reply with the ways to contribute and the tier that fits.</p>
-            <a class="btn btn-primary" href="/support/contact">Contact us about sponsoring</a>
+            <p class="muted">Sponsor through GitHub Sponsors and your name appears here automatically, or write to us for another way to contribute and the tier that fits.</p>
+            <div class="cta-row"><a class="btn btn-primary" href="https://github.com/sponsors/NimVor" rel="noopener">Sponsor on GitHub</a><a class="btn btn-outline" href="/support/contact">Contact us</a></div>
         </div>
     </div>
 </section>
