@@ -6,13 +6,20 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-10-29
+
+PHP management, and the project website.
+
 ### Added
+- **Update PHP from the PHP page.** Each installed version's card shows pending updates of its own packages (marked as security updates where the OS says so) with an **Update PHP x.y** button, and a **Check for updates** button refreshes the package index. The agent upgrades only that version's packages, tests PHP-FPM and reloads it. New agent actions `php.updates` and `php.update`.
+- **ionCube Loader** in the PHP Manager (per PHP version, Extensions tab): downloaded from ionCube's own host, only that version's loader is extracted, PHP must load it before it is kept, and PHP-FPM must accept it or everything is undone. Switch on/off and remove work like other extensions. New agent actions `php.ioncube_install` / `php.ioncube_remove`.
+- **Anonymous install statistics.** The installer and upgrader send one small report (random id, version, system name and version, processor type) to nimvor.com, shown at `/resources/stats` and on the home page. No host name or address is sent. The report is part of installing; it is not sent with `--dry-run` or in CI, and it never makes an installation fail.
+
+### Website
+The website (`website/`) is deployed on its own and is not part of the release archive. Upgrading its database: import `website/database/sql/0002_docs_problems_stats.sql` (or run `bin/site migrate`).
 - **Website: documentation inside the site.** The repository's docs, contributing guide, code of conduct, security policy and changelog are fetched from GitHub and shown at `/docs` in the site's design: sidebar by topic, "On this page" list, search, previous/next, copy buttons, and links that stay on the site. The Community cards open these pages instead of GitHub.
 - **Website: problems board** (`/resources/problems`): the project's issues sorted into reported, in progress and resolved, with the report button going to GitHub.
 - **Website: sponsors from GitHub Sponsors** plus the ones added by an administrator (needs a GitHub token for the sync).
-- **Anonymous install statistics.** The installer and upgrader send one small report (random id, version, system name and version, processor type) to nimvor.com, shown at `/resources/stats` and on the home page. No host name or address is sent. The report is part of installing; it is not sent with `--dry-run` or in CI, and it never makes an installation fail.
-- **Update PHP from the PHP page.** Each installed version's card shows pending updates of its own packages (marked as security updates where the OS says so) with an **Update PHP x.y** button, and a **Check for updates** button refreshes the package index. The agent upgrades only that version's packages, tests PHP-FPM and reloads it. New agent actions `php.updates` and `php.update`.
-- **ionCube Loader** in the PHP Manager (per PHP version, Extensions tab): downloaded from ionCube's own host, only that version's loader is extracted, PHP must load it before it is kept, and PHP-FPM must accept it or everything is undone. Switch on/off and remove work like other extensions. New agent actions `php.ioncube_install` / `php.ioncube_remove`.
 
 ## [1.0.0] — 2026-10-28
 
