@@ -15,6 +15,9 @@ PHP management, and the project website.
 - **ionCube Loader** in the PHP Manager (per PHP version, Extensions tab): downloaded from ionCube's own host, only that version's loader is extracted, PHP must load it before it is kept, and PHP-FPM must accept it or everything is undone. Switch on/off and remove work like other extensions. New agent actions `php.ioncube_install` / `php.ioncube_remove`.
 - **Anonymous install statistics.** The installer and upgrader send one small report (random id, version, system name and version, processor type) to nimvor.com, shown at `/resources/stats` and on the home page. No host name or address is sent. The report is part of installing; it is not sent with `--dry-run` or in CI, and it never makes an installation fail.
 
+### Changed
+- **New logo** (the NimVor badger mark, without the name, which is written as text next to it) in the panel sign-in page, sidebar and top bar and on the website, with a light and a dark version, favicon and touch icon. The website now uses the NimVor palette: blue `#3B82F6` / `#60A5FA`, orange `#EA6113`, sand `#FFE3B3` and green `#30B155`.
+
 ### Website
 The website (`website/`) is deployed on its own and is not part of the release archive. Upgrading its database: import `website/database/sql/0002_docs_problems_stats.sql` (or run `bin/site migrate`).
 - **Website: documentation inside the site.** The repository's docs, contributing guide, code of conduct, security policy and changelog are fetched from GitHub and shown at `/docs` in the site's design: sidebar by topic, "On this page" list, search, previous/next, copy buttons, and links that stay on the site. The Community cards open these pages instead of GitHub.

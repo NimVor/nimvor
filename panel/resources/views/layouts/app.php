@@ -16,7 +16,9 @@ $topHost = (string) ($topStatus['hostname'] ?? '');
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="<?= e($this->csrfToken()) ?>">
     <title><?= e($pageTitle) ?> · <?= e($panel_name ?? 'NimVor') ?></title>
-    <link rel="icon" href="<?= e($this->asset('assets/img/logo.svg')) ?>" type="image/svg+xml">
+    <link rel="icon" href="<?= e($this->asset('assets/img/favicon.ico')) ?>" sizes="any">
+    <link rel="icon" href="<?= e($this->asset('assets/img/favicon-64.png')) ?>" type="image/png" sizes="64x64">
+    <link rel="apple-touch-icon" href="<?= e($this->asset('assets/img/apple-touch-icon.png')) ?>">
     <link rel="stylesheet" href="<?= e($this->asset('assets/vendor/bootstrap/css/bootstrap.min.css')) ?>">
     <link rel="stylesheet" href="<?= e($this->asset('assets/vendor/bootstrap-icons/bootstrap-icons.min.css')) ?>">
     <link rel="stylesheet" href="<?= e($this->asset('assets/css/nimvor.css')) ?>">
@@ -31,7 +33,7 @@ $topHost = (string) ($topStatus['hostname'] ?? '');
         <?php if ($simple): ?>
             <div class="nim-brandbar">
                 <a class="nim-brand" href="<?= e($this->url('websites')) ?>">
-                    <img src="<?= e($this->asset('assets/img/logo.svg')) ?>" alt="" width="26" height="26">
+                    <img src="<?= e($this->asset('assets/img/logo-dark.png')) ?>" alt="" width="26" height="26">
                     <span><?= e($panel_name ?? 'NimVor') ?></span>
                 </a>
                 <a class="nim-brandbar-link<?= $this->isActive('/websites') || $this->isActive('/sites') ? ' active' : '' ?>" href="<?= e($this->url('websites')) ?>"><i class="bi bi-globe2 me-1"></i>Websites</a>

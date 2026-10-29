@@ -969,3 +969,9 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
     .nim-mongo3 { flex-direction: column; }
     .nim-mongo-side { width: auto; max-height: 14rem; }
 }
+
+/* Logo: the light mark on light pages, the dark-background mark when the dark theme is on. */
+.nim-brand img, .nim-auth-brand img { object-fit: contain; }
+.nim-logo-dark { display: none; }
+[data-bs-theme="dark"] .nim-logo-light { display: none; }
+[data-bs-theme="dark"] .nim-logo-dark { display: inline-block; }
