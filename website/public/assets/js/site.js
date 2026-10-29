@@ -127,3 +127,19 @@
         menu.removeAttribute('open');
     }
 })();
+
+// The tagline above the footer plays once, when it scrolls into view. Without script (or with reduced motion) it is simply shown.
+(function () {
+    'use strict';
+    var el = document.querySelector('[data-tagline]');
+    if (!el) { return; }
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce || !('IntersectionObserver' in window)) { return; }
+    el.classList.add('is-armed');
+    var obs = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+            if (en.isIntersecting) { el.classList.add('is-in'); obs.disconnect(); }
+        });
+    }, { threshold: 0.4 });
+    obs.observe(el);
+})();
