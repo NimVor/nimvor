@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- **New logo** (the NimVor badger mark, without the name, which is written as text next to it) in the panel sign-in page, sidebar and top bar and on the website, with a light and a dark version, favicon and touch icon. The website now uses the NimVor palette: blue `#3B82F6` / `#60A5FA`, orange `#EA6113`, sand `#FFE3B3` and green `#30B155`.
+
 ### Website
 - **Product tour video** in the home page section "Everything in its place.": a six-minute silent tour with captions, from the install command to a first website (setup wizard, hosting plan, customer and site, WordPress, backups, security), recorded on a demo server.
 

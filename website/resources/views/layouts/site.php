@@ -16,8 +16,10 @@ $desc = $v->meta('description', 'NimVor is a free, open-source hosting control p
     <meta property="og:description" content="<?= e($desc) ?>">
     <meta property="og:type" content="website">
     <meta property="og:url" content="<?= e($siteUrl . $path) ?>">
-    <meta name="theme-color" content="#f7f4ec">
-    <link rel="icon" href="<?= e($v->asset('img/logo.svg')) ?>" type="image/svg+xml">
+    <meta name="theme-color" content="#f5f8fe">
+    <link rel="icon" href="<?= e($v->asset('img/favicon.ico')) ?>" sizes="any">
+    <link rel="icon" href="<?= e($v->asset('img/favicon-64.png')) ?>" type="image/png" sizes="64x64">
+    <link rel="apple-touch-icon" href="<?= e($v->asset('img/apple-touch-icon.png')) ?>">
     <link rel="stylesheet" href="<?= e($v->asset('css/site.css')) ?>">
     <script src="<?= e($v->asset('js/site.js')) ?>" defer></script>
     <?php if ($v->meta('script') !== ''): ?><script src="<?= e($v->asset($v->meta('script'))) ?>" defer></script><?php endif; ?>
