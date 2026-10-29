@@ -52,6 +52,20 @@ final class PhpSettingsTest extends HttpTestCase
         self::assertStringContainsString('<option value="warning" selected>', $fpm);
     }
 
+    public function testPhpVersionUpdateAndIndexRefresh(): void
+    {
+        $this->agent->succeed('php.update', ['job_id' => '5555555555555555', 'packages' => ['php8.3-fpm']]);
+        $this->post('/php/8.3/update', []);
+        self::assertSame(['version' => '8.3'], $this->lastCall('php.update'));
+        self::assertSame('5555555555555555', $this->flash('job'));
+        $this->post('/php/8.3x/update', []);
+        self::assertSame(1, $this->calls('php.update'), 'a bad version reached the agent');
+
+        $this->agent->succeed('packages.refresh', ['job_id' => '6666666666666666']);
+        $this->post('/php/refresh', []);
+        self::assertSame(1, $this->calls('packages.refresh'));
+    }
+
     public function testIonCubeLoaderUsesItsOwnAgentActions(): void
     {
         $this->agent->succeed('php.ioncube_install', ['job_id' => '3333333333333333', 'package' => 'ionCube Loader']);

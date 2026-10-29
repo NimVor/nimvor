@@ -69,6 +69,38 @@ final class PhpController extends Controller
         return $this->redirectWithSuccess('/php', 'Installing PHP ' . $version . '. You can follow the progress below.');
     }
 
+    /** Update one PHP version's own packages (security fixes included). */
+    public function update(Request $request, string $version): Response
+    {
+        if (!self::validVersion($version)) {
+            return $this->redirectWithError('/php', 'Unknown PHP version.');
+        }
+        try {
+            $res = (array) $this->agent->call('php.update', ['version' => $version]);
+        } catch (AgentException $e) {
+            $this->audit->record('php.update', 'php', $version, AuditLogger::FAILURE, ['error' => $e->getMessage()]);
+            return $this->redirectWithFailure('/php', $e);
+        }
+        $this->jobs->track((string) $res['job_id'], 'Update PHP ' . $version, 'php', $version, $this->userId($request));
+        $this->audit->record('php.update', 'php', $version, AuditLogger::SUCCESS, ['packages' => $res['packages'] ?? []]);
+        $this->flashJob((string) $res['job_id']);
+        return $this->redirectWithSuccess('/php', 'Updating PHP ' . $version . '. PHP-FPM is reloaded when it is done.');
+    }
+
+    /** Download the package index again, so new PHP releases show up. */
+    public function refreshUpdates(Request $request): Response
+    {
+        try {
+            $res = (array) $this->agent->call('packages.refresh');
+        } catch (AgentException $e) {
+            return $this->redirectWithFailure('/php', $e);
+        }
+        $this->jobs->track((string) $res['job_id'], 'Check for PHP updates', 'php', '', $this->userId($request));
+        $this->audit->record('php.refresh', 'php', '', AuditLogger::SUCCESS);
+        $this->flashJob((string) $res['job_id']);
+        return $this->redirectWithSuccess('/php', 'Checking the package repositories. Reload this page when it is done to see new updates.');
+    }
+
     public function toggle(Request $request, string $version): Response
     {
         if (!preg_match('/^[5-9]\.[0-9]{1,2}$/', $version)) {
