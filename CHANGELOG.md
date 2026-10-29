@@ -6,13 +6,16 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
-### Fixed
-- **ionCube Loader install failed with "The Loader must appear as the first entry in the php.ini file".** The check that PHP can load the loader now runs PHP without its other configuration files, so the loader is the first Zend extension (as ionCube requires), and after the loader is switched on PHP is asked again with the real configuration; if anything else loads before it, everything is undone with a clear message.
+## [1.1.1] — 2026-10-29
+
+Fixes for 1.1.0.
 
 ### Fixed
+- **ionCube Loader install failed with "The Loader must appear as the first entry in the php.ini file".** The check that PHP can load the loader now runs PHP without its other configuration files, so the loader is the first Zend extension (as ionCube requires), and after the loader is switched on PHP is asked again with the real configuration; if anything else loads before it, everything is undone with a clear message.
 - `installer/update.sh` no longer fails with "no such ref was fetched" on a checkout that tracks a branch which has been removed upstream (for example after the default branch was renamed): it switches to the remote's current default branch and updates from there.
 
 ### Website
+The website (`website/`) is deployed on its own and is not part of the release archive.
 - **The NimVor palette is used throughout** (blue `#3B82F6` and `#60A5FA` for page bands and buttons, orange `#EA6113` for calls to action, sand `#FFE3B3` for soft sections and the tagline, green `#30B155` for ticks and status), and sections ease in as they are scrolled to, with a gentle entrance for page headings, card and button hover effects. Motion is switched off for visitors who ask for reduced motion.
 
 ## [1.1.0] — 2026-10-29

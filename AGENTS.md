@@ -39,7 +39,7 @@ VM/real-host), `dist/` (built agent).
 - Remote: `https://github.com/NimVor/nimvor` (public, MIT). The default branch is `main`;
   work happens on the designated feature branch (e.g. `claude/sleepy-ptolemy-bdv6ib`) and is merged
   to `main` only when the user asks.
-- Current version: see `VERSION` (at time of writing `1.1.0`).
+- Current version: see `VERSION` (at time of writing `1.1.1`).
 - Commit on the designated working branch; push with
   `git push -u origin <branch>`. Do **not** open a pull request unless the
   user explicitly asks.
