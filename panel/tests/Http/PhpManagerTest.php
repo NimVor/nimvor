@@ -38,6 +38,8 @@ final class PhpManagerTest extends HttpTestCase
         self::assertMatchesRegularExpression('#id="px-curl" aria-label="curl" checked#', $page);
         self::assertDoesNotMatchRegularExpression('#id="px-xdebug"[^>]*checked#', $page, 'installed but switched off');
         self::assertStringContainsString('Until 2027-12-31', $page);
+        self::assertStringContainsString('data-nim-ioncube', $page, 'the page says where the ionCube Loader is switched on');
+        self::assertStringContainsString('href="/php/8.3?tab=extensions"', $page, 'with a link to each installed version');
     }
 
     public function testReviewThenApplyKeepsTheProfile(): void

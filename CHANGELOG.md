@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- The PHP Manager page now tells you where the ionCube Loader is switched on (it is set up per PHP version, so it is on each version's own Extensions tab) and links to every installed version.
+
 ## [1.1.1] — 2026-10-29
 
 Fixes for 1.1.0.
