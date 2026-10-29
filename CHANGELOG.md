@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Website
+- **Product tour video** in the home page section "Everything in its place.": a six-minute silent tour with captions, from the install command to a first website (setup wizard, hosting plan, customer and site, WordPress, backups, security), recorded on a demo server.
+
 ### Added
 - **Website: documentation inside the site.** The repository's docs, contributing guide, code of conduct, security policy and changelog are fetched from GitHub and shown at `/docs` in the site's design: sidebar by topic, "On this page" list, search, previous/next, copy buttons, and links that stay on the site. The Community cards open these pages instead of GitHub.
 - **Website: problems board** (`/resources/problems`): the project's issues sorted into reported, in progress and resolved, with the report button going to GitHub.

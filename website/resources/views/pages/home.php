@@ -51,24 +51,14 @@ $v->set('description', 'NimVor is a free, open-source hosting control panel for 
             <div><span class="eyebrow">A little less admin. A lot more building.</span><h2>Everything in its place.</h2></div>
             <p>From a first site to a whole fleet, the panel brings the everyday work together and shows you what it is about to change.</p>
         </div>
-        <div class="walk" aria-hidden="true">
-            <div class="walk-top"><span><span class="dot"></span>Product walkthrough</span><span>server-01</span></div>
-            <div class="walk-body">
-                <div class="walk-side"><div class="who"><img src="<?= e($v->asset('img/logo.svg')) ?>" alt="">NimVor</div><b class="on">Dashboard</b><b>Websites</b><b>Email</b><b>DNS</b><b>Databases</b><b>Backups</b><b>Security</b></div>
-                <div class="walk-main">
-                    <div class="walk-tiles">
-                        <div class="walk-tile"><small>CPU</small><strong>18%</strong><progress class="meter" value="18" max="100"></progress></div>
-                        <div class="walk-tile"><small>Memory</small><strong>2.4 GB</strong><progress class="meter" value="46" max="100"></progress></div>
-                        <div class="walk-tile"><small>Disk</small><strong>37%</strong><progress class="meter" value="37" max="100"></progress></div>
-                    </div>
-                    <div class="walk-chart"><i class="h3"></i><i class="h4"></i><i class="h3"></i><i class="h5"></i><i class="h4"></i><i class="h7"></i><i class="h5"></i><i class="h4"></i><i class="h6"></i><i class="h4"></i><i class="h5"></i><i class="h3"></i></div>
-                    <div class="walk-list">
-                        <div class="walk-row"><span>example.com</span><em>nginx -t passed · reloaded</em></div>
-                        <div class="walk-row"><span>shop.example.org</span><em>certificate renews in 61 days</em></div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <figure class="walk tour">
+            <div class="walk-top"><span><span class="dot"></span>Product tour</span><span>6 min · captions, no sound needed</span></div>
+            <video class="tour-video" controls preload="none" playsinline poster="<?= e($v->asset('media/nimvor-panel-tour.jpg')) ?>" width="1280" height="720">
+                <source src="<?= e($v->asset('media/nimvor-panel-tour.mp4')) ?>" type="video/mp4">
+                From the install command to the first website: setting up the server, a hosting plan, a customer, WordPress, backups and security.
+            </video>
+            <figcaption>From the install command to the first website: the setup wizard, a hosting plan, a customer and their site, WordPress, backups and security. Recorded on a demo server.</figcaption>
+        </figure>
         <div class="chips"><span class="chip">Websites</span><span class="chip">Email</span><span class="chip">DNS</span><span class="chip">SSL</span><span class="chip">Databases</span><span class="chip">Backups</span><span class="chip">Firewall</span><span class="chip">REST API</span></div>
     </div>
 </section>
