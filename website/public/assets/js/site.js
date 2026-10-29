@@ -143,3 +143,34 @@
     }, { threshold: 0.4 });
     obs.observe(el);
 })();
+
+// Sections below the fold ease in as they are scrolled to. Anything already on screen is left alone, so nothing flashes.
+(function () {
+    'use strict';
+    if (!('IntersectionObserver' in window)) { return; }
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) { return; }
+    var sel = '.section-head, .grid > *, .rows > .row-cell, .list-row, .step, .cta-band, .split > *, .stat-list > *, .table-wrap, .doc-body > h2';
+    var vh = window.innerHeight || 800;
+    var targets = [];
+    document.querySelectorAll('main ' + sel).forEach(function (el) {
+        if (el.closest('.tagline, .builder, form')) { return; }
+        if (el.getBoundingClientRect().top < vh) { return; }
+        targets.push(el);
+    });
+    if (!targets.length) { return; }
+    var obs = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+            if (en.isIntersecting) {
+                var el = en.target;
+                el.classList.add('in'); obs.unobserve(el);
+                window.setTimeout(function () { el.classList.remove('rv', 'in'); el.style.transitionDelay = ''; }, 1400);
+            }
+        });
+    }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+    targets.forEach(function (el) {
+        var sib = el.parentElement ? Array.prototype.indexOf.call(el.parentElement.children, el) : 0;
+        el.style.transitionDelay = Math.min(sib, 5) * 90 + 'ms';
+        el.classList.add('rv');
+        obs.observe(el);
+    });
+})();

@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Website
+- **The NimVor palette is used throughout** (blue `#3B82F6` and `#60A5FA` for page bands and buttons, orange `#EA6113` for calls to action, sand `#FFE3B3` for soft sections and the tagline, green `#30B155` for ticks and status), and sections ease in as they are scrolled to, with a gentle entrance for page headings, card and button hover effects. Motion is switched off for visitors who ask for reduced motion.
+
 ### Changed
 - **New logo** (the NimVor badger mark, without the name, which is written as text next to it) in the panel sign-in page, sidebar and top bar and on the website, with a light and a dark version, favicon and touch icon. The website now uses the NimVor palette: blue `#3B82F6` / `#60A5FA`, orange `#EA6113`, sand `#FFE3B3` and green `#30B155`.
 
