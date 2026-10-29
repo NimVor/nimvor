@@ -167,7 +167,7 @@ a.row-cell:hover .arrow { color: var(--orange-ink); }
 .walk-top { display: flex; justify-content: space-between; align-items: center; background: var(--sage); padding: 11px 20px; font-family: var(--mono); font-size: .76rem; letter-spacing: .08em; text-transform: uppercase; }
 .walk-top .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin-right: 10px; }
 .tour { margin: 0; }
-.tour-video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #0a1a12; }
+.tour-video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #0b1a33; }
 .tour figcaption { padding: 14px 20px; font-size: .92rem; color: var(--muted); border-top: 1px solid #d2dbea; }
 .walk-body { display: grid; grid-template-columns: 210px minmax(0, 1fr); min-height: 380px; }
 .walk-side { background: #f0f4fb; border-right: 1px solid #d9e1ef; padding: 16px 12px; display: grid; gap: 2px; align-content: start; }
