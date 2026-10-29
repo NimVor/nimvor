@@ -184,6 +184,38 @@ final class ApplicationTest extends TestCase
         self::assertStringNotContainsString('No other versions available', $body);
     }
 
+    public function testPhpPageOffersUpdates(): void
+    {
+        $app = $this->app();
+        $this->seedUser($app, 'admin', 'admin');
+        $this->login($app, 'admin');
+        $this->agent->succeed('discovery.inventory', [
+            'websites' => ['websites' => [], 'catch_all_vhosts' => 0, 'warnings' => []],
+            'php' => ['versions' => [
+                ['version' => '8.3', 'is_default' => true, 'pool_count' => 0, 'cli_binary' => '/usr/bin/php8.3', 'fpm_binary' => '/usr/sbin/php-fpm8.3'],
+                ['version' => '8.4', 'is_default' => false, 'pool_count' => 0, 'cli_binary' => '/usr/bin/php8.4', 'fpm_binary' => '/usr/sbin/php-fpm8.4'],
+            ], 'pools' => [], 'warnings' => []],
+            'databases' => ['installed' => false, 'schemas' => [], 'warnings' => []],
+            'redis' => ['installed' => false, 'warnings' => []],
+            'certificates' => [], 'cron' => ['jobs' => [], 'warnings' => []], 'users' => [], 'services' => [],
+        ]);
+        $this->agent->succeed('php.available', ['8.3', '8.4']);
+        $this->agent->succeed('services.status', []);
+        $this->agent->succeed('php.updates', [
+            'versions' => ['8.3' => ['count' => 2, 'security' => 1, 'updates' => [
+                ['name' => 'php8.3-fpm', 'current' => '8.3.6-1', 'new' => '8.3.6-2', 'security' => true],
+                ['name' => 'php8.3-cli', 'current' => '8.3.6-1', 'new' => '8.3.6-2', 'security' => false],
+            ]]],
+            'index_refreshed' => '2026-10-28T10:00:00Z', 'index_stale' => false,
+        ]);
+        $body = $this->request($app, 'GET', '/php')->body();
+        self::assertStringContainsString('Security update available', $body);
+        self::assertStringContainsString('php8.3-fpm 8.3.6-1 → 8.3.6-2', $body);
+        self::assertStringContainsString('action="/php/8.3/update"', $body);
+        self::assertStringNotContainsString('/php/8.4/update', $body, 'only versions with updates offer one');
+        self::assertStringContainsString('Check for updates', $body);
+    }
+
     public function testPreviewOperatingSystemIsMarked(): void
     {
         $app = $this->app();

@@ -642,6 +642,52 @@ move it to another server (an imported profile is reviewed first). The
 PHP page and each version's page (extensions, php.ini, PHP-FPM) stay as
 they were.
 
+### Updating PHP (security fixes)
+
+The **PHP** page shows, on each installed version's card, when the
+repositories have a newer release of that version's own packages (PHP,
+PHP-FPM and its extensions): a red **Security update available** card when
+at least one of them is a security update, otherwise a yellow **Update
+available** one. **Update PHP x.y** upgrades exactly those packages (nothing
+else on the server), then tests (`php-fpm -t`) and reloads PHP-FPM; follow
+it in the job log. The card shows what the package index looked like when it
+was last refreshed: **Check for updates** (needs *Install and update
+packages*) downloads the index again, then reload the page. The PHP
+Manager's *to update* list shows the same updates.
+
+The ionCube Loader is not a package, so updates do not touch it; if you
+need a newer loader, remove and install it again.
+
+### ionCube Loader
+
+Applications protected with ionCube (some commercial scripts and themes)
+need the **ionCube Loader**. It is not in any distribution's or Remi's
+package repositories, so it is not part of the PHP Manager's package lists:
+install it per PHP version on the version's page (**PHP → PHP x.y →
+Extensions → ionCube Loader → Install**).
+
+How it is installed, and why it is safe to try:
+
+- The agent downloads ionCube's own archive from `downloads.ioncube.com`
+  over HTTPS (the x86-64 or the aarch64 one, to match the server) and takes
+  out **only** the loader for that PHP version, by exact file name. Nothing
+  else in the archive is extracted, and the file must be an ELF library.
+- It is kept in `/usr/local/lib/nimvor/ioncube/<version>/`, owned by root.
+- PHP is asked to load it first (`php-fpm<version> -d zend_extension=… -v`)
+  and must show ionCube's banner; otherwise nothing is kept.
+- It is loaded from a file named `00-ioncube.ini` (priority 00, as ionCube
+  requires it to be the first Zend extension), PHP-FPM is tested and
+  reloaded, and a change PHP-FPM rejects is undone completely.
+- **Switch off / Switch on** works like any extension; **Remove** deletes
+  the loader file and its ini and reloads PHP-FPM.
+
+Which PHP versions are covered is whatever ionCube's archive contains (PHP
+8.0 and newer where ionCube publishes a loader). For a version it does not
+cover yet, the install stops with a message listing the versions it does
+cover. The download is not pinned to a checksum, because ionCube publishes
+one rolling archive; the checks above and the HTTPS download from ionCube's
+own host are what stand between a bad file and PHP.
+
 ## Setup wizard
 
 **Server → Setup wizard** (administrators). It opens by itself on an

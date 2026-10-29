@@ -121,6 +121,10 @@ type ExtensionState struct {
 	Protected string `json:"protected,omitempty"`
 	// BuiltIn: compiled into PHP (no package to install or remove).
 	BuiltIn bool `json:"built_in,omitempty"`
+	// Vendor: not in the distribution's repositories; NimVor downloads it
+	// from its publisher (the ionCube Loader), so it can be installed and
+	// removed although it has no package.
+	Vendor bool `json:"vendor,omitempty"`
 }
 
 // moduleIni is the ini file loading module m for version v ("" if none).
@@ -203,8 +207,8 @@ func ExtensionStates(ctx context.Context, env *host.Env, v string) []ExtensionSt
 	inst := pkgs.InstalledNative(ctx, env, natives)
 	panel := panelVersion(env, v)
 	out := []ExtensionState{}
-	for _, e := range Extensions {
-		st := ExtensionState{Name: e.Name, Description: e.Description, Package: e.pkg(env, v), Enabled: true}
+	for _, e := range append(append([]Extension{}, Extensions...), IonCube) {
+		st := ExtensionState{Vendor: e.Name == IonCube.Name, Name: e.Name, Description: e.Description, Package: e.pkg(env, v), Enabled: true}
 		if e.BuiltIn(v) {
 			st.Installed, st.BuiltIn = true, true
 			st.Protected = "built into PHP " + v + " (turn it off with opcache.enable in php.ini)"
@@ -288,6 +292,9 @@ func (in *extensionReq) check(env *host.Env) (Extension, error) {
 		return Extension{}, host.Invalid(err)
 	}
 	e, ok := findExtension(in.Name)
+	if in.Name == IonCube.Name {
+		e, ok = IonCube, true
+	}
 	if !ok {
 		return Extension{}, actions.InvalidParams("name: " + in.Name + " is not an extension NimVor manages")
 	}

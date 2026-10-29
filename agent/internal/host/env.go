@@ -80,6 +80,12 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		// WordPress toolkit: the pinned, checksum-verified WP-CLI.
 		"/usr/local/lib/nimvor",
 		"/usr/local/lib/nimvor/wp-cli.phar",
+		// PHP Manager: the ionCube Loader, one verified file per PHP version,
+		// and (Debian) the module file phpenmod links. On RHEL the loader's
+		// php.d file is covered by the pattern below.
+		"/usr/local/lib/nimvor/ioncube",
+		"/usr/local/lib/nimvor/ioncube/**",
+		"/etc/php/*/mods-available/ioncube.ini",
 		// Disk quotas: only the quota options of the websites' file system entry.
 		"/etc/fstab",
 		m.FTPDir + "/**",
