@@ -99,7 +99,7 @@ If the site is configured with environment variables or `SITE_CONFIG` instead, t
 4. Run `php bin/site migrate`, then `php bin/site seed`, then create the first administrator with `php bin/site user:create`.
 5. Check `https://your-site/health` (`ok`, or `503` if the database or cache is down).
 
-Updating: pull the new code and run `php bin/site migrate`. To load the documentation without waiting for a first visit: `php bin/site docs:sync`; to copy the sponsors: `php bin/site sponsors:sync`.
+Updating: pull the new code and run `php bin/site migrate`. **Without a terminal**, upload the new files, then import the SQL file for each migration the site has not had yet (in order) with phpMyAdmin or your host's database tool: `database/sql/0002_docs_problems_stats.sql` upgrades a site set up before the documentation, sponsors and statistics pages. Each file runs once, records itself in the `migrations` table, and says so at its top; `tests/Unit/MigrationSqlTest.php` keeps it identical to the PHP migration. To load the documentation without waiting for a first visit: `php bin/site docs:sync`; to copy the sponsors: `php bin/site sponsors:sync`.
 
 ## Tests
 
