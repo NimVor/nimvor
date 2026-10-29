@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- `installer/update.sh` no longer fails with "no such ref was fetched" on a checkout that tracks a branch which has been removed upstream (for example after the default branch was renamed): it switches to the remote's current default branch and updates from there.
+
 ### Website
 - **The NimVor palette is used throughout** (blue `#3B82F6` and `#60A5FA` for page bands and buttons, orange `#EA6113` for calls to action, sand `#FFE3B3` for soft sections and the tagline, green `#30B155` for ticks and status), and sections ease in as they are scrolled to, with a gentle entrance for page headings, card and button hover effects. Motion is switched off for visitors who ask for reduced motion.
 

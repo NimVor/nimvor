@@ -21,6 +21,24 @@ set -Eeuo pipefail
 
 # Everything runs from main, which bash reads completely before running:
 # git pull may replace this file while it runs.
+# A checkout made while the project's default branch had another name keeps tracking that branch. When the
+# branch is gone from the remote, follow the remote's current default branch instead of failing.
+switch_if_branch_gone() {
+    local branch def
+    branch=$(as_owner git -C "$src" symbolic-ref -q --short HEAD) || return 0
+    if as_owner git -C "$src" ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+        return 0
+    fi
+    def=$(as_owner git -C "$src" ls-remote --symref origin HEAD 2>/dev/null | awk '/^ref:/ { sub("refs/heads/", "", $2); print $2; exit }')
+    if [[ -z $def || $def == "$branch" ]]; then
+        return 0
+    fi
+    log "The branch \"$branch\" no longer exists upstream; switching to \"$def\""
+    as_owner git -C "$src" fetch --quiet origin "$def" || die "could not fetch $def (see above); nothing was changed"
+    as_owner git -C "$src" checkout --quiet -B "$def" "origin/$def" || die "could not switch to $def (see above); nothing was changed"
+    as_owner git -C "$src" branch --quiet --set-upstream-to="origin/$def" "$def" || true
+}
+
 main() {
     local src owner before after
     src="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -50,6 +68,7 @@ main() {
         die "the checkout has local changes (above); commit or undo them (git -C $src stash), then run this again"
     fi
     as_owner git -C "$src" symbolic-ref -q HEAD >/dev/null || die "this checkout is pinned to a release (detached HEAD), so there is no branch to pull. To change release, run the install command again: curl -fsSL https://nimvor.com/install | sudo bash -s -- [--version X]"
+    switch_if_branch_gone
     before=$(as_owner git -C "$src" rev-parse --short HEAD)
     as_owner git -C "$src" pull --ff-only --quiet || die "git pull failed (see above); nothing was changed"
     after=$(as_owner git -C "$src" rev-parse --short HEAD)
