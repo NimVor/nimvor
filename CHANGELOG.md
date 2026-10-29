@@ -10,6 +10,9 @@ All notable changes to NimVor are documented here. The format follows
 - **New logo** (the NimVor badger mark, without the name, which is written as text next to it) in the panel sign-in page, sidebar and top bar and on the website, with a light and a dark version, favicon and touch icon. The website now uses the NimVor palette: blue `#3B82F6` / `#60A5FA`, orange `#EA6113`, sand `#FFE3B3` and green `#30B155`.
 
 ### Website
+- **Features page lists everything the panel does** (PHP Manager, WordPress and applications, monitoring and health, server management, ModSecurity, MongoDB, Cloudflare and more).
+- **The install page is laid out in steps** (before you start, build your command with the command and its options side by side, after the install, reference tables) instead of one long column.
+- **Tagline** "Your server. Your sites. Your rules." with a short animation above the footer; the footer now reads "A product of WhaSys" and links to whasys.com. The old project name is no longer mentioned on the site.
 - **Product tour video** in the home page section "Everything in its place.": a six-minute silent tour with captions, from the install command to a first website (setup wizard, hosting plan, customer and site, WordPress, backups, security), recorded on a demo server.
 
 ### Added
@@ -29,7 +32,7 @@ General availability. Everything since 1.0.0-rc1:
 - **`sudo nimvor …`**: a short command for the panel's command-line tool (`sudo nimvor user:password admin`, `reset-password`, `reset-2fa`, `doctor`, `help`), installed by the installer and `upgrade.sh`, removed by the uninstaller.
 
 ### Changed
-- Removed the obsolete PHP-to-Go migration planning pages from `docs/migration/` (the panel stays PHP). The WhaCP-to-NimVor server migration guide and its inventory script remain.
+- Removed the obsolete PHP-to-Go migration planning pages from `docs/migration/` (the panel stays PHP). The server migration guide and its inventory script remain.
 - **Deleting a website removes everything that belongs to it**: its databases and the database users only they used, its email domain with all mailboxes and aliases, plus the cron jobs, workers and statistics it already removed. The system user stays unless the option is ticked. If one removal fails the website is left in place.
 
 ### Fixed
@@ -97,15 +100,15 @@ General availability. Everything since 1.0.0-rc1:
 - **Resource limits is under Administration** (next to Bandwidth Limits) instead of Server.
 - **Email → Server settings (`/mail/admin/server`) uses tabs** — Services, Postfix, Dovecot and Mail log — that switch
   in the page without reloading; "Check and apply" saves the Postfix and Dovecot settings together from either tab.
-- **WhaCP is now NimVor, everywhere.** The product, the licence holder (MIT, NimVor) and the repository
+- **One name, everywhere.** The product, the licence holder (MIT, NimVor) and the repository
   (github.com/NimVor/nimvor; Go module `github.com/NimVor/nimvor/agent`) use the new name, and so does everything on
   the server: the `nimvor` system user and group, `/opt/nimvor`, `/etc/nimvor`, `/var/lib/nimvor`, `/var/log/nimvor`,
   `/var/backups/nimvor`, the `nimvor-agent`, `nimvor-panel` and `nimvor-scheduler` units (and every other unit,
   nftables table, group, Nginx/PHP-FPM file name and `.nimvor-*` folder the agent creates), `bin/nimvor`, the
   `NIMVOR_*` environment variables, the `X-NimVor-*` headers, the `nimvor.*` agent actions, the cookie and session
   names, and the markers in host configuration files ("Managed by NimVor"). The panel has a new "N" logo and default
-  name. No compatibility with the old names was kept: a server that still runs WhaCP must be migrated
-  (docs/migration/WHACP-TO-NIMVOR.md), and the installer refuses to run on it until then. Backups made under the old
+  name. No compatibility with the old names was kept: a server that still runs an install under the old name must be migrated
+  (docs/migration/), and the installer refuses to run on it until then. Backups made under the old
   name fail NimVor's integrity check (the key-derivation label changed); take new ones. Signed-in sessions and
   passkeys do not carry over.
 

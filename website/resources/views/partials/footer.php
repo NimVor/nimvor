@@ -39,7 +39,7 @@
         </div>
         <div class="footer-bottom">
             <span>&copy; <?= gmdate('Y') ?> The NimVor authors. NimVor is released under the MIT licence.</span>
-            <span>Original work. Not affiliated with any other control panel.</span>
+            <span>A product of <a href="https://whasys.com" rel="noopener">WhaSys</a></span>
         </div>
     </div>
 </footer>

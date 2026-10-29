@@ -14,7 +14,7 @@ final class DocsCatalogTest extends TestCase
         self::assertSame('index', DocsCatalog::entry('docs/README.md')['slug']);
         self::assertSame('installation', DocsCatalog::entry('docs/installation/README.md')['slug']);
         self::assertSame('security/installer-review', DocsCatalog::entry('docs/security/installer-review.md')['slug']);
-        self::assertSame('migration/whacp-to-nimvor', DocsCatalog::entry('docs/migration/WHACP-TO-NIMVOR.md')['slug']);
+        self::assertNull(DocsCatalog::entry('docs/migration/WHACP-TO-NIMVOR.md'), 'the old project name is not published on the site');
         self::assertSame('security-policy', DocsCatalog::entry('SECURITY.md')['slug']);
         self::assertSame('contributing', DocsCatalog::entry('CONTRIBUTING.md')['slug']);
         foreach (['docs/release/1.0.0-ga-report.md', 'docs/development/app-installer-plan.md', 'README.md', 'AGENTS.md', 'panel/README.md', 'docs/../etc.md', 'docs/a b.md'] as $hidden) {

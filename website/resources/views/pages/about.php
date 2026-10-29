@@ -10,7 +10,7 @@ $v->set('description', 'NimVor is an independent, MIT-licensed hosting control p
         <div class="prose">
             <h2 class="mt-0">What NimVor is</h2>
             <p>NimVor is a free, MIT-licensed control panel for Linux VPS and dedicated servers, in the same family of tools as the commercial hosting panels. It manages websites, email, DNS, databases, SSL, backups and security from one place.</p>
-            <p>It is written from scratch and is not affiliated with any other control panel. The project was previously called WhaCP and was renamed to NimVor.</p>
+            <p>It is written from scratch and is not affiliated with any other control panel.</p>
             <h2>Why it exists</h2>
             <p>A hosting panel can change almost everything on a server. Most are closed, hard to audit and tied to a licence fee. NimVor is open so that you can read what it does, run it without a licence and change it when you need to.</p>
             <h2>How it is built</h2>

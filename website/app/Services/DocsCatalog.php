@@ -37,10 +37,9 @@ final class DocsCatalog
         'plugins' => ['How it works', 40, 'Plugins'],
         'development' => ['Project', 10, 'Development'],
         'development/roadmap' => ['Project', 11, 'Roadmap'],
-        'migration/whacp-to-nimvor' => ['Project', 20, 'Migrating from WhaCP'],
     ];
 
-    private const EXCLUDED = ['docs/release/', 'docs/development/app-installer-plan.md', 'docs/development/feature-expansion-audit.md', 'docs/security/ga-assessment.md'];
+    private const EXCLUDED = ['docs/release/', 'docs/development/app-installer-plan.md', 'docs/development/feature-expansion-audit.md', 'docs/security/ga-assessment.md', 'docs/migration/'];
 
     /** @return array{slug: string, group: string, order: int, label: string}|null null when the file is not published */
     public static function entry(string $path): ?array
