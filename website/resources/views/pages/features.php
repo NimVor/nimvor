@@ -99,7 +99,7 @@ $groups = [
         <div class="cta-band">
             <h2>See it on your own server</h2>
             <p>Install in read-only mode first and look at what NimVor finds.</p>
-            <a class="btn btn-primary btn-lg" href="/resources/documentation#install">Install NimVor</a>
+            <a class="btn btn-primary btn-lg" href="/get-started">Install NimVor</a>
         </div>
     </div>
 </section>

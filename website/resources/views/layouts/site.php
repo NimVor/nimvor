@@ -20,6 +20,7 @@ $desc = $v->meta('description', 'NimVor is a free, open-source hosting control p
     <link rel="icon" href="<?= e($v->asset('img/logo.svg')) ?>" type="image/svg+xml">
     <link rel="stylesheet" href="<?= e($v->asset('css/site.css')) ?>">
     <script src="<?= e($v->asset('js/site.js')) ?>" defer></script>
+    <?php if ($v->meta('script') !== ''): ?><script src="<?= e($v->asset($v->meta('script'))) ?>" defer></script><?php endif; ?>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>

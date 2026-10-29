@@ -46,6 +46,11 @@ jobs:
           php-version: '8.3'
           extensions: pdo_mysql, mbstring, sodium, redis
           tools: composer
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install command builder tests (JavaScript)
+        run: node --test 'tests/js/*.test.js'
       - name: PHP lint
         run: find app bin config database public resources tests -name '*.php' -print0 | xargs -0 -n1 -P4 php -l > /dev/null
       - run: composer install --no-interaction --no-progress

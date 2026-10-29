@@ -121,6 +121,7 @@ final class App
 
         $r->add('GET', '/', [$p, 'home']);
         $r->add('GET', '/features', [$p, 'features']);
+        $r->add('GET', '/get-started', [$p, 'getStarted']);
         $r->add('GET', '/resources', [$p, 'resources']);
         $r->add('GET', '/resources/documentation', [$p, 'documentation']);
         $r->add('GET', '/resources/blog', [$p, 'blog']);
