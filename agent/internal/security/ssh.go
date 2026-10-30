@@ -219,9 +219,23 @@ func (s *Service) ConfigureSSH(ctx context.Context, in SSHSettings) (*Pending, e
 		undoFirewall()
 		return nil, actions.Failed("The SSH settings would not take effect, so nothing was changed.", err.Error())
 	}
+	if sshSocketActive(ctx, env) {
+		if err := applySSHSocket(ctx, env, in.Port, &pending); err != nil {
+			_ = a.Rollback()
+			undoFirewall()
+			return nil, actions.Failed("The SSH port could not be changed, so nothing was changed.", err.Error())
+		}
+	}
 	if err := env.Systemctl(ctx, "reload", unit); err != nil {
 		_ = a.Rollback()
 		undoFirewall()
+		if len(pending.Restart) > 0 {
+			for _, f := range pending.Files {
+				_ = restoreFile(env, f)
+			}
+			_ = env.DaemonReload(ctx)
+			_, _ = env.Runner.Run(ctx, "systemctl", "restart", "--", sshSocketUnit)
+		}
 		return nil, actions.Failed("The SSH server could not be reloaded; the previous settings were restored.", err.Error())
 	}
 	return s.guard.Start(pending)
@@ -234,4 +248,60 @@ func undoFirewallNow(ctx context.Context, env *host.Env, p Pending) {
 		_, _ = env.Runner.Run(ctx, "ufw", a...)
 	}
 	_ = runFirewalld(ctx, env, p.Commands)
+}
+
+// sshSocketUnit is how Ubuntu 22.10 and later start sshd: systemd listens on the port and starts sshd
+// when someone connects, so the "Port" line of sshd_config is not what decides where SSH answers.
+const sshSocketUnit = "ssh.socket"
+
+func sshSocketActive(ctx context.Context, env *host.Env) bool {
+	return env.UnitActive(ctx, sshSocketUnit)
+}
+
+func sshSocketDropIn(env *host.Env) string {
+	return filepath.Join(env.M.UnitDir, "ssh.socket.d", "nimvor-port.conf")
+}
+
+// applySSHSocket makes the socket listen on port (the default 22 needs no setting), restarts it (sessions
+// already open stay) and checks that it listens there. What it changed is recorded in pending so an
+// unconfirmed change puts the old port back.
+func applySSHSocket(ctx context.Context, env *host.Env, port int, pending *Pending) error {
+	dropIn := sshSocketDropIn(env)
+	snap := snapshot(env, dropIn)
+	set := env.Changes("ssh-socket")
+	if port == 22 {
+		if !snap.Existed {
+			return nil // already on the default
+		}
+		set.Remove(dropIn)
+	} else {
+		set.Mkdir(filepath.Dir(dropIn), 0o755, agentfs.RootOwner)
+		set.Write(dropIn, []byte(fmt.Sprintf("# Written by NimVor: the port SSH listens on (sshd is started by this socket).\n[Socket]\nListenStream=\nListenStream=%d\n", port)), 0o644, agentfs.RootOwner)
+	}
+	if _, err := set.Apply(); err != nil {
+		return err
+	}
+	pending.Files = append(pending.Files, snap)
+	pending.Restart = append(pending.Restart, sshSocketUnit)
+	revert := func() {
+		_ = restoreFile(env, snap)
+		_ = env.DaemonReload(ctx)
+		_, _ = env.Runner.Run(ctx, "systemctl", "restart", "--", sshSocketUnit)
+		pending.Files = pending.Files[:len(pending.Files)-1]
+		pending.Restart = pending.Restart[:len(pending.Restart)-1]
+	}
+	if err := env.DaemonReload(ctx); err != nil {
+		revert()
+		return err
+	}
+	if out, err := env.Runner.Run(ctx, "systemctl", "restart", "--", sshSocketUnit); err != nil {
+		revert()
+		return fmt.Errorf("%s", host.Output(out))
+	}
+	out, err := env.Runner.Run(ctx, "systemctl", "show", "--property=Listen", "--value", "--", sshSocketUnit)
+	if err == nil && strings.TrimSpace(string(out)) != "" && !strings.Contains(string(out), ":"+strconv.Itoa(port)+" ") {
+		revert()
+		return fmt.Errorf("%s still listens on %s", sshSocketUnit, strings.Join(strings.Fields(strings.ReplaceAll(string(out), "\n", " ")), " "))
+	}
+	return nil
 }

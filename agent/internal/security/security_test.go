@@ -460,3 +460,57 @@ func TestEnablingFirewalldOpensWhatNimVorNeeds(t *testing.T) {
 		t.Errorf("undo: ports removed %d, stopped %d: %v", remove, stop, h.Runner.Calls)
 	}
 }
+
+// Ubuntu 22.10+ starts sshd from ssh.socket, which decides the port: a changed port needs the socket's own
+// setting and a restart of the socket, and an unconfirmed change puts the old port back.
+func TestConfigureSSHPortWithSocketActivation(t *testing.T) {
+	old := ConfirmWindow
+	ConfirmWindow = 100 * time.Millisecond
+	defer func() { ConfirmWindow = old }()
+	h, s := setup(t, "ufw allow 22/tcp\n")
+	adminWithKey(t, h)
+	h.Runner.Outputs["systemctl is-active -- ssh.socket"] = "active\n"
+	h.Runner.Outputs["sshd -T"] = "port 2222\npermitrootlogin without-password\npasswordauthentication no\nmaxauthtries 4\n"
+	h.Runner.Outputs["systemctl show --property=Listen --value -- ssh.socket"] = "[::]:2222 (Stream)\\n0.0.0.0:2222 (Stream)\n"
+	want := SSHSettings{Port: 2222, PermitRootLogin: "prohibit-password", PasswordAuthentication: false, MaxAuthTries: 4}
+	p, err := s.ConfigureSSH(context.Background(), want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dropIn := "etc/systemd/system/ssh.socket.d/nimvor-port.conf"
+	if body := h.Read(dropIn); !strings.Contains(body, "ListenStream=\nListenStream=2222\n") {
+		t.Fatalf("socket drop-in = %q", body)
+	}
+	if !h.Runner.Called("systemctl daemon-reload") || !h.Runner.Called("systemctl restart -- ssh.socket") {
+		t.Fatalf("socket not restarted: %v", h.Runner.Calls)
+	}
+	if len(p.Restart) != 1 || p.Restart[0] != "ssh.socket" {
+		t.Fatalf("pending = %+v", p)
+	}
+	waitRollback(t, s)
+	if h.Exists(dropIn) {
+		t.Error("unconfirmed port change left the socket on the new port")
+	}
+	if n := countCalls(h, "systemctl restart -- ssh.socket"); n < 2 {
+		t.Errorf("socket restarted %d times; the rollback must restart it too", n)
+	}
+
+	// The socket does not listen where it was asked to: refused, nothing stays.
+	h.Runner.Outputs["systemctl show --property=Listen --value -- ssh.socket"] = "[::]:22 (Stream)\n"
+	if _, err := s.ConfigureSSH(context.Background(), want); err == nil || !strings.Contains(err.Error(), "port could not be changed") {
+		t.Fatalf("expected refusal, got %v", err)
+	}
+	if h.Exists(dropIn) {
+		t.Error("socket drop-in left behind after a refusal")
+	}
+}
+
+func countCalls(h *testhost.Host, call string) int {
+	n := 0
+	for _, c := range h.Runner.Calls {
+		if c == call {
+			n++
+		}
+	}
+	return n
+}

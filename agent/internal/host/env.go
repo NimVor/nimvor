@@ -71,6 +71,9 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		"/etc/nimvor",
 		"/etc/nimvor/mongo-admin.uri",
 		m.SSHDropIn,
+		// Ubuntu 22.10+: sshd is started by ssh.socket, which decides the port.
+		filepath.Join(m.UnitDir, "ssh.socket.d"),
+		filepath.Join(m.UnitDir, "ssh.socket.d", "nimvor-port.conf"),
 		m.SFTPDropIn,
 		m.SFTPKeysDir + "/**",
 		// Jailed shells: the sandboxing login shell and, where AppArmor

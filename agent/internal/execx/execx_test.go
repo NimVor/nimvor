@@ -185,3 +185,31 @@ func TestAllowlistedCommandInstalledLater(t *testing.T) {
 		t.Fatal("still available after it was removed")
 	}
 }
+
+// "postfix check" switches to the postfix user, which the agent's own process cannot do on Ubuntu 24.04:
+// it always runs through PID 1 with the capabilities it needs, and nothing else about postfix does.
+func TestPostfixCheckRunsWithCapabilities(t *testing.T) {
+	caps := autoCapabilities("postfix", []string{"check"})
+	if len(caps) == 0 {
+		t.Fatal("postfix check gets no capabilities")
+	}
+	if err := checkArgs("postfix", Opts{Capabilities: caps}, []string{"check"}); err != nil {
+		t.Fatalf("not accepted: %v", err)
+	}
+	for _, c := range caps {
+		if !PrivilegedCapabilities[c] {
+			t.Errorf("capability %s not allowed", c)
+		}
+	}
+	for _, args := range [][]string{{"reload"}, {"start"}, {"check", "-v"}, {}, {"set-permissions"}} {
+		if autoCapabilities("postfix", args) != nil {
+			t.Errorf("postfix %v must not get capabilities", args)
+		}
+		if err := checkArgs("postfix", Opts{Capabilities: postfixCheckCaps}, args); err == nil {
+			t.Errorf("postfix %v accepted with capabilities", args)
+		}
+	}
+	if autoCapabilities("postmap", []string{"check"}) != nil {
+		t.Error("another command got capabilities")
+	}
+}

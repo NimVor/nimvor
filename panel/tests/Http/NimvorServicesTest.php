@@ -33,6 +33,23 @@ final class NimvorServicesTest extends HttpTestCase
         self::assertStringContainsString('restarts in a few seconds', (string) $this->flash('success'));
     }
 
+    public function testSshCanBeReloadedAndRestartedButNotStopped(): void
+    {
+        $this->agent->succeed('services.status', [
+            ['unit' => 'ssh.service', 'description' => 'OpenBSD Secure Shell server', 'active_state' => 'active', 'sub_state' => 'running', 'unit_file_state' => 'enabled', 'main_pid' => 11, 'active_since' => null],
+            ['unit' => 'nginx.service', 'description' => 'nginx', 'active_state' => 'active', 'sub_state' => 'running', 'unit_file_state' => 'enabled', 'main_pid' => 12, 'active_since' => null],
+        ]);
+        $this->login('admin');
+        $page = $this->request('GET', '/services')->body();
+        $ssh = substr($page, (int) strpos($page, 'name="unit" value="ssh.service"'));
+        $ssh = substr($ssh, 0, (int) strpos($ssh, '</form>'));
+        self::assertStringContainsString('value="reload"', $ssh);
+        self::assertStringContainsString('value="restart"', $ssh);
+        self::assertStringNotContainsString('value="stop"', $ssh, 'SSH is never stopped from the panel');
+        $nginx = substr($page, (int) strpos($page, 'name="unit" value="nginx.service"'));
+        self::assertStringContainsString('value="stop"', substr($nginx, 0, (int) strpos($nginx, '</form>')));
+    }
+
     public function testOthersCannot(): void
     {
         $this->login('resell');

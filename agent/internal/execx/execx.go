@@ -70,10 +70,25 @@ type Opts struct {
 }
 
 // PrivilegedCommands may run with Opts.Capabilities.
-var PrivilegedCommands = map[string]bool{"setquota": true, "repquota": true, "quotaon": true, "quotacheck": true, "mount": true, "sysctl": true, "nimvor-agent": true, "strace": true}
+var PrivilegedCommands = map[string]bool{"setquota": true, "repquota": true, "quotaon": true, "quotacheck": true, "mount": true, "sysctl": true, "nimvor-agent": true, "strace": true, "postfix": true}
 
 // PrivilegedCapabilities are the capabilities Opts.Capabilities may name.
-var PrivilegedCapabilities = map[string]bool{"CAP_SYS_ADMIN": true, "CAP_DAC_READ_SEARCH": true, "CAP_SYS_PTRACE": true, "CAP_NET_ADMIN": true}
+var PrivilegedCapabilities = map[string]bool{"CAP_SYS_ADMIN": true, "CAP_DAC_READ_SEARCH": true, "CAP_SYS_PTRACE": true, "CAP_NET_ADMIN": true,
+	"CAP_SETUID": true, "CAP_SETGID": true, "CAP_CHOWN": true, "CAP_DAC_OVERRIDE": true, "CAP_FOWNER": true}
+
+// postfixCheckCaps is what "postfix check" needs: it repairs the ownership of the queue and switches to
+// the postfix user (postsuper: "setuid(114): Operation not permitted" without CAP_SETUID, which the agent's
+// own process does not hold on Ubuntu 24.04).
+var postfixCheckCaps = []string{"CAP_SETUID", "CAP_SETGID", "CAP_CHOWN", "CAP_DAC_OVERRIDE", "CAP_FOWNER"}
+
+// autoCapabilities names the commands that always run through PID 1 with added capabilities, so callers
+// need not know.
+func autoCapabilities(id string, args []string) []string {
+	if id == "postfix" && len(args) == 1 && args[0] == "check" {
+		return postfixCheckCaps
+	}
+	return nil
+}
 
 // SysctlFile is the only file sysctl may load with added capabilities
 // (the security overview's kernel settings).
@@ -92,6 +107,8 @@ var (
 // /proc visibility options.
 func privilegedArgs(id string, args []string) bool {
 	switch id {
+	case "postfix":
+		return len(args) == 1 && args[0] == "check"
 	case "sysctl":
 		return (len(args) == 2 && args[0] == "-p" && args[1] == SysctlFile) || (len(args) == 2 && args[0] == "-w" && sysctlSetRe.MatchString(args[1]))
 	case "nimvor-agent":
@@ -352,6 +369,9 @@ func (r *SystemRunner) RunWith(ctx context.Context, id string, o Opts, args ...s
 	bin, err := r.resolve(id)
 	if err != nil {
 		return nil, err
+	}
+	if o.As == nil && len(o.Capabilities) == 0 {
+		o.Capabilities = autoCapabilities(id, args)
 	}
 	if err := checkArgs(id, o, args); err != nil {
 		return nil, err
