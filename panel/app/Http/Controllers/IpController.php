@@ -64,6 +64,7 @@ final class IpController extends Controller
         } catch (AgentException $e) {
             $error = $e;
         }
+        $this->ips->ensurePool();
         $pool = $this->ips->pool();
         $inPool = array_flip(array_column($pool, 'address'));
         $unpooled = [];

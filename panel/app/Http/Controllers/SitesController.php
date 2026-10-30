@@ -262,6 +262,9 @@ final class SitesController extends Controller
         if ($site === null) {
             return $this->notFound();
         }
+        if (\NimVor\Hosting\Scope::isAll($this->user($request))) {
+            $this->ips->ensurePool();
+        }
         [$inspect, $inspectError] = $this->inspect($site);
         return $this->render('sites/advanced', [
             'site' => $site,

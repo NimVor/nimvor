@@ -114,6 +114,23 @@ final class IpService
     }
 
     /**
+     * Fills an empty address pool from the server's own addresses (and the websites' addresses), the same
+     * as "Rebuild pool", so nobody has to press it after an installation. A pool that already has
+     * addresses is never touched, and a server that cannot be reached leaves it empty for next time.
+     */
+    public function ensurePool(): void
+    {
+        if ((int) ($this->db->fetch('SELECT COUNT(*) AS n FROM ip_addresses WHERE server_id = ?', [$this->sid()])['n'] ?? 0) > 0) {
+            return;
+        }
+        try {
+            $this->rebuild();
+        } catch (\Throwable) {
+            // The agent is not reachable now: the pool stays empty and is filled the next time.
+        }
+    }
+
+    /**
      * The pool with each address's websites and whether the server has it.
      *
      * @return list<array<string, mixed>>

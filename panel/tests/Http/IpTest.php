@@ -44,6 +44,21 @@ final class IpTest extends HttpTestCase
         return (int) $this->db->scalar('SELECT id FROM ip_addresses WHERE address = ?', [$ip]);
     }
 
+    /** Nobody has to press "Rebuild pool" after an installation: an empty pool is filled when the page is opened. */
+    public function testEmptyPoolIsFilledByItself(): void
+    {
+        $this->login('admin');
+        self::assertSame(0, (int) $this->db->scalar('SELECT COUNT(*) FROM ip_addresses'));
+        $page = $this->request('GET', '/ips')->body();
+        self::assertGreaterThan(0, $this->poolId('203.0.113.10'));
+        self::assertGreaterThan(0, $this->poolId('203.0.113.11'));
+        self::assertStringContainsString('203.0.113.11', $page);
+        // A pool the administrator has trimmed is left as it is.
+        $this->post('/ips/' . $this->poolId('203.0.113.11') . '/delete', []);
+        $this->request('GET', '/ips');
+        self::assertSame(0, $this->poolId('203.0.113.11'), 'a deleted address came back');
+    }
+
     public function testPoolAddRebuildReserveDelete(): void
     {
         $this->login('admin');
