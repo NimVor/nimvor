@@ -6,6 +6,15 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **Email set-up failed on Ubuntu 24.04 with `postsuper: fatal: setuid(114): Operation not permitted`.** `postfix check` switches to the postfix user, which the agent's own process cannot do there. It now runs through systemd with exactly the capabilities it needs (`CAP_SETUID`, `CAP_SETGID`, `CAP_CHOWN`, `CAP_DAC_OVERRIDE`, `CAP_FOWNER`) and nothing else.
+- **Setup wizard: "extensions: ioncube is not an extension NimVor manages".** The ionCube Loader is set up per PHP version from its own page, so a selection that lists it (as the wizard's does from what is installed) is accepted and leaves it alone.
+- **Changing the SSH port on Ubuntu 22.10 and later left SSH unreachable.** There sshd is started by `ssh.socket`, which decides the port, so the new port never answered. The socket now gets the port (a drop-in), is restarted and checked, and an unconfirmed change puts the old port back.
+- **Services page: SSH can be reloaded and restarted** (its configuration is tested first). It still cannot be stopped from the panel.
+- **Nginx tuning failed with "The tuning made the Nginx configuration invalid".** Nginx refuses a directive set twice in the http block, and Debian and Ubuntu's own `nginx.conf` already sets `gzip on;`. The tuning now comments out the lines of the http block it manages in the same change, and the real `nginx -t` output is shown when a tuning is refused.
+- **A zone whose name servers are inside it (ns1.example.com for example.com) could not be created**: `named-checkzone` refused it with "NS has no address records", which also stopped the zone a new website gets. The zone now gets address records for those name servers (the "Default IPv4" setting, or else the server's public address).
+- **The IP address pool is filled when the IP addresses page (or a website's Advanced page) is first opened**, so "Rebuild pool" no longer has to be pressed after an installation.
+
 ### Changed
 - The PHP Manager page now tells you where the ionCube Loader is switched on (it is set up per PHP version, so it is on each version's own Extensions tab) and links to every installed version.
 
