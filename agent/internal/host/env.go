@@ -73,6 +73,8 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		m.SSHDropIn,
 		// Ubuntu 22.10+: sshd is started by ssh.socket, which decides the port.
 		filepath.Join(m.UnitDir, "ssh.socket.d"),
+		// The tuning page comments out the http directives it now manages in the distribution's nginx.conf.
+		filepath.Join(filepath.Dir(m.NginxAvailable), "nginx.conf"),
 		filepath.Join(m.UnitDir, "ssh.socket.d", "nimvor-port.conf"),
 		m.SFTPDropIn,
 		m.SFTPKeysDir + "/**",

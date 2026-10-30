@@ -95,3 +95,54 @@ func TestStatusAndTest(t *testing.T) {
 		t.Error("nginx.test should require nginx installed")
 	}
 }
+
+// Debian and Ubuntu's nginx.conf already sets "gzip on;" (and older releases keepalive_timeout) in the
+// http block, and nginx refuses a directive set twice there. The tuning comments those lines out, only
+// in the http block itself, in the same change; a rollback puts them back.
+func TestTuningReleasesDirectivesNginxConfAlreadySets(t *testing.T) {
+	h := testhost.New(t)
+	r := actions.NewRegistry(true)
+	Register(r, h.Env)
+	apply, _ := r.Lookup("nginx.tuning_apply")
+	dir := filepath.Dir(confRealPath(h))
+	os.MkdirAll(dir, 0o755)
+	main := filepath.Join(filepath.Dir(dir), "nginx.conf")
+	orig := "user www-data;\nevents {\n\tworker_connections 768;\n}\nhttp {\n\tsendfile on;\n\tkeepalive_timeout 65;\n\t# server_tokens off;\n\tgzip on;\n\tgzip_types text/plain\n\t\ttext/css;\n\tinclude /etc/nginx/conf.d/*.conf;\n\tserver {\n\t\tgzip off;\n\t\tlisten 80;\n\t}\n}\n"
+	if err := os.WriteFile(main, []byte(orig), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	good := `{"client_max_body_mb":64,"keepalive_timeout":30,"client_body_timeout":60,"send_timeout":60,"gzip":true,"hide_version":false}`
+	if _, err := apply.Handler(context.Background(), json.RawMessage(good)); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(main)
+	got := string(b)
+	for _, gone := range []string{"\n\tkeepalive_timeout 65;", "\n\tgzip on;", "\n\tgzip_types text/plain", "\n\t\ttext/css;"} {
+		if strings.Contains(got, gone) {
+			t.Errorf("still active in nginx.conf: %q\n%s", gone, got)
+		}
+	}
+	for _, kept := range []string{"\t\tgzip off;\n", "\tsendfile on;\n", "\tinclude /etc/nginx/conf.d/*.conf;\n", "\t# server_tokens off;\n"} {
+		if !strings.Contains(got, kept) {
+			t.Errorf("changed although it is not the http block's own setting: %q\n%s", kept, got)
+		}
+	}
+	// Applying again changes nothing more.
+	if again, changed := releaseTunedDirectives(got); changed || again != got {
+		t.Errorf("second pass changed the file:\n%s", again)
+	}
+	// nginx rejects the result: both files are back as they were.
+	h.Runner.Handler = func(id string, o execx.Opts, args []string) (string, error) {
+		if id == "nginx" && len(args) > 0 && args[0] == "-t" {
+			return "nginx: [emerg] boom", &os.PathError{Op: "exit", Path: "status 1"}
+		}
+		return "", nil
+	}
+	os.WriteFile(main, []byte(orig), 0o644)
+	if _, err := apply.Handler(context.Background(), json.RawMessage(good)); err == nil || !strings.Contains(err.Error(), "rolled back") {
+		t.Fatalf("expected rollback, got %v", err)
+	}
+	if b, _ := os.ReadFile(main); string(b) != orig {
+		t.Errorf("nginx.conf not restored:\n%s", b)
+	}
+}
