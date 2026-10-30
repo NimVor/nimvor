@@ -98,6 +98,17 @@ func TestProfilePlan(t *testing.T) {
 	if _, err := ProfilePlan(context.Background(), h.Env, Profile{Versions: []string{"8.3; rm"}}); err == nil {
 		t.Error("bad version accepted")
 	}
+	// The ionCube Loader is set up per PHP version, so a selection that lists it (the setup wizard sends what
+	// is installed) is accepted and leaves it alone.
+	if plan, err := ProfilePlan(context.Background(), h.Env, Profile{Versions: []string{"8.3"}, Extensions: []string{"curl", "ioncube"}}); err != nil {
+		t.Errorf("ioncube in a selection: %v", err)
+	} else {
+		for _, it := range plan.Items {
+			if it.Extension == "ioncube" {
+				t.Errorf("ioncube planned: %+v", it)
+			}
+		}
+	}
 	if _, err := ProfilePlan(context.Background(), h.Env, Profile{Versions: []string{"8.3"}, Extensions: []string{"evil"}}); err == nil {
 		t.Error("unknown extension accepted")
 	}

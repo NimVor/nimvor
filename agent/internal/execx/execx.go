@@ -45,6 +45,8 @@ type Credential struct {
 	// Package runs a package transaction as root outside the agent's
 	// sandbox (see packages.go).
 	Package bool
+	// Unconfined runs the command as root in a transient unit without NoNewPrivileges (see unconfined).
+	Unconfined bool
 }
 
 // Opts customises a single run.
@@ -74,6 +76,15 @@ var PrivilegedCommands = map[string]bool{"setquota": true, "repquota": true, "qu
 
 // PrivilegedCapabilities are the capabilities Opts.Capabilities may name.
 var PrivilegedCapabilities = map[string]bool{"CAP_SYS_ADMIN": true, "CAP_DAC_READ_SEARCH": true, "CAP_SYS_PTRACE": true, "CAP_NET_ADMIN": true}
+
+// unconfinedCommands switch to another user themselves, which the agent's own sandbox cannot allow: on
+// Ubuntu 24.04 (systemd 255) a service with NoNewPrivileges=yes never holds CAP_SETUID, not even in a
+// transient unit of its own, so "postfix check" failed with "postsuper: fatal: setuid(114): Operation not
+// permitted". Like a package transaction (packages.go) it runs as root in a transient unit started by PID 1,
+// without NoNewPrivileges, as "sudo postfix check" would. Only this exact command.
+func unconfined(id string, args []string) bool {
+	return id == "postfix" && len(args) == 1 && args[0] == "check"
+}
 
 // SysctlFile is the only file sysctl may load with added capabilities
 // (the security overview's kernel settings).
@@ -394,6 +405,9 @@ func (r *SystemRunner) RunWith(ctx context.Context, id string, o Opts, args ...s
 	}
 	var cmd *exec.Cmd
 	switch {
+	case o.As == nil && len(o.Capabilities) == 0 && unconfined(id, args) && r.transient():
+		o.As = &Credential{Home: "/root", Unconfined: true}
+		return r.runTransient(ctx, bin, dir, env, o, timeout, args)
 	case len(o.Capabilities) > 0 && r.transient():
 		// Through PID 1: the agent keeps its own narrow capability set.
 		o.As = &Credential{Home: "/root", Capabilities: o.Capabilities}
@@ -479,6 +493,9 @@ var transientHardening = []string{
 	"TimeoutStopSec=5",
 }
 
+// unconfinedHardening: only what cannot affect the command (see unconfined).
+var unconfinedHardening = []string{"KillMode=control-group", "TimeoutStopSec=5"}
+
 // PrivilegedHardening confines a root command given capabilities (see
 // Opts.Capabilities): only those capabilities, no privilege gain through
 // setuid binaries, and no private mount namespace (a quota remount must
@@ -530,6 +547,9 @@ func TransientArgs(unit, sh, bin, dir string, env []string, as Credential, timeo
 		hardening = packageHardening
 		binds = nil
 		a = append(a, "--description=NimVor package transaction")
+	case as.Unconfined:
+		hardening = unconfinedHardening
+		binds = nil
 	case len(as.Capabilities) > 0:
 		hardening = PrivilegedHardening(as.Capabilities)
 		binds = nil

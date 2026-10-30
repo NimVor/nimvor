@@ -46,15 +46,15 @@
                         <td><?= e(format_bytes($s['memory_bytes'] ?? null)) ?></td>
                         <td class="small"><?= e($s['active_since'] !== null ? time_ago((string) $s['active_since']) : '—') ?></td>
                         <td class="text-end text-nowrap">
-                            <?php if ($this->can(\NimVor\Security\Permissions::SERVICES_MANAGE) && !preg_match('/^(nimvor-agent|nimvor-panel|ssh|sshd)\.service$/', (string) $s['unit'])): ?>
-                                <?php $running = $s['active_state'] === 'active'; ?>
-                                <form method="post" action="<?= e($this->url('services.control')) ?>" class="d-inline-flex gap-1" data-nim-busy>
+                            <?php if ($this->can(\NimVor\Security\Permissions::SERVICES_MANAGE) && !preg_match('/^(nimvor-agent|nimvor-panel)\.service$/', (string) $s['unit'])): ?>
+                                <?php $running = $s['active_state'] === 'active'; $isSsh = (bool) preg_match('/^(ssh|sshd)\.service$/', (string) $s['unit']); ?>
+                                <form method="post" action="<?= e($this->url('services.control')) ?>" class="d-inline-flex gap-1" data-nim-busy<?= $isSsh ? ' data-nim-confirm="Reload or restart SSH? The configuration is tested first. A restart can end sessions that are open now, but not the ones already connected through the old process."' : '' ?>>
                                     <?= $this->csrfField() ?>
                                     <input type="hidden" name="unit" value="<?= e($s['unit']) ?>">
                                     <?php if ($running): ?>
                                         <button class="btn btn-sm btn-outline-secondary" name="op" value="reload" title="Reload"><i class="bi bi-arrow-repeat"></i></button>
                                         <button class="btn btn-sm btn-outline-secondary" name="op" value="restart" title="Restart"><i class="bi bi-arrow-clockwise"></i></button>
-                                        <button class="btn btn-sm btn-outline-danger" name="op" value="stop" title="Stop"><i class="bi bi-stop-fill"></i></button>
+                                        <?php if (!$isSsh): ?><button class="btn btn-sm btn-outline-danger" name="op" value="stop" title="Stop"><i class="bi bi-stop-fill"></i></button><?php endif; ?>
                                     <?php else: ?>
                                         <button class="btn btn-sm btn-outline-success" name="op" value="start" title="Start"><i class="bi bi-play-fill"></i></button>
                                     <?php endif; ?>
@@ -67,5 +67,5 @@
             </table>
         </div>
     <?php endif; ?>
-    <div class="card-footer small text-body-secondary">Nginx is always tested with <code>nginx -t</code> before it is reloaded or restarted. SSH and the agent cannot be stopped from the panel.</div>
+    <div class="card-footer small text-body-secondary">Nginx is always tested with <code>nginx -t</code> before it is reloaded or restarted. SSH can be reloaded and restarted (its configuration is tested first) but not stopped, and the agent and panel cannot be stopped from here.</div>
 </div>

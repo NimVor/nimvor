@@ -185,3 +185,32 @@ func TestAllowlistedCommandInstalledLater(t *testing.T) {
 		t.Fatal("still available after it was removed")
 	}
 }
+
+// "postfix check" switches to the postfix user, which the agent's own sandbox cannot allow on Ubuntu 24.04: it
+// always runs as root in an unconfined transient unit, and nothing else about postfix (or anything else) does.
+func TestPostfixCheckRunsUnconfined(t *testing.T) {
+	if !unconfined("postfix", []string{"check"}) {
+		t.Fatal("postfix check is not unconfined")
+	}
+	for _, c := range []struct {
+		id   string
+		args []string
+	}{{"postfix", []string{"reload"}}, {"postfix", []string{"start"}}, {"postfix", []string{"check", "-v"}}, {"postfix", nil}, {"postsuper", []string{"check"}}, {"nginx", []string{"check"}}} {
+		if unconfined(c.id, c.args) {
+			t.Errorf("%s %v must not be unconfined", c.id, c.args)
+		}
+	}
+	a := TransientArgs("nimvor-run-x.service", "/bin/sh", "/usr/sbin/postfix", "/", nil,
+		Credential{Home: "/root", Unconfined: true}, time.Minute, "", "/o", "/e", []string{"/x:/y"}, []string{"check"})
+	s := strings.Join(a, "\n") + "\n"
+	for _, want := range []string{"--uid=0\n", "--property=KillMode=control-group\n"} {
+		if !strings.Contains(s, want) {
+			t.Errorf("missing %q in\n%s", want, s)
+		}
+	}
+	for _, gone := range []string{"NoNewPrivileges", "CapabilityBoundingSet", "ProtectSystem", "BindReadOnlyPaths", "RestrictSUIDSGID"} {
+		if strings.Contains(s, gone) {
+			t.Errorf("%q in an unconfined unit:\n%s", gone, s)
+		}
+	}
+}
