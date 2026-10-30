@@ -7,7 +7,7 @@ All notable changes to NimVor are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
-- **Email set-up failed on Ubuntu 24.04 with `postsuper: fatal: setuid(114): Operation not permitted`.** `postfix check` switches to the postfix user, which the agent's own process cannot do there. It now runs through systemd with exactly the capabilities it needs (`CAP_SETUID`, `CAP_SETGID`, `CAP_CHOWN`, `CAP_DAC_OVERRIDE`, `CAP_FOWNER`) and nothing else.
+- **Email set-up failed on Ubuntu 24.04 with `postsuper: fatal: setuid(114): Operation not permitted`.** `postfix check` switches to the postfix user, which a service with `NoNewPrivileges=yes` can never do there (not even in a unit of its own). That one command now runs as root in a transient systemd unit without `NoNewPrivileges`, the way `sudo postfix check` would, like a package transaction; nothing else changes.
 - **Setup wizard: "extensions: ioncube is not an extension NimVor manages".** The ionCube Loader is set up per PHP version from its own page, so a selection that lists it (as the wizard's does from what is installed) is accepted and leaves it alone.
 - **Changing the SSH port on Ubuntu 22.10 and later left SSH unreachable.** There sshd is started by `ssh.socket`, which decides the port, so the new port never answered. The socket now gets the port (a drop-in), is restarted and checked, and an unconfirmed change puts the old port back.
 - **Services page: SSH can be reloaded and restarted** (its configuration is tested first). It still cannot be stopped from the panel.
