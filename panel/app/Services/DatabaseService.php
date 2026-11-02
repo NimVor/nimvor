@@ -109,7 +109,7 @@ final class DatabaseService
             } catch (AgentException $e) {
                 throw new UserFacingException('The database was created, but its user could not be: ' . $e->getMessage(), $e->reason(), 'Create the user from the Users tab.');
             }
-            $uid = $this->repo->insertUser($serverId, $username, 'localhost', $ownerId !== null ? (int) $ownerId : null, $store ? $this->crypto->encrypt($password) : '');
+            $uid = $this->repo->insertUser($serverId, $username, 'localhost', $ownerId !== null ? (int) $ownerId : null, $store ? $this->crypto->encrypt($password) : '', $websiteId);
             $this->repo->setGrant($dbId, $uid, 'all');
             $this->audit->record('database.user_create', 'database_user', $username, AuditLogger::SUCCESS, ['database' => $name, 'stored' => $store]);
             $out += ['user' => $username, 'password' => $password];
@@ -130,10 +130,14 @@ final class DatabaseService
         if (!preg_match('/^[a-z0-9_]{1,32}$/', $username) || $this->repo->userTaken($serverId, $username, $host)) {
             throw new ValidationException(['username' => 'Use up to 32 lowercase letters, digits or underscores (not already used).']);
         }
+        $siteId = filter_var($input['website_id'] ?? null, FILTER_VALIDATE_INT) ?: null;
+        if ($siteId !== null && $this->sites->find($serverId, $siteId, $actor) === null) {
+            throw new ValidationException(['website_id' => 'Choose one of your websites.']);
+        }
         $password = Crypto::password();
         $this->agent->call('db.user_create', ['user' => $username, 'host' => $host, 'password' => $password]);
         $store = filter_var($input['store_password'] ?? false, FILTER_VALIDATE_BOOL);
-        $this->repo->insertUser($serverId, $username, $host, Scope::isAll($actor) ? null : (int) $actor['id'], $store ? $this->crypto->encrypt($password) : '');
+        $this->repo->insertUser($serverId, $username, $host, Scope::isAll($actor) ? null : (int) $actor['id'], $store ? $this->crypto->encrypt($password) : '', $siteId);
         $this->audit->record('database.user_create', 'database_user', $username . '@' . $host, AuditLogger::SUCCESS, ['stored' => $store]);
         return ['user' => $username, 'password' => $password];
     }
@@ -189,7 +193,7 @@ final class DatabaseService
         $password = Crypto::password();
         $this->agent->call('db.user_create', ['user' => $dbUser['username'], 'host' => $host, 'password' => $password]);
         $store = filter_var($input['store_password'] ?? false, FILTER_VALIDATE_BOOL);
-        $newId = $this->repo->insertUser($serverId, (string) $dbUser['username'], $host, $dbUser['owner_id'] === null ? null : (int) $dbUser['owner_id'], $store ? $this->crypto->encrypt($password) : '');
+        $newId = $this->repo->insertUser($serverId, (string) $dbUser['username'], $host, $dbUser['owner_id'] === null ? null : (int) $dbUser['owner_id'], $store ? $this->crypto->encrypt($password) : '', isset($dbUser['website_id']) ? (int) $dbUser['website_id'] : null);
         foreach ($this->repo->grantsOf((int) $dbUser['id']) as $g) {
             $this->agent->call('db.grant', ['user' => $dbUser['username'], 'host' => $host, 'database' => $g['name'], 'privileges' => $g['privileges'], 'revoke' => false]);
             $this->repo->setGrant((int) $g['database_id'], $newId, (string) $g['privileges']);

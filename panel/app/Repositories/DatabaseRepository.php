@@ -55,10 +55,16 @@ final class DatabaseRepository
      * @param array<string, mixed> $user
      * @return list<array<string, mixed>>
      */
-    public function users(int $serverId, array $user): array
+    public function users(int $serverId, array $user, ?int $websiteId = null): array
     {
         [$cond, $params] = Scope::condition($user, 'owner_id');
-        return $this->db->fetchAll("SELECT id, server_id, owner_id, username, host, password_enc != '' AS stored, created_at FROM database_users WHERE server_id = :server AND {$cond} ORDER BY username", ['server' => $serverId] + $params);
+        $only = '';
+        if ($websiteId !== null) {
+            // A website's page lists the users of that website: created for it, or allowed on its databases.
+            $only = ' AND (website_id = :w1 OR id IN (SELECT g.user_id FROM database_grants g JOIN databases d ON d.id = g.database_id WHERE d.website_id = :w2))';
+            $params += ['w1' => $websiteId, 'w2' => $websiteId];
+        }
+        return $this->db->fetchAll("SELECT id, server_id, owner_id, website_id, username, host, password_enc != '' AS stored, created_at FROM database_users WHERE server_id = :server AND {$cond}{$only} ORDER BY username", ['server' => $serverId] + $params);
     }
 
     /**
@@ -82,9 +88,9 @@ final class DatabaseRepository
         return $this->db->lastInsertId();
     }
 
-    public function insertUser(int $serverId, string $name, string $host, ?int $ownerId, string $passwordEnc): int
+    public function insertUser(int $serverId, string $name, string $host, ?int $ownerId, string $passwordEnc, ?int $websiteId = null): int
     {
-        $this->db->run('INSERT INTO database_users (server_id, owner_id, username, host, password_enc, created_at) VALUES (?, ?, ?, ?, ?, ?)', [$serverId, $ownerId, $name, $host, $passwordEnc, gmdate('c')]);
+        $this->db->run('INSERT INTO database_users (server_id, owner_id, website_id, username, host, password_enc, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)', [$serverId, $ownerId, $websiteId, $name, $host, $passwordEnc, gmdate('c')]);
         return $this->db->lastInsertId();
     }
 
