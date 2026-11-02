@@ -92,7 +92,9 @@ pass "database $DB created"
 openssl req -x509 -newkey rsa:2048 -nodes -days 30 -subj "/CN=$DOMAIN" -addext "subjectAltName=DNS:$DOMAIN" -keyout "$J/key.pem" -out "$J/cert.pem" 2>/dev/null
 CSRF_FROM=/sites/$SITE/ssl
 post "/sites/$SITE/ssl/custom" "certificate=$(cat "$J/cert.pem")" "private_key=$(cat "$J/key.pem")" chain= >/dev/null
-waitfor 20 "HTTPS served" sh -c "curl --noproxy '*' -ksS --resolve $DOMAIN:443:127.0.0.1 https://$DOMAIN/index.php | grep -q '^e2e-ok-'"
+# A new website is bound to the server's default address, so Nginx listens for it on that address.
+WEBIP=$(hostname -I | awk '{print $1}')
+waitfor 20 "HTTPS served" sh -c "curl --noproxy '*' -ksS --resolve $DOMAIN:443:$WEBIP https://$DOMAIN/index.php | grep -q '^e2e-ok-'"
 nginx -t 2>/dev/null || fail "nginx -t after the certificate"
 pass "certificate installed, HTTPS served, nginx -t passes"
 
