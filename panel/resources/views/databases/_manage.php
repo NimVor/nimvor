@@ -106,6 +106,7 @@ $tab = $openUser ? 'users' : 'dbs';
         <?= $this->modalStart('new-db-user', 'Add database user', $openUser) ?>
             <form class="nim-form-panel border rounded-3 p-3 mb-3" method="post" action="<?= e($this->url('dbusers.store')) ?>" data-nim-busy novalidate>
                 <?= $this->csrfField() ?><input type="hidden" name="return_to" value="<?= e($returnTo) ?>">
+                <?php if (isset($site)): ?><input type="hidden" name="website_id" value="<?= (int) $site['id'] ?>"><?php endif; ?>
                 <div class="row g-2 align-items-end">
                     <div class="col-md-4">
                         <label class="form-label small" for="dbu-name">User name</label>

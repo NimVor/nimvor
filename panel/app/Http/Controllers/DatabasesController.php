@@ -85,7 +85,7 @@ final class DatabasesController extends Controller
         return [
             'remoteHosts' => $this->service->remoteHostsAllowed($user),
             'managed' => $managed,
-            'dbUsers' => $this->repo->users($this->server->id(), $user),
+            'dbUsers' => $this->repo->users($this->server->id(), $user, $site === null ? null : (int) $site['id']),
             'sizes' => $sizes,
             'live' => $live,
             'unmanaged' => $unmanaged,
