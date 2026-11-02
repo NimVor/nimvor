@@ -133,6 +133,15 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		set := env.Changes("nginx-tuning")
 		set.Write(confPath, []byte(t.conf()), 0o644, agentfs.RootOwner)
+		// Nginx refuses a directive set twice in the http block ("is duplicate"), and the distribution's
+		// nginx.conf already sets some (Debian and Ubuntu: gzip on). Those lines are commented out, in the
+		// same change, so the managed file is the one place that decides them.
+		mainConf := filepath.Join(filepath.Dir(env.M.NginxAvailable), "nginx.conf")
+		if b, err := env.Root.ReadFile(mainConf); err == nil {
+			if moved, changed := releaseTunedDirectives(string(b)); changed {
+				set.Write(mainConf, []byte(moved), 0o644, agentfs.RootOwner)
+			}
+		}
 		a, err := set.Apply()
 		if err != nil {
 			return nil, host.FailWithValidation("The Nginx tuning was not saved", err)
@@ -140,11 +149,56 @@ func Register(r *actions.Registry, env *host.Env) {
 		if err := env.NginxTest(ctx); err != nil {
 			_ = a.Rollback()
 			_ = env.ReloadNginx(ctx)
-			return nil, actions.Failed("The tuning made the Nginx configuration invalid and was rolled back.", err.Error())
+			return nil, host.FailWithValidation("The tuning made the Nginx configuration invalid and was rolled back.", err)
 		}
 		if err := env.ReloadNginx(ctx); err != nil {
 			return nil, actions.Failed("Nginx could not be reloaded.", err.Error())
 		}
 		return map[string]any{"applied": true}, nil
 	}})
+}
+
+// tunedDirectives are the directives Tuning.conf writes into the http block.
+var tunedDirectives = map[string]bool{
+	"client_max_body_size": true, "keepalive_timeout": true, "client_body_timeout": true, "send_timeout": true,
+	"server_tokens": true, "gzip": true, "gzip_vary": true, "gzip_proxied": true, "gzip_comp_level": true, "gzip_types": true,
+}
+
+// releaseTunedDirectives comments out, in nginx.conf's own http block (not in server, location or other
+// blocks inside it), the directives the managed tuning file now sets, and reports whether it changed
+// anything. A directive that continues over several lines is commented to its end. Already commented
+// lines are left as they are, so running it again changes nothing.
+func releaseTunedDirectives(conf string) (string, bool) {
+	lines := strings.Split(conf, "\n")
+	depth, httpDepth := 0, -1
+	inDirective, changed := false, false
+	for i, l := range lines {
+		t := strings.TrimSpace(l)
+		code := t
+		if h := strings.Index(code, "#"); h >= 0 {
+			code = strings.TrimSpace(code[:h])
+		}
+		if inDirective {
+			lines[i] = "# NimVor: moved to conf.d/" + TuningFile + ": " + l
+			if strings.HasSuffix(code, ";") {
+				inDirective = false
+			}
+			continue
+		}
+		if httpDepth < 0 && depth == 0 && strings.HasPrefix(code, "http") && strings.HasSuffix(code, "{") && strings.TrimSpace(strings.TrimSuffix(code, "{")) == "http" {
+			httpDepth = 1
+		} else if httpDepth > 0 && depth == httpDepth {
+			if f := strings.Fields(code); len(f) > 1 && tunedDirectives[f[0]] {
+				lines[i] = "# NimVor: moved to conf.d/" + TuningFile + ": " + l
+				changed = true
+				inDirective = !strings.HasSuffix(code, ";")
+				continue
+			}
+		}
+		depth += strings.Count(code, "{") - strings.Count(code, "}")
+		if httpDepth > 0 && depth < httpDepth {
+			httpDepth = -1
+		}
+	}
+	return strings.Join(lines, "\n"), changed
 }

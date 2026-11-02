@@ -74,6 +74,11 @@ func (p *Profile) normalize() error {
 	seenE := map[string]bool{}
 	var es []string
 	for _, e := range p.Extensions {
+		if e == IonCube.Name {
+			// Set up per PHP version from its own page (it is not a package), so a selection that
+			// lists it, as the setup wizard's does from what is installed, leaves it as it is.
+			continue
+		}
 		if _, ok := findExtension(e); !ok {
 			return fmt.Errorf("extensions: %s is not an extension NimVor manages", e)
 		}

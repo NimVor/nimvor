@@ -99,6 +99,34 @@ final class DnsTest extends HttpTestCase
         $this->login($user);
     }
 
+    /** Name servers inside the zone itself (ns1.example.com for example.com) need an address in it, or named refuses to load it. */
+    public function testNameServersInsideTheZoneGetAddresses(): void
+    {
+        $this->app->container->get(SettingsService::class)->update(['dns_nameservers' => 'ns1.shop.test, ns2.shop.test, ns3.elsewhere.test'], null);
+        $this->login('cust');
+        $this->post('/dns/zones', ['website_id' => (string) $this->siteId, 'template' => '1']);
+        $summary = array_map(static fn (array $r): string => $r['name'] . ' ' . $r['type'] . ' ' . $r['value'], $this->lastCall('dns.zone_apply')['records']);
+        foreach (['@ NS ns1.shop.test.', 'ns1 A 203.0.113.10', 'ns2 A 203.0.113.10', '@ A 203.0.113.10'] as $want) {
+            self::assertContains($want, $summary);
+        }
+        self::assertSame([], array_filter($summary, static fn (string $r): bool => str_starts_with($r, 'ns3 ')));
+    }
+
+    /** Without a default address the server's own public address is used for the glue. */
+    public function testGlueUsesTheServersAddressWhenNoDefaultIsSet(): void
+    {
+        $this->app->container->get(SettingsService::class)->update(['dns_nameservers' => 'ns1.shop.test, ns2.shop.test', 'dns_default_ipv4' => ''], null);
+        $this->agent->succeed('net.addresses', ['addresses' => [
+            ['interface' => 'lo', 'address' => '127.0.0.1', 'family' => 4, 'prefix_len' => 8, 'scope' => 'host'],
+            ['interface' => 'eth0', 'address' => '198.51.100.7', 'family' => 4, 'prefix_len' => 24, 'scope' => 'global'],
+        ]]);
+        $this->login('cust');
+        $this->post('/dns/zones', ['website_id' => (string) $this->siteId, 'template' => '']);
+        $summary = array_map(static fn (array $r): string => $r['name'] . ' ' . $r['type'] . ' ' . $r['value'], $this->lastCall('dns.zone_apply')['records']);
+        self::assertContains('ns1 A 198.51.100.7', $summary);
+        self::assertContains('ns2 A 198.51.100.7', $summary);
+    }
+
     public function testRecordValidation(): void
     {
         $this->login('admin');

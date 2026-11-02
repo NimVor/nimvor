@@ -48,6 +48,7 @@ type Pending struct {
 	Units       [][2]string   `json:"units,omitempty"`    // systemctl verb and unit, run in order
 	Files       []FileRestore `json:"files,omitempty"`    // restored before Reload
 	ReloadUnits []string      `json:"reload_units,omitempty"`
+	Restart     []string      `json:"restart,omitempty"` // units restarted (after a daemon-reload) once Files are restored
 }
 
 // Guard tracks at most one pending change.
@@ -197,18 +198,15 @@ func (g *Guard) rollback() error {
 		keep(g.env.Systemctl(ctx, u[0], u[1]))
 	}
 	for _, f := range p.Files {
-		if !f.Existed {
-			_, err := g.env.Writer.Remove(f.Path)
-			keep(err)
-			continue
+		keep(restoreFile(g.env, f))
+	}
+	if len(p.Restart) > 0 {
+		keep(g.env.DaemonReload(ctx))
+		for _, u := range p.Restart {
+			if out, err := g.env.Runner.Run(ctx, "systemctl", "restart", "--", u); err != nil {
+				keep(fmt.Errorf("systemctl restart %s: %s", u, host.Output(out)))
+			}
 		}
-		data, err := base64.StdEncoding.DecodeString(f.Content)
-		if err != nil {
-			keep(err)
-			continue
-		}
-		_, err = g.env.Writer.WriteFile(f.Path, data, fs.FileMode(f.Mode), agentfs.RootOwner)
-		keep(err)
 	}
 	for _, u := range p.ReloadUnits {
 		keep(g.env.Systemctl(ctx, "reload", u))
@@ -216,6 +214,20 @@ func (g *Guard) rollback() error {
 	g.clear()
 	g.env.Log.Info("security change rolled back", "id", p.ID, "kind", p.Kind)
 	return first
+}
+
+// restoreFile puts a snapshotted file back (or removes it when it did not exist).
+func restoreFile(env *host.Env, f FileRestore) error {
+	if !f.Existed {
+		_, err := env.Writer.Remove(f.Path)
+		return err
+	}
+	data, err := base64.StdEncoding.DecodeString(f.Content)
+	if err != nil {
+		return err
+	}
+	_, err = env.Writer.WriteFile(f.Path, data, fs.FileMode(f.Mode), agentfs.RootOwner)
+	return err
 }
 
 // snapshot records the current state of a file for FileRestore.

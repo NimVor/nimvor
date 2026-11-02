@@ -139,9 +139,10 @@ final class DnsService
         if ($hostmaster === '' || filter_var($hostmaster, FILTER_VALIDATE_EMAIL) === false) {
             $hostmaster = 'hostmaster@' . $name;
         }
+        $glue = $this->glueRecords($name, $ns);
         $ownerId = $site !== null ? ($site['owner_id'] !== null ? (int) $site['owner_id'] : null) : (Scope::isAll($actor) ? null : (int) $actor['id']);
         $now = gmdate('c');
-        return $this->db->transaction(function () use ($name, $site, $ownerId, $ns, $hostmaster, $now, $input): int {
+        return $this->db->transaction(function () use ($name, $site, $ownerId, $ns, $hostmaster, $now, $input, $glue): int {
             $this->db->run(
                 'INSERT INTO dns_zones (server_id, name, website_id, owner_id, primary_ns, hostmaster, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
                 [$this->server->id(), $name, $site['id'] ?? null, $ownerId, $ns[0], $hostmaster, $now, $now]
@@ -149,9 +150,14 @@ final class DnsService
             $id = $this->db->lastInsertId();
             $records = array_map(static fn (string $n): array => ['name' => '@', 'type' => 'NS', 'value' => $n . '.'], $ns);
             $ip = $this->settings->string('dns_default_ipv4');
+            // A name server inside the zone itself (ns1.example.com for example.com) needs an address in it
+            // (glue), or the zone does not load: "NS has no address records".
+            foreach ($glue as $label => $address) {
+                $records[] = ['name' => $label, 'type' => 'A', 'value' => $address];
+            }
             if (!empty($input['template'])) {
                 $hasIp = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false;
-                if ($hasIp) {
+                if ($hasIp && ($glue['@'] ?? null) !== $ip) {
                     $records[] = ['name' => '@', 'type' => 'A', 'value' => $ip];
                     $records[] = ['name' => 'www', 'type' => 'CNAME', 'value' => '@'];
                 }
@@ -170,6 +176,56 @@ final class DnsService
             $this->audit->record('dns.zone_create', 'dns_zone', (string) $id, AuditLogger::SUCCESS, ['zone' => $name, 'website_id' => $site['id'] ?? null]);
             return $id;
         });
+    }
+
+    /**
+     * Addresses for the configured name servers that lie inside the zone: label => IPv4. The address is the
+     * "Default IPv4" setting, or else the server's own first public address.
+     *
+     * @param list<string> $nameservers
+     * @return array<string, string>
+     */
+    private function glueRecords(string $zone, array $nameservers): array
+    {
+        $inside = [];
+        foreach ($nameservers as $n) {
+            if ($n === $zone) {
+                $inside['@'] = true;
+            } elseif (str_ends_with($n, '.' . $zone)) {
+                $inside[substr($n, 0, -strlen('.' . $zone))] = true;
+            }
+        }
+        if ($inside === []) {
+            return [];
+        }
+        $ip = trim($this->settings->string('dns_default_ipv4'));
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
+            $ip = $this->serverIpv4();
+        }
+        if ($ip === null) {
+            throw new UserFacingException(
+                'The zone cannot be created yet: its name servers are inside it.',
+                'The name servers ' . implode(', ', $nameservers) . ' are names in ' . $zone . ', so the zone needs an address for them, and this server\'s address is not known.',
+                'An administrator sets the public address under Settings → DNS (Default IPv4 for new zones), then creates the zone again.'
+            );
+        }
+        return array_fill_keys(array_keys($inside), $ip);
+    }
+
+    /** The server's first global IPv4 address, or null when it cannot be read. */
+    private function serverIpv4(): ?string
+    {
+        try {
+            foreach ((array) ($this->agent->call('net.addresses')['addresses'] ?? []) as $a) {
+                $ip = (string) ($a['address'] ?? '');
+                if ((int) ($a['family'] ?? 0) === 4 && ($a['scope'] ?? '') === 'global' && filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
+                    return $ip;
+                }
+            }
+        } catch (\Throwable) {
+            // not reachable: the caller explains what to set
+        }
+        return null;
     }
 
     /** SPF: the domain's web and mail servers, and this server's address. */
