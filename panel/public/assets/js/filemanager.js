@@ -275,11 +275,17 @@
         }
         paintSelection();
     }
+    // The editor opens in a tab of its own, so the file manager stays where it is.
+    function openInNewTab(url) {
+        var a = document.createElement('a');
+        a.href = url; a.target = '_blank'; a.rel = 'noopener';
+        document.body.appendChild(a); a.click(); a.remove();
+    }
     function open(entry) {
         if (!entry) { return; }
         if (entry.type === 'dir') { go(entry.path); return; }
         if (entry.type === 'link') { NimVor.toast('Links are not followed by the file manager.', 'secondary'); return; }
-        if (TEXT_HINT.test(entry.name) || entry.size < 512 * 1024) { window.location.href = editUrl + '?path=' + encodeURIComponent(entry.path); return; }
+        if (TEXT_HINT.test(entry.name) || entry.size < 512 * 1024) { openInNewTab(editUrl + '?path=' + encodeURIComponent(entry.path)); return; }
         window.location.href = downloadUrl + '?path=' + encodeURIComponent(entry.path);
     }
 
@@ -439,7 +445,7 @@
         selectnone: function () { state.selected.clear(); paintSelection(); },
         clearuploads: function () { $('[data-fm-upload-list]').querySelectorAll('li.done').forEach(function (li) { li.remove(); }); if (!$('[data-fm-upload-list]').children.length) { $('[data-fm-uploads]').classList.add('d-none'); } },
         open: function () { open(selectedEntries()[0]); },
-        edit: function () { var s = selectedEntries()[0]; if (s) { window.location.href = editUrl + '?path=' + encodeURIComponent(s.path); } },
+        edit: function () { var s = selectedEntries()[0]; if (s) { openInNewTab(editUrl + '?path=' + encodeURIComponent(s.path)); } },
         download: function () { var s = selectedEntries()[0]; if (s) { window.location.href = downloadUrl + '?path=' + encodeURIComponent(s.path); } },
         upload: function () { $('[data-fm-upload-input]').click(); },
         newfile: function () {

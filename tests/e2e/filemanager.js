@@ -51,6 +51,30 @@ const OUT = process.env.E2E_OUT || '/tmp';
   await page.keyboard.press('Control+s');
   await page.waitForSelector('[data-fe-state].text-success');
   step('saved; gutter=' + JSON.stringify(await page.textContent('[data-fe-gutter]')));
+  // Editor keys: Tab on a selection indents every selected line, Shift+Tab outdents, undo and redo walk back and forth.
+  const fe = '[data-fe-text]';
+  const val = () => page.inputValue(fe);
+  await page.fill(fe, 'a\nb\nc');
+  await page.focus(fe);
+  await page.keyboard.press('Control+a');
+  await page.keyboard.press('Tab');
+  if (await val() !== '\ta\n\tb\n\tc') { throw new Error('Tab did not indent the selection: ' + JSON.stringify(await val())); }
+  await page.keyboard.press('Shift+Tab');
+  if (await val() !== 'a\nb\nc') { throw new Error('Shift+Tab did not outdent: ' + JSON.stringify(await val())); }
+  await page.keyboard.press('Control+z');
+  if (await val() !== '\ta\n\tb\n\tc') { throw new Error('undo of the outdent failed: ' + JSON.stringify(await val())); }
+  await page.keyboard.press('Control+z');
+  if (await val() !== 'a\nb\nc') { throw new Error('undo of the indent failed: ' + JSON.stringify(await val())); }
+  await page.keyboard.press('Control+y');
+  if (await val() !== '\ta\n\tb\n\tc') { throw new Error('redo failed: ' + JSON.stringify(await val())); }
+  await page.keyboard.press('Control+Shift+z');
+  await page.keyboard.press('Control+z');
+  await page.keyboard.press('Control+z');
+  await page.keyboard.press('Control+z');
+  await page.fill(fe, 'line one\nline two\n');
+  await page.keyboard.press('Control+s');
+  await page.waitForSelector('[data-fe-state].text-success');
+  step('editor: Tab indents a selection, Shift+Tab outdents, undo and redo work, Ctrl+S saves');
   await page.screenshot({ path: OUT + '/fe.png' });
   await Promise.all([page.waitForNavigation(), page.click('[data-fe-close]')]);
   await page.waitForSelector('[data-fm-rows] tr[data-path="public_html/hello.txt"]');

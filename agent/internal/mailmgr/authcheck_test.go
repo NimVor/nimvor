@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"net/netip"
+	"strings"
 	"testing"
 )
 
@@ -123,5 +124,34 @@ func TestCheckAuth(t *testing.T) {
 	other.ip = map[string][]string{"mx.host.test": {"203.0.113.5"}, "vps-1.provider.test": {"203.0.113.5"}}
 	if s := statuses(CheckAuth(context.Background(), other, in))["rdns"]; s != "warning" {
 		t.Errorf("PTR of another name: %s", s)
+	}
+}
+
+// When the public DNS lacks a record this server's own name server has, the check says so, and does not change
+// the status; when both lack it, nothing is added.
+func TestExplainLocalDNS(t *testing.T) {
+	in := AuthCheckInput{Domain: "example.test", Hostname: "mail.example.test", IPs: []string{"203.0.113.5"}}
+	public := []AuthCheck{
+		{ID: "mx", Label: "MX", Status: CheckMissing, Detail: "no MX"},
+		{ID: "dmarc", Label: "DMARC", Status: CheckMissing, Detail: "no DMARC"},
+		{ID: "host", Label: "Mail host name", Status: CheckPass, Detail: "ok"},
+	}
+	local := authDNS{
+		mx:  map[string][]string{"example.test": {"mail.example.test"}},
+		txt: map[string][]string{"example.test": {"v=spf1 a mx ~all"}},
+		ip:  map[string][]string{"mail.example.test": {"203.0.113.5"}},
+	}
+	out := explainLocalDNS(context.Background(), local, in, public)
+	if out[0].Status != CheckMissing || !strings.Contains(out[0].Detail, "This server's own DNS has the right record") || !strings.Contains(out[0].Detail, "no MX") {
+		t.Fatalf("mx: %+v", out[0])
+	}
+	if strings.Contains(out[1].Detail, "own DNS") {
+		t.Fatalf("dmarc is missing locally too, nothing to add: %+v", out[1])
+	}
+	if out[2].Detail != "ok" {
+		t.Fatalf("a passing check is left alone: %+v", out[2])
+	}
+	if got := explainLocalDNS(context.Background(), nil, in, public); got[0].Detail != "no MX" {
+		t.Fatalf("no local resolver: %+v", got[0])
 	}
 }
