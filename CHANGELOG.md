@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.1.2] — 2026-11-02
+
+Fixes and defaults found testing 1.1.1 on Ubuntu 24.04.
+
 ### Fixed
 - **A website's Databases page listed the database users of the customer's other websites.** Database users were only tied to the customer, so every website of the same customer showed all of them. A user created for a website (or for its database) now belongs to that website, and the website's page lists only the users that belong to it or are allowed on its databases; the customer's own overview still lists all of theirs, and other customers never saw any (covered by a test). Existing users that are allowed on the databases of exactly one website are assigned to it by an upgrade step.
 
