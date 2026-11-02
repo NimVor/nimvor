@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func items(t *testing.T, res any) []TrashItem {
@@ -142,5 +143,31 @@ func TestTrashDistrustsItsContent(t *testing.T) {
 	os.Symlink("public_html", filepath.Join(root, TrashDir))
 	if _, err := do(t, r, "files.delete", map[string]any{"paths": []string{"public_html/css"}}); err == nil || !strings.Contains(err.Error(), "not a folder") {
 		t.Fatalf("%v", err)
+	}
+}
+
+// Only entries the server's trash received long enough ago are deleted, judged by the time in their name.
+func TestPurgeDeletedTrash(t *testing.T) {
+	h, _, _ := setup(t)
+	parent := h.Env.Cfg.SitesRoot
+	trash, err := h.Env.Root.Path(filepath.Join(parent, TrashDir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := time.Now().UTC().Add(-40 * 24 * time.Hour).Format("20060102T150405Z")
+	fresh := time.Now().UTC().Add(-2 * 24 * time.Hour).Format("20060102T150405Z")
+	for _, n := range []string{"old.com-" + old, "new.com-" + fresh, "stray"} {
+		os.MkdirAll(filepath.Join(trash, n, "public_html"), 0o700)
+		os.WriteFile(filepath.Join(trash, n, "public_html", "i.php"), []byte("x"), 0o644)
+	}
+	n, failed := PurgeDeletedTrash(h.Env, parent, time.Now().Add(-30*24*time.Hour))
+	if n != 1 || len(failed) != 0 {
+		t.Fatalf("deleted %d failed %v", n, failed)
+	}
+	for name, want := range map[string]bool{"old.com-" + old: false, "new.com-" + fresh: true, "stray": true} {
+		_, err := os.Lstat(filepath.Join(trash, name))
+		if (err == nil) != want {
+			t.Fatalf("%s present=%v want %v", name, err == nil, want)
+		}
 	}
 }

@@ -28,6 +28,7 @@ final class BackupScheduler
         private readonly AuditLogger $audit,
         private readonly JobTracker $jobs,
         private readonly NotificationService $notifications,
+        private readonly SettingsService $settings,
     ) {
     }
 
@@ -289,6 +290,35 @@ final class BackupScheduler
                 } catch (\Throwable $e) {
                     $log[] = 'Retention: could not delete backup ' . $b['backup_id'] . ': ' . $e->getMessage();
                 }
+            }
+        }
+        return array_merge($log, $this->pruneManual());
+    }
+
+    /**
+     * Backups started by hand are deleted after the configured number of days (0 keeps them).
+     *
+     * @return list<string>
+     */
+    private function pruneManual(): array
+    {
+        $days = $this->settings->int('manual_backup_retention_days');
+        if ($days < 1) {
+            return [];
+        }
+        $log = [];
+        $cutoff = gmdate('c', time() - $days * 86400);
+        foreach ($this->db->fetchAll("SELECT id, website_id FROM backups WHERE server_id = ? AND schedule_id IS NULL AND status = 'completed' AND created_at < ?", [$this->server->id(), $cutoff]) as $row) {
+            $site = $row['website_id'] === null ? null : $this->sites->find($this->server->id(), (int) $row['website_id'], null);
+            $b = $this->backups->find($site, (int) $row['id']);
+            if ($b === null) {
+                continue;
+            }
+            try {
+                $this->backups->delete($b);
+                $log[] = 'Retention: deleted backup ' . $b['backup_id'] . ' (older than ' . $days . ' days).';
+            } catch (\Throwable $e) {
+                $log[] = 'Retention: could not delete backup ' . $b['backup_id'] . ': ' . $e->getMessage();
             }
         }
         return $log;

@@ -3,6 +3,7 @@ package sites
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 )
@@ -80,5 +81,32 @@ func TestRepairPermissions(t *testing.T) {
 	check(secret, 0, 0, 0o640)
 	if again, _ := RepairPermissions(fd, "shop.test", rules, true); again.Issues != 0 {
 		t.Fatalf("issues left: %+v", again)
+	}
+}
+
+// Log files in logs/ are made by the web server and PHP-FPM as root (or the web server's account): who owns them
+// is not a problem, so a new website does not need a repair at once; other flaws, and other owners, still are.
+func TestLogsOwnedByServicesAreNotProblems(t *testing.T) {
+	r := permRules{uid: 1001, gid: 1001, webGID: 33, webUID: 33, docRel: "public_html"}
+	logStat := func(uid, gid, mode uint32) syscall.Stat_t { return syscall.Stat_t{Uid: uid, Gid: gid, Mode: mode} }
+	for _, c := range []struct {
+		rel  string
+		st   syscall.Stat_t
+		want []string
+	}{
+		{"logs/access.log", logStat(0, 4, 0o640), nil},
+		{"logs/error.log", logStat(0, 0, 0o640), nil},
+		{"logs/php-slow.log", logStat(0, 0, 0o600), nil},
+		{"logs/access.log", logStat(33, 33, 0o640), nil},
+		{"logs", logStat(0, 0, 0o750), nil},
+		{"logs/access.log", logStat(0, 0, 0o666), []string{ProbWorldWrite}},
+		{"logs/access.log", logStat(1002, 1002, 0o640), []string{ProbOwner, ProbGroup}},
+		{"public_html/index.php", logStat(0, 0, 0o640), []string{ProbOwner, ProbGroup}},
+		{"logsx/a.log", logStat(0, 0, 0o640), []string{ProbOwner, ProbGroup}},
+	} {
+		_, _, _, got := r.want(c.rel, c.rel == "logs", c.st)
+		if strings.Join(got, ",") != strings.Join(c.want, ",") {
+			t.Errorf("%s (uid %d): problems %v, want %v", c.rel, c.st.Uid, got, c.want)
+		}
 	}
 }

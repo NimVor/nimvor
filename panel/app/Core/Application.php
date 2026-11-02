@@ -68,6 +68,10 @@ final class Application
         // New websites: DNS zone (and email with DKIM) when this server hosts them.
         $events->on('website.created', static function (array $p) use ($c): void {
             $c->get(\NimVor\Services\SiteProvisioner::class)->provision((array) $p['website']);
+            // Then its addresses: bound to the pool's default addresses, with their A and AAAA records.
+            $c->get(\NimVor\Services\IpService::class)->assignNewSite((array) $p['website']);
+            // Protected from the start: the website firewall (ModSecurity) is "On (block attacks)" where it is usable.
+            $c->get(\NimVor\Services\ModSecurityService::class)->protectNewSite((array) $p['website']);
             $c->get(\NimVor\Services\AutoSslService::class)->mark((array) $p['website']);
         });
         // Resource limits follow the account's websites (its system users).

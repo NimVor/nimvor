@@ -157,6 +157,7 @@ paths:
               - files.compress
               - files.copy
               - files.delete
+              - files.deleted_trash_purge
               - files.download
               - files.extract
               - files.list
@@ -644,6 +645,7 @@ x-nimvor-actions:
   files.compress: { mutating: true, description: "Create a .zip or .tar.gz of files and folders of a website (job)." }
   files.copy: { mutating: true, description: "Copy a file or folder." }
   files.delete: { mutating: true, description: "Delete files or folders: moved to the website's trash (restorable), or removed for good with permanent." }
+  files.deleted_trash_purge: { mutating: true, description: "Delete, for good, what was moved to the server's trash when a website or mailbox was removed more than older_than_days days ago (1 to 3650)." }
   files.download: { mutating: false, description: "Read a chunk of a website file (base64)." }
   files.extract: { mutating: true, description: "Extract a .zip, .tar or .tar.gz inside a website (job)." }
   files.list: { mutating: false, description: "List a folder of a website." }

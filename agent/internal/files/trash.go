@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/NimVor/nimvor/agent/internal/actions"
+	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
 // The file manager's trash: deleting moves entries into the website's
@@ -328,4 +329,54 @@ func (s *Site) TrashEmpty(cutoff time.Time) (int, error) {
 		}
 	}
 	return s.TrashDelete(ids)
+}
+
+// deletedTrashName is how host.Env.MoveToTrash names what it moves: <name>-<UTC time>.
+var deletedTrashName = regexp.MustCompile(`^.+-([0-9]{8}T[0-9]{6}Z)$`)
+
+// PurgeDeletedTrash deletes the entries of <parent>/.nimvor-trash (what was kept when a website or mailbox
+// was removed) that were moved there before cutoff, judging by the time in their name. It returns how many
+// were deleted and the names of those it could not delete. The folder is opened as a root, so nothing
+// outside it can be reached.
+func PurgeDeletedTrash(env *host.Env, parent string, cutoff time.Time) (int, []string) {
+	real, err := env.Root.Path(path.Join(parent, TrashDir))
+	if err != nil {
+		return 0, nil
+	}
+	if info, err := os.Lstat(real); err != nil || !info.IsDir() {
+		return 0, nil
+	}
+	root, err := os.OpenRoot(real)
+	if err != nil {
+		return 0, nil
+	}
+	defer root.Close()
+	d, err := root.Open(".")
+	if err != nil {
+		return 0, nil
+	}
+	names, err := d.Readdirnames(-1)
+	d.Close()
+	if err != nil {
+		return 0, nil
+	}
+	s := &Site{root: root}
+	deleted := 0
+	var failed []string
+	for _, name := range names {
+		m := deletedTrashName.FindStringSubmatch(name)
+		if m == nil {
+			continue
+		}
+		moved, err := time.Parse("20060102T150405Z", m[1])
+		if err != nil || !moved.Before(cutoff) {
+			continue
+		}
+		if _, err := s.removeAll(name, 0); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			failed = append(failed, name)
+			continue
+		}
+		deleted++
+	}
+	return deleted, failed
 }

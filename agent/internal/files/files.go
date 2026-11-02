@@ -824,6 +824,29 @@ func Register(r *actions.Registry, env *host.Env) {
 			return map[string]any{"deleted": n}, err
 		})
 	}})
+	r.Register(actions.Action{Name: "files.deleted_trash_purge", Mutating: true, Description: "Delete, for good, what was moved to the server's trash when a website or mailbox was removed more than older_than_days days ago (1 to 3650).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			OlderThanDays int `json:"older_than_days"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if in.OlderThanDays < 1 || in.OlderThanDays > 3650 {
+			return nil, actions.InvalidParams("older_than_days: 1 to 3650")
+		}
+		cutoff := env.Now().Add(-time.Duration(in.OlderThanDays) * 24 * time.Hour)
+		deleted := 0
+		var failed []string
+		for _, parent := range []string{env.Cfg.SitesRoot, env.M.VmailDir} {
+			if parent == "" {
+				continue
+			}
+			n, bad := PurgeDeletedTrash(env, parent, cutoff)
+			deleted += n
+			failed = append(failed, bad...)
+		}
+		return map[string]any{"deleted": deleted, "failed": failed}, nil
+	}})
 	// Archives can be large, so they run as jobs; the site is opened inside.
 	job := func(name, domain string, fn func(ctx context.Context, s *Site, log io.Writer) (any, error)) (any, error) {
 		if err := validate.Domain("domain", domain); err != nil {

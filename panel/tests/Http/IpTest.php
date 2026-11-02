@@ -59,6 +59,42 @@ final class IpTest extends HttpTestCase
         self::assertSame(0, $this->poolId('203.0.113.11'), 'a deleted address came back');
     }
 
+    /** A new website is bound to the pool's default addresses and gets their A and AAAA records. */
+    public function testNewWebsiteGetsDefaultAddresses(): void
+    {
+        $this->agent->succeed('net.addresses', ['addresses' => [
+            ['interface' => 'eth0', 'address' => '203.0.113.10', 'family' => 4, 'prefix_len' => 24, 'scope' => 'global'],
+            ['interface' => 'eth0', 'address' => '2001:db8::1', 'family' => 6, 'prefix_len' => 64, 'scope' => 'global'],
+        ], 'gateways' => [], 'ipv6_ranges' => [], 'ipv6' => true]);
+        $this->agent->succeed('dns.status', ['installed' => true, 'configured' => true, 'running' => true, 'zones' => []]);
+        $sites = $this->app->container->get(WebsiteService::class);
+        $users = $this->app->container->get(UserRepository::class);
+        $admin = (array) $users->find((int) $this->db->scalar("SELECT id FROM users WHERE username = 'admin'"));
+        $id = $sites->create(['domain' => 'fresh.test', 'kind' => 'static'], $admin);
+        $row = $this->db->fetch('SELECT ipv4, ipv6 FROM websites WHERE id = ?', [$id]);
+        self::assertSame('203.0.113.10', $row['ipv4']);
+        self::assertSame('2001:db8::1', $row['ipv6']);
+        $zone = (int) $this->db->scalar("SELECT id FROM dns_zones WHERE name = 'fresh.test'");
+        self::assertGreaterThan(0, $zone, 'the zone was made');
+        $recs = array_map(static fn (array $r): string => $r['name'] . ' ' . $r['type'] . ' ' . $r['value'], $this->db->fetchAll('SELECT name, type, value FROM dns_records WHERE zone_id = ?', [$zone]));
+        self::assertContains('@ A 203.0.113.10', $recs);
+        self::assertContains('@ AAAA 2001:db8::1', $recs);
+    }
+
+    /** A new website's firewall (ModSecurity) is switched to "On (block attacks)" where it is usable. */
+    public function testNewWebsiteIsProtectedByDefault(): void
+    {
+        $this->agent->succeed('modsec.status', ['module_loaded' => true, 'active' => true, 'sites' => []]);
+        $this->agent->succeed('modsec.site', ['ok' => true]);
+        $sites = $this->app->container->get(WebsiteService::class);
+        $users = $this->app->container->get(UserRepository::class);
+        $admin = (array) $users->find((int) $this->db->scalar("SELECT id FROM users WHERE username = 'admin'"));
+        $sites->create(['domain' => 'safe.test', 'kind' => 'static'], $admin);
+        $call = $this->lastCall('modsec.site');
+        self::assertSame('safe.test', $call['domain'] ?? null);
+        self::assertSame('on', $call['mode'] ?? null);
+    }
+
     public function testPoolAddRebuildReserveDelete(): void
     {
         $this->login('admin');
