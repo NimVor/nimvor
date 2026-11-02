@@ -6,6 +6,15 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- **File Manager: double-clicking a file (or Edit) opens the editor in a new browser tab**, so the folder you were in stays where it is.
+- **Email authentication check explains a mismatch with your DNS zone.** The check asks the public DNS. When a record is missing or wrong there but this server's own name server has the right one, the result now says so (the domain's name servers at the registrar do not point here yet, or resolvers still cache the old answer) instead of leaving you to wonder why records that are in the zone "fail".
+
+### Fixed
+- **File editor: Tab with several lines selected replaced them with a tab character.** Tab now indents every selected line and Shift+Tab outdents them.
+- **File editor: undo and redo (Ctrl+Z, Ctrl+Y, Ctrl+Shift+Z) did nothing after loading or indenting**, because changing the text from script empties the browser's own history. The editor keeps its own undo history now.
+- **File editor: Ctrl+S could open the browser's "Save page" dialog.** The shortcut is caught before anything else sees it (and works with Cmd+S); the footer lists the keys.
+
 ## [1.1.3] — 2026-11-02
 
 Fix for 1.1.2 on Ubuntu 24.04: email.

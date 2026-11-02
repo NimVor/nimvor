@@ -30,7 +30,12 @@ type AuthResolver interface {
 // Replaced in tests.
 var (
 	authResolver AuthResolver = net.DefaultResolver
-	selectorRe                = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$`)
+	// localResolver asks this server's own name server (when it hosts the zone); nil in tests unless set.
+	localResolver AuthResolver = &net.Resolver{PreferGo: true, Dial: func(ctx context.Context, network, _ string) (net.Conn, error) {
+		var d net.Dialer
+		return d.DialContext(ctx, network, "127.0.0.1:53")
+	}}
+	selectorRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$`)
 )
 
 // Check results.
@@ -359,6 +364,48 @@ func registerAuthCheck(r *actions.Registry, e env) {
 		}
 		ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
 		defer cancel()
-		return map[string]any{"checks": CheckAuth(ctx, authResolver, in), "checked_at": e.Now().UTC()}, nil
+		checks := CheckAuth(ctx, authResolver, in)
+		return map[string]any{"checks": explainLocalDNS(ctx, localResolver, in, checks), "checked_at": e.Now().UTC()}, nil
 	}})
+}
+
+// explainLocalDNS answers "the records are in my DNS zone, so why does the check fail?": for each record the public
+// DNS does not return correctly, it asks this server's own name server. When that one has the right record, the zone is
+// fine and the difference is outside the server: the domain's name servers at the registrar do not point here yet, or
+// resolvers still hold the old answer. It only adds an explanation; no status changes.
+func explainLocalDNS(ctx context.Context, local AuthResolver, in AuthCheckInput, public []AuthCheck) []AuthCheck {
+	if local == nil {
+		return public
+	}
+	need := false
+	for _, c := range public {
+		if (c.ID == "mx" || c.ID == "spf" || c.ID == "dkim" || c.ID == "dmarc") && c.Status != CheckPass && c.Status != CheckInfo {
+			need = true
+		}
+	}
+	if !need {
+		return public
+	}
+	lctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	// Only when this server's name server answers for the domain at all.
+	if _, err := local.LookupTXT(lctx, in.Domain); err != nil {
+		var dnsErr *net.DNSError
+		if !errors.As(err, &dnsErr) || !dnsErr.IsNotFound {
+			return public
+		}
+	}
+	byID := map[string]AuthCheck{}
+	for _, c := range CheckAuth(lctx, local, in) {
+		byID[c.ID] = c
+	}
+	out := make([]AuthCheck, len(public))
+	for i, c := range public {
+		out[i] = c
+		l, ok := byID[c.ID]
+		if ok && c.Status != CheckPass && c.Status != CheckInfo && l.Status == CheckPass && (c.ID == "mx" || c.ID == "spf" || c.ID == "dkim" || c.ID == "dmarc") {
+			out[i].Detail = "This server's own DNS has the right record, but the public DNS does not return it. Either the domain's name servers at your registrar do not point to this server yet (check with: dig NS " + in.Domain + "), or resolvers still hold an old answer until its TTL runs out. " + c.Detail
+		}
+	}
+	return out
 }

@@ -25,7 +25,7 @@ $back = $this->url('sites.files', ['id' => $id], ['path' => $folder]);
         <span data-fe-pos>Ln 1, Col 1</span>
         <span data-fe-state class="ms-3"></span>
         <label class="form-check form-switch ms-auto mb-0"><input class="form-check-input" type="checkbox" data-fe-wrap> <span class="form-check-label">Wrap lines</span></label>
-        <span class="ms-3 text-body-secondary">Ctrl+S saves · Tab inserts a tab</span>
+        <span class="ms-3 text-body-secondary">Ctrl+S saves · Ctrl+Z / Ctrl+Y undo and redo · Tab indents, Shift+Tab outdents</span>
     </footer>
 </div>
 <?php $this->start(); ?><script src="<?= e($this->asset('assets/js/fileeditor.js')) ?>" defer></script><?php $this->end('scripts'); ?>

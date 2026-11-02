@@ -50,7 +50,7 @@
             mtime = f.mtime;
             text.disabled = false;
             info.textContent = fmt(f.size) + ' · modified ' + new Date(f.mtime).toLocaleString();
-            lines = 0; updateGutter(); updateState(); text.focus();
+            lines = 0; updateGutter(); updateState(); resetHistory(); text.focus();
         }).catch(function (err) { text.value = ''; fail(err); });
     }
     function save(close) {
@@ -66,20 +66,88 @@
         }).catch(function (err) { fail(err); updateState(); });
     }
 
-    text.addEventListener('input', function () { updateGutter(); updateState(); updatePos(); });
+    // ---- Undo and redo: our own history, because replacing the text from script (loading, indenting) empties the
+    // browser's, and so Ctrl+Z did nothing after those. Typing within half a second is one step.
+    var hist = [], hi = -1, lastAt = 0, restoring = false;
+    function snap() { return { v: text.value, s: text.selectionStart, e: text.selectionEnd }; }
+    function resetHistory() { hist = [snap()]; hi = 0; lastAt = 0; }
+    function record(merge) {
+        if (restoring) { return; }
+        var cur = snap();
+        if (hist[hi] && hist[hi].v === cur.v) { hist[hi].s = cur.s; hist[hi].e = cur.e; return; }
+        var now = Date.now();
+        hist.length = hi + 1;
+        if (merge && hi > 0 && now - lastAt < 500) { hist[hi] = cur; } else { hist.push(cur); hi++; if (hist.length > 500) { hist.shift(); hi--; } }
+        lastAt = now;
+    }
+    function jump(to) {
+        if (to < 0 || to >= hist.length) { return; }
+        hi = to; restoring = true;
+        var h = hist[hi];
+        text.value = h.v; text.setSelectionRange(h.s, h.e);
+        restoring = false;
+        updateGutter(); updateState(); updatePos();
+    }
+    // An edit made from script, as one undoable step.
+    function replace(from, to, str, selFrom, selTo) {
+        text.value = text.value.slice(0, from) + str + text.value.slice(to);
+        text.setSelectionRange(selFrom, selTo);
+        record(false); updateGutter(); updateState(); updatePos();
+    }
+    // Tab indents (every selected line when several are selected), Shift+Tab removes one level.
+    function indent(back) {
+        var v = text.value, s = text.selectionStart, e = text.selectionEnd;
+        var multi = v.slice(s, e).indexOf('\n') !== -1;
+        if (!back && !multi) { replace(s, e, '\t', s + 1, s + 1); return; }
+        var from = v.lastIndexOf('\n', s - 1) + 1;
+        var to = e;
+        if (e > s && v.charAt(e - 1) === '\n') { to = e - 1; }
+        var nl = v.indexOf('\n', to);
+        to = nl === -1 ? v.length : nl;
+        var lines = v.slice(from, to).split('\n'), first = 0, total = 0;
+        var out = lines.map(function (l, i) {
+            var r = l;
+            if (back) {
+                var m = /^(\t| {1,4})/.exec(l);
+                r = m ? l.slice(m[0].length) : l;
+            } else if (l !== '') {
+                r = '\t' + l;
+            }
+            if (i === 0) { first = r.length - l.length; }
+            total += r.length - l.length;
+            return r;
+        });
+        replace(from, to, out.join('\n'), Math.max(from, s + first), Math.max(from, e + total));
+    }
+
+    text.addEventListener('input', function () { record(true); updateGutter(); updateState(); updatePos(); });
+    // Undo and redo from the browser's menu go through our history too.
+    text.addEventListener('beforeinput', function (e) {
+        if (e.inputType === 'historyUndo') { e.preventDefault(); jump(hi - 1); }
+        if (e.inputType === 'historyRedo') { e.preventDefault(); jump(hi + 1); }
+    });
     text.addEventListener('scroll', function () { gutter.scrollTop = text.scrollTop; });
     ['click', 'keyup', 'select'].forEach(function (t) { text.addEventListener(t, updatePos); });
     text.addEventListener('keydown', function (e) {
-        if (e.key === 'Tab' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        var mod = e.ctrlKey || e.metaKey;
+        var k = (e.key || '').toLowerCase();
+        if (e.key === 'Tab' && !mod && !e.altKey) {
             e.preventDefault();
-            var s = text.selectionStart, en = text.selectionEnd;
-            text.setRangeText('\t', s, en, 'end');
-            text.dispatchEvent(new Event('input'));
+            indent(e.shiftKey);
+        } else if (mod && !e.altKey && (k === 'z' || e.code === 'KeyZ')) {
+            e.preventDefault();
+            jump(e.shiftKey ? hi + 1 : hi - 1);
+        } else if (mod && !e.altKey && !e.shiftKey && (k === 'y' || e.code === 'KeyY')) {
+            e.preventDefault();
+            jump(hi + 1);
         }
     });
-    document.addEventListener('keydown', function (e) {
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save(false); }
-    });
+    // Ctrl+S (Cmd+S) saves the file instead of the browser's "Save page"; caught before anything else sees it.
+    window.addEventListener('keydown', function (e) {
+        if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && ((e.key || '').toLowerCase() === 's' || e.code === 'KeyS' || e.keyCode === 83)) {
+            e.preventDefault(); e.stopPropagation(); save(false);
+        }
+    }, true);
     saveBtn.addEventListener('click', function () { save(false); });
     saveClose.addEventListener('click', function () { save(true); });
     document.querySelector('[data-fe-reload]').addEventListener('click', function () {
