@@ -103,6 +103,26 @@ final class ServerSetupTest extends HttpTestCase
         return $out;
     }
 
+    /** The wizard never removes anything, so it must not fail because a PHP plan wants to: it keeps whatever the plan would remove. */
+    public function testPhpStepNeverFailsOnRemovals(): void
+    {
+        $this->agent->succeed('php.profile_plan', ['changes' => true, 'removals' => true, 'items' => [
+            ['action' => 'remove', 'version' => '8.2', 'detail' => 'not in the profile'],
+            ['action' => 'remove', 'version' => '8.3', 'extension' => 'xdebug'],
+            ['action' => 'install', 'version' => '8.4'],
+        ]]);
+        $res = $this->service()->run('full', ['hostname' => 'server.example.com'], static function (string $l): void {
+        });
+        $st = self::byStep($res);
+        self::assertNotSame('fail', $st['php'], json_encode($res));
+        self::assertSame('skip', $st['php']);
+        self::assertStringContainsString('left as it is', self::byStepDetail($res, 'php'));
+        // What the plan wanted to remove was added to the profile, so it would stay.
+        $last = $this->lastCall('php.profile_plan');
+        self::assertContains('8.2', $last['versions']);
+        self::assertContains('xdebug', $last['extensions']);
+    }
+
     public function testFullProfileSetsUpEveryPart(): void
     {
         $lines = [];

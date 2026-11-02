@@ -418,6 +418,55 @@ final class IpService
         return ['dns_records' => $changed];
     }
 
+    /**
+     * The addresses a new website is bound to: the "Default IPv4" setting when it is in the pool, else the
+     * first shared, unreserved IPv4 of the pool; and the first shared, unreserved IPv6.
+     *
+     * @return array{0: string, 1: string}
+     */
+    public function defaultAddresses(): array
+    {
+        $v4 = '';
+        $v6 = '';
+        $default = IpService::canonical(trim($this->settings->string('dns_default_ipv4')));
+        foreach ($this->db->fetchAll("SELECT address, family FROM ip_addresses WHERE server_id = ? AND kind = 'shared' AND reserved = 0 ORDER BY family, id", [$this->sid()]) as $r) {
+            if ((int) $r['family'] === 4 && ($v4 === '' || (string) $r['address'] === $default)) {
+                $v4 = (string) $r['address'];
+            } elseif ((int) $r['family'] === 6 && $v6 === '') {
+                $v6 = (string) $r['address'];
+            }
+        }
+        return [$v4, $v6];
+    }
+
+    /**
+     * Binds a new website to the default addresses and adds its A and AAAA records (when its zone is hosted
+     * here). Subdomains and addon domains follow their parent; a website that is already bound is left alone;
+     * nothing is done when the pool has no suitable address or the server cannot be reached.
+     *
+     * @param array<string, mixed> $site
+     */
+    public function assignNewSite(array $site): void
+    {
+        if (!empty($site['parent_id'])) {
+            return;
+        }
+        try {
+            $this->ensurePool();
+            $fresh = $this->repo->find((int) $site['server_id'], (int) $site['id'], null) ?? $site;
+            if (!empty($fresh['ipv4']) || !empty($fresh['ipv6'])) {
+                return;
+            }
+            [$v4, $v6] = $this->defaultAddresses();
+            if ($v4 === '' && $v6 === '') {
+                return;
+            }
+            $this->assign($fresh, $v4, $v6, true);
+        } catch (\Throwable) {
+            // The website exists and answers on every address; the addresses can be set on its Advanced page.
+        }
+    }
+
     // ---- migration wizard -----------------------------------------------------------
 
     /**

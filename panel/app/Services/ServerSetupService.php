@@ -477,6 +477,28 @@ final class ServerSetupService
         $exts = array_values(array_unique($exts));
         $profileData = ['versions' => $versions, 'extensions' => $exts];
         $plan = (array) $this->agent->call('php.profile_plan', $profileData, 120);
+        // The wizard never removes anything: whatever the plan would remove (a PHP version with no PHP-FPM, an
+        // extension that is on for one version only) is added to the profile, so it stays.
+        for ($round = 0; $round < 3 && !empty($plan['removals']); $round++) {
+            foreach ((array) ($plan['items'] ?? []) as $it) {
+                if (($it['action'] ?? '') !== 'remove') {
+                    continue;
+                }
+                if (($it['extension'] ?? '') !== '') {
+                    $exts[] = (string) $it['extension'];
+                } elseif (($it['version'] ?? '') !== '') {
+                    $versions[] = (string) $it['version'];
+                }
+            }
+            $versions = array_values(array_unique($versions));
+            usort($versions, 'version_compare');
+            $exts = array_values(array_unique($exts));
+            $profileData = ['versions' => $versions, 'extensions' => $exts];
+            $plan = (array) $this->agent->call('php.profile_plan', $profileData, 120);
+        }
+        if (!empty($plan['removals'])) {
+            return ['skip', 'The PHP set-up would remove something that is installed, so it was left as it is. Review it in the PHP Manager.'];
+        }
         if (!empty($plan['changes']) && $this->resumed) {
             // Applied, yet still different: applying again would not help.
             return ['fail', 'Applied, but still to do: ' . self::pending($plan) . '. See the job log; the PHP Manager shows the same review.'];
