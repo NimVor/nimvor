@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.1.3] — 2026-11-02
+
+Fix for 1.1.2 on Ubuntu 24.04: email.
+
 ### Fixed
 - **Hosting email, the spam filter, webmail and greylisting failed on Ubuntu 24.04 with "The mail server did not reload; the previous settings were restored. postsuper: fatal: setuid(114): Operation not permitted".** 1.1.1 fixed `postfix check` only; `postfix reload` (and `start` and `flush`) switch to the postfix user in the same way, so they now also run as root in a transient unit without `NoNewPrivileges`, the way `sudo postfix reload` would. Nothing else about Postfix commands changes.
 
