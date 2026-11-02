@@ -79,11 +79,19 @@ var PrivilegedCapabilities = map[string]bool{"CAP_SYS_ADMIN": true, "CAP_DAC_REA
 
 // unconfinedCommands switch to another user themselves, which the agent's own sandbox cannot allow: on
 // Ubuntu 24.04 (systemd 255) a service with NoNewPrivileges=yes never holds CAP_SETUID, not even in a
-// transient unit of its own, so "postfix check" failed with "postsuper: fatal: setuid(114): Operation not
-// permitted". Like a package transaction (packages.go) it runs as root in a transient unit started by PID 1,
-// without NoNewPrivileges, as "sudo postfix check" would. Only this exact command.
+// transient unit of its own, so "postfix check" and "postfix reload" (which checks first) failed with
+// "postsuper: fatal: setuid(114): Operation not permitted". Like a package transaction (packages.go) they run
+// as root in a transient unit started by PID 1, without NoNewPrivileges, as "sudo postfix reload" would. Only
+// these exact commands: postfix with one of the arguments below, nothing else.
 func unconfined(id string, args []string) bool {
-	return id == "postfix" && len(args) == 1 && args[0] == "check"
+	if id != "postfix" || len(args) != 1 {
+		return false
+	}
+	switch args[0] {
+	case "check", "reload", "start", "flush":
+		return true
+	}
+	return false
 }
 
 // SysctlFile is the only file sysctl may load with added capabilities

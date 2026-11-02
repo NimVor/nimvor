@@ -189,13 +189,15 @@ func TestAllowlistedCommandInstalledLater(t *testing.T) {
 // "postfix check" switches to the postfix user, which the agent's own sandbox cannot allow on Ubuntu 24.04: it
 // always runs as root in an unconfined transient unit, and nothing else about postfix (or anything else) does.
 func TestPostfixCheckRunsUnconfined(t *testing.T) {
-	if !unconfined("postfix", []string{"check"}) {
-		t.Fatal("postfix check is not unconfined")
+	for _, a := range []string{"check", "reload", "start", "flush"} {
+		if !unconfined("postfix", []string{a}) {
+			t.Fatalf("postfix %s is not unconfined", a)
+		}
 	}
 	for _, c := range []struct {
 		id   string
 		args []string
-	}{{"postfix", []string{"reload"}}, {"postfix", []string{"start"}}, {"postfix", []string{"check", "-v"}}, {"postfix", nil}, {"postsuper", []string{"check"}}, {"nginx", []string{"check"}}} {
+	}{{"postfix", []string{"stop"}}, {"postfix", []string{"status"}}, {"postfix", []string{"reload", "-v"}}, {"postfix", []string{"check", "-v"}}, {"postfix", nil}, {"postsuper", []string{"check"}}, {"nginx", []string{"check"}}} {
 		if unconfined(c.id, c.args) {
 			t.Errorf("%s %v must not be unconfined", c.id, c.args)
 		}
