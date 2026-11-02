@@ -67,6 +67,9 @@ pass "signed in as the administrator"
 old=$(php -r '$d = new PDO("sqlite:/var/lib/nimvor/nimvor.sqlite"); $s = $d->prepare("SELECT id FROM websites WHERE domain = ?"); $s->execute([$argv[1]]); echo (string) $s->fetchColumn();' "$DOMAIN" 2>/dev/null || true)
 if [[ -n $old ]]; then remove_site "$old"; fi
 
+# A new website is bound to the server's default address, so Nginx answers for it on that address.
+WEBIP=$(hostname -I | awk '{print $1}')
+
 # Website (the system's PHP version, set by CI; default 8.3; new account).
 PHPV=${NIMVOR_TEST_PHP:-$(cat /etc/nimvor-ci-php 2>/dev/null || echo 8.3)}
 loc=$(post /websites/new "domain=$DOMAIN" kind=php php_version=$PHPV aliases= redirects= client_max_body_mb=64)
@@ -77,7 +80,7 @@ waitfor 30 "website files" test -d "$ROOT/public_html"
 OWNER=$(stat -c %U "$ROOT/public_html")
 echo '<?php echo "e2e-ok-" . PHP_VERSION;' > "$ROOT/public_html/index.php"
 chown "$OWNER:$(stat -c %G "$ROOT/public_html")" "$ROOT/public_html/index.php"
-waitfor 20 "PHP page served" sh -c "curl --noproxy '*' -fsS -H 'Host: $DOMAIN' http://127.0.0.1/index.php | grep -q '^e2e-ok-$PHPV'"
+waitfor 20 "PHP page served" sh -c "curl --noproxy '*' -fsS -H 'Host: $DOMAIN' http://$WEBIP/index.php | grep -q '^e2e-ok-$PHPV'"
 pass "website $DOMAIN created and served by Nginx + PHP-FPM $PHPV (account $OWNER)"
 
 # Database linked to the website.
@@ -92,8 +95,6 @@ pass "database $DB created"
 openssl req -x509 -newkey rsa:2048 -nodes -days 30 -subj "/CN=$DOMAIN" -addext "subjectAltName=DNS:$DOMAIN" -keyout "$J/key.pem" -out "$J/cert.pem" 2>/dev/null
 CSRF_FROM=/sites/$SITE/ssl
 post "/sites/$SITE/ssl/custom" "certificate=$(cat "$J/cert.pem")" "private_key=$(cat "$J/key.pem")" chain= >/dev/null
-# A new website is bound to the server's default address, so Nginx listens for it on that address.
-WEBIP=$(hostname -I | awk '{print $1}')
 waitfor 20 "HTTPS served" sh -c "curl --noproxy '*' -ksS --resolve $DOMAIN:443:$WEBIP https://$DOMAIN/index.php | grep -q '^e2e-ok-'"
 nginx -t 2>/dev/null || fail "nginx -t after the certificate"
 pass "certificate installed, HTTPS served, nginx -t passes"
@@ -119,7 +120,7 @@ mysql -e "UPDATE \`$DB\`.t SET v = 'damaged';"
 post "/sites/$SITE/backups/$BACKUP/restore" restore_files=1 "restore_databases[]=$DB" "confirm_domain=$DOMAIN" >/dev/null
 waitfor 120 "files restored" test -f "$ROOT/public_html/index.php"
 waitfor 60 "database restored" sh -c "[ \"\$(mysql -N -e 'SELECT v FROM \`$DB\`.t')\" = before-backup ]"
-waitfor 20 "restored site served" sh -c "curl --noproxy '*' -fsS -H 'Host: $DOMAIN' http://127.0.0.1/index.php | grep -q '^e2e-ok-'"
+waitfor 20 "restored site served" sh -c "curl --noproxy '*' -fsS -H 'Host: $DOMAIN' http://$WEBIP/index.php | grep -q '^e2e-ok-'"
 pass "restore brought back the file and the database row; the site is served"
 
 # Cron "run now": the command runs as the website's account, with no
