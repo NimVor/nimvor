@@ -362,6 +362,21 @@ final class BackupsTest extends HttpTestCase
         self::assertSame(2, $this->calls('backup.delete'));
     }
 
+    /** Backups started by hand are deleted after the configured days; scheduled and recent ones stay. */
+    public function testManualBackupsExpireAfterConfiguredDays(): void
+    {
+        $this->db->run("INSERT INTO backups (website_id, schedule_id, kind, domain, backup_id, status, created_at) VALUES (?, NULL, 'site', 'shop.test', '20200101T030000Z-aaaaaa', 'completed', ?)", [$this->siteId, gmdate('c', time() - 40 * 86400)]);
+        $this->db->run("INSERT INTO backups (website_id, schedule_id, kind, domain, backup_id, status, created_at) VALUES (?, NULL, 'site', 'shop.test', '20200102T030000Z-bbbbbb', 'completed', ?)", [$this->siteId, gmdate('c', time() - 2 * 86400)]);
+        $this->agent->succeed('backup.delete', ['deleted' => 'x']);
+        $scheduler = $this->app->container->get(BackupScheduler::class);
+        $scheduler->prune();
+        self::assertSame(0, $this->calls('backup.delete'), 'off by default: nothing is deleted');
+        $this->app->container->get(\NimVor\Services\SettingsService::class)->update(['manual_backup_retention_days' => '30'], null);
+        $scheduler->prune();
+        self::assertSame(1, $this->calls('backup.delete'));
+        self::assertSame(1, (int) $this->db->scalar("SELECT COUNT(*) FROM backups WHERE backup_id = '20200102T030000Z-bbbbbb'"));
+    }
+
     public function testEveryWebsiteScheduleBacksUpEachWebsiteAFewAtATime(): void
     {
         $tz = new \DateTimeZone('UTC');

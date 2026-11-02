@@ -81,6 +81,20 @@ final class IpTest extends HttpTestCase
         self::assertContains('@ AAAA 2001:db8::1', $recs);
     }
 
+    /** A new website's firewall (ModSecurity) is switched to "On (block attacks)" where it is usable. */
+    public function testNewWebsiteIsProtectedByDefault(): void
+    {
+        $this->agent->succeed('modsec.status', ['module_loaded' => true, 'active' => true, 'sites' => []]);
+        $this->agent->succeed('modsec.site', ['ok' => true]);
+        $sites = $this->app->container->get(WebsiteService::class);
+        $users = $this->app->container->get(UserRepository::class);
+        $admin = (array) $users->find((int) $this->db->scalar("SELECT id FROM users WHERE username = 'admin'"));
+        $sites->create(['domain' => 'safe.test', 'kind' => 'static'], $admin);
+        $call = $this->lastCall('modsec.site');
+        self::assertSame('safe.test', $call['domain'] ?? null);
+        self::assertSame('on', $call['mode'] ?? null);
+    }
+
     public function testPoolAddRebuildReserveDelete(): void
     {
         $this->login('admin');

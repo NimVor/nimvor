@@ -365,6 +365,14 @@ final class SettingsService
                 'category' => 'general', 'type' => 'int', 'default' => 30, 'min' => 0, 'max' => 365,
                 'label' => 'File Manager trash: keep deleted files (days)', 'help' => 'Files deleted in the File Manager can be restored from its Trash for this many days, then they are deleted for good. 0 keeps them until the trash is emptied.',
             ],
+            'deleted_trash_retention_days' => [
+                'category' => 'general', 'type' => 'int', 'default' => 30, 'min' => 0, 'max' => 3650,
+                'label' => 'Deleted websites and mailboxes: keep them (days)', 'help' => 'When a website (account) or a mailbox is deleted, its files are kept in a root-only trash on the server for this many days, then deleted for good. 0 keeps them until you remove them.',
+            ],
+            'manual_backup_retention_days' => [
+                'category' => 'general', 'type' => 'int', 'default' => 0, 'min' => 0, 'max' => 3650,
+                'label' => 'Backups made by users: delete after (days)', 'help' => 'Backups that were started by hand (not by a schedule, which has its own retention) are deleted this many days after they were made. 0 keeps them until deleted.',
+            ],
             'ssl_warning_days' => [
                 'category' => 'ssl', 'type' => 'int', 'default' => 14, 'min' => 1, 'max' => 90,
                 'label' => 'Certificate warning threshold (days)', 'help' => 'Certificates expiring within this many days are highlighted.',

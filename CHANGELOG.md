@@ -14,6 +14,15 @@ All notable changes to NimVor are documented here. The format follows
 - **Nginx tuning failed with "The tuning made the Nginx configuration invalid".** Nginx refuses a directive set twice in the http block, and Debian and Ubuntu's own `nginx.conf` already sets `gzip on;`. The tuning now comments out the lines of the http block it manages in the same change, and the real `nginx -t` output is shown when a tuning is refused.
 - **A zone whose name servers are inside it (ns1.example.com for example.com) could not be created**: `named-checkzone` refused it with "NS has no address records", which also stopped the zone a new website gets. The zone now gets address records for those name servers (the "Default IPv4" setting, or else the server's public address).
 - **The IP address pool is filled when the IP addresses page (or a website's Advanced page) is first opened**, so "Rebuild pool" no longer has to be pressed after an installation.
+- **Setup wizard: "PHP versions and extensions - Failed - confirm the removals".** Removals the wizard's selection implies are accepted, so the step finishes (with a note of what was left alone).
+- **Every new website gets its IP addresses and DNS records automatically**: bound to the pool's default IPv4/IPv6 addresses, with their A and AAAA records in its zone.
+- **"Repair permissions" no longer flags a new website's log files** (`access.log`, `error.log`, `php-slow.log`), which the web server and PHP-FPM legitimately own.
+- **Critical: a website's database users were listed on the other websites' database pages of the same customer.** Users now belong to the website they were created for (existing ones are assigned from their grants), and each website's page lists only its own.
+- **A new website's firewall starts as "On (block attacks)"** (ModSecurity) wherever it XX
+
+### Added
+- **Settings: "Deleted websites and mailboxes: keep them (days)"** (default 30; 0 keeps them). Files kept in the server's trash when a website/account or mailbox is deleted are deleted for good after that many days (daily, by the scheduler; new agent action `files.deleted_trash_purge`, confined to the trash folders and judged by the time in each entry's name).
+- **Settings: "Backups made by users: delete after (days)"** (default 0 = keep). Backups started by hand (not by a schedule) are deleted that many days after they were made.
 
 ### Changed
 - The PHP Manager page now tells you where the ionCube Loader is switched on (it is set up per PHP version, so it is on each version's own Extensions tab) and links to every installed version.

@@ -200,6 +200,25 @@ final class ModSecurityService
         $this->audit->record('modsec.site', 'website', (string) $site['id'], AuditLogger::SUCCESS, $params, $userId);
     }
 
+    /**
+     * A new website starts protected: "On (block attacks)", where ModSecurity is usable on the server. Where it
+     * is not (not installed, not loaded) nothing is changed; the owner can switch it on later.
+     *
+     * @param array<string, mixed> $site
+     */
+    public function protectNewSite(array $site): void
+    {
+        try {
+            $status = $this->status();
+            if (($status['module_loaded'] ?? false) !== true || ($status['active'] ?? false) !== true) {
+                return;
+            }
+            $this->setSite($site, 'on', null, null, false, (int) ($site['owner_id'] ?? 0));
+        } catch (\Throwable) {
+            // Protection is a default, never a reason for the website not to be created.
+        }
+    }
+
     /** Parse "942100, 941100 920350" into IDs. @return list<int> */
     public static function parseIds(string $text): array
     {
