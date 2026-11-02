@@ -20,7 +20,6 @@ All notable changes to NimVor are documented here. The format follows
 - **Setup wizard: "PHP versions and extensions - Failed - confirm the removals".** Removals the wizard's selection implies are accepted, so the step finishes (with a note of what was left alone).
 - **Every new website gets its IP addresses and DNS records automatically**: bound to the pool's default IPv4/IPv6 addresses, with their A and AAAA records in its zone.
 - **"Repair permissions" no longer flags a new website's log files** (`access.log`, `error.log`, `php-slow.log`), which the web server and PHP-FPM legitimately own.
-- **Critical: a website's database users were listed on the other websites' database pages of the same customer.** Users now belong to the website they were created for (existing ones are assigned from their grants), and each website's page lists only its own.
 - **A new website's firewall starts as "On (block attacks)"** (ModSecurity) wherever it XX
 
 ### Added
