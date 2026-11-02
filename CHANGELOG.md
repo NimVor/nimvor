@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.1.4] — 2026-11-02
+
+The file editor and the email DNS check.
+
 ### Changed
 - **File Manager: double-clicking a file (or Edit) opens the editor in a new browser tab**, so the folder you were in stays where it is.
 - **Email authentication check explains a mismatch with your DNS zone.** The check asks the public DNS. When a record is missing or wrong there but this server's own name server has the right one, the result now says so (the domain's name servers at the registrar do not point here yet, or resolvers still cache the old answer) instead of leaving you to wonder why records that are in the zone "fail".
