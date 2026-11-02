@@ -56,6 +56,7 @@ type PermReport struct {
 // permRules decides what an entry should be.
 type permRules struct {
 	uid, gid, webGID int
+	webUID           int    // the web server's account (0 when unknown)
 	docRel           string // document root relative to the website folder ("" when it is the folder)
 }
 
@@ -66,11 +67,15 @@ func (r permRules) inDocroot(rel string) bool {
 // want returns the owner, group and mode an entry should have and why.
 func (r permRules) want(rel string, dir bool, st syscall.Stat_t) (uid, gid int, mode uint32, problems []string) {
 	uid, gid, mode = int(st.Uid), int(st.Gid), st.Mode&0o7777
-	if uid != r.uid {
+	// The log files in logs/ are made and written by the web server and PHP-FPM (root or the web server's
+	// account), and made again that way when they rotate: they are not the account's to own, so who owns them
+	// is not a problem (everything else about them still is).
+	serviceLog := (rel == "logs" || strings.HasPrefix(rel, "logs/")) && (uid == 0 || (r.webUID != 0 && uid == r.webUID))
+	if uid != r.uid && !serviceLog {
 		problems = append(problems, ProbOwner)
 		uid = r.uid
 	}
-	if gid != r.gid && gid != r.webGID {
+	if gid != r.gid && gid != r.webGID && !serviceLog {
 		problems = append(problems, ProbGroup)
 		gid = r.gid
 		if r.inDocroot(rel) {
@@ -216,7 +221,7 @@ func (m *Manager) registerRepair(r *actions.Registry) {
 		if e.Cfg.SimulateCommands {
 			return PermReport{Counts: map[string]int{}, Sample: []PermIssue{}, DryRun: in.DryRun}, nil
 		}
-		rep, err := RepairPermissions(rfd, in.Domain, permRules{uid: u.UID, gid: u.GID, webGID: web.GID, docRel: docRel}, in.DryRun)
+		rep, err := RepairPermissions(rfd, in.Domain, permRules{uid: u.UID, gid: u.GID, webGID: web.GID, webUID: web.UID, docRel: docRel}, in.DryRun)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				return nil, actions.NotFound("The website folder does not exist.")
