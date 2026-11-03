@@ -72,6 +72,9 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		"/etc/nimvor/mongo-admin.uri",
 		// PostgreSQL provisioning role (pgmgr): root-only.
 		"/etc/nimvor/pg-admin.json",
+		// Nginx's page cache of PHP websites (sites): owned by the web server's account.
+		"/var/cache/nimvor",
+		"/var/cache/nimvor/**",
 		m.SSHDropIn,
 		// Ubuntu 22.10+: sshd is started by ssh.socket, which decides the port.
 		filepath.Join(m.UnitDir, "ssh.socket.d"),

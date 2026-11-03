@@ -156,7 +156,9 @@ func body(b *strings.Builder, s Spec, l Layout) {
 		b.WriteString("    location / {\n        try_files $uri $uri/ /index.php?$query_string;\n    }\n")
 		b.WriteString("    location ~ \\.php$ {\n        try_files $uri =404;\n        fastcgi_split_path_info ^(.+\\.php)(/.+)$;\n        include fastcgi_params;\n")
 		b.WriteString("        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;\n        fastcgi_param PATH_INFO $fastcgi_path_info;\n")
-		fmt.Fprintf(b, "        fastcgi_pass unix:%s;\n        fastcgi_read_timeout %ds;\n    }\n", l.Socket, s.PHP.MaxExecSeconds+10)
+		fmt.Fprintf(b, "        fastcgi_pass unix:%s;\n        fastcgi_read_timeout %ds;\n", l.Socket, s.PHP.MaxExecSeconds+10)
+		b.WriteString(pageCacheLocation(s))
+		b.WriteString("    }\n")
 	case "static":
 		b.WriteString("    location / {\n        try_files $uri $uri/ =404;\n    }\n")
 	case "proxy":

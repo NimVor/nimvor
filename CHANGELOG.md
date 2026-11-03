@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Page cache for PHP websites.** On a website's *Headers & cache → Cache rules* tab, Nginx can keep finished pages and serve them without running PHP (`fastcgi_cache`), for 1 minute to 1 day, with an **Empty the page cache** button. Only plain public pages are cached: sign-in, administration, accounts, carts, checkouts and API paths, requests with an `Authorization` header or a session or sign-in cookie, non-GET requests, addresses with a query string or `%`-encoded characters, and responses that set a cookie or are marked private are never stored, and the server's security headers are kept on cached pages. Each website has its own cache folder and zone (256 MB, owned by the web server's account) and the host name is part of the key. New agent action `sites.page_cache_purge`; the policy is part of `sites.apply` (`cache.page_cache`). Tested against a real Nginx. Browser cache headers (static-file expiry, page Cache-Control) already existed on the same tab.
+
 ## [1.2.1] — 2026-11-03
 
 Hotfix for PostgreSQL's set-up.
