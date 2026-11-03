@@ -1137,6 +1137,31 @@ is present but not loaded with a throwaway configuration. The same applies
 to the Brotli module and to programs such as FFmpeg on the Packages page;
 a package is never installed for something that already works.
 
+**Brotli compression.** Brotli is **on by default**, for the whole server and
+for every website, and works while the Nginx Brotli module is loaded
+(Packages → “Brotli compression for Nginx”; Ubuntu 22.04 does not offer the
+package). Browsers that send `Accept-Encoding: br` then get Brotli (level 5, the
+same content types as gzip, `text/html` always); other browsers still get gzip,
+and images or other already-compressed files are left alone.
+
+* **Server-wide:** Server → Nginx → Tuning has the *Brotli compression* switch
+  next to gzip. The directives are part of the managed `conf.d` drop-in,
+  validated with `nginx -t` and rolled back if invalid. Without the module
+  nothing about Brotli is written (Nginx stays valid) and the page says it is not
+  active yet. After installing the module, press *Apply* on that page once to
+  start using it.
+* **Per website:** *Headers & cache → Cache rules* has a *Brotli compression*
+  switch, on by default. Turning it off writes `brotli off;` in that website's
+  server block (only while the module is loaded), so one website can opt out
+  while the others keep Brotli. It never turns Brotli on when the server-wide
+  switch is off.
+* If the module is later removed from the server by hand while Brotli is in the
+  configuration, Nginx refuses to start or reload: the Nginx page warns about it,
+  and turning Brotli off there (and pressing *Apply*) repairs it.
+
+Verify with `curl -sI -H 'Accept-Encoding: br' https://example.com/style.css`
+(look for `content-encoding: br`).
+
 **Install ModSecurity** (one background job, one transaction):
 
 1. Detects the OS, Nginx and an existing connector. A working connector is

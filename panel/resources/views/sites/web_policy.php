@@ -28,6 +28,7 @@ $pc = (array) $c['page_cache'];
 $pageOn = $redo ? (string) ($old['page_cache'] ?? '0') === '1' : !empty($pc['enabled']);
 $pageTtl = (int) $hv('page_cache_ttl', (int) $pc['ttl']);
 $isPhp = ($site['kind'] ?? 'php') === 'php';
+$brotliOn = $redo ? (string) ($old['brotli'] ?? '1') === '1' : ($c['brotli'] ?? true) !== false;
 ?>
 <?= $this->partial('sites/header', ['site' => $site, 'tab' => 'headers']) ?>
 
@@ -128,6 +129,15 @@ $isPhp = ($site['kind'] ?? 'php') === 'php';
         <?= $this->csrfField() ?>
         <div class="card-header">Cache rules</div>
         <div class="card-body">
+            <div class="mb-4 border rounded p-3">
+                <div class="form-check form-switch mb-1">
+                    <input type="hidden" name="brotli" value="0">
+                    <input class="form-check-input" type="checkbox" role="switch" id="wp-brotli" name="brotli" value="1"<?= $brotliOn ? ' checked' : '' ?>>
+                    <label class="form-check-label fw-medium" for="wp-brotli">Brotli compression</label>
+                </div>
+                <div class="form-text">On by default. Browsers that support Brotli get smaller pages, styles and scripts than with gzip; the others still get gzip. It works while the server's Brotli setting is on and its Nginx module is installed (Server → Nginx). Turn it off here only if this website has a problem with it.</div>
+            </div>
+
             <?php if ($isPhp): ?>
             <div class="mb-4 border rounded p-3">
                 <div class="form-check form-switch mb-2">

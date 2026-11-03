@@ -49,6 +49,17 @@ $canReload = $this->can(P::SERVICES_MANAGE);
                 <div class="col-sm-6 col-lg-3"><?= $this->partial('partials/field', ['name' => 'send_timeout', 'label' => 'Send timeout (s)', 'type' => 'number', 'value' => (string) $tuning['send_timeout'], 'attrs' => ['min' => '1', 'max' => '3600', 'disabled' => $canManage ? null : 'disabled']]) ?></div>
             </div>
             <div class="form-check form-switch mt-2"><input type="hidden" name="gzip" value="0"><input class="form-check-input" type="checkbox" role="switch" id="ng-gzip" name="gzip" value="1"<?= $tuning['gzip'] ? ' checked' : '' ?><?= $canManage ? '' : ' disabled' ?>><label class="form-check-label" for="ng-gzip">Gzip compression</label></div>
+            <?php $bs = (string) ($status['brotli']['state'] ?? 'missing'); $bOk = $bs === 'functional'; $bCfg = !empty($status['brotli']['in_config']); ?>
+            <div class="form-check form-switch"><input type="hidden" name="brotli" value="0"><input class="form-check-input" type="checkbox" role="switch" id="ng-brotli" name="brotli" value="1"<?= $tuning['brotli'] ? ' checked' : '' ?><?= $canManage ? '' : ' disabled' ?>><label class="form-check-label" for="ng-brotli">Brotli compression <span class="text-body-secondary">(smaller pages than gzip for browsers that support it; gzip stays for the others; a website can turn it off on its Headers &amp; cache page)</span></label></div>
+            <?php if ($bCfg && !$bOk): ?>
+                <div class="form-text ms-5 mb-1 text-warning"><i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>Brotli is in the Nginx configuration but its module is not loaded, so Nginx will refuse to start or reload. Install the module on the <a href="<?= e($this->url('packages')) ?>">Packages</a> page, or turn Brotli off here and press Apply.</div>
+            <?php elseif ($tuning['brotli'] && !$bOk): ?>
+                <div class="form-text ms-5 mb-1">Turned on, but not active yet: the Nginx Brotli module is <?= $bs === 'installed' ? 'installed but not loaded' : 'not installed' ?>. Install it on the <a href="<?= e($this->url('packages')) ?>">Packages</a> page (“Brotli compression for Nginx”), then press Apply.</div>
+            <?php elseif ($tuning['brotli'] && $bOk && !$bCfg): ?>
+                <div class="form-text ms-5 mb-1">The module is installed. Press Apply to start using Brotli.</div>
+            <?php elseif ($tuning['brotli'] && $bOk): ?>
+                <div class="form-text ms-5 mb-1 text-success"><i class="bi bi-check-circle me-1" aria-hidden="true"></i>Active.</div>
+            <?php endif; ?>
             <div class="form-check form-switch"><input type="hidden" name="hide_version" value="0"><input class="form-check-input" type="checkbox" role="switch" id="ng-tok" name="hide_version" value="1"<?= $tuning['hide_version'] ? ' checked' : '' ?><?= $canManage ? '' : ' disabled' ?>><label class="form-check-label" for="ng-tok">Hide Nginx version (server_tokens off)</label></div>
             <?php if ($canManage): ?><button class="btn btn-primary btn-sm mt-3" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Apply</button><?php endif; ?>
         </form>

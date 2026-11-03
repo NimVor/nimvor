@@ -17,6 +17,7 @@ import (
 
 	"github.com/NimVor/nimvor/agent/internal/actions"
 	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/capability"
 	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
@@ -34,8 +35,15 @@ type Tuning struct {
 	ClientBodyTimeout int  `json:"client_body_timeout"` // seconds
 	SendTimeout       int  `json:"send_timeout"`        // seconds
 	Gzip              bool `json:"gzip"`
-	HideVersion       bool `json:"hide_version"` // server_tokens off
+	// Brotli asks for Brotli compression for every website (gzip stays for clients without it). It takes effect
+	// while the Nginx Brotli module is loaded; without the module nothing is written, so the setting can be on
+	// by default on every server.
+	Brotli      bool `json:"brotli"`
+	HideVersion bool `json:"hide_version"` // server_tokens off
 }
+
+// compressedTypes are the content types compressed besides text/html, which is always compressed.
+const compressedTypes = "text/plain text/css application/json application/javascript application/x-javascript text/xml application/xml application/rss+xml image/svg+xml"
 
 func (t Tuning) validate() error {
 	if t.ClientMaxBodyMB < 1 || t.ClientMaxBodyMB > 4096 {
@@ -52,7 +60,7 @@ func (t Tuning) validate() error {
 	return nil
 }
 
-func (t Tuning) conf() string {
+func (t Tuning) conf(brotliLoaded bool) string {
 	var b strings.Builder
 	b.WriteString("# Managed by NimVor (Server → Nginx). Do not edit.\n")
 	fmt.Fprintf(&b, "client_max_body_size %dm;\n", t.ClientMaxBodyMB)
@@ -66,9 +74,15 @@ func (t Tuning) conf() string {
 	}
 	if t.Gzip {
 		b.WriteString("gzip on;\ngzip_vary on;\ngzip_proxied any;\ngzip_comp_level 5;\n")
-		b.WriteString("gzip_types text/plain text/css application/json application/javascript application/x-javascript text/xml application/xml application/rss+xml image/svg+xml;\n")
+		b.WriteString("gzip_types " + compressedTypes + ";\n")
 	} else {
 		b.WriteString("gzip off;\n")
+	}
+	// Nothing is written when Brotli is off or the module is missing: "brotli on;" and "brotli off;" are unknown
+	// directives without the module, so the file stays valid whether or not it is installed.
+	if t.Brotli && brotliLoaded {
+		b.WriteString("brotli on;\nbrotli_comp_level 5;\n")
+		b.WriteString("brotli_types " + compressedTypes + ";\n")
 	}
 	return b.String()
 }
@@ -94,6 +108,13 @@ func Register(r *actions.Registry, env *host.Env) {
 		} else {
 			out["config_ok"] = true
 		}
+		br := capability.Modules(ctx, env, false)[capability.Brotli.ID]
+		// in_config: the managed file turns Brotli on (so a missing module would break Nginx).
+		inConfig := false
+		if b, err := env.Root.ReadFile(confPath); err == nil {
+			inConfig = strings.Contains(string(b), "\nbrotli on;")
+		}
+		out["brotli"] = map[string]any{"state": br.State, "reason": br.Reason, "in_config": inConfig}
 		return out, nil
 	}})
 
@@ -131,8 +152,10 @@ func Register(r *actions.Registry, env *host.Env) {
 		if !installed(env) {
 			return nil, actions.Conflict("Nginx is not installed.")
 		}
+		// "brotli on;" is an unknown directive unless the module is loaded, so it is written only then.
+		brotliLoaded := t.Brotli && capability.Modules(ctx, env, false)[capability.Brotli.ID].State == capability.Functional
 		set := env.Changes("nginx-tuning")
-		set.Write(confPath, []byte(t.conf()), 0o644, agentfs.RootOwner)
+		set.Write(confPath, []byte(t.conf(brotliLoaded)), 0o644, agentfs.RootOwner)
 		// Nginx refuses a directive set twice in the http block ("is duplicate"), and the distribution's
 		// nginx.conf already sets some (Debian and Ubuntu: gzip on). Those lines are commented out, in the
 		// same change, so the managed file is the one place that decides them.
@@ -154,7 +177,8 @@ func Register(r *actions.Registry, env *host.Env) {
 		if err := env.ReloadNginx(ctx); err != nil {
 			return nil, actions.Failed("Nginx could not be reloaded.", err.Error())
 		}
-		return map[string]any{"applied": true}, nil
+		// brotli_active tells the panel when Brotli was asked for but is not on yet (the module is missing).
+		return map[string]any{"applied": true, "brotli_active": brotliLoaded}, nil
 	}})
 }
 
@@ -162,6 +186,7 @@ func Register(r *actions.Registry, env *host.Env) {
 var tunedDirectives = map[string]bool{
 	"client_max_body_size": true, "keepalive_timeout": true, "client_body_timeout": true, "send_timeout": true,
 	"server_tokens": true, "gzip": true, "gzip_vary": true, "gzip_proxied": true, "gzip_comp_level": true, "gzip_types": true,
+	"brotli": true, "brotli_comp_level": true, "brotli_types": true,
 }
 
 // releaseTunedDirectives comments out, in nginx.conf's own http block (not in server, location or other

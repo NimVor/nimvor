@@ -28,6 +28,9 @@ type Layout struct {
 	// ProtectInclude is the website's protection include (password,
 	// hotlink, WordPress rules; a glob that matches nothing without any).
 	ProtectInclude string
+	// BrotliModule is true while the Nginx Brotli module is loaded: "brotli off;" is only written then (it is an
+	// unknown directive otherwise).
+	BrotliModule bool
 	// Sendmail is PHP's sendmail_path: NimVor's sendmail, which submits
 	// over SMTP to this machine, where the account's sending limit
 	// applies (empty: PHP's default).
@@ -140,6 +143,9 @@ func body(b *strings.Builder, s Spec, l Layout) {
 		}
 	}
 	b.WriteString(cacheDirectives(s))
+	if s.Cache != nil && s.Cache.Brotli != nil && !*s.Cache.Brotli && l.BrotliModule {
+		b.WriteString("    brotli off;\n")
+	}
 	b.WriteString(l.ModSecInclude)
 	b.WriteString(l.ProtectInclude)
 	acme(b, l)

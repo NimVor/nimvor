@@ -134,6 +134,10 @@ final class SettingsService
                 'category' => 'server', 'type' => 'bool', 'default' => true,
                 'label' => 'Gzip compression', 'help' => 'Compress text responses (HTML, CSS, JS, JSON, SVG).',
             ],
+            'nginx_brotli' => [
+                'category' => 'server', 'type' => 'bool', 'default' => true,
+                'label' => 'Brotli compression', 'help' => 'Compress text responses with Brotli for browsers that support it, for every website that has not turned it off (takes effect while the Nginx Brotli module is installed; gzip stays for the others).',
+            ],
             'nginx_hide_version' => [
                 'category' => 'server', 'type' => 'bool', 'default' => true,
                 'label' => 'Hide Nginx version', 'help' => 'server_tokens off — do not reveal the Nginx version in responses and error pages.',
