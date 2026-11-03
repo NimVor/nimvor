@@ -58,6 +58,13 @@ root shell.
   distribution details.
 - **Testability:** all host access goes through `filesystem.Root`, whose base
   can be a fixture tree, and through the `execx.Runner` interface.
+- **One third-party dependency:** the agent is standard-library only except for
+  the PostgreSQL driver, [pgx](https://github.com/jackc/pgx) v5 (MIT licence)
+  and the few modules it needs. They are committed under `agent/vendor/`, so
+  building the agent on a server never downloads anything. A new dependency
+  needs the same justification: something the standard library cannot do
+  safely in reasonable code (a PostgreSQL client with SCRAM authentication,
+  TLS and type decoding is that).
 
 ## Discovery data flow
 

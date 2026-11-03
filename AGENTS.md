@@ -108,7 +108,7 @@ matrix (Ubuntu 22.04/24.04, AlmaLinux 9, Rocky 9, …).
 ## 5. Code style
 
 - **Go:** `gofmt`; small packages under `internal/<domain>`; `context.Context`
-  on anything that can block; `log/slog`; stdlib first.
+  on anything that can block; `log/slog`; stdlib first (the one exception is the vendored pgx PostgreSQL driver, see docs/architecture).
 - **PHP:** PSR-12, `declare(strict_types=1)`, constructor injection, thin
   controllers, **repositories for SQL**, **services for behaviour**. Escape all
   output with `e()`.

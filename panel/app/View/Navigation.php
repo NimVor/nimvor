@@ -34,6 +34,7 @@ final class Navigation
                     ['Database connections', 'databases.server.connections', P::SERVER_VIEW],
                     ['Database logs', 'databases.server.logs', P::LOGS_VIEW],
                 ]],
+                ['PostgreSQL', 'database', 'postgres', P::DATABASES_VIEW, '/postgres', 'PostgreSQL databases, users and access'],
                 ['PHP', 'filetype-php', 'php', P::PHP_VIEW, '/php', 'PHP versions, extensions and php.ini'],
                 ['WordPress', 'wordpress', 'wordpress', P::WEBSITES_VIEW, '/wordpress', 'WordPress Toolkit: updates, security, staging'],
                 ['Cron Jobs', 'clock-history', 'cron', P::CRON_VIEW, '/cron', 'Scheduled tasks of the websites'],

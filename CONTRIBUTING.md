@@ -48,7 +48,7 @@ conventions.
 ## Style
 
 - **Go:** `gofmt`, small packages under `internal/<domain>`, `context.Context`
-  on anything that can block, `log/slog` structured logging, stdlib first.
+  on anything that can block, `log/slog` structured logging, stdlib first (the one exception is the vendored pgx PostgreSQL driver, see docs/architecture).
 - **PHP:** PSR-12, `declare(strict_types=1)`, constructor injection, thin
   controllers, repositories for SQL, services for behaviour. Escape all output
   with `e()`. No inline `<script>`/`style` (the CSP forbids them).

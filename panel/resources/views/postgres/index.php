@@ -1,0 +1,244 @@
+<?php
+/**
+ * PostgreSQL: databases, users and access for the signed-in account; the server's own controls for those who
+ * may manage it.
+ *
+ * @var \NimVor\View\View $this
+ * @var array{installed: bool, running: bool, managed: bool, version: string, port: int}|null $status
+ * @var array<string, mixed>|null $live
+ * @var list<array<string, mixed>> $databases
+ * @var list<array<string, mixed>> $roles
+ * @var list<array<string, mixed>> $unmanaged
+ * @var list<array<string, mixed>> $sites
+ * @var string $prefix
+ * @var bool $canServer
+ * @var bool $isAdmin
+ */
+use NimVor\Security\Permissions as P;
+use NimVor\Services\PostgresService;
+
+$status ??= null;
+$databases ??= [];
+$roles ??= [];
+$unmanaged ??= [];
+$sites ??= [];
+$canManage = $this->can(P::DATABASES_MANAGE);
+$levels = PostgresService::LEVELS;
+?>
+<?php $this->start(); ?>PostgreSQL<?php $this->end('title'); ?>
+<?php $this->start(); ?>Databases, users and access<?php $this->end('subtitle'); ?>
+
+<?php if ($status === null): ?>
+    <?= $this->partial('partials/agent_error', ['error' => $agentError ?? null]) ?>
+    <?php return; ?>
+<?php endif; ?>
+
+<?php if (!$status['installed']): ?>
+    <div class="card"><div class="card-body">
+        <div class="fw-medium mb-1"><i class="bi bi-database me-1" aria-hidden="true"></i>PostgreSQL is not installed on this server</div>
+        <?php if ($canServer): ?>
+            <p class="small text-body-secondary mb-3">NimVor installs PostgreSQL from the operating system's packages, starts it and creates one management role that can create databases and users but is not a superuser. No existing database is touched.</p>
+            <form method="post" action="<?= e($this->url('postgres.install')) ?>" data-nim-busy data-nim-confirm="Install PostgreSQL on this server?">
+                <?= $this->csrfField() ?>
+                <button class="btn btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Install PostgreSQL</button>
+            </form>
+        <?php else: ?>
+            <p class="small text-body-secondary mb-0">Ask your hosting provider to enable PostgreSQL if your application needs it.</p>
+        <?php endif; ?>
+    </div></div>
+    <?php return; ?>
+<?php endif; ?>
+
+<?php if ($canServer): ?>
+    <div class="card mb-3"><div class="card-body d-flex flex-wrap align-items-center gap-3">
+        <div>
+            <span class="badge <?= $status['running'] ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= $status['running'] ? 'Running' : 'Stopped' ?></span>
+            <span class="ms-2 small">PostgreSQL <?= e($status['version']) ?></span>
+            <?php if ($live !== null): ?>
+                <span class="ms-2 small text-body-secondary"><?= (int) ($live['active_connections'] ?? 0) ?> of <?= (int) ($live['max_connections'] ?? 0) ?> connections in use</span>
+            <?php endif; ?>
+        </div>
+        <span class="me-auto"></span>
+        <?php foreach (['start' => 'Start', 'restart' => 'Restart', 'reload' => 'Reload', 'stop' => 'Stop'] as $op => $label): ?>
+            <form method="post" action="<?= e($this->url('postgres.service')) ?>" class="d-inline" data-nim-busy<?= $op === 'stop' || $op === 'restart' ? ' data-nim-confirm="' . e($label . ' PostgreSQL? Connections are dropped.') . '"' : '' ?>>
+                <?= $this->csrfField() ?><input type="hidden" name="op" value="<?= e($op) ?>">
+                <button class="btn btn-sm btn-outline-secondary"><?= e($label) ?></button>
+            </form>
+        <?php endforeach; ?>
+    </div></div>
+<?php endif; ?>
+
+<?php if (!$status['running']): ?>
+    <div class="card"><div class="card-body small text-body-secondary">PostgreSQL is installed but not running.<?= $canServer ? ' Start it above.' : ' Ask your hosting provider to start it.' ?></div></div>
+    <?php return; ?>
+<?php endif; ?>
+
+<?php if (!$status['managed']): ?>
+    <div class="card"><div class="card-body">
+        <div class="fw-medium mb-1">NimVor does not manage this PostgreSQL server yet</div>
+        <?php if ($canServer): ?>
+            <p class="small text-body-secondary">An existing server was found. Adopting it creates one role, <code>nimvor_admin</code> (no superuser rights), through the <code>postgres</code> account. No configuration file is changed and no existing database or user is touched.</p>
+            <form method="post" action="<?= e($this->url('postgres.adopt')) ?>" data-nim-busy data-nim-confirm="Let NimVor manage the existing PostgreSQL server?">
+                <?= $this->csrfField() ?>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" name="harden" value="1" id="pg-harden">
+                    <label class="form-check-label small" for="pg-harden">Also stop database users from connecting to the <code>postgres</code> and <code>template1</code> databases (recommended for hosting; other applications that rely on that would stop working).</label>
+                </div>
+                <button class="btn btn-primary">Adopt this server</button>
+            </form>
+        <?php else: ?>
+            <p class="small text-body-secondary mb-0">Ask your hosting provider to set up PostgreSQL management.</p>
+        <?php endif; ?>
+    </div></div>
+    <?php return; ?>
+<?php endif; ?>
+
+<?php if ($live === null): ?>
+    <div class="alert alert-warning small">PostgreSQL is running but did not answer NimVor. The lists below show NimVor's records; sizes are not available.</div>
+<?php endif; ?>
+
+<p class="small text-body-secondary">
+    <?php if ($prefix !== ''): ?>Names you create start with <code><?= e($prefix) ?></code> so they stay yours. <?php endif; ?>
+    Connect from your application to <code>127.0.0.1:<?= (int) $status['port'] ?></code> with the database user and password. Each database can only be entered by its owner and by users you give access to.
+</p>
+
+<div class="card mb-3">
+    <div class="card-header d-flex align-items-center gap-2">
+        <span class="fw-medium"><i class="bi bi-hdd-stack me-1" aria-hidden="true"></i>Databases <span class="badge rounded-pill text-bg-light border ms-1"><?= count($databases) ?></span></span>
+        <span class="me-auto"></span>
+        <?php if ($canManage): ?><button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#pg-db"><i class="bi bi-plus-lg me-1"></i>Add database</button><?php endif; ?>
+    </div>
+    <?php if ($databases === []): ?>
+        <div class="card-body small text-body-secondary">No PostgreSQL databases yet.</div>
+    <?php else: ?>
+        <div class="nim-dtable table-responsive"><table class="table align-middle mb-0">
+            <thead><tr><th>Database</th><th>Owner</th><th>Website</th><th>Access</th><th class="text-end">Size</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+            <?php foreach ($databases as $d): ?>
+                <tr>
+                    <td class="font-monospace"><?= e((string) $d['name']) ?></td>
+                    <td class="small font-monospace"><?= e((string) ($d['owner_role'] ?? '')) ?></td>
+                    <td class="small"><?= e((string) ($d['website'] ?? '')) ?></td>
+                    <td class="small text-body-secondary">
+                        <?php foreach ($d['grants'] as $g): ?><div><span class="font-monospace"><?= e((string) $g['name']) ?></span> · <?= e($levels[$g['level']] ?? (string) $g['level']) ?></div><?php endforeach; ?>
+                    </td>
+                    <td class="text-end small text-body-secondary"><?= $live !== null ? e(format_bytes((int) $d['size_bytes'])) : '' ?></td>
+                    <td class="text-end text-nowrap">
+                        <?php if ($canManage): ?>
+                            <button class="btn btn-sm btn-outline-secondary" type="button" title="Give a user access" data-bs-toggle="modal" data-bs-target="#pg-grant" data-database="<?= (int) $d['id'] ?>" data-name="<?= e((string) $d['name']) ?>"><i class="bi bi-person-check"></i></button>
+                            <form class="d-inline" method="post" action="<?= e($this->url('postgres.database_drop')) ?>" data-nim-confirm="Delete the database “<?= e((string) $d['name']) ?>” and everything in it? This cannot be undone.">
+                                <?= $this->csrfField() ?><input type="hidden" name="id" value="<?= (int) $d['id'] ?>"><input type="hidden" name="confirm" value="<?= e((string) $d['name']) ?>">
+                                <button class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></button>
+                            </form>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table></div>
+    <?php endif; ?>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header d-flex align-items-center gap-2">
+        <span class="fw-medium"><i class="bi bi-people me-1" aria-hidden="true"></i>Database users <span class="badge rounded-pill text-bg-light border ms-1"><?= count($roles) ?></span></span>
+        <span class="me-auto"></span>
+        <?php if ($canManage): ?><button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#pg-user"><i class="bi bi-person-plus me-1"></i>Add user</button><?php endif; ?>
+    </div>
+    <?php if ($roles === []): ?>
+        <div class="card-body small text-body-secondary">No database users yet.</div>
+    <?php else: ?>
+        <div class="nim-dtable table-responsive"><table class="table align-middle mb-0">
+            <thead><tr><th>User</th><th>Website</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+            <?php foreach ($roles as $r): ?>
+                <tr>
+                    <td class="font-monospace"><?= e((string) $r['name']) ?></td>
+                    <td class="small"><?= e((string) ($r['website'] ?? '')) ?></td>
+                    <td class="text-end text-nowrap">
+                        <?php if ($canManage): ?>
+                            <form class="d-inline" method="post" action="<?= e($this->url('postgres.user_password')) ?>" data-nim-confirm="Set a new password for “<?= e((string) $r['name']) ?>”? Applications using the old one stop connecting.">
+                                <?= $this->csrfField() ?><input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
+                                <button class="btn btn-sm btn-outline-secondary" title="New password"><i class="bi bi-key"></i></button>
+                            </form>
+                            <form class="d-inline" method="post" action="<?= e($this->url('postgres.user_drop')) ?>" data-nim-confirm="Delete the database user “<?= e((string) $r['name']) ?>”?">
+                                <?= $this->csrfField() ?><input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
+                                <button class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></button>
+                            </form>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table></div>
+    <?php endif; ?>
+</div>
+
+<?php if ($unmanaged !== []): ?>
+    <div class="card mb-3">
+        <div class="card-header fw-medium"><i class="bi bi-binoculars me-1" aria-hidden="true"></i>Other databases on this server <span class="small text-body-secondary fw-normal">(not managed by NimVor, left untouched)</span></div>
+        <div class="nim-dtable table-responsive"><table class="table align-middle mb-0">
+            <thead><tr><th>Database</th><th>Owner</th><th class="text-end">Size</th></tr></thead>
+            <tbody>
+            <?php foreach ($unmanaged as $d): ?>
+                <tr><td class="font-monospace"><?= e((string) $d['name']) ?></td><td class="small font-monospace"><?= e((string) ($d['owner'] ?? '')) ?></td><td class="text-end small text-body-secondary"><?= e(format_bytes((int) ($d['size_bytes'] ?? 0))) ?></td></tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table></div>
+    </div>
+<?php endif; ?>
+
+<?php if ($canManage): ?>
+<div class="modal fade" id="pg-db" tabindex="-1" aria-labelledby="pg-db-t" aria-hidden="true"><div class="modal-dialog"><form class="modal-content" method="post" action="<?= e($this->url('postgres.database_create')) ?>" data-nim-busy>
+    <?= $this->csrfField() ?>
+    <div class="modal-header"><h2 class="modal-title fs-5" id="pg-db-t">Add a database</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+    <div class="modal-body">
+        <label class="form-label" for="pg-db-name">Database name</label>
+        <div class="input-group mb-3"><?php if ($prefix !== ''): ?><span class="input-group-text font-monospace"><?= e($prefix) ?></span><?php endif; ?><input class="form-control font-monospace" id="pg-db-name" name="name" required maxlength="40" pattern="[a-z_][a-z0-9_]*" autocomplete="off"></div>
+        <label class="form-label" for="pg-db-owner">Owner</label>
+        <select class="form-select mb-2" id="pg-db-owner" name="owner_role_id">
+            <option value="">A new database user with the same name</option>
+            <?php foreach ($roles as $r): ?><option value="<?= (int) $r['id'] ?>"><?= e((string) $r['name']) ?></option><?php endforeach; ?>
+        </select>
+        <div class="form-text mb-3">A new user gets a generated password, shown once.</div>
+        <?php if ($sites !== []): ?>
+            <label class="form-label" for="pg-db-site">Website (optional)</label>
+            <select class="form-select" id="pg-db-site" name="website_id"><option value="">None</option><?php foreach ($sites as $s): ?><option value="<?= (int) $s['id'] ?>"><?= e((string) $s['domain']) ?></option><?php endforeach; ?></select>
+        <?php endif; ?>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Create</button></div>
+</form></div></div>
+
+<div class="modal fade" id="pg-user" tabindex="-1" aria-labelledby="pg-user-t" aria-hidden="true"><div class="modal-dialog"><form class="modal-content" method="post" action="<?= e($this->url('postgres.user_create')) ?>" data-nim-busy>
+    <?= $this->csrfField() ?>
+    <div class="modal-header"><h2 class="modal-title fs-5" id="pg-user-t">Add a database user</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+    <div class="modal-body">
+        <label class="form-label" for="pg-user-name">User name</label>
+        <div class="input-group mb-3"><?php if ($prefix !== ''): ?><span class="input-group-text font-monospace"><?= e($prefix) ?></span><?php endif; ?><input class="form-control font-monospace" id="pg-user-name" name="username" required maxlength="40" pattern="[a-z_][a-z0-9_]*" autocomplete="off"></div>
+        <?php if ($sites !== []): ?>
+            <label class="form-label" for="pg-user-site">Website (optional)</label>
+            <select class="form-select" id="pg-user-site" name="website_id"><option value="">None</option><?php foreach ($sites as $s): ?><option value="<?= (int) $s['id'] ?>"><?= e((string) $s['domain']) ?></option><?php endforeach; ?></select>
+        <?php endif; ?>
+        <div class="form-text mt-2">The password is generated and shown once. The user can do nothing until you give it access to a database.</div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Create</button></div>
+</form></div></div>
+
+<div class="modal fade" id="pg-grant" tabindex="-1" aria-labelledby="pg-grant-t" aria-hidden="true"><div class="modal-dialog"><form class="modal-content" method="post" action="<?= e($this->url('postgres.grant')) ?>" data-nim-busy>
+    <?= $this->csrfField() ?><input type="hidden" name="database_id" value="">
+    <div class="modal-header"><h2 class="modal-title fs-5" id="pg-grant-t">Access to the database</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+    <div class="modal-body">
+        <label class="form-label" for="pg-grant-role">Database user</label>
+        <select class="form-select mb-3" id="pg-grant-role" name="role_id" required>
+            <?php foreach ($roles as $r): ?><option value="<?= (int) $r['id'] ?>"><?= e((string) $r['name']) ?></option><?php endforeach; ?>
+        </select>
+        <label class="form-label" for="pg-grant-level">May</label>
+        <select class="form-select" id="pg-grant-level" name="level" required>
+            <option value="none">Nothing (remove access)</option>
+            <?php foreach ($levels as $k => $label): ?><option value="<?= e($k) ?>"><?= e($label) ?></option><?php endforeach; ?>
+        </select>
+        <div class="form-text mt-2">Applies to the tables that exist and to the ones created later. The database owner always has full access.</div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Save</button></div>
+</form></div></div>
+<?php endif; ?>
