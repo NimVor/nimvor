@@ -48,26 +48,16 @@ type tableInfo struct {
 	key     []string
 }
 
-// openOwner connects to database and acts as its owner.
+// openOwner opens database for the table browser: as the database's dedicated query account, acting as its owner
+// (see queryroles.go for why never as the provisioning role).
 func openOwner(ctx context.Context, env *host.Env, t *Target, database string) (*session, error) {
-	s, err := open(ctx, env, t, database)
+	s, err := openQuery(ctx, env, t, database, false)
 	if err != nil {
 		return nil, err
 	}
-	var owner string
-	if err := s.QueryRow(ctx, `SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname = current_database()`).Scan(&owner); err != nil {
+	if _, err := s.Exec(ctx, "SET statement_timeout = '"+browseTimeout+"'"); err != nil {
 		s.Close(ctx)
 		return nil, err
-	}
-	if err := s.execf(ctx, "SET ROLE %I", owner); err != nil {
-		s.Close(ctx)
-		return nil, actions.Failed("The database could not be opened for browsing.", friendly(err))
-	}
-	for _, stmt := range []string{"SET statement_timeout = '" + browseTimeout + "'", "SET lock_timeout = '3s'", "SET idle_in_transaction_session_timeout = '30s'"} {
-		if _, err := s.Exec(ctx, stmt); err != nil {
-			s.Close(ctx)
-			return nil, err
-		}
 	}
 	return s, nil
 }

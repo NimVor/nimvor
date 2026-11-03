@@ -166,10 +166,17 @@ func (s *session) dropDatabase(ctx context.Context, name string) error {
 	if _, err := s.Exec(ctx, `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`, name); err != nil {
 		return err
 	}
+	var err error
 	if s.version >= 130000 {
-		return s.execf(ctx, "DROP DATABASE IF EXISTS %I WITH (FORCE)", name)
+		err = s.execf(ctx, "DROP DATABASE IF EXISTS %I WITH (FORCE)", name)
+	} else {
+		err = s.execf(ctx, "DROP DATABASE IF EXISTS %I", name)
 	}
-	return s.execf(ctx, "DROP DATABASE IF EXISTS %I", name)
+	if err != nil {
+		return err
+	}
+	s.dropQueryAccounts(ctx, name)
+	return nil
 }
 
 // dropRole removes a role everywhere. It refuses while the role still owns a database, so a customer's data is

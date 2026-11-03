@@ -147,24 +147,27 @@ type session struct {
 	*pgx.Conn
 	super   bool
 	version int // server_version_num
+	target  Target
+}
+
+// resolve is the server a request is about: the registered remote target it names, or the local server.
+func resolve(env *host.Env, t *Target) (Target, error) {
+	if t != nil && t.remote() {
+		return *t, nil
+	}
+	return local(env)
 }
 
 func open(ctx context.Context, env *host.Env, t *Target, database string) (*session, error) {
-	var tgt Target
-	if t != nil && t.remote() {
-		tgt = *t
-	} else {
-		l, err := local(env)
-		if err != nil {
-			return nil, err
-		}
-		tgt = l
+	tgt, err := resolve(env, t)
+	if err != nil {
+		return nil, err
 	}
 	conn, err := connect(ctx, tgt, database)
 	if err != nil {
 		return nil, err
 	}
-	s := &session{Conn: conn}
+	s := &session{Conn: conn, target: tgt}
 	var super string
 	var ver string
 	if err := conn.QueryRow(ctx, `SELECT current_setting('is_superuser'), current_setting('server_version_num')`).Scan(&super, &ver); err != nil {
