@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -68,6 +69,12 @@ func TestRealHostPostgres(t *testing.T) {
 		}
 		do("pg.adopt", map[string]any{"confirm": true, "harden": true})
 	}
+	// The test must leave no trace of NimVor's own: the installer that runs after it reads /etc/nimvor as a
+	// half-finished installation.
+	t.Cleanup(func() {
+		os.Remove(AdminFile)
+		os.Remove(filepath.Dir(AdminFile)) // only succeeds when empty
+	})
 	st := status(ctx, env)
 	if !st.Installed || !st.Running || !st.Managed {
 		t.Fatalf("status after set-up: %+v", st)
