@@ -345,7 +345,7 @@ database (`fastcgi_cache`). Choose how long a page is kept: 1, 5, 10 (the
 default), 30 minutes, 1, 6 hours or 1 day. A page that changed can show its old
 version until that time is up; **Empty the page cache** removes everything the
 website has cached at once. Each website has its own cache folder
-(`/var/cache/nimvor/fastcgi/<id>`, owned by the web server's account, mode
+(`/var/cache/nimvor-fastcgi/<id>`, owned by the web server's account, mode
 0700, at most 256 MB) and its own cache zone, and the host name is part of every
 cache key, so one website can never be served another's pages.
 

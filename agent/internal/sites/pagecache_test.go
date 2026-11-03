@@ -395,3 +395,14 @@ func TestPageCacheOnOneSiteDoesNotServeAnotherSite(t *testing.T) {
 		t.Fatalf("the host name is not part of the cache key: %q %q", a.body, b.body)
 	}
 }
+
+// The web server's account must be able to walk to the cache: a cache folder inside /var/cache/nimvor (root's, and
+// mode 0700 on real servers) made every page of a website with the page cache on fail with a 500.
+func TestPageCacheFolderDoesNotLiveInsideNimVorsOwnCacheFolder(t *testing.T) {
+	if got := filepath.Dir(PageCacheBase); got != "/var/cache" {
+		t.Fatalf("the page cache must sit directly under /var/cache, not inside %s", got)
+	}
+	if strings.HasPrefix(pageCacheDir("a.test"), "/var/cache/nimvor/") {
+		t.Fatalf("a website's cache folder is inside NimVor's own cache folder: %s", pageCacheDir("a.test"))
+	}
+}
