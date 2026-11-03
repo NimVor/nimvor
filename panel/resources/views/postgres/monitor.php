@@ -5,12 +5,17 @@
  * @var \NimVor\View\View $this
  * @var array<string, mixed>|null $m
  * @var \Throwable|null $error
+ * @var list<array<string, mixed>> $servers
+ * @var int $chosen
  */
 ?>
 <?php $this->start(); ?>PostgreSQL health<?php $this->end('title'); ?>
 <?php $this->start(); ?>Connections, sizes and slow statements<?php $this->end('subtitle'); ?>
 
-<p class="mb-2"><a href="<?= e($this->url('postgres')) ?>" class="small"><i class="bi bi-arrow-left"></i> PostgreSQL</a></p>
+<p class="mb-2 d-flex flex-wrap gap-3 align-items-center"><a href="<?= e($this->url('postgres')) ?>" class="small"><i class="bi bi-arrow-left"></i> PostgreSQL</a>
+    <?php if (count($servers) > 1): foreach ($servers as $sv): ?>
+        <a class="small<?= (int) $sv['id'] === $chosen ? ' fw-semibold text-decoration-none' : '' ?>" href="<?= e($this->url('postgres.monitor') . '?server=' . (int) $sv['id']) ?>"><?= e((string) $sv['name']) ?></a>
+    <?php endforeach; endif; ?></p>
 
 <?php if ($error !== null || $m === null): ?>
     <div class="alert alert-warning small">The server could not be read<?= $error !== null ? ' (' . e($error->getMessage()) . ')' : '' ?>.</div>

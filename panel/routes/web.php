@@ -435,6 +435,9 @@ return static function (Router $r): void {
     $r->post('/postgres/backups/delete', [\NimVor\Http\Controllers\PostgresController::class, 'backupDelete'], ['name' => 'postgres.backup_delete', 'permission' => P::DATABASES_MANAGE]);
     $r->post('/postgres/backups/schedule', [\NimVor\Http\Controllers\PostgresController::class, 'scheduleSave'], ['name' => 'postgres.backup_schedule', 'permission' => P::DATABASES_MANAGE]);
     $r->post('/postgres/backups/schedule/delete', [\NimVor\Http\Controllers\PostgresController::class, 'scheduleDelete'], ['name' => 'postgres.backup_schedule_delete', 'permission' => P::DATABASES_MANAGE]);
+    $r->post('/postgres/servers', [\NimVor\Http\Controllers\PostgresController::class, 'serverCreate'], ['name' => 'postgres.server_create', 'permission' => P::POSTGRES_MANAGE]);
+    $r->post('/postgres/servers/test', [\NimVor\Http\Controllers\PostgresController::class, 'serverTest'], ['name' => 'postgres.server_test', 'permission' => P::POSTGRES_MANAGE]);
+    $r->post('/postgres/servers/remove', [\NimVor\Http\Controllers\PostgresController::class, 'serverRemove'], ['name' => 'postgres.server_remove', 'permission' => P::POSTGRES_MANAGE]);
     $r->get('/postgres/monitor', [\NimVor\Http\Controllers\PostgresController::class, 'monitor'], ['name' => 'postgres.monitor', 'permission' => P::POSTGRES_MANAGE]);
     $r->post('/postgres/grants', [\NimVor\Http\Controllers\PostgresController::class, 'grant'], ['name' => 'postgres.grant', 'permission' => P::DATABASES_MANAGE]);
     $r->get('/mongo', [\NimVor\Http\Controllers\MongoController::class, 'index'], ['name' => 'mongo', 'permission' => P::MONGO_VIEW]);

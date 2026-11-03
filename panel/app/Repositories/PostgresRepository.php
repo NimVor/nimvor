@@ -30,13 +30,14 @@ final class PostgresRepository
      * @param array<string, mixed> $user
      * @return list<array<string, mixed>>
      */
-    public function databases(int $pgServer, array $user, ?int $websiteId = null): array
+    public function databases(int|array $pgServer, array $user, ?int $websiteId = null): array
     {
         [$cond, $params] = Scope::condition($user, 'd.owner_id');
+        [$in, $ids] = $this->inList($pgServer);
+        $params += $ids;
         $sql = "SELECT d.*, w.domain AS website, r.name AS owner_role FROM pg_databases d
                 LEFT JOIN websites w ON w.id = d.website_id LEFT JOIN pg_roles r ON r.id = d.owner_role_id
-                WHERE d.pg_server_id = :s AND {$cond}" . ($websiteId !== null ? ' AND d.website_id = :site' : '') . ' ORDER BY d.name';
-        $params['s'] = $pgServer;
+                WHERE d.pg_server_id IN ({$in}) AND {$cond}" . ($websiteId !== null ? ' AND d.website_id = :site' : '') . ' ORDER BY d.name';
         if ($websiteId !== null) {
             $params['site'] = $websiteId;
         }
@@ -54,12 +55,13 @@ final class PostgresRepository
      * @param array<string, mixed> $user
      * @return list<array<string, mixed>>
      */
-    public function roles(int $pgServer, array $user, ?int $websiteId = null): array
+    public function roles(int|array $pgServer, array $user, ?int $websiteId = null): array
     {
         [$cond, $params] = Scope::condition($user, 'r.owner_id');
+        [$in, $ids] = $this->inList($pgServer);
+        $params += $ids;
         $sql = "SELECT r.*, w.domain AS website FROM pg_roles r LEFT JOIN websites w ON w.id = r.website_id
-                WHERE r.pg_server_id = :s AND {$cond}" . ($websiteId !== null ? ' AND r.website_id = :site' : '') . ' ORDER BY r.name';
-        $params['s'] = $pgServer;
+                WHERE r.pg_server_id IN ({$in}) AND {$cond}" . ($websiteId !== null ? ' AND r.website_id = :site' : '') . ' ORDER BY r.name';
         if ($websiteId !== null) {
             $params['site'] = $websiteId;
         }
@@ -70,20 +72,22 @@ final class PostgresRepository
      * @param array<string, mixed> $user
      * @return array<string, mixed>|null
      */
-    public function database(int $pgServer, int $id, array $user): ?array
+    public function database(int|array $pgServer, int $id, array $user): ?array
     {
         [$cond, $params] = Scope::condition($user, 'owner_id');
-        return $this->db->fetch("SELECT * FROM pg_databases WHERE pg_server_id = :s AND id = :id AND {$cond}", ['s' => $pgServer, 'id' => $id] + $params);
+        [$in, $ids] = $this->inList($pgServer);
+        return $this->db->fetch("SELECT * FROM pg_databases WHERE pg_server_id IN ({$in}) AND id = :id AND {$cond}", ['id' => $id] + $ids + $params);
     }
 
     /**
      * @param array<string, mixed> $user
      * @return array<string, mixed>|null
      */
-    public function role(int $pgServer, int $id, array $user): ?array
+    public function role(int|array $pgServer, int $id, array $user): ?array
     {
         [$cond, $params] = Scope::condition($user, 'owner_id');
-        return $this->db->fetch("SELECT * FROM pg_roles WHERE pg_server_id = :s AND id = :id AND {$cond}", ['s' => $pgServer, 'id' => $id] + $params);
+        [$in, $ids] = $this->inList($pgServer);
+        return $this->db->fetch("SELECT * FROM pg_roles WHERE pg_server_id IN ({$in}) AND id = :id AND {$cond}", ['id' => $id] + $ids + $params);
     }
 
     public function databaseNameTaken(int $pgServer, string $name): bool
@@ -183,11 +187,75 @@ final class PostgresRepository
     }
 
     /** @return list<array<string, mixed>> every schedule of this managed server's databases, with the database name */
-    public function schedulesOf(int $pgServer): array
+    public function schedulesOf(int|array $pgServer): array
+    {
+        [$in, $ids] = $this->inList($pgServer);
+        return $this->db->fetchAll(
+            "SELECT s.*, d.name AS database_name, d.id AS database_id, d.pg_server_id FROM pg_backup_schedules s JOIN pg_databases d ON d.id = s.pg_database_id WHERE d.pg_server_id IN ({$in}) ORDER BY s.id",
+            $ids
+        );
+    }
+
+    // ---- registered servers ------------------------------------------------------------------------
+
+    /** @return array{0: string, 1: array<string, int>} the placeholders of an IN list and their values */
+    private function inList(int|array $ids): array
+    {
+        $ids = array_values(array_map('intval', (array) $ids)) ?: [0];
+        $names = [];
+        $values = [];
+        foreach ($ids as $i => $id) {
+            $names[] = ':ps' . $i;
+            $values['ps' . $i] = $id;
+        }
+        return [implode(',', $names), $values];
+    }
+
+    /** @return list<int> the ids of every PostgreSQL server (local and registered) of a managed server */
+    public function serverIds(int $serverId): array
+    {
+        return array_map(static fn (array $r): int => (int) $r['id'], $this->db->fetchAll('SELECT id FROM pg_servers WHERE server_id = ? ORDER BY id', [$serverId]));
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function servers(int $serverId): array
     {
         return $this->db->fetchAll(
-            'SELECT s.*, d.name AS database_name, d.id AS database_id FROM pg_backup_schedules s JOIN pg_databases d ON d.id = s.pg_database_id WHERE d.pg_server_id = ? ORDER BY s.id',
-            [$pgServer]
+            "SELECT s.*, (SELECT COUNT(*) FROM pg_databases d WHERE d.pg_server_id = s.id) AS database_count,
+                    (SELECT COUNT(*) FROM pg_roles r WHERE r.pg_server_id = s.id) AS role_count
+             FROM pg_servers s WHERE s.server_id = ? ORDER BY (s.connection_type = 'local') DESC, s.name",
+            [$serverId]
         );
+    }
+
+    /** @return array<string, mixed>|null */
+    public function serverRow(int $serverId, int $id): ?array
+    {
+        return $this->db->fetch('SELECT * FROM pg_servers WHERE server_id = ? AND id = ?', [$serverId, $id]);
+    }
+
+    public function serverNameTaken(int $serverId, string $name): bool
+    {
+        return (bool) $this->db->scalar('SELECT 1 FROM pg_servers WHERE server_id = ? AND lower(name) = lower(?)', [$serverId, $name]);
+    }
+
+    public function insertServer(int $serverId, string $name, string $host, int $port, string $username, string $credentialEnc, string $sslMode, string $caPem, string $version): int
+    {
+        $now = gmdate('c');
+        $this->db->run(
+            "INSERT INTO pg_servers (server_id, name, connection_type, host, port, username, credential_enc, ssl_mode, ca_pem, version, status, created_at, updated_at) VALUES (?, ?, 'remote', ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)",
+            [$serverId, $name, $host, $port, $username, $credentialEnc, $sslMode, $caPem, $version, $now, $now]
+        );
+        return $this->db->lastInsertId();
+    }
+
+    public function setServerStatus(int $id, string $status, string $version): void
+    {
+        $this->db->run('UPDATE pg_servers SET status = ?, version = CASE WHEN ? <> \'\' THEN ? ELSE version END, updated_at = ? WHERE id = ?', [$status, $version, $version, gmdate('c'), $id]);
+    }
+
+    public function deleteServer(int $id): void
+    {
+        $this->db->run("DELETE FROM pg_servers WHERE id = ? AND connection_type = 'remote'", [$id]);
     }
 }
