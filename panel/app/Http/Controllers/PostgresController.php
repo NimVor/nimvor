@@ -205,6 +205,116 @@ final class PostgresController extends Controller
         }
     }
 
+    // ---- backups and monitoring -------------------------------------------------------------------
+
+    public function backups(Request $request): Response
+    {
+        $db = $this->databaseOf($request, $request->query('db'));
+        if ($db === null) {
+            return $this->redirectWithError(self::BASE, 'Database not found.');
+        }
+        $list = [];
+        $error = null;
+        try {
+            $list = $this->pg->backups($db);
+        } catch (AgentException $e) {
+            $error = $e;
+        }
+        return $this->render('postgres/backups', [
+            'db' => $db, 'backups' => $list, 'error' => $error, 'schedule' => $this->pg->schedule($db),
+            'canManage' => $this->view->can(P::DATABASES_MANAGE),
+        ]);
+    }
+
+    public function backupCreate(Request $request): Response
+    {
+        $db = $this->databaseOf($request, $request->input('db'));
+        if ($db === null) {
+            return $this->redirectWithError(self::BASE, 'Database not found.');
+        }
+        $back = self::BASE . '/backups?db=' . (int) $db['id'];
+        try {
+            $job = $this->pg->createBackup($db, $this->userId($request));
+            $this->jobs->track($job, 'Back up PostgreSQL database ' . $db['name'], 'server', (string) $this->server->id(), $this->userId($request));
+            $this->flashJob($job);
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure($back, $e);
+        }
+        return $this->redirectWithSuccess($back, 'Backing up ' . $db['name'] . '…');
+    }
+
+    public function backupRestore(Request $request): Response
+    {
+        $db = $this->databaseOf($request, $request->input('db'));
+        if ($db === null) {
+            return $this->redirectWithError(self::BASE, 'Database not found.');
+        }
+        $back = self::BASE . '/backups?db=' . (int) $db['id'];
+        try {
+            $job = $this->pg->restoreBackup($db, $request->string('file'), $this->userId($request));
+            $this->jobs->track($job, 'Restore PostgreSQL database ' . $db['name'], 'server', (string) $this->server->id(), $this->userId($request));
+            $this->flashJob($job);
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure($back, $e);
+        }
+        return $this->redirectWithSuccess($back, 'Restoring ' . $db['name'] . '…');
+    }
+
+    public function backupDelete(Request $request): Response
+    {
+        $db = $this->databaseOf($request, $request->input('db'));
+        if ($db === null) {
+            return $this->redirectWithError(self::BASE, 'Database not found.');
+        }
+        $back = self::BASE . '/backups?db=' . (int) $db['id'];
+        try {
+            $this->pg->deleteBackup($db, $request->string('file'), $this->userId($request));
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure($back, $e);
+        }
+        return $this->redirectWithSuccess($back, 'Backup deleted.');
+    }
+
+    public function scheduleSave(Request $request): Response
+    {
+        $db = $this->databaseOf($request, $request->input('db'));
+        if ($db === null) {
+            return $this->redirectWithError(self::BASE, 'Database not found.');
+        }
+        $back = self::BASE . '/backups?db=' . (int) $db['id'];
+        try {
+            $this->pg->saveSchedule($db, $request->string('frequency'), (int) $request->input('hour'), (int) $request->input('keep'), $this->userId($request));
+        } catch (ValidationException $e) {
+            return $this->backWithErrors($back, $e, $request->all());
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure($back, $e);
+        }
+        return $this->redirectWithSuccess($back, 'Automatic backups saved.');
+    }
+
+    public function scheduleDelete(Request $request): Response
+    {
+        $db = $this->databaseOf($request, $request->input('db'));
+        if ($db === null) {
+            return $this->redirectWithError(self::BASE, 'Database not found.');
+        }
+        $this->pg->deleteSchedule($db, $this->userId($request));
+        return $this->redirectWithSuccess(self::BASE . '/backups?db=' . (int) $db['id'], 'Automatic backups turned off.');
+    }
+
+    /** Server health for administrators (postgres.manage). */
+    public function monitor(Request $request): Response
+    {
+        $data = null;
+        $error = null;
+        try {
+            $data = $this->pg->monitor();
+        } catch (AgentException $e) {
+            $error = $e;
+        }
+        return $this->render('postgres/monitor', ['m' => $data, 'error' => $error]);
+    }
+
     /** The whole filtered table as CSV (up to 50,000 rows), NULL as an empty cell. */
     public function export(Request $request): Response
     {

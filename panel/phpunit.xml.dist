@@ -14,6 +14,10 @@
         <testsuite name="security"><directory>tests/Security</directory></testsuite>
         <testsuite name="performance"><directory>tests/Performance</directory></testsuite>
     </testsuites>
+    <php>
+        <!-- The whole suite needs more than the 300 s some PHP builds allow a CLI process (password hashing in every HTTP test). -->
+        <ini name="max_execution_time" value="0"/>
+    </php>
     <source>
         <include><directory>app</directory></include>
     </source>
