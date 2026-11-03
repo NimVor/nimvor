@@ -706,13 +706,41 @@ Agent actions: `pg.schema_map`, `pg.query`, `pg.query_cancel`. The editor
 `panel/public/assets/vendor/codemirror/sql-editor.min.js`; rebuild it with
 `scripts/build-sql-editor.sh`.
 
+### Backups and health
+
+The cloud icon next to a database opens its backups. **Back up now** runs
+`pg_dump` in the custom format into `<backup folder>/postgres/` as
+`<time>_<database>.dump` with a `.sha256` next to it (root-only, mode 0600).
+**Restore** checks the checksum, takes a safety backup of the current state (so
+a wrong restore can be undone), then runs `pg_restore --clean` for the database;
+the access levels given to other users are part of the archive and stay. A restore
+that fails the checksum changes nothing. Dumps and restores connect as the
+database's own query account acting as its owner, so they hold and touch only what
+the owner can; objects owned by someone else are not in the archive.
+
+**Automatic backups** (daily, or weekly on Sunday, at an hour in UTC, keeping the
+newest N) are started by the same scheduler pass as the website backups
+(`nimvor schedule:run`, every five minutes). Backups beyond N are removed just
+before the next one is taken, so one extra archive may exist until then. Backups
+stay on the server: copy the backup folder off the machine (or use
+the website backup storages) for protection against losing the disk.
+
+Administrators with `postgres.manage` also get a **Health** page: version, uptime,
+connections against the limit, each database's size, commits and rollbacks, cache
+hit ratio, deadlocks, lock waits and statements running over 30 seconds. Only the
+kind of statement (`SELECT`, `UPDATE`, …) is shown, never its text. Agent actions:
+`pg.backup_create`, `pg.backup_list`, `pg.backup_delete`, `pg.backup_prune`,
+`pg.backup_restore` (create and restore are asynchronous jobs) and `pg.monitor`.
+Audit entries: `postgres.backup`, `postgres.restore`, `postgres.backup_delete`,
+`postgres.backup_schedule`.
+
 Every identifier of a database or user NimVor creates is checked against `^[a-z_][a-z0-9_]{0,62}$` (reserved names such
 as `postgres`, `template1`, `pg_*` and `nimvor_*` are refused) and quoted again
 by the server's own `format('%I')`; values are parameters or `format('%L')`.
 Actions accept an optional `target` (host, port, user, password, TLS mode, CA)
 that only the panel builds from an administrator-registered server; a remote
 target must use `require`, `verify-ca` or `verify-full`. Registering remote
-servers, backups and monitoring are later phases. Audit entries (`postgres.*`) never contain passwords.
+servers is a later phase. Audit entries (`postgres.*`) never contain passwords.
 
 ## Components
 

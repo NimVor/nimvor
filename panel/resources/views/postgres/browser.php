@@ -34,7 +34,7 @@ $sortLink = static function (string $col) use ($base, $id, $schema, $table, $q, 
 <?php $this->start(); ?><?= e((string) $db['name']) ?><?php $this->end('title'); ?>
 <?php $this->start(); ?>PostgreSQL database<?php $this->end('subtitle'); ?>
 
-<p class="mb-2 d-flex gap-3"><a href="<?= e($this->url('postgres')) ?>" class="small"><i class="bi bi-arrow-left"></i> PostgreSQL</a><a href="<?= e($this->url('postgres.sql') . '?db=' . $id) ?>" class="small"><i class="bi bi-terminal"></i> SQL editor</a></p>
+<p class="mb-2 d-flex gap-3"><a href="<?= e($this->url('postgres')) ?>" class="small"><i class="bi bi-arrow-left"></i> PostgreSQL</a><a href="<?= e($this->url('postgres.sql') . '?db=' . $id) ?>" class="small"><i class="bi bi-terminal"></i> SQL editor</a><a href="<?= e($this->url('postgres.backups') . '?db=' . $id) ?>" class="small"><i class="bi bi-cloud-arrow-down"></i> Backups</a></p>
 
 <div class="row g-3">
     <div class="col-lg-3">

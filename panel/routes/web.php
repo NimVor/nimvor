@@ -429,6 +429,13 @@ return static function (Router $r): void {
     $r->get('/postgres/sql', [\NimVor\Http\Controllers\PostgresController::class, 'sql'], ['name' => 'postgres.sql', 'permission' => P::DATABASES_VIEW]);
     $r->post('/postgres/sql/run', [\NimVor\Http\Controllers\PostgresController::class, 'sqlRun'], ['name' => 'postgres.sql_run', 'permission' => P::DATABASES_VIEW]);
     $r->post('/postgres/sql/cancel', [\NimVor\Http\Controllers\PostgresController::class, 'sqlCancel'], ['name' => 'postgres.sql_cancel', 'permission' => P::DATABASES_VIEW]);
+    $r->get('/postgres/backups', [\NimVor\Http\Controllers\PostgresController::class, 'backups'], ['name' => 'postgres.backups', 'permission' => P::DATABASES_VIEW]);
+    $r->post('/postgres/backups', [\NimVor\Http\Controllers\PostgresController::class, 'backupCreate'], ['name' => 'postgres.backup_create', 'permission' => P::DATABASES_MANAGE]);
+    $r->post('/postgres/backups/restore', [\NimVor\Http\Controllers\PostgresController::class, 'backupRestore'], ['name' => 'postgres.backup_restore', 'permission' => P::DATABASES_MANAGE]);
+    $r->post('/postgres/backups/delete', [\NimVor\Http\Controllers\PostgresController::class, 'backupDelete'], ['name' => 'postgres.backup_delete', 'permission' => P::DATABASES_MANAGE]);
+    $r->post('/postgres/backups/schedule', [\NimVor\Http\Controllers\PostgresController::class, 'scheduleSave'], ['name' => 'postgres.backup_schedule', 'permission' => P::DATABASES_MANAGE]);
+    $r->post('/postgres/backups/schedule/delete', [\NimVor\Http\Controllers\PostgresController::class, 'scheduleDelete'], ['name' => 'postgres.backup_schedule_delete', 'permission' => P::DATABASES_MANAGE]);
+    $r->get('/postgres/monitor', [\NimVor\Http\Controllers\PostgresController::class, 'monitor'], ['name' => 'postgres.monitor', 'permission' => P::POSTGRES_MANAGE]);
     $r->post('/postgres/grants', [\NimVor\Http\Controllers\PostgresController::class, 'grant'], ['name' => 'postgres.grant', 'permission' => P::DATABASES_MANAGE]);
     $r->get('/mongo', [\NimVor\Http\Controllers\MongoController::class, 'index'], ['name' => 'mongo', 'permission' => P::MONGO_VIEW]);
     $r->post('/mongo/databases', [\NimVor\Http\Controllers\MongoController::class, 'createDatabase'], ['name' => 'mongo.database_create', 'permission' => P::MONGO_MANAGE]);

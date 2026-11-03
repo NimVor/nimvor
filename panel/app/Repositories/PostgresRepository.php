@@ -154,4 +154,40 @@ final class PostgresRepository
     {
         return $this->db->fetchAll('SELECT fingerprint, mode, duration_ms, rows_returned, status, created_at FROM pg_query_history WHERE pg_database_id = ? AND user_id IS ? ORDER BY id DESC LIMIT ' . max(1, min(200, $limit)), [$databaseId, $userId]);
     }
+
+    // ---- backup schedules ----------------------------------------------------------------------------
+
+    /** @return array<string, mixed>|null */
+    public function schedule(int $databaseId): ?array
+    {
+        return $this->db->fetch('SELECT * FROM pg_backup_schedules WHERE pg_database_id = ?', [$databaseId]);
+    }
+
+    public function saveSchedule(int $databaseId, string $frequency, int $hour, int $keep): void
+    {
+        $this->db->run(
+            'INSERT INTO pg_backup_schedules (pg_database_id, frequency, hour, keep, created_at) VALUES (?, ?, ?, ?, ?)
+             ON CONFLICT(pg_database_id) DO UPDATE SET frequency = excluded.frequency, hour = excluded.hour, keep = excluded.keep',
+            [$databaseId, $frequency, $hour, $keep, gmdate('c')]
+        );
+    }
+
+    public function deleteSchedule(int $databaseId): void
+    {
+        $this->db->run('DELETE FROM pg_backup_schedules WHERE pg_database_id = ?', [$databaseId]);
+    }
+
+    public function markScheduleRun(int $scheduleId, string $status, ?int $at = null): void
+    {
+        $this->db->run('UPDATE pg_backup_schedules SET last_run_at = ?, last_status = ? WHERE id = ?', [gmdate('c', $at ?? time()), $status, $scheduleId]);
+    }
+
+    /** @return list<array<string, mixed>> every schedule of this managed server's databases, with the database name */
+    public function schedulesOf(int $pgServer): array
+    {
+        return $this->db->fetchAll(
+            'SELECT s.*, d.name AS database_name, d.id AS database_id FROM pg_backup_schedules s JOIN pg_databases d ON d.id = s.pg_database_id WHERE d.pg_server_id = ? ORDER BY s.id',
+            [$pgServer]
+        );
+    }
 }

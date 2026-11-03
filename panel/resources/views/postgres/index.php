@@ -59,6 +59,7 @@ $levels = PostgresService::LEVELS;
             <?php endif; ?>
         </div>
         <span class="me-auto"></span>
+        <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('postgres.monitor')) ?>"><i class="bi bi-activity me-1"></i>Health</a>
         <?php foreach (['start' => 'Start', 'restart' => 'Restart', 'reload' => 'Reload', 'stop' => 'Stop'] as $op => $label): ?>
             <form method="post" action="<?= e($this->url('postgres.service')) ?>" class="d-inline" data-nim-busy<?= $op === 'stop' || $op === 'restart' ? ' data-nim-confirm="' . e($label . ' PostgreSQL? Connections are dropped.') . '"' : '' ?>>
                 <?= $this->csrfField() ?><input type="hidden" name="op" value="<?= e($op) ?>">
@@ -126,6 +127,7 @@ $levels = PostgresService::LEVELS;
                     <td class="text-end text-nowrap">
                         <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('postgres.browse') . '?db=' . (int) $d['id']) ?>" title="Browse tables and rows"><i class="bi bi-table"></i></a>
                         <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('postgres.sql') . '?db=' . (int) $d['id']) ?>" title="SQL editor"><i class="bi bi-terminal"></i></a>
+                        <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('postgres.backups') . '?db=' . (int) $d['id']) ?>" title="Backups"><i class="bi bi-cloud-arrow-down"></i></a>
                         <?php if ($canManage): ?>
                             <button class="btn btn-sm btn-outline-secondary" type="button" title="Give a user access" data-bs-toggle="modal" data-bs-target="#pg-grant" data-database="<?= (int) $d['id'] ?>" data-name="<?= e((string) $d['name']) ?>"><i class="bi bi-person-check"></i></button>
                             <form class="d-inline" method="post" action="<?= e($this->url('postgres.database_drop')) ?>" data-nim-confirm="Delete the database “<?= e((string) $d['name']) ?>” and everything in it? This cannot be undone.">

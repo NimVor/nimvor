@@ -164,6 +164,8 @@ var defaultCandidates = map[string][]string{
 	"psql":             {"/usr/bin/psql", "/usr/pgsql-16/bin/psql", "/usr/pgsql-15/bin/psql", "/usr/pgsql-14/bin/psql"},
 	"pg_isready":       {"/usr/bin/pg_isready", "/usr/pgsql-16/bin/pg_isready", "/usr/pgsql-15/bin/pg_isready", "/usr/pgsql-14/bin/pg_isready"},
 	"postgresql-setup": {"/usr/bin/postgresql-setup"},
+	"pg_dump":          {"/usr/bin/pg_dump", "/usr/pgsql-16/bin/pg_dump", "/usr/pgsql-15/bin/pg_dump", "/usr/pgsql-14/bin/pg_dump"},
+	"pg_restore":       {"/usr/bin/pg_restore", "/usr/pgsql-16/bin/pg_restore", "/usr/pgsql-15/bin/pg_restore", "/usr/pgsql-14/bin/pg_restore"},
 	"mongodump":        {"/usr/bin/mongodump", "/usr/local/bin/mongodump"},
 	"mongorestore":     {"/usr/bin/mongorestore", "/usr/local/bin/mongorestore"},
 	// Valkey (RHEL 10) replaces Redis with the same protocol and options.

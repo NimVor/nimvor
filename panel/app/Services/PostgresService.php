@@ -420,6 +420,137 @@ final class PostgresService
         return $this->repo->history((int) $database['id'], $userId);
     }
 
+    // ---- backups and monitoring ----------------------------------------------------------------
+
+    /** @param array<string, mixed> $database */
+    private function backupFileOk(array $database, string $file): void
+    {
+        if (preg_match('/^\d{8}-\d{6}_([a-z_][a-z0-9_]{0,62})\.dump$/', $file, $m) !== 1 || $m[1] !== (string) $database['name']) {
+            throw new UserFacingException('That is not a backup of this database.');
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $database
+     * @return list<array{file: string, size: int, created: string, sha256: string}>
+     */
+    public function backups(array $database): array
+    {
+        $o = (array) $this->agent->call('pg.backup_list', ['database' => (string) $database['name']]);
+        return array_map(static fn ($b): array => [
+            'file' => (string) ($b['file'] ?? ''), 'size' => (int) ($b['size'] ?? 0),
+            'created' => (string) ($b['created'] ?? ''), 'sha256' => (string) ($b['sha256'] ?? ''),
+        ], (array) ($o['backups'] ?? []));
+    }
+
+    /** @param array<string, mixed> $database  @return string the job id */
+    public function createBackup(array $database, ?int $userId): string
+    {
+        $o = (array) $this->agent->call('pg.backup_create', ['database' => (string) $database['name']], 60);
+        $this->audit->record('postgres.backup', 'pg_database', (string) $database['name'], AuditLogger::SUCCESS, [], $userId);
+        return (string) ($o['job_id'] ?? '');
+    }
+
+    /** @param array<string, mixed> $database  @return string the job id */
+    public function restoreBackup(array $database, string $file, ?int $userId): string
+    {
+        $this->backupFileOk($database, $file);
+        $o = (array) $this->agent->call('pg.backup_restore', ['database' => (string) $database['name'], 'file' => $file], 60);
+        $this->audit->record('postgres.restore', 'pg_database', (string) $database['name'], AuditLogger::SUCCESS, ['file' => $file], $userId);
+        return (string) ($o['job_id'] ?? '');
+    }
+
+    /** @param array<string, mixed> $database */
+    public function deleteBackup(array $database, string $file, ?int $userId): void
+    {
+        $this->backupFileOk($database, $file);
+        $this->agent->call('pg.backup_delete', ['database' => (string) $database['name'], 'file' => $file]);
+        $this->audit->record('postgres.backup_delete', 'pg_database', (string) $database['name'], AuditLogger::SUCCESS, ['file' => $file], $userId);
+    }
+
+    /** @param array<string, mixed> $database  @return array<string, mixed>|null */
+    public function schedule(array $database): ?array
+    {
+        return $this->repo->schedule((int) $database['id']);
+    }
+
+    /** @param array<string, mixed> $database */
+    public function saveSchedule(array $database, string $frequency, int $hour, int $keep, ?int $userId): void
+    {
+        if (!in_array($frequency, ['daily', 'weekly'], true) || $hour < 0 || $hour > 23 || $keep < 1 || $keep > 90) {
+            throw new ValidationException(['schedule' => 'Choose daily or weekly, an hour from 0 to 23 and between 1 and 90 backups to keep.']);
+        }
+        $this->repo->saveSchedule((int) $database['id'], $frequency, $hour, $keep);
+        $this->audit->record('postgres.backup_schedule', 'pg_database', (string) $database['name'], AuditLogger::SUCCESS, ['frequency' => $frequency, 'hour' => $hour, 'keep' => $keep], $userId);
+    }
+
+    /** @param array<string, mixed> $database */
+    public function deleteSchedule(array $database, ?int $userId): void
+    {
+        $this->repo->deleteSchedule((int) $database['id']);
+        $this->audit->record('postgres.backup_schedule_delete', 'pg_database', (string) $database['name'], AuditLogger::SUCCESS, [], $userId);
+    }
+
+    /** The most recent moment a schedule was due (UTC). */
+    public static function lastSlot(string $frequency, int $hour, int $now): int
+    {
+        $slot = gmmktime($hour, 0, 0, (int) gmdate('n', $now), (int) gmdate('j', $now), (int) gmdate('Y', $now));
+        if ($slot > $now) {
+            $slot -= 86400;
+        }
+        if ($frequency === 'weekly') {
+            while ((int) gmdate('w', $slot) !== 0) {
+                $slot -= 86400;
+            }
+        }
+        return $slot;
+    }
+
+    /**
+     * Start the backups that are due (called every few minutes by `schedule:run`). The older ones beyond the number to
+     * keep are removed first, so a database holds at most "keep" + 1 archives until the next pass.
+     *
+     * @return list<string> log lines
+     */
+    public function runDueBackups(?int $now = null): array
+    {
+        $now ??= time();
+        $lines = [];
+        try {
+            if (empty($this->status()['managed'])) {
+                return [];
+            }
+        } catch (AgentException) {
+            return [];
+        }
+        foreach ($this->repo->schedulesOf($this->pgServerId()) as $s) {
+            $slot = self::lastSlot((string) $s['frequency'], (int) $s['hour'], $now);
+            $last = $s['last_run_at'] !== null ? (int) strtotime((string) $s['last_run_at']) : 0;
+            if ($last >= $slot) {
+                continue;
+            }
+            $name = (string) $s['database_name'];
+            try {
+                $this->agent->call('pg.backup_prune', ['database' => $name, 'keep' => (int) $s['keep']]);
+                $this->agent->call('pg.backup_create', ['database' => $name], 60);
+                $this->repo->markScheduleRun((int) $s['id'], 'started', $now);
+                $this->audit->record('postgres.backup', 'pg_database', $name, AuditLogger::SUCCESS, ['scheduled' => true], null);
+                $lines[] = 'PostgreSQL backup of ' . $name . ' started.';
+            } catch (AgentException | UserFacingException $e) {
+                $this->repo->markScheduleRun((int) $s['id'], 'failed', $now);
+                $this->audit->record('postgres.backup', 'pg_database', $name, AuditLogger::FAILURE, ['scheduled' => true], null);
+                $lines[] = 'PostgreSQL backup of ' . $name . ' failed: ' . $e->getMessage();
+            }
+        }
+        return $lines;
+    }
+
+    /** @return array<string, mixed> */
+    public function monitor(): array
+    {
+        return (array) $this->agent->call('pg.monitor', [], 30);
+    }
+
     private function reserved(string $name): bool
     {
         return in_array($name, ['postgres', 'template0', 'template1', 'public', 'none', 'nimvor_admin', 'replication'], true)

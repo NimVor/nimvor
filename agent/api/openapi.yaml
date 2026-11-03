@@ -311,12 +311,18 @@ paths:
               - packages.updates
               - packages.upgrade
               - pg.adopt
+              - pg.backup_create
+              - pg.backup_delete
+              - pg.backup_list
+              - pg.backup_prune
+              - pg.backup_restore
               - pg.browse
               - pg.database_create
               - pg.database_delete
               - pg.grant_list
               - pg.grant_set
               - pg.install
+              - pg.monitor
               - pg.overview
               - pg.query
               - pg.query_cancel
@@ -821,12 +827,18 @@ x-nimvor-actions:
   packages.updates: { mutating: false, description: "Pending package updates (from the last package index refresh)." }
   packages.upgrade: { mutating: true, description: "Install all pending updates, keeping existing configuration files (job)." }
   pg.adopt: { mutating: true, description: "Let NimVor manage an existing local PostgreSQL server: creates one role (nimvor_admin, no superuser rights) through the postgres account. No configuration file is changed. Needs confirm=true." }
+  pg.backup_create: { mutating: true, description: "Back up one database with pg_dump (custom format, checksummed). Async job." }
+  pg.backup_delete: { mutating: true, description: "Delete one backup of a database." }
+  pg.backup_list: { mutating: false, description: "The backups of one database, newest first, with size and checksum." }
+  pg.backup_prune: { mutating: true, description: "Keep only the newest N backups of a database." }
+  pg.backup_restore: { mutating: true, description: "Restore a database from one of its backups. The checksum is verified and a safety backup of the current state is taken first. Async job." }
   pg.browse: { mutating: false, description: "One page of a table's rows (read-only transaction, as the database owner): sorting, text search, column filters; cells over 2048 characters are cut and marked." }
   pg.database_create: { mutating: true, description: "Create a database owned by an existing database user; PUBLIC is stripped of access, so only the owner and users granted later can connect." }
   pg.database_delete: { mutating: true, description: "Delete a database (connections to it are ended). Deleting one that is gone is not an error." }
   pg.grant_list: { mutating: false, description: "The database users that may connect to a database (besides its owner)." }
   pg.grant_set: { mutating: true, description: "Set what a database user may do in a database: none, readonly, readwrite or all (existing objects and ones created later)." }
   pg.install: { mutating: true, description: "Install PostgreSQL from the operating system's packages, start it and create NimVor's provisioning role. Refuses when a server is already installed." }
+  pg.monitor: { mutating: false, description: "Server health: version, uptime, connections, per-database size and activity, cache hit ratio, lock waits and long-running statements." }
   pg.overview: { mutating: false, description: "The server's databases (with sizes and connections) and database users." }
   pg.query: { mutating: true, description: "Run SQL in a database as its dedicated query account: read mode (SELECT only, enforced by PostgreSQL privileges) or write mode (as the database owner). One statement unless script is set; rows and cell sizes are capped, statements time out, explain shows a plan (analyze runs the statement)." }
   pg.query_cancel: { mutating: true, description: "Cancel a running statement by the id it was started with." }
