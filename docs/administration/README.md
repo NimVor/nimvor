@@ -1105,6 +1105,20 @@ is present but not loaded with a throwaway configuration. The same applies
 to the Brotli module and to programs such as FFmpeg on the Packages page;
 a package is never installed for something that already works.
 
+**Brotli compression.** Server → Nginx → Tuning has a *Brotli compression*
+switch next to gzip. It is off by default and can only be turned on while the
+Nginx Brotli module is loaded (Packages → “Brotli compression for Nginx”;
+Ubuntu 22.04 does not offer the package). With it on, browsers that send
+`Accept-Encoding: br` get Brotli (`brotli on`, level 5, the same content types
+as gzip, `text/html` always); other browsers still get gzip, and images or
+other already-compressed files are left alone. The directives are part of the
+managed `conf.d` drop-in, validated with `nginx -t` and rolled back if invalid;
+turning the switch off removes them. If the module is later removed from the
+server by hand while the switch is on, Nginx refuses to start or reload: the
+page warns about it, and turning the switch off repairs it. Verify with
+`curl -sI -H 'Accept-Encoding: br' https://example.com/style.css` (look for
+`content-encoding: br`).
+
 **Install ModSecurity** (one background job, one transaction):
 
 1. Detects the OS, Nginx and an existing connector. A working connector is

@@ -20,7 +20,7 @@ final class NginxService
     ) {
     }
 
-    /** @return array{installed: bool, running: bool, config_ok: bool, config_error: string, tuning: bool} */
+    /** @return array{installed: bool, running: bool, config_ok: bool, config_error: string, tuning: bool, brotli: array{state: string, reason: string}} */
     public function status(): array
     {
         $s = (array) $this->agent->call('nginx.status');
@@ -30,6 +30,8 @@ final class NginxService
             'config_ok' => !empty($s['config_ok']),
             'config_error' => (string) ($s['config_error'] ?? ''),
             'tuning' => !empty($s['tuning']),
+            // missing, installed (found but not loaded) or functional
+            'brotli' => ['state' => (string) (((array) ($s['brotli'] ?? []))['state'] ?? 'missing'), 'reason' => (string) (((array) ($s['brotli'] ?? []))['reason'] ?? '')],
         ];
     }
 
@@ -55,6 +57,7 @@ final class NginxService
             'client_body_timeout' => $this->settings->int('nginx_body_timeout'),
             'send_timeout' => $this->settings->int('nginx_send_timeout'),
             'gzip' => $this->settings->bool('nginx_gzip'),
+            'brotli' => $this->settings->bool('nginx_brotli'),
             'hide_version' => $this->settings->bool('nginx_hide_version'),
         ];
     }
@@ -68,15 +71,27 @@ final class NginxService
      */
     public function applyTuning(array $input, ?int $userId): void
     {
+        $before = $this->tuning();
         $this->settings->update([
             'nginx_client_max_body_mb' => (int) ($input['client_max_body_mb'] ?? 128),
             'nginx_keepalive' => (int) ($input['keepalive_timeout'] ?? 65),
             'nginx_body_timeout' => (int) ($input['client_body_timeout'] ?? 60),
             'nginx_send_timeout' => (int) ($input['send_timeout'] ?? 60),
             'nginx_gzip' => ($input['gzip'] ?? '') === '1',
+            'nginx_brotli' => ($input['brotli'] ?? '') === '1',
             'nginx_hide_version' => ($input['hide_version'] ?? '') === '1',
         ], $userId);
-        $this->agent->call('nginx.tuning_apply', $this->tuning(), 120);
+        try {
+            $this->agent->call('nginx.tuning_apply', $this->tuning(), 120);
+        } catch (\Throwable $e) {
+            // The agent refused or rolled back: the page must keep showing what is really on the server.
+            $this->settings->update([
+                'nginx_client_max_body_mb' => $before['client_max_body_mb'], 'nginx_keepalive' => $before['keepalive_timeout'],
+                'nginx_body_timeout' => $before['client_body_timeout'], 'nginx_send_timeout' => $before['send_timeout'],
+                'nginx_gzip' => $before['gzip'], 'nginx_brotli' => $before['brotli'], 'nginx_hide_version' => $before['hide_version'],
+            ], $userId);
+            throw $e;
+        }
         $this->audit->record('nginx.tuning', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, $this->tuning(), $userId);
     }
 }

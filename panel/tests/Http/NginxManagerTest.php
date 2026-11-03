@@ -50,6 +50,53 @@ final class NginxManagerTest extends HttpTestCase
         self::assertStringContainsString('rolled back', (string) $this->flash('error'));
     }
 
+    private function tuningForm(array $over = []): array
+    {
+        return $over + ['client_max_body_mb' => '128', 'keepalive_timeout' => '65', 'client_body_timeout' => '60', 'send_timeout' => '60', 'gzip' => '1', 'hide_version' => '1'];
+    }
+
+    public function testBrotliIsSentToTheAgentAndOfferedOnlyWithTheModule(): void
+    {
+        $this->login('admin');
+        // Without the module the switch is disabled and says where to get it.
+        $page = $this->request('GET', '/nginx')->body();
+        self::assertStringContainsString('Brotli compression', $page);
+        self::assertStringContainsString('not installed', $page);
+        self::assertMatchesRegularExpression('/id="ng-brotli"[^>]*disabled/', $page);
+
+        $this->agent->succeed('nginx.status', ['installed' => true, 'running' => true, 'config_ok' => true, 'config_error' => '', 'tuning' => true, 'brotli' => ['state' => 'functional', 'reason' => '']]);
+        $page = $this->request('GET', '/nginx')->body();
+        self::assertDoesNotMatchRegularExpression('/id="ng-brotli"[^>]*disabled/', $page);
+
+        $this->agent->succeed('nginx.tuning_apply', ['applied' => true]);
+        $this->post('/nginx/tuning', $this->tuningForm(['brotli' => '1']));
+        self::assertTrue($this->lastCall('nginx.tuning_apply')['brotli']);
+        self::assertTrue($this->app->container->get(SettingsService::class)->bool('nginx_brotli'));
+        $this->post('/nginx/tuning', $this->tuningForm(['brotli' => '0']));
+        self::assertFalse($this->lastCall('nginx.tuning_apply')['brotli']);
+    }
+
+    public function testARefusedBrotliChangeLeavesTheSettingOff(): void
+    {
+        $this->login('admin');
+        $this->agent->fail('nginx.tuning_apply', 409, 'conflict', 'Brotli compression needs the Nginx Brotli module, which is not installed or not loaded.');
+        $this->post('/nginx/tuning', $this->tuningForm(['brotli' => '1']));
+        self::assertStringContainsString('Brotli module', (string) $this->flash('error'));
+        self::assertFalse($this->app->container->get(SettingsService::class)->bool('nginx_brotli'), 'the page must not claim Brotli is on');
+    }
+
+    public function testAWarningShowsWhenBrotliIsOnButTheModuleIsGone(): void
+    {
+        $this->login('admin');
+        $this->agent->succeed('nginx.tuning_apply', ['applied' => true]);
+        $this->agent->succeed('nginx.status', ['installed' => true, 'running' => true, 'config_ok' => true, 'config_error' => '', 'tuning' => true, 'brotli' => ['state' => 'functional', 'reason' => '']]);
+        $this->post('/nginx/tuning', $this->tuningForm(['brotli' => '1']));
+        $this->agent->succeed('nginx.status', ['installed' => true, 'running' => true, 'config_ok' => true, 'config_error' => '', 'tuning' => true, 'brotli' => ['state' => 'missing', 'reason' => '']]);
+        $page = $this->request('GET', '/nginx')->body();
+        self::assertStringContainsString('refuse to start or reload', $page);
+        self::assertDoesNotMatchRegularExpression('/id="ng-brotli"[^>]*disabled/', $page, 'it must stay possible to turn it off');
+    }
+
     public function testCustomersCannotReachNginx(): void
     {
         $this->login('cust');

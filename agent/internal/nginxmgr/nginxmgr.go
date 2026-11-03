@@ -17,6 +17,7 @@ import (
 
 	"github.com/NimVor/nimvor/agent/internal/actions"
 	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/capability"
 	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
@@ -34,8 +35,13 @@ type Tuning struct {
 	ClientBodyTimeout int  `json:"client_body_timeout"` // seconds
 	SendTimeout       int  `json:"send_timeout"`        // seconds
 	Gzip              bool `json:"gzip"`
-	HideVersion       bool `json:"hide_version"` // server_tokens off
+	// Brotli turns on Brotli compression (the Nginx Brotli module must be loaded; gzip stays for clients without it).
+	Brotli      bool `json:"brotli"`
+	HideVersion bool `json:"hide_version"` // server_tokens off
 }
+
+// compressedTypes are the content types compressed besides text/html, which is always compressed.
+const compressedTypes = "text/plain text/css application/json application/javascript application/x-javascript text/xml application/xml application/rss+xml image/svg+xml"
 
 func (t Tuning) validate() error {
 	if t.ClientMaxBodyMB < 1 || t.ClientMaxBodyMB > 4096 {
@@ -66,9 +72,15 @@ func (t Tuning) conf() string {
 	}
 	if t.Gzip {
 		b.WriteString("gzip on;\ngzip_vary on;\ngzip_proxied any;\ngzip_comp_level 5;\n")
-		b.WriteString("gzip_types text/plain text/css application/json application/javascript application/x-javascript text/xml application/xml application/rss+xml image/svg+xml;\n")
+		b.WriteString("gzip_types " + compressedTypes + ";\n")
 	} else {
 		b.WriteString("gzip off;\n")
+	}
+	// Nothing is written when Brotli is off: "brotli off;" would be an unknown directive without the module, so the
+	// file stays valid whether or not the module is installed.
+	if t.Brotli {
+		b.WriteString("brotli on;\nbrotli_comp_level 5;\n")
+		b.WriteString("brotli_types " + compressedTypes + ";\n")
 	}
 	return b.String()
 }
@@ -94,6 +106,8 @@ func Register(r *actions.Registry, env *host.Env) {
 		} else {
 			out["config_ok"] = true
 		}
+		br := capability.Modules(ctx, env, false)[capability.Brotli.ID]
+		out["brotli"] = map[string]any{"state": br.State, "reason": br.Reason}
 		return out, nil
 	}})
 
@@ -131,6 +145,12 @@ func Register(r *actions.Registry, env *host.Env) {
 		if !installed(env) {
 			return nil, actions.Conflict("Nginx is not installed.")
 		}
+		if t.Brotli {
+			// "brotli on;" is an unknown directive unless the module is loaded: say so before touching anything.
+			if st := capability.Modules(ctx, env, false)[capability.Brotli.ID]; st.State != capability.Functional {
+				return nil, actions.Conflict("Brotli compression needs the Nginx Brotli module, which is not installed or not loaded. Install it on the Packages page first.")
+			}
+		}
 		set := env.Changes("nginx-tuning")
 		set.Write(confPath, []byte(t.conf()), 0o644, agentfs.RootOwner)
 		// Nginx refuses a directive set twice in the http block ("is duplicate"), and the distribution's
@@ -162,6 +182,7 @@ func Register(r *actions.Registry, env *host.Env) {
 var tunedDirectives = map[string]bool{
 	"client_max_body_size": true, "keepalive_timeout": true, "client_body_timeout": true, "send_timeout": true,
 	"server_tokens": true, "gzip": true, "gzip_vary": true, "gzip_proxied": true, "gzip_comp_level": true, "gzip_types": true,
+	"brotli": true, "brotli_comp_level": true, "brotli_types": true,
 }
 
 // releaseTunedDirectives comments out, in nginx.conf's own http block (not in server, location or other

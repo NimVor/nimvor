@@ -3,10 +3,16 @@ package nginxmgr
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/NimVor/nimvor/agent/internal/actions"
 	"github.com/NimVor/nimvor/agent/internal/execx"
@@ -144,5 +150,137 @@ func TestTuningReleasesDirectivesNginxConfAlreadySets(t *testing.T) {
 	}
 	if b, _ := os.ReadFile(main); string(b) != orig {
 		t.Errorf("nginx.conf not restored:\n%s", b)
+	}
+}
+
+func TestBrotliLinesOnlyWhenRequested(t *testing.T) {
+	base := Tuning{ClientMaxBodyMB: 128, KeepaliveTimeout: 65, ClientBodyTimeout: 60, SendTimeout: 60, Gzip: true}
+	if strings.Contains(base.conf(), "brotli") {
+		t.Fatalf("brotli written although it is off:\n%s", base.conf())
+	}
+	base.Brotli = true
+	conf := base.conf()
+	for _, want := range []string{"brotli on;", "brotli_comp_level 5;", "brotli_types text/plain text/css", "gzip on;"} {
+		if !strings.Contains(conf, want) {
+			t.Errorf("conf lacks %q:\n%s", want, conf)
+		}
+	}
+}
+
+const brotliBody = `{"client_max_body_mb":128,"keepalive_timeout":65,"client_body_timeout":60,"send_timeout":60,"gzip":true,"brotli":true}`
+
+func TestBrotliNeedsTheModule(t *testing.T) {
+	h := testhost.New(t)
+	r := actions.NewRegistry(true)
+	Register(r, h.Env)
+	apply, _ := r.Lookup("nginx.tuning_apply")
+	os.MkdirAll(filepath.Dir(confRealPath(h)), 0o755)
+
+	// No module: refused before anything is written, with what to do.
+	if _, err := apply.Handler(context.Background(), json.RawMessage(brotliBody)); err == nil || !strings.Contains(err.Error(), "Brotli module") || !strings.Contains(err.Error(), "Packages") {
+		t.Fatalf("brotli without the module: %v", err)
+	}
+	if _, err := os.Stat(confRealPath(h)); err == nil {
+		t.Fatal("a configuration was written although the module is missing")
+	}
+
+	// A module built into Nginx counts.
+	h.Runner.Handler = func(id string, o execx.Opts, args []string) (string, error) {
+		if id == "nginx" && len(args) > 0 && args[0] == "-V" {
+			return "nginx version: nginx/1.24.0\nconfigure arguments: --with-http_v2_module --add-module=/build/ngx_brotli\n", nil
+		}
+		return "", nil
+	}
+	if _, err := apply.Handler(context.Background(), json.RawMessage(brotliBody)); err != nil {
+		t.Fatalf("brotli with the module: %v", err)
+	}
+	if b, _ := os.ReadFile(confRealPath(h)); !strings.Contains(string(b), "brotli on;") {
+		t.Fatalf("brotli not written:\n%s", b)
+	}
+	// Turning it off removes the lines again (so a later removal of the module cannot break Nginx).
+	off := strings.Replace(brotliBody, `"brotli":true`, `"brotli":false`, 1)
+	if _, err := apply.Handler(context.Background(), json.RawMessage(off)); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(confRealPath(h)); strings.Contains(string(b), "brotli") {
+		t.Fatalf("brotli still written:\n%s", b)
+	}
+}
+
+// With the real Brotli module: a client that accepts br gets Brotli, one that only accepts gzip gets gzip, and
+// a small or non-text response is left alone.
+func TestBrotliWithARealNginx(t *testing.T) {
+	bin, err := exec.LookPath("nginx")
+	if err != nil {
+		t.Skip("nginx is not installed")
+	}
+	var mod string
+	for _, d := range []string{"/usr/lib/nginx/modules", "/usr/lib64/nginx/modules", "/usr/share/nginx/modules"} {
+		if m, _ := filepath.Glob(filepath.Join(d, "ngx_http_brotli_filter_module.so")); len(m) > 0 {
+			mod = m[0]
+		}
+	}
+	if mod == "" {
+		t.Skip("the Nginx Brotli module is not installed")
+	}
+	dir, err := os.MkdirTemp("", "nimvor-brotli-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(dir) })
+	os.Chmod(dir, 0o755)
+	os.MkdirAll(filepath.Join(dir, "docroot"), 0o755)
+	os.MkdirAll(filepath.Join(dir, "tmp"), 0o755)
+	text := strings.Repeat("NimVor compresses text responses. ", 200)
+	os.WriteFile(filepath.Join(dir, "docroot", "page.css"), []byte(text), 0o644)
+	os.WriteFile(filepath.Join(dir, "docroot", "image.png"), []byte(text), 0o644) // not a compressed type
+	tuning := Tuning{ClientMaxBodyMB: 8, KeepaliveTimeout: 5, ClientBodyTimeout: 5, SendTimeout: 5, Gzip: true, Brotli: true, HideVersion: true}
+	os.WriteFile(filepath.Join(dir, "tuning.conf"), []byte(tuning.conf()), 0o644)
+	pl, _ := net.Listen("tcp", "127.0.0.1:0")
+	port := pl.Addr().(*net.TCPAddr).Port
+	pl.Close()
+	conf := fmt.Sprintf("load_module %s;\npid %s/nginx.pid;\nerror_log %s/error.log;\nevents { worker_connections 16; }\nhttp {\n    access_log off;\n    include %s/mime.types;\n    client_body_temp_path %s/tmp/b;\n    fastcgi_temp_path %s/tmp/f;\n    proxy_temp_path %s/tmp/p;\n    uwsgi_temp_path %s/tmp/u;\n    scgi_temp_path %s/tmp/s;\n    include %s/tuning.conf;\n    server {\n        listen 127.0.0.1:%d;\n        root %s/docroot;\n    }\n}\n",
+		mod, dir, dir, dir, dir, dir, dir, dir, dir, dir, port, dir)
+	os.WriteFile(filepath.Join(dir, "mime.types"), []byte("types { text/css css; image/png png; }\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "nginx.conf"), []byte(conf), 0o644)
+	if out, err := exec.Command(bin, "-t", "-p", dir, "-c", filepath.Join(dir, "nginx.conf")).CombinedOutput(); err != nil {
+		t.Fatalf("nginx -t: %v\n%s\n%s", err, out, conf)
+	}
+	cmd := exec.Command(bin, "-p", dir, "-c", filepath.Join(dir, "nginx.conf"), "-g", "daemon off;")
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cmd.Process.Kill(); cmd.Wait() })
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	for i := 0; i < 50; i++ {
+		if c, err := net.Dial("tcp", addr); err == nil {
+			c.Close()
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	get := func(path, accept string) (string, int) {
+		req, _ := http.NewRequest("GET", "http://"+addr+path, nil)
+		req.Header.Set("Accept-Encoding", accept)
+		tr := &http.Transport{DisableCompression: true}
+		res, err := (&http.Client{Transport: tr}).Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		b, _ := io.ReadAll(res.Body)
+		return res.Header.Get("Content-Encoding"), len(b)
+	}
+	if enc, n := get("/page.css", "br, gzip"); enc != "br" || n >= len(text)/4 {
+		t.Errorf("br, gzip: encoding %q, %d bytes of %d", enc, n, len(text))
+	}
+	if enc, _ := get("/page.css", "gzip"); enc != "gzip" {
+		t.Errorf("gzip only: encoding %q", enc)
+	}
+	if enc, n := get("/page.css", "identity"); enc != "" || n != len(text) {
+		t.Errorf("identity: encoding %q, %d bytes", enc, n)
+	}
+	if enc, _ := get("/image.png", "br, gzip"); enc != "" {
+		t.Errorf("a non-text type was compressed: %q", enc)
 	}
 }

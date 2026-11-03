@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Brotli compression.** A *Brotli compression* switch on Server → Nginx → Tuning (off by default; available when the Nginx Brotli module is loaded, which the Packages page installs). Browsers that support it get Brotli, the others still get gzip. Refused with a clear message when the module is missing, and a turned-on switch warns if the module disappears. Tested against a real Nginx with the real module. Also: a refused or rolled-back Nginx tuning change no longer leaves the panel's stored settings showing the new values.
+
 ## [1.2.1] — 2026-11-03
 
 Hotfix for PostgreSQL's set-up.
