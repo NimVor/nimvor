@@ -219,8 +219,8 @@ func (m *Manager) ApplyIgnoring(ctx context.Context, s Spec, ignore []string) (*
 	}
 
 	if pageCacheOn(s) {
-		if err := selinux.Rule(ctx, e, filepath.Dir(PageCacheBase), "httpd_cache_t"); err == nil {
-			err = selinux.Restore(ctx, e, filepath.Dir(PageCacheBase))
+		if err := selinux.Rule(ctx, e, PageCacheBase, "httpd_cache_t"); err == nil {
+			err = selinux.Restore(ctx, e, PageCacheBase)
 		} else {
 			e.Log.Warn("selinux", "err", err)
 		}

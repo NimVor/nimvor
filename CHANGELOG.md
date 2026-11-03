@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **Turning on a website's page cache made it answer with an Internal Server Error.** The cache folder was created inside `/var/cache/nimvor`, which on a real server is `0700`, so Nginx's account could not reach it. The cache now lives in its own folder, `/var/cache/nimvor-fastcgi` (owned by the web server's account, mode `0700`). Turn the page cache off and on again (or press Save on *Headers & cache*) to move a website to the new folder; the empty old `/var/cache/nimvor/fastcgi` can be removed.
+
 ## [1.3.0] — 2026-11-03
 
 Faster pages: a page cache for PHP websites and Brotli compression.

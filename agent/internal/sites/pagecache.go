@@ -27,8 +27,9 @@ type PageCache struct {
 var PageCacheTTLs = []int{60, 300, 600, 1800, 3600, 21600, 86400}
 
 // PageCacheBase holds every website's cache folder, owned by the web server's account (mode 0700), so no website's
-// PHP account can read another's cached pages.
-const PageCacheBase = "/var/cache/nimvor/fastcgi"
+// PHP account can read another's cached pages. It sits directly under /var/cache rather than inside
+// /var/cache/nimvor, whose mode is not ours to set: the web server's account must be able to reach every parent folder.
+const PageCacheBase = "/var/cache/nimvor-fastcgi"
 
 // Each website's cache is limited to this size on disk, whatever its lifetime.
 const pageCacheMaxSize = "256m"
