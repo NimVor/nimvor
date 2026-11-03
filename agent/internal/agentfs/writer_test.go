@@ -106,3 +106,36 @@ func TestKeepPreservesOwnerOnReplace(t *testing.T) {
 		t.Fatalf("owner %d:%d, want 0:4242", st.Uid, st.Gid)
 	}
 }
+
+// A directory that exists keeps its mode: /etc/nimvor is 0750 root:nimvor so the panel can read its config, and an
+// action that only needs a place for a root-only file must not lock the panel out (it once did, with MkdirAll).
+func TestEnsureDirLeavesAnExistingDirectoryAlone(t *testing.T) {
+	w, base := newWriter(t)
+	w.Policy.Patterns = append(w.Policy.Patterns, "/etc/nimvor", "/etc/nimvor/**")
+	w.Owners = SelfOwners()
+	dir := filepath.Join(base, "etc/nimvor")
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	os.Chmod(dir, 0o750)
+	created, err := w.EnsureDir("/etc/nimvor", 0o700, RootOwner)
+	if err != nil || created {
+		t.Fatalf("EnsureDir existing: created=%v err=%v", created, err)
+	}
+	if info, _ := os.Stat(dir); info.Mode().Perm() != 0o750 {
+		t.Fatalf("mode changed to %v", info.Mode().Perm())
+	}
+	// A missing one is created with the given mode.
+	created, err = w.EnsureDir("/etc/nimvor/sub", 0o700, RootOwner)
+	if err != nil || !created {
+		t.Fatalf("EnsureDir missing: created=%v err=%v", created, err)
+	}
+	if info, _ := os.Stat(filepath.Join(dir, "sub")); info.Mode().Perm() != 0o700 {
+		t.Fatalf("new directory mode %v", info.Mode().Perm())
+	}
+	// A file in the way is an error, not silently replaced.
+	os.WriteFile(filepath.Join(base, "etc/nimvor/file"), []byte("x"), 0o600)
+	if _, err := w.EnsureDir("/etc/nimvor/file", 0o700, RootOwner); err == nil {
+		t.Fatal("a file was treated as a directory")
+	}
+}

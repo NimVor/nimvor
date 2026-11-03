@@ -59,7 +59,7 @@ func registerSecurity(r *actions.Registry, env *host.Env, c Client) {
 			return nil, actions.Failed("The admin user could not be set.", err.Error())
 		}
 		// Store the new credentials so later actions authenticate with them.
-		_, _ = env.Writer.MkdirAll(path.Dir(AdminURIFile), 0o700, agentfs.RootOwner)
+		_, _ = env.Writer.EnsureDir(path.Dir(AdminURIFile), 0o750, agentfs.RootOwner)
 		if _, err := env.Writer.WriteFile(AdminURIFile, []byte(adminURI(env, in.Password)+"\n"), 0o600, agentfs.RootOwner); err != nil {
 			return nil, actions.Failed("The admin password was changed, but its connection string could not be saved to "+AdminURIFile+".", err.Error())
 		}

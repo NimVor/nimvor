@@ -109,6 +109,20 @@ func postgresCred() (*execx.Credential, error) {
 	return &execx.Credential{UID: uint32(uid), GID: uint32(gid), Home: home}, nil
 }
 
+// saveAdminFile writes the provisioning credentials (root-only). The folder /etc/nimvor also holds the panel's own
+// configuration, which the panel's account reads through the folder's group, so an existing folder is never changed:
+// only a missing one is created.
+func saveAdminFile(env *host.Env, t Target) error {
+	b, _ := json.Marshal(t)
+	if _, err := env.Writer.EnsureDir(filepath.Dir(AdminFile), 0o750, agentfs.RootOwner); err != nil {
+		return err
+	}
+	if _, err := env.Writer.WriteFile(AdminFile, append(b, '\n'), 0o600, agentfs.RootOwner); err != nil {
+		return fmt.Errorf("the credentials could not be saved to %s: %w", AdminFile, err)
+	}
+	return nil
+}
+
 // bootstrapAdmin creates (or re-keys) the nimvor_admin role through the postgres account's own socket access
 // and stores its credentials. It changes no PostgreSQL configuration file.
 func bootstrapAdmin(ctx context.Context, env *host.Env, log io.Writer, harden bool) error {
@@ -141,13 +155,8 @@ GRANT CONNECT ON DATABASE postgres TO %[1]s;
 	if err != nil {
 		return fmt.Errorf("the provisioning role could not be created: %s", host.Output(out))
 	}
-	t := Target{Host: "127.0.0.1", Port: 5432, User: AdminRole, Password: pw}
-	b, _ := json.Marshal(t)
-	if _, err := env.Writer.MkdirAll(filepath.Dir(AdminFile), 0o700, agentfs.RootOwner); err != nil {
+	if err := saveAdminFile(env, Target{Host: "127.0.0.1", Port: 5432, User: AdminRole, Password: pw}); err != nil {
 		return err
-	}
-	if _, err := env.Writer.WriteFile(AdminFile, append(b, '\n'), 0o600, agentfs.RootOwner); err != nil {
-		return fmt.Errorf("the credentials could not be saved to %s: %w", AdminFile, err)
 	}
 	fmt.Fprintln(log, "  ✓ the provisioning role "+AdminRole+" is ready (no superuser rights)")
 	return nil

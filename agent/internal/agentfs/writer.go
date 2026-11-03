@@ -302,6 +302,24 @@ func (w Writer) MkdirAll(hostPath string, mode fs.FileMode, owner Owner) (bool, 
 	return created, nil
 }
 
+// EnsureDir makes sure hostPath exists, creating it (and missing parents) with mode and owner only when it is
+// missing. An existing directory is left exactly as it is: unlike MkdirAll it never changes its mode or owner, so
+// a shared folder such as /etc/nimvor (read by the panel's own account) cannot be locked by an action that only
+// needs a place to put a file.
+func (w Writer) EnsureDir(hostPath string, mode fs.FileMode, owner Owner) (bool, error) {
+	real, err := w.real(hostPath)
+	if err != nil {
+		return false, err
+	}
+	if info, err := os.Lstat(real); err == nil {
+		if !info.IsDir() {
+			return false, fmt.Errorf("%s exists and is not a directory", hostPath)
+		}
+		return false, nil
+	}
+	return w.MkdirAll(hostPath, mode, owner)
+}
+
 // Rename moves oldPath to newPath (both must be permitted).
 func (w Writer) Rename(oldPath, newPath string) error {
 	o, err := w.real(oldPath)

@@ -6,6 +6,13 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.2.1] — 2026-11-03
+
+Hotfix for PostgreSQL's set-up.
+
+### Fixed
+- **Installing or adopting PostgreSQL made every panel page fail with a 500.** Saving the provisioning credentials re-applied mode `0700` and owner `root` to `/etc/nimvor`, which also holds the panel's own configuration and is `0750 root:nimvor` so the panel's account can read it. The panel then could not read its configuration, so every page failed before it could write a log line, and its scheduler stopped. Customer websites, mail and DNS were not affected. The same pattern was in MongoDB's admin-password step. Existing folders are now left exactly as they are (new agent helper `EnsureDir`; a regression test covers it). **If you installed or adopted PostgreSQL on 1.2.0 and the panel shows 500 errors**, run `sudo chown root:nimvor /etc/nimvor && sudo chmod 0750 /etc/nimvor`; nothing else is needed.
+
 ## [1.2.0] — 2026-11-03
 
 PostgreSQL: a full database manager, for the server NimVor installs and for servers it only connects to.
