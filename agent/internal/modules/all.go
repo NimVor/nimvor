@@ -23,6 +23,7 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/mongomgr"
 	"github.com/NimVor/nimvor/agent/internal/netmgr"
 	"github.com/NimVor/nimvor/agent/internal/nginxmgr"
+	"github.com/NimVor/nimvor/agent/internal/pgmgr"
 	"github.com/NimVor/nimvor/agent/internal/phpmgr"
 	"github.com/NimVor/nimvor/agent/internal/procmgr"
 	"github.com/NimVor/nimvor/agent/internal/quota"
@@ -82,6 +83,7 @@ func All() []Module {
 		procmgr.Register,
 		runtimemgr.Register,
 		mongomgr.Register,
+		pgmgr.Register,
 		nginxmgr.Register,
 	}
 }
