@@ -146,3 +146,69 @@ func registerBrowser(r *actions.Registry, env *host.Env) {
 		return s.changeRow(ctx, t, c, true)
 	})
 }
+
+func registerQuery(r *actions.Registry, env *host.Env) {
+	r.Register(actions.Action{Name: "pg.schema_map", Description: "Table and column names of a database (user schemas, up to 3,000 columns), for the SQL editor's completion.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in tableIn
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if err := in.check(); err != nil {
+			return nil, err
+		}
+		out := map[string][]string{}
+		s, err := openQuery(ctx, env, in.Target, in.Database, true)
+		if err != nil {
+			return nil, err
+		}
+		defer s.Close(ctx)
+		rows, err := s.Query(ctx, `
+			SELECT n.nspname, c.relname, a.attname
+			FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace JOIN pg_attribute a ON a.attrelid = c.oid
+			WHERE c.relkind IN ('r','p','v','m','f') AND a.attnum > 0 AND NOT a.attisdropped
+			  AND n.nspname NOT LIKE 'pg\_%' AND n.nspname <> 'information_schema'
+			ORDER BY n.nspname, c.relname, a.attnum LIMIT 3000`)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var sch, tbl, col string
+			if err := rows.Scan(&sch, &tbl, &col); err != nil {
+				return nil, err
+			}
+			key := tbl
+			if sch != "public" {
+				key = sch + "." + tbl
+			}
+			out[key] = append(out[key], col)
+		}
+		return map[string]any{"schema": out}, rows.Err()
+	}})
+	r.Register(actions.Action{Name: "pg.query", Mutating: true, Description: "Run SQL in a database as its dedicated query account: read mode (SELECT only, enforced by PostgreSQL privileges) or write mode (as the database owner). One statement unless script is set; rows and cell sizes are capped, statements time out, explain shows a plan (analyze runs the statement).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			targetIn
+			QueryRequest
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		return runQuery(ctx, env, in.Target, in.QueryRequest)
+	}})
+	r.Register(actions.Action{Name: "pg.query_cancel", Mutating: true, Description: "Cancel a running statement by the id it was started with.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			Database string `json:"database"`
+			QueryID  string `json:"query_id"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if err := ValidName("database", in.Database); err != nil {
+			return nil, err
+		}
+		if !queryIDRe.MatchString(in.QueryID) {
+			return nil, actions.InvalidParams("query_id: 16 hexadecimal characters.")
+		}
+		return map[string]any{"cancelled": cancelQuery(in.QueryID, in.Database)}, nil
+	}})
+}

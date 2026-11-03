@@ -348,6 +348,78 @@ final class PostgresService
         $this->audit->record('postgres.row_delete', 'pg_database', (string) $database['name'], AuditLogger::SUCCESS, ['table' => $schema . '.' . $table]);
     }
 
+    // ---- SQL editor ----------------------------------------------------------------------------
+
+    /**
+     * The statement with its literals replaced by "?", for the history and the audit trail: a statement can hold
+     * passwords or personal data, its shape cannot.
+     */
+    public static function fingerprint(string $sql): string
+    {
+        $s = preg_replace("/'(?:[^']|'')*'/s", '?', $sql) ?? '';
+        $s = preg_replace('/\$([a-zA-Z_]*)\$.*?\$\1\$/s', '?', $s) ?? $s;
+        $s = preg_replace('/\b\d+(?:\.\d+)?\b/', '?', $s) ?? $s;
+        $s = preg_replace('/\s+/', ' ', trim($s)) ?? '';
+        return mb_substr($s, 0, 500);
+    }
+
+    /**
+     * @param array<string, mixed> $database
+     * @return array<string, list<string>> table => columns, for completion
+     */
+    public function schemaMap(array $database): array
+    {
+        $o = (array) $this->agent->call('pg.schema_map', ['database' => (string) $database['name']], 60);
+        $out = [];
+        foreach ((array) ($o['schema'] ?? []) as $table => $cols) {
+            $out[(string) $table] = array_map('strval', (array) $cols);
+        }
+        return $out;
+    }
+
+    /**
+     * Run SQL. Write mode needs the caller to hold databases.manage (the controller checks); the account the
+     * statement runs as is chosen by the agent, never by the browser.
+     *
+     * @param array<string, mixed> $database
+     * @param array{mode: string, limit: int, timeout: int, script: bool, explain: string, query_id: string} $opts
+     * @return array<string, mixed>
+     */
+    public function runQuery(array $database, string $sql, array $opts, ?int $userId): array
+    {
+        $mode = $opts['mode'] === 'write' ? 'write' : 'read';
+        $params = ['database' => (string) $database['name'], 'query' => $sql, 'mode' => $mode, 'limit' => $opts['limit'], 'timeout_seconds' => $opts['timeout'],
+            'script' => $opts['script'], 'explain' => $opts['explain'], 'query_id' => $opts['query_id']];
+        $res = (array) $this->agent->call('pg.query', $params, $opts['timeout'] * ($opts['script'] ? 20 : 1) + 30);
+        $rows = 0;
+        foreach ((array) ($res['results'] ?? []) as $r) {
+            $rows += count((array) (((array) $r)['rows'] ?? []));
+        }
+        $status = isset($res['error']) ? (str_contains(strtolower((string) (((array) $res['error'])['message'] ?? '')), 'cancel') ? 'cancelled' : 'error') : 'ok';
+        $fp = self::fingerprint($sql);
+        $this->repo->recordQuery((int) $database['id'], $userId, $fp, $mode, (int) ($res['duration_ms'] ?? 0), $rows, $status);
+        if ($mode === 'write') {
+            $this->audit->record('postgres.query', 'pg_database', (string) $database['name'], $status === 'ok' ? AuditLogger::SUCCESS : AuditLogger::FAILURE, ['mode' => 'write', 'statement' => $fp], $userId);
+        }
+        return $res;
+    }
+
+    /** @param array<string, mixed> $database */
+    public function cancelQuery(array $database, string $queryId): bool
+    {
+        $r = (array) $this->agent->call('pg.query_cancel', ['database' => (string) $database['name'], 'query_id' => $queryId]);
+        return !empty($r['cancelled']);
+    }
+
+    /**
+     * @param array<string, mixed> $database
+     * @return list<array<string, mixed>>
+     */
+    public function history(array $database, ?int $userId): array
+    {
+        return $this->repo->history((int) $database['id'], $userId);
+    }
+
     private function reserved(string $name): bool
     {
         return in_array($name, ['postgres', 'template0', 'template1', 'public', 'none', 'nimvor_admin', 'replication'], true)

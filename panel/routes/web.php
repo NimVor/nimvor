@@ -426,6 +426,9 @@ return static function (Router $r): void {
     $r->post('/postgres/rows', [\NimVor\Http\Controllers\PostgresController::class, 'rowInsert'], ['name' => 'postgres.row_insert', 'permission' => P::DATABASES_MANAGE]);
     $r->post('/postgres/rows/update', [\NimVor\Http\Controllers\PostgresController::class, 'rowUpdate'], ['name' => 'postgres.row_update', 'permission' => P::DATABASES_MANAGE]);
     $r->post('/postgres/rows/delete', [\NimVor\Http\Controllers\PostgresController::class, 'rowDelete'], ['name' => 'postgres.row_delete', 'permission' => P::DATABASES_MANAGE]);
+    $r->get('/postgres/sql', [\NimVor\Http\Controllers\PostgresController::class, 'sql'], ['name' => 'postgres.sql', 'permission' => P::DATABASES_VIEW]);
+    $r->post('/postgres/sql/run', [\NimVor\Http\Controllers\PostgresController::class, 'sqlRun'], ['name' => 'postgres.sql_run', 'permission' => P::DATABASES_VIEW]);
+    $r->post('/postgres/sql/cancel', [\NimVor\Http\Controllers\PostgresController::class, 'sqlCancel'], ['name' => 'postgres.sql_cancel', 'permission' => P::DATABASES_VIEW]);
     $r->post('/postgres/grants', [\NimVor\Http\Controllers\PostgresController::class, 'grant'], ['name' => 'postgres.grant', 'permission' => P::DATABASES_MANAGE]);
     $r->get('/mongo', [\NimVor\Http\Controllers\MongoController::class, 'index'], ['name' => 'mongo', 'permission' => P::MONGO_VIEW]);
     $r->post('/mongo/databases', [\NimVor\Http\Controllers\MongoController::class, 'createDatabase'], ['name' => 'mongo.database_create', 'permission' => P::MONGO_MANAGE]);

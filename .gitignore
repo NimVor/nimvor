@@ -27,3 +27,6 @@ website/storage/cache/*
 !website/storage/cache/.gitkeep
 website/storage/.phpunit.cache/
 website/.phpunit.result.cache
+
+# Built SQL editor: only its sources are ever installed on a developer machine.
+/panel/assets-src/**/node_modules/
