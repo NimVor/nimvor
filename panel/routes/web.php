@@ -411,6 +411,17 @@ return static function (Router $r): void {
     $r->post('/cloudflare/ssl', [\NimVor\Http\Controllers\CloudflareController::class, 'ssl'], ['name' => 'cloudflare.ssl', 'permission' => P::SERVER_MANAGE]);
     $r->post('/cloudflare/always-https', [\NimVor\Http\Controllers\CloudflareController::class, 'alwaysHttps'], ['name' => 'cloudflare.always_https', 'permission' => P::SERVER_MANAGE]);
     $r->post('/cloudflare/purge', [\NimVor\Http\Controllers\CloudflareController::class, 'purge'], ['name' => 'cloudflare.purge', 'permission' => P::SERVER_MANAGE]);
+    // PostgreSQL: databases, users and access (own scope); the server's controls need postgres.manage.
+    $r->get('/postgres', [\NimVor\Http\Controllers\PostgresController::class, 'index'], ['name' => 'postgres', 'permission' => P::DATABASES_VIEW]);
+    $r->post('/postgres/install', [\NimVor\Http\Controllers\PostgresController::class, 'install'], ['name' => 'postgres.install', 'permission' => P::POSTGRES_MANAGE]);
+    $r->post('/postgres/adopt', [\NimVor\Http\Controllers\PostgresController::class, 'adopt'], ['name' => 'postgres.adopt', 'permission' => P::POSTGRES_MANAGE]);
+    $r->post('/postgres/service', [\NimVor\Http\Controllers\PostgresController::class, 'service'], ['name' => 'postgres.service', 'permission' => P::POSTGRES_MANAGE]);
+    $r->post('/postgres/databases', [\NimVor\Http\Controllers\PostgresController::class, 'createDatabase'], ['name' => 'postgres.database_create', 'permission' => P::DATABASES_MANAGE]);
+    $r->post('/postgres/databases/drop', [\NimVor\Http\Controllers\PostgresController::class, 'dropDatabase'], ['name' => 'postgres.database_drop', 'permission' => P::DATABASES_MANAGE]);
+    $r->post('/postgres/users', [\NimVor\Http\Controllers\PostgresController::class, 'createUser'], ['name' => 'postgres.user_create', 'permission' => P::DATABASES_MANAGE]);
+    $r->post('/postgres/users/password', [\NimVor\Http\Controllers\PostgresController::class, 'password'], ['name' => 'postgres.user_password', 'permission' => P::DATABASES_MANAGE]);
+    $r->post('/postgres/users/drop', [\NimVor\Http\Controllers\PostgresController::class, 'dropUser'], ['name' => 'postgres.user_drop', 'permission' => P::DATABASES_MANAGE]);
+    $r->post('/postgres/grants', [\NimVor\Http\Controllers\PostgresController::class, 'grant'], ['name' => 'postgres.grant', 'permission' => P::DATABASES_MANAGE]);
     $r->get('/mongo', [\NimVor\Http\Controllers\MongoController::class, 'index'], ['name' => 'mongo', 'permission' => P::MONGO_VIEW]);
     $r->post('/mongo/databases', [\NimVor\Http\Controllers\MongoController::class, 'createDatabase'], ['name' => 'mongo.database_create', 'permission' => P::MONGO_MANAGE]);
     $r->post('/mongo/databases/drop', [\NimVor\Http\Controllers\MongoController::class, 'dropDatabase'], ['name' => 'mongo.database_drop', 'permission' => P::MONGO_MANAGE]);

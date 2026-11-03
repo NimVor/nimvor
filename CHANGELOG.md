@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **PostgreSQL (first phases).** A PostgreSQL page in the Hosting menu: install or adopt the server, start/stop/restart it, and create, secure and delete databases and users. Customers manage their own (names prefixed with their user name, counted by the "SQL databases" plan limit); administrators also see databases NimVor did not create. Each database can only be entered by its owner and by users given access (read only, read and write, or full), also for tables created later; PUBLIC is stripped of access and users cannot create databases or users. NimVor manages the server with a non-superuser role whose credentials stay in a root-only file. New agent actions `pg.*` (documented under Administration → PostgreSQL), new permission `postgres.manage`, new tables `pg_servers`, `pg_roles`, `pg_databases`, `pg_grants`. Tested against a real PostgreSQL cluster, including that one customer cannot reach another's database.
+- The agent gains its first third-party dependency, the pgx PostgreSQL driver, committed under `agent/vendor/` so servers can still build it offline.
+
 ## [1.1.4] — 2026-11-02
 
 The file editor and the email DNS check.

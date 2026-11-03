@@ -147,6 +147,12 @@
             var db = modal.querySelector('#mpw-db');
             if (user) { user.value = b.getAttribute('data-user') || ''; }
             if (db) { db.value = b.getAttribute('data-db') || ''; }
+        } else if (modal.id === 'pg-grant') {
+            // PostgreSQL "Give a user access": the database the button belongs to.
+            var pgdb = modal.querySelector('input[name="database_id"]');
+            var pgtitle = modal.querySelector('#pg-grant-t');
+            if (pgdb) { pgdb.value = b.getAttribute('data-database') || ''; }
+            if (pgtitle) { pgtitle.textContent = 'Access to ' + (b.getAttribute('data-name') || 'the database'); }
         } else if (modal.id === 'mongo-note') {
             var ndb = modal.querySelector('#mnote-db');
             var ntext = modal.querySelector('#mnote-text');

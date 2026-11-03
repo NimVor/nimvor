@@ -597,6 +597,75 @@ from the checks the panel already has, grouped into sections:
   instead of failing the page.
 - **It only reads.**
 
+## PostgreSQL
+
+PostgreSQL has its own page (**PostgreSQL** in the Hosting menu) next to the
+MariaDB page; the two do not share databases or users, and a customer's plan
+limit "SQL databases" counts both.
+
+**Who can do what.** Customers (and anyone with `databases.manage`) create,
+change and delete their own databases and users. Their names start with their
+user name (`alice_shop`), because PostgreSQL's user names are shared by the
+whole server. Administrators see everything, including databases NimVor did not
+create (listed read-only, never touched). Installing, adopting and controlling
+the server needs the separate permission `postgres.manage` (the Operator role
+has it).
+
+**Install or adopt.** *Install* uses the operating system's packages
+(`postgresql`, or `postgresql-server` plus the cluster initialisation on the RHEL
+family), starts the service and creates one management role. *Adopt* does the
+same for a server that is already installed, with a confirmation: it creates the
+role through the `postgres` account and changes no configuration file. The
+optional hardening step removes PUBLIC's right to connect to the `postgres` and
+`template1` databases so database users cannot enter them; it is off for adopted
+servers unless you tick it, because other applications may rely on it.
+
+**The management role.** `nimvor_admin` can create databases and users but is not
+a superuser, and its password lives only in `/etc/nimvor/pg-admin.json` (root,
+mode 0600). It is never shown, logged or sent to the browser. NimVor reaches the
+server on `127.0.0.1:5432` with it. Customers never use it: later features
+(table browser, SQL editor) will connect as the customer's own user.
+
+**Isolation.** A new database is owned by its user. PUBLIC loses `CONNECT` on it
+and `USAGE`/`CREATE` on its `public` schema, so only the owner and users you
+grant can enter it, whatever `pg_hba.conf` says. A user created by NimVor cannot
+create databases or users, is not a superuser and cannot replicate or bypass
+row security. Access levels (existing tables and ones created later):
+
+| Level | Connect | Read | Write | Create tables |
+|---|---|---|---|---|
+| Read only | yes | yes | no | no |
+| Read and write | yes | yes | yes | no |
+| Full access | yes | yes | yes | yes |
+
+The owner always has full access. Lowering a level takes the higher one's rights
+away. A user and a database can only be linked when they belong to the same
+account. A user that still owns a database cannot be deleted. Deleting a
+database ends the connections to it first; deleting twice is not an error.
+
+**Agent actions** (all behind the write gate except the read-only ones):
+
+| Action | What it does |
+|---|---|
+| `pg.status` | Installed, running, version, whether NimVor manages it (read-only) |
+| `pg.install` | Job: install, start, create the management role |
+| `pg.adopt` | Create the management role on an existing server (`confirm` required, optional `harden`) |
+| `pg.service` | `start`, `stop`, `restart` or `reload` the service |
+| `pg.test` | Test the connection (local, or a registered remote target) (read-only) |
+| `pg.overview` | Databases (size, connections) and users (read-only) |
+| `pg.role_create`, `pg.role_password`, `pg.role_delete` | Database users |
+| `pg.database_create`, `pg.database_delete` | Databases |
+| `pg.grant_set`, `pg.grant_list` | Access levels; who may connect |
+
+Every identifier is checked against `^[a-z_][a-z0-9_]{0,62}$` (reserved names such
+as `postgres`, `template1`, `pg_*` and `nimvor_*` are refused) and quoted again
+by the server's own `format('%I')`; values are parameters or `format('%L')`.
+Actions accept an optional `target` (host, port, user, password, TLS mode, CA)
+that only the panel builds from an administrator-registered server; a remote
+target must use `require`, `verify-ca` or `verify-full`. Registering remote
+servers, the table browser, the SQL editor, backups and monitoring are later
+phases. Audit entries (`postgres.*`) never contain passwords.
+
 ## Components
 
 **Server → Components** shows each part of the server (web server, PHP,

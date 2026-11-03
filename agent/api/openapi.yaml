@@ -310,6 +310,19 @@ paths:
               - packages.repair
               - packages.updates
               - packages.upgrade
+              - pg.adopt
+              - pg.database_create
+              - pg.database_delete
+              - pg.grant_list
+              - pg.grant_set
+              - pg.install
+              - pg.overview
+              - pg.role_create
+              - pg.role_delete
+              - pg.role_password
+              - pg.service
+              - pg.status
+              - pg.test
               - php.available
               - php.catalog
               - php.extension_install
@@ -798,6 +811,19 @@ x-nimvor-actions:
   packages.repair: { mutating: true, description: "Repair broken package state: reinstall packages whose install script failed, install missing dependencies; remove_duplicates (confirmed) also removes older duplicate versions (job)." }
   packages.updates: { mutating: false, description: "Pending package updates (from the last package index refresh)." }
   packages.upgrade: { mutating: true, description: "Install all pending updates, keeping existing configuration files (job)." }
+  pg.adopt: { mutating: true, description: "Let NimVor manage an existing local PostgreSQL server: creates one role (nimvor_admin, no superuser rights) through the postgres account. No configuration file is changed. Needs confirm=true." }
+  pg.database_create: { mutating: true, description: "Create a database owned by an existing database user; PUBLIC is stripped of access, so only the owner and users granted later can connect." }
+  pg.database_delete: { mutating: true, description: "Delete a database (connections to it are ended). Deleting one that is gone is not an error." }
+  pg.grant_list: { mutating: false, description: "The database users that may connect to a database (besides its owner)." }
+  pg.grant_set: { mutating: true, description: "Set what a database user may do in a database: none, readonly, readwrite or all (existing objects and ones created later)." }
+  pg.install: { mutating: true, description: "Install PostgreSQL from the operating system's packages, start it and create NimVor's provisioning role. Refuses when a server is already installed." }
+  pg.overview: { mutating: false, description: "The server's databases (with sizes and connections) and database users." }
+  pg.role_create: { mutating: true, description: "Create a database user: login only, no superuser, database or role creation, replication or row-security bypass." }
+  pg.role_delete: { mutating: true, description: "Delete a database user and its privileges. Refuses while the user owns a database." }
+  pg.role_password: { mutating: true, description: "Change a database user's password." }
+  pg.service: { mutating: true, description: "Start, stop, restart or reload the PostgreSQL service." }
+  pg.status: { mutating: false, description: "PostgreSQL on this server: installed, running, version, and whether NimVor holds credentials for it." }
+  pg.test: { mutating: false, description: "Test a connection to the local server or, with a target, to a registered remote server (TLS settings included)." }
   php.available: { mutating: false, description: "PHP versions offered by the configured package repositories." }
   php.catalog: { mutating: false, description: "The PHP extensions NimVor manages (name, description) and those a new version gets by default." }
   php.extension_install: { mutating: true, description: "Install a PHP extension's package for a version (job); PHP-FPM is reloaded." }
