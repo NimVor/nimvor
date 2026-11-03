@@ -256,6 +256,98 @@ final class PostgresService
         $this->audit->record('postgres.user_delete', 'pg_user', (string) $role['name']);
     }
 
+    // ---- browsing and editing rows (the database owner's own data) --------------------------------
+
+    /**
+     * @param array<string, mixed> $database
+     * @return array{schemas: list<string>, tables: list<array<string, mixed>>}
+     */
+    public function tables(array $database): array
+    {
+        $o = (array) $this->agent->call('pg.tables', ['database' => (string) $database['name']], 60);
+        return ['schemas' => array_map('strval', (array) ($o['schemas'] ?? [])), 'tables' => array_map(static fn ($t): array => (array) $t, (array) ($o['tables'] ?? []))];
+    }
+
+    /**
+     * @param array<string, mixed> $database
+     * @return array<string, mixed>
+     */
+    public function structure(array $database, string $schema, string $table): array
+    {
+        return (array) $this->agent->call('pg.table_structure', ['database' => (string) $database['name'], 'schema' => $schema, 'table' => $table], 60);
+    }
+
+    /**
+     * One page of a table. $q: offset, limit, sort, desc, search, filters.
+     *
+     * @param array<string, mixed> $database
+     * @param array<string, mixed> $q
+     * @return array<string, mixed>
+     */
+    public function browse(array $database, string $schema, string $table, array $q): array
+    {
+        return (array) $this->agent->call('pg.browse', ['database' => (string) $database['name'], 'schema' => $schema, 'table' => $table] + $q, 60);
+    }
+
+    /**
+     * Turn the form's per-column choices into the values to write: mode "value" sends the text, "null" sends NULL,
+     * anything else (default, keep) leaves the column out.
+     *
+     * @param array<string, mixed> $modes
+     * @param array<string, mixed> $texts
+     * @return array<string, string|null>
+     */
+    public static function values(array $modes, array $texts): array
+    {
+        $out = [];
+        foreach ($modes as $col => $mode) {
+            $col = (string) $col;
+            if ($mode === 'value') {
+                $out[$col] = (string) ($texts[$col] ?? '');
+            } elseif ($mode === 'null') {
+                $out[$col] = null;
+            }
+        }
+        return $out;
+    }
+
+    /** @param array<string, mixed> $database */
+    public function auditExport(array $database, string $schema, string $table): void
+    {
+        $this->audit->record('postgres.export', 'pg_database', (string) $database['name'], AuditLogger::SUCCESS, ['table' => $schema . '.' . $table]);
+    }
+
+    /**
+     * @param array<string, mixed> $database
+     * @param array<string, string|null> $values
+     */
+    public function insertRow(array $database, string $schema, string $table, array $values): void
+    {
+        $this->agent->call('pg.row_insert', ['database' => (string) $database['name'], 'schema' => $schema, 'table' => $table, 'values' => (object) $values]);
+        $this->audit->record('postgres.row_insert', 'pg_database', (string) $database['name'], AuditLogger::SUCCESS, ['table' => $schema . '.' . $table]);
+    }
+
+    /**
+     * @param array<string, mixed> $database
+     * @param array<string, string|null> $key
+     * @param array<string, string|null> $values
+     */
+    public function updateRow(array $database, string $schema, string $table, array $key, array $values): void
+    {
+        $this->agent->call('pg.row_update', ['database' => (string) $database['name'], 'schema' => $schema, 'table' => $table, 'key' => (object) $key, 'values' => (object) $values]);
+        $this->audit->record('postgres.row_update', 'pg_database', (string) $database['name'], AuditLogger::SUCCESS, ['table' => $schema . '.' . $table]);
+    }
+
+    /**
+     * @param array<string, mixed> $database
+     * @param array<string, string|null> $key
+     */
+    public function deleteRow(array $database, string $schema, string $table, array $key): void
+    {
+        $this->agent->call('pg.row_delete', ['database' => (string) $database['name'], 'schema' => $schema, 'table' => $table, 'key' => (object) $key]);
+        $this->audit->record('postgres.row_delete', 'pg_database', (string) $database['name'], AuditLogger::SUCCESS, ['table' => $schema . '.' . $table]);
+    }
+
     private function reserved(string $name): bool
     {
         return in_array($name, ['postgres', 'template0', 'template1', 'public', 'none', 'nimvor_admin', 'replication'], true)

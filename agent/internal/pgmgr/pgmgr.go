@@ -183,6 +183,7 @@ func withSession(ctx context.Context, env *host.Env, t *Target, db string, fn fu
 
 // Register adds the PostgreSQL actions.
 func Register(r *actions.Registry, env *host.Env) {
+	registerBrowser(r, env)
 	r.Register(actions.Action{Name: "pg.status", Description: "PostgreSQL on this server: installed, running, version, and whether NimVor holds credentials for it.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return status(ctx, env), nil
 	}})
