@@ -311,6 +311,7 @@ paths:
               - packages.updates
               - packages.upgrade
               - pg.adopt
+              - pg.browse
               - pg.database_create
               - pg.database_delete
               - pg.grant_list
@@ -320,8 +321,13 @@ paths:
               - pg.role_create
               - pg.role_delete
               - pg.role_password
+              - pg.row_delete
+              - pg.row_insert
+              - pg.row_update
               - pg.service
               - pg.status
+              - pg.table_structure
+              - pg.tables
               - pg.test
               - php.available
               - php.catalog
@@ -812,6 +818,7 @@ x-nimvor-actions:
   packages.updates: { mutating: false, description: "Pending package updates (from the last package index refresh)." }
   packages.upgrade: { mutating: true, description: "Install all pending updates, keeping existing configuration files (job)." }
   pg.adopt: { mutating: true, description: "Let NimVor manage an existing local PostgreSQL server: creates one role (nimvor_admin, no superuser rights) through the postgres account. No configuration file is changed. Needs confirm=true." }
+  pg.browse: { mutating: false, description: "One page of a table's rows (read-only transaction, as the database owner): sorting, text search, column filters; cells over 2048 characters are cut and marked." }
   pg.database_create: { mutating: true, description: "Create a database owned by an existing database user; PUBLIC is stripped of access, so only the owner and users granted later can connect." }
   pg.database_delete: { mutating: true, description: "Delete a database (connections to it are ended). Deleting one that is gone is not an error." }
   pg.grant_list: { mutating: false, description: "The database users that may connect to a database (besides its owner)." }
@@ -821,8 +828,13 @@ x-nimvor-actions:
   pg.role_create: { mutating: true, description: "Create a database user: login only, no superuser, database or role creation, replication or row-security bypass." }
   pg.role_delete: { mutating: true, description: "Delete a database user and its privileges. Refuses while the user owns a database." }
   pg.role_password: { mutating: true, description: "Change a database user's password." }
+  pg.row_delete: { mutating: true, description: "Delete one row, addressed by every key column; refuses tables without a primary key and any change that does not touch exactly one row." }
+  pg.row_insert: { mutating: true, description: "Add a row to a table (values are text, cast by the server; omitted columns use their defaults)." }
+  pg.row_update: { mutating: true, description: "Change one row, addressed by every key column; refuses tables without a primary key and any change that does not touch exactly one row." }
   pg.service: { mutating: true, description: "Start, stop, restart or reload the PostgreSQL service." }
   pg.status: { mutating: false, description: "PostgreSQL on this server: installed, running, version, and whether NimVor holds credentials for it." }
+  pg.table_structure: { mutating: false, description: "A table's columns (type, null, default, key), its row identity and its indexes." }
+  pg.tables: { mutating: false, description: "The tables, views and materialized views of a database (system schemas excluded) with estimated rows, size and whether their rows can be edited." }
   pg.test: { mutating: false, description: "Test a connection to the local server or, with a target, to a registered remote server (TLS settings included)." }
   php.available: { mutating: false, description: "PHP versions offered by the configured package repositories." }
   php.catalog: { mutating: false, description: "The PHP extensions NimVor manages (name, description) and those a new version gets by default." }

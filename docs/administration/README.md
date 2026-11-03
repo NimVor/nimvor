@@ -656,15 +656,33 @@ database ends the connections to it first; deleting twice is not an error.
 | `pg.role_create`, `pg.role_password`, `pg.role_delete` | Database users |
 | `pg.database_create`, `pg.database_delete` | Databases |
 | `pg.grant_set`, `pg.grant_list` | Access levels; who may connect |
+| `pg.tables`, `pg.table_structure` | Tables, views and materialized views of a database; a table's columns, key and indexes (read-only) |
+| `pg.browse` | One page of rows with sorting, search and filters (read-only) |
+| `pg.row_insert`, `pg.row_update`, `pg.row_delete` | Add, change or delete one row |
 
-Every identifier is checked against `^[a-z_][a-z0-9_]{0,62}$` (reserved names such
+**Table browser.** The table icon on a database opens its tables and rows: pages of
+25 to 250 rows, sorting by any column, a search across all columns, a filter on
+one column, column visibility, the table's structure, and **Export CSV** (up to
+50,000 rows, NULL as an empty cell). Rows are added, edited and deleted in place
+where the table has a primary key (or a unique key of non-null columns); tables
+without one, views and materialized views are browse-only, because a row of such
+a table cannot be addressed unambiguously. Each column is set to a value, NULL or
+its default, so an empty text and NULL are different things. Values longer than
+2,048 characters are cut and marked and cannot be edited there. The browser runs
+as the database's owner (`SET ROLE`), never as the management role, so it can do
+no more than the owner could; reads run in a read-only transaction with a 15 second
+limit; the system schemas are not shown. Table and column names are looked up in
+the catalog before use and quoted, values are always parameters. Audit entries
+(`postgres.row_insert`, `postgres.row_update`, `postgres.row_delete`,
+`postgres.export`) name the table, never the data.
+
+Every identifier of a database or user NimVor creates is checked against `^[a-z_][a-z0-9_]{0,62}$` (reserved names such
 as `postgres`, `template1`, `pg_*` and `nimvor_*` are refused) and quoted again
 by the server's own `format('%I')`; values are parameters or `format('%L')`.
 Actions accept an optional `target` (host, port, user, password, TLS mode, CA)
 that only the panel builds from an administrator-registered server; a remote
 target must use `require`, `verify-ca` or `verify-full`. Registering remote
-servers, the table browser, the SQL editor, backups and monitoring are later
-phases. Audit entries (`postgres.*`) never contain passwords.
+servers, the SQL editor, backups and monitoring are later phases. Audit entries (`postgres.*`) never contain passwords.
 
 ## Components
 

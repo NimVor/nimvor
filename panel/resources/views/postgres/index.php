@@ -124,6 +124,7 @@ $levels = PostgresService::LEVELS;
                     </td>
                     <td class="text-end small text-body-secondary"><?= $live !== null ? e(format_bytes((int) $d['size_bytes'])) : '' ?></td>
                     <td class="text-end text-nowrap">
+                        <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('postgres.browse') . '?db=' . (int) $d['id']) ?>" title="Browse tables and rows"><i class="bi bi-table"></i></a>
                         <?php if ($canManage): ?>
                             <button class="btn btn-sm btn-outline-secondary" type="button" title="Give a user access" data-bs-toggle="modal" data-bs-target="#pg-grant" data-database="<?= (int) $d['id'] ?>" data-name="<?= e((string) $d['name']) ?>"><i class="bi bi-person-check"></i></button>
                             <form class="d-inline" method="post" action="<?= e($this->url('postgres.database_drop')) ?>" data-nim-confirm="Delete the database “<?= e((string) $d['name']) ?>” and everything in it? This cannot be undone.">
