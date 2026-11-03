@@ -64,6 +64,10 @@ final class PagesTest extends SiteTestCase
         $h = $this->get('/health');
         self::assertSame([200, "ok\n"], [$h->status, $h->body]);
         self::assertSame(301, $this->get('/sponsor')->status);
+        // `curl -fsSL https://nimvor.com/install | sudo bash` follows this to the script in the repository.
+        $install = $this->get('/install');
+        self::assertSame(302, $install->status);
+        self::assertSame('https://raw.githubusercontent.com/NimVor/nimvor/main/installer/bootstrap.sh', $install->headers['Location'] ?? null);
     }
 
     public function testPublicPagesAreCacheableAndSetNoCookie(): void
