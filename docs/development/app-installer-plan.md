@@ -89,7 +89,7 @@ Facts that matter for the next steps:
 | G10 | No port allocation or conflict check for loopback apps: a proxied site's port is any number 1024-65535 chosen by the caller. | `WebsiteService::validate`, `sites.checkConflicts` |
 | G11 | `pip`, `npm`, `python -m venv` are not allowlisted commands; a build step would have to run through `sh` as the site account with an agent-built fixed script, as the Laravel path does with Composer. | `execx.go` |
 | G12 | Plugins/extensions and standalone apps are mixed in one catalog (WooCommerce, bbPress … are WordPress plus a plugin). | `AppInstallerService::WORDPRESS_BASED` |
-| G13 | Several staged apps cannot be verified from CI (phpBB, SMF hosts refuse the runners); now flagged `Unverified` in the agent catalog. | `apps.AppDef.Unverified` |
+| G13 | Several staged apps cannot be verified from CI (phpBB, SMF hosts refuse the runners; MediaWiki's host rate-limits them); now flagged `Unverified` in the agent catalog. | `apps.AppDef.Unverified` |
 
 ## 3. Baseline (before this work's changes)
 
