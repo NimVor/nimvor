@@ -178,3 +178,5 @@ Open items: uninstall and upgrade flows (G5; a native installation occupies its 
 website until a removal flow exists), SELinux-enforcing hosts (not tested; the installer
 writes only under the website's folder and creates a systemd unit like any worker), the
 container foundation, PostgreSQL, and the Node.js strategy.
+
+> **CI note.** The real-host job and the VM matrix do not run the `internal/apps` real-host tests (application installs and the catalog download check): the vendors' download hosts and the GitHub API rate-limit or block CI runners, which failed runs at random. Application installs are verified on a real server before a release; the package's unit tests still run in the `agent` job.
