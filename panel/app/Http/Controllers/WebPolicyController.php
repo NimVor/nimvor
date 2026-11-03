@@ -60,6 +60,11 @@ final class WebPolicyController extends Controller
         return $this->change($request, $id, 'cache', fn (array $site): string => $this->policy->saveCache($site, $request->all()));
     }
 
+    public function purgePageCache(Request $request, string $id): Response
+    {
+        return $this->change($request, $id, 'cache', fn (array $site): string => $this->policy->purgePageCache($site, $this->userId($request)));
+    }
+
     public function reset(Request $request, string $id): Response
     {
         return $this->change($request, $id, $request->string('section') === 'cache' ? 'cache' : 'headers', fn (array $site): string => $this->policy->reset($site, $request->string('section')));

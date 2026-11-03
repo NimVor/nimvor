@@ -336,8 +336,40 @@ administration paths, accounts, carts and checkouts, API endpoints, requests
 with an `Authorization` header or a session/sign-in cookie, responses that set
 a cookie, and every request other than GET and HEAD. A `Cache-Control` the
 application sends itself is never doubled or overridden for ordinary pages.
-This is browser/HTTP cache policy; NimVor does not run a shared server-side
-page cache.
+The rules above are browser/HTTP cache policy. The server-side **page cache** is
+separate and described next.
+
+**Page cache (PHP websites).** Turn on *Page cache* on the same tab to let
+Nginx keep finished pages and serve them without starting PHP or touching the
+database (`fastcgi_cache`). Choose how long a page is kept: 1, 5, 10 (the
+default), 30 minutes, 1, 6 hours or 1 day. A page that changed can show its old
+version until that time is up; **Empty the page cache** removes everything the
+website has cached at once. Each website has its own cache folder
+(`/var/cache/nimvor/fastcgi/<id>`, owned by the web server's account, mode
+0700, at most 256 MB) and its own cache zone, and the host name is part of every
+cache key, so one website can never be served another's pages.
+
+Only plain public pages are kept. These always go to PHP and are never stored:
+sign-in, registration and password pages, administration areas, accounts,
+carts and checkouts, API endpoints (the same list as above, plus the extra
+paths you set), requests with an `Authorization` header or a session or
+sign-in cookie, every request that is not GET or HEAD, any address with a query
+string, a `%`-encoded character or a `;`, and every response that sets a cookie
+or that the application marks private or no-store. The paths are matched on the
+address the visitor asked for, so `/my-account/` is recognised even when it is
+rewritten to `index.php`. The response header `X-Page-Cache` shows `HIT`,
+`MISS`, `BYPASS`, `EXPIRED` or `STALE`; while PHP is slow or failing, a stale
+page may be served for a short time. If a website's PHP code does something
+personal without a cookie (content by IP address or by browser, for example),
+leave the page cache off for it.
+
+Turning it off, or deleting the website, removes its cached pages. The
+configuration is checked with `nginx -t` and the previous working file is kept
+if anything fails, like every other website change. Agent actions: the cache
+policy travels in `sites.apply` (`cache.page_cache`); `sites.page_cache_purge`
+empties it. Implementation: `agent/internal/sites/pagecache.go`; tested against
+a real Nginx with a FastCGI backend (hits, every bypass rule, security headers on
+cached pages).
 
 *Restore defaults* removes the saved choices of a section. Server-level rules
 (sensitive-file blocking, PHP restrictions, request limits, ModSecurity, site

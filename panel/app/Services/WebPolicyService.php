@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NimVor\Services;
 
+use NimVor\Agent\AgentClient;
 use NimVor\Support\UserFacingException;
 use NimVor\Support\ValidationException;
 
@@ -78,6 +79,12 @@ final class WebPolicyService
     public const MIN_DYNAMIC_TTL = 30;
     public const MAX_DYNAMIC_TTL = 3600;
     public const MAX_BYPASS = 20;
+
+    /** How long Nginx serves a PHP page from its own cache (seconds), as the agent accepts them. */
+    public const PAGE_CACHE_TTLS = [
+        60 => '1 minute', 300 => '5 minutes', 600 => '10 minutes (recommended)', 1800 => '30 minutes',
+        3600 => '1 hour', 21600 => '6 hours', 86400 => '1 day',
+    ];
     public const MAX_CSP = 4000;
 
     private const CSP_DIRECTIVES = [
@@ -94,6 +101,8 @@ final class WebPolicyService
 
     public function __construct(
         private readonly WebsiteService $websites,
+        private readonly AgentClient $agent,
+        private readonly AuditLogger $audit,
     ) {
     }
 
@@ -109,7 +118,7 @@ final class WebPolicyService
 
     public static function defaultCache(): array
     {
-        return ['static_ttl' => 0, 'dynamic_mode' => 'app', 'dynamic_ttl' => 60, 'bypass_paths' => []];
+        return ['static_ttl' => 0, 'dynamic_mode' => 'app', 'dynamic_ttl' => 60, 'bypass_paths' => [], 'page_cache' => ['enabled' => false, 'ttl' => 600]];
     }
 
     /**
@@ -134,6 +143,7 @@ final class WebPolicyService
         $p = (array) ($site['web_policy'] ?? []);
         $h = isset($p['headers']) && is_array($p['headers']) ? array_replace_recursive(self::defaultHeaders(), $p['headers']) : self::defaultHeaders();
         $c = isset($p['cache']) && is_array($p['cache']) ? array_replace(self::defaultCache(), $p['cache']) : self::defaultCache();
+        $c['page_cache'] = array_replace(self::defaultCache()['page_cache'], (array) ($c['page_cache'] ?? []));
         return [
             'headers' => $h, 'cache' => $c,
             'headers_custom' => isset($p['headers']), 'cache_custom' => isset($p['cache']),
@@ -179,6 +189,11 @@ final class WebPolicyService
                 'static_ttl' => (int) $c['static_ttl'], 'dynamic_mode' => (string) $c['dynamic_mode'],
                 'dynamic_ttl' => (int) $c['dynamic_ttl'], 'bypass_paths' => array_values((array) $c['bypass_paths']),
             ];
+            // Only a PHP website has pages to cache; a saved choice is dropped if the website is not one.
+            $pc = (array) ($c['page_cache'] ?? []);
+            if (!empty($pc['enabled']) && ($site['kind'] ?? 'php') === 'php' && isset(self::PAGE_CACHE_TTLS[(int) ($pc['ttl'] ?? 0)])) {
+                $out['cache']['page_cache'] = ['enabled' => true, 'ttl' => (int) $pc['ttl']];
+            }
         }
         return $out;
     }
@@ -203,11 +218,27 @@ final class WebPolicyService
      */
     public function saveCache(array $site, array $input): string
     {
-        $cache = $this->validateCache($input);
+        $cache = $this->validateCache($input, $site);
         $policy = (array) ($site['web_policy'] ?? []);
         $policy['cache'] = $cache;
         $this->websites->patch($site, ['web_policy' => $policy], 'website.web_policy');
         return 'Cache rules saved and applied.';
+    }
+
+    /**
+     * Empty the website's page cache (the cached PHP pages). Nothing else changes.
+     *
+     * @param array<string, mixed> $site
+     */
+    public function purgePageCache(array $site, ?int $userId): string
+    {
+        $state = $this->state($site);
+        if (empty($state['cache']['page_cache']['enabled'])) {
+            throw new UserFacingException('The page cache is not turned on for this website.', '', 'Turn it on first.');
+        }
+        $this->agent->call('sites.page_cache_purge', ['domain' => (string) $site['domain']]);
+        $this->audit->record('website.page_cache_purge', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['domain' => $site['domain']], $userId);
+        return 'The page cache was emptied.';
     }
 
     /**
@@ -314,9 +345,17 @@ final class WebPolicyService
      * @param array<string, mixed> $input
      * @return array<string, mixed>
      */
-    public function validateCache(array $input): array
+    public function validateCache(array $input, array $site = []): array
     {
         $errors = [];
+        $pageOn = (string) ($input['page_cache'] ?? '0') === '1';
+        $pageTtl = filter_var($input['page_cache_ttl'] ?? 600, FILTER_VALIDATE_INT);
+        if ($pageOn && ($pageTtl === false || !isset(self::PAGE_CACHE_TTLS[$pageTtl]))) {
+            $errors['page_cache_ttl'] = 'Choose one of the listed lifetimes.';
+        }
+        if ($pageOn && ($site['kind'] ?? 'php') !== 'php') {
+            $errors['page_cache'] = 'The page cache is for PHP websites.';
+        }
         $static = filter_var($input['static_ttl'] ?? 0, FILTER_VALIDATE_INT);
         $custom = trim((string) ($input['static_ttl_custom'] ?? ''));
         if ($custom !== '') {
@@ -356,6 +395,7 @@ final class WebPolicyService
         return [
             'static_ttl' => (int) $static, 'dynamic_mode' => $mode,
             'dynamic_ttl' => $mode === 'public' ? (int) $ttl : 60, 'bypass_paths' => $paths,
+            'page_cache' => ['enabled' => $pageOn, 'ttl' => $pageOn ? (int) $pageTtl : 600],
         ];
     }
 

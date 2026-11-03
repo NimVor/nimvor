@@ -52,6 +52,8 @@ type CachePolicy struct {
 	DynamicTTL  int    `json:"dynamic_ttl,omitempty"` // seconds, public mode
 	// BypassPaths are extra path prefixes that are never cached publicly.
 	BypassPaths []string `json:"bypass_paths,omitempty"`
+	// PageCache is Nginx's own cache of PHP pages (see PageCache); nil is off.
+	PageCache *PageCache `json:"page_cache,omitempty"`
 }
 
 // Bounds of the customer-set values.
@@ -320,6 +322,14 @@ func (c *CachePolicy) normalize() error {
 		}
 	}
 	c.BypassPaths = paths
+	if c.PageCache != nil {
+		if err := c.PageCache.normalize(); err != nil {
+			return err
+		}
+		if !c.PageCache.Enabled {
+			c.PageCache = nil
+		}
+	}
 	return nil
 }
 
@@ -434,11 +444,12 @@ func RenderCacheFlags() string {
 // (the file is included in the http context).
 func renderCacheMaps(s Spec) string {
 	c := s.Cache
-	if c == nil || (c.StaticTTL == 0 && c.DynamicMode == "app") {
+	if c == nil || (c.StaticTTL == 0 && c.DynamicMode == "app" && !pageCacheOn(s)) {
 		return ""
 	}
 	pf := siteVar(s.Domain, "pf")
 	var b strings.Builder
+	b.WriteString(renderPageCachePath(s))
 	fmt.Fprintf(&b, "map $uri $%s {\n    default 0;\n", pf)
 	fmt.Fprintf(&b, "    \"~*^/(?:%s)(?:/|\\.|-|$)\" 1;\n", sensitivePaths)
 	if len(c.BypassPaths) > 0 {
@@ -449,6 +460,7 @@ func renderCacheMaps(s Spec) string {
 		fmt.Fprintf(&b, "    \"~*^(?:%s)(?:/|\\.|$)\" 1;\n", strings.Join(esc, "|"))
 	}
 	fmt.Fprintf(&b, "    \"~*\\.(?:%s)$\" 2;\n}\n", staticExt)
+	b.WriteString(renderPageCacheMaps(s))
 	if c.StaticTTL > 0 {
 		// Static assets of GET/HEAD requests without an Authorization header,
 		// outside sensitive paths: key is path flag, auth flag, method flag.
@@ -492,5 +504,6 @@ func cacheDirectives(s Spec) string {
 	if c.DynamicMode != "app" {
 		fmt.Fprintf(&b, "    add_header Cache-Control $%s;\n", siteVar(s.Domain, "cc"))
 	}
+	b.WriteString(pageCacheHeader(s))
 	return b.String()
 }
