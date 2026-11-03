@@ -213,3 +213,94 @@ func merge(a, b map[string]any) map[string]any {
 	}
 	return a
 }
+
+// A customer's trigger runs when the browser inserts a row. It must not be able to act as the provisioning role:
+// RESET ROLE in a session logged in as the admin would return to it and could alter every customer's users.
+func TestCustomerCodeCannotEscalate(t *testing.T) {
+	c := startCluster(t)
+	h := testhost.New(t)
+	c.admin(t, h.Env)
+	r := actions.NewRegistry(true)
+	Register(r, h.Env)
+	ctx := context.Background()
+	mustCall(t, r, "pg.role_create", map[string]any{"name": "owner_a", "password": pwA})
+	mustCall(t, r, "pg.role_create", map[string]any{"name": "owner_b", "password": pwB})
+	mustCall(t, r, "pg.database_create", map[string]any{"name": "db_a", "owner": "owner_a"})
+	mustCall(t, r, "pg.database_create", map[string]any{"name": "db_b", "owner": "owner_b"})
+
+	a, err := c.as("owner_a", pwA, "db_a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`CREATE TABLE items (id serial PRIMARY KEY, name text)`,
+		`CREATE TABLE trig_log (msg text)`,
+		`CREATE FUNCTION evil() RETURNS trigger LANGUAGE plpgsql AS $$
+		 BEGIN
+		   BEGIN RESET ROLE; INSERT INTO trig_log VALUES ('reset ok'); EXCEPTION WHEN others THEN INSERT INTO trig_log VALUES ('reset failed: ' || SQLERRM); END;
+		   BEGIN EXECUTE 'ALTER ROLE owner_b PASSWORD ''hacked-password-123'''; INSERT INTO trig_log VALUES ('ALTER ROLE WORKED'); EXCEPTION WHEN others THEN INSERT INTO trig_log VALUES ('alter refused'); END;
+		   BEGIN EXECUTE 'CREATE ROLE evil_r LOGIN'; INSERT INTO trig_log VALUES ('CREATE ROLE WORKED'); EXCEPTION WHEN others THEN INSERT INTO trig_log VALUES ('create refused'); END;
+		   BEGIN EXECUTE 'CREATE DATABASE evil_db'; INSERT INTO trig_log VALUES ('CREATE DATABASE WORKED'); EXCEPTION WHEN others THEN INSERT INTO trig_log VALUES ('createdb refused'); END;
+		   RETURN NEW;
+		 END $$`,
+		`CREATE TRIGGER t BEFORE INSERT ON items FOR EACH ROW EXECUTE FUNCTION evil()`,
+	} {
+		if _, err := a.Exec(ctx, q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	a.Close(ctx)
+
+	// The premise: a session that logs in as the provisioning role gets its powers back with RESET ROLE.
+	adm, err := open(ctx, h.Env, nil, "db_a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	adm.Exec(ctx, "SET ROLE owner_a")
+	if _, err := adm.Exec(ctx, "RESET ROLE"); err == nil {
+		if _, err := adm.Exec(ctx, "ALTER ROLE owner_b PASSWORD 'premise-check-password-1'"); err == nil {
+			t.Log("confirmed: a provisioning-role session can alter another customer's user after RESET ROLE")
+			adm.Exec(ctx, "ALTER ROLE owner_b PASSWORD '"+pwB+"'")
+		}
+	}
+	adm.Close(ctx)
+
+	// The browser fires the trigger.
+	mustCall(t, r, "pg.row_insert", map[string]any{"database": "db_a", "schema": "public", "table": "items", "values": map[string]any{"name": "x"}})
+
+	a, _ = c.as("owner_a", pwA, "db_a")
+	rows, err := a.Query(ctx, `SELECT msg FROM trig_log`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var log []string
+	for rows.Next() {
+		var m string
+		rows.Scan(&m)
+		log = append(log, m)
+	}
+	rows.Close()
+	a.Close(ctx)
+	joined := strings.Join(log, "; ")
+	if len(log) == 0 {
+		t.Fatal("the trigger did not run")
+	}
+	for _, bad := range []string{"ALTER ROLE WORKED", "CREATE ROLE WORKED", "CREATE DATABASE WORKED"} {
+		if strings.Contains(joined, bad) {
+			t.Fatalf("customer code escalated through the browser: %s", joined)
+		}
+	}
+	// owner_b's password is unchanged, the role was not created.
+	if s, err := c.as("owner_b", pwB, "db_b"); err != nil {
+		t.Fatalf("owner_b's password was changed: %v", err)
+	} else {
+		s.Close(ctx)
+	}
+	var n int
+	adm, _ = open(ctx, h.Env, nil, "postgres")
+	adm.QueryRow(ctx, `SELECT count(*) FROM pg_roles WHERE rolname = 'evil_r'`).Scan(&n)
+	adm.Close(ctx)
+	if n != 0 {
+		t.Fatal("a role was created by customer code")
+	}
+}
