@@ -24,6 +24,10 @@ $hstsOn = $redo ? ($old['hsts_enabled'] ?? '0') === '1' : !empty($h['hsts']['ena
 $hstsAge = (int) $hv('hsts_max_age', (int) $h['hsts']['max_age']);
 $staticTtl = (int) $hv('static_ttl', (int) $c['static_ttl']);
 $presetTtl = isset(W::STATIC_TTLS[$staticTtl]);
+$pc = (array) $c['page_cache'];
+$pageOn = $redo ? (string) ($old['page_cache'] ?? '0') === '1' : !empty($pc['enabled']);
+$pageTtl = (int) $hv('page_cache_ttl', (int) $pc['ttl']);
+$isPhp = ($site['kind'] ?? 'php') === 'php';
 ?>
 <?= $this->partial('sites/header', ['site' => $site, 'tab' => 'headers']) ?>
 
@@ -124,6 +128,25 @@ $presetTtl = isset(W::STATIC_TTLS[$staticTtl]);
         <?= $this->csrfField() ?>
         <div class="card-header">Cache rules</div>
         <div class="card-body">
+            <?php if ($isPhp): ?>
+            <div class="mb-4 border rounded p-3">
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" role="switch" id="wp-page-cache" name="page_cache" value="1"<?= $pageOn ? ' checked' : '' ?>>
+                    <label class="form-check-label fw-medium" for="wp-page-cache">Page cache (Nginx keeps finished pages and serves them without running PHP)</label>
+                </div>
+                <?= $fb($err('page_cache')) ?>
+                <label class="form-label small" for="wp-page-ttl">Keep a page for</label>
+                <select class="form-select form-select-sm w-auto<?= $err('page_cache_ttl') ? ' is-invalid' : '' ?>" id="wp-page-ttl" name="page_cache_ttl">
+                    <?php foreach (W::PAGE_CACHE_TTLS as $k => $label): ?><option value="<?= (int) $k ?>"<?= $pageTtl === $k ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?>
+                </select>
+                <?= $fb($err('page_cache_ttl')) ?>
+                <div class="form-text">Makes public pages much faster and takes load off PHP and the database. A changed page can show the old version until its time is up, or until you empty the cache. Pages that are personal or sensitive are never kept, and nothing is cached for visitors who are signed in; see the box below. The response header <code>X-Page-Cache</code> says <code>HIT</code> when a page came from the cache and <code>BYPASS</code> when it was skipped. Each website's cache is limited to 256 MB.</div>
+                <?php if (!empty($pc['enabled'])): ?>
+                    <button class="btn btn-outline-secondary btn-sm mt-2" type="submit" form="wp-purge-cache"><i class="bi bi-trash3 me-1" aria-hidden="true"></i>Empty the page cache</button>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+
             <div class="mb-4">
                 <label class="form-label fw-medium" for="wp-static">Static files (images, styles, scripts, fonts)</label>
                 <select class="form-select<?= $err('static_ttl') ? ' is-invalid' : '' ?>" id="wp-static" name="static_ttl">
@@ -156,7 +179,7 @@ $presetTtl = isset(W::STATIC_TTLS[$staticTtl]);
 
             <div class="alert alert-secondary small mb-0">
                 <div class="fw-medium mb-1"><i class="bi bi-lock me-1" aria-hidden="true"></i>Never cached publicly, whatever you choose</div>
-                Whenever a cache rule applies, these always get <code>Cache-Control: private, no-store</code>: sign-in, registration and password pages, administration areas (<code>/wp-admin</code>, <code>/administrator</code>, <code>/admin</code>…), accounts, carts and checkouts, API endpoints, requests with an <code>Authorization</code> header or a session or sign-in cookie, any response that sets a cookie, and every request that is not a plain GET or HEAD.
+                Whenever a cache rule applies, these always get <code>Cache-Control: private, no-store</code> and are never kept in the page cache: sign-in, registration and password pages, administration areas (<code>/wp-admin</code>, <code>/administrator</code>, <code>/admin</code>…), accounts, carts and checkouts, API endpoints, requests with an <code>Authorization</code> header or a session or sign-in cookie, any response that sets a cookie, and every request that is not a plain GET or HEAD.
             </div>
         </div>
         <div class="card-footer d-flex flex-wrap gap-2">
@@ -166,6 +189,9 @@ $presetTtl = isset(W::STATIC_TTLS[$staticTtl]);
             <?php endif; ?>
         </div>
     </form>
+    <?php if ($isPhp && !empty($pc['enabled'])): ?>
+    <form id="wp-purge-cache" method="post" action="<?= e($this->url('sites.web_policy.cache_purge', ['id' => $id])) ?>" data-nim-busy data-nim-confirm="Empty the page cache? Visitors get fresh pages again; the next requests are a little slower while it refills."><?= $this->csrfField() ?></form>
+    <?php endif; ?>
     <form id="wp-reset-cache" method="post" action="<?= e($this->url('sites.web_policy.reset', ['id' => $id])) ?>" data-nim-busy data-nim-confirm="Restore the default cache rules? Your saved choices are removed."><?= $this->csrfField() ?><input type="hidden" name="section" value="cache"></form>
 </div>
 

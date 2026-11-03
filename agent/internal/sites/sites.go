@@ -39,6 +39,7 @@ func Register(r *actions.Registry, env *host.Env) {
 	r.Register(actions.Action{Name: "sites.apply", Mutating: true, Description: "Create or update a NimVor website (Nginx, PHP-FPM pool, directories, system user).", Handler: m.handleApply})
 	m.registerRepair(r)
 	r.Register(actions.Action{Name: "sites.delete", Mutating: true, Description: "Remove a NimVor website's configuration; optionally move its files to the trash.", Handler: m.handleDelete})
+	r.Register(actions.Action{Name: "sites.page_cache_purge", Mutating: true, Description: "Empty a website's Nginx page cache (cached PHP pages).", Handler: m.handlePageCachePurge})
 	r.Register(actions.Action{Name: "sites.inspect", Description: "State of a NimVor website on disk.", Handler: m.handleInspect})
 	r.Register(actions.Action{Name: "sites.list", Description: "NimVor-managed websites present on this server.", Handler: m.handleList})
 }
@@ -191,6 +192,11 @@ func (m *Manager) ApplyIgnoring(ctx context.Context, s Spec, ignore []string) (*
 	limits.DenyPersonalCron(e, dirs, nil)
 	// Nor Postfix's own sendmail while outgoing mail limits are on.
 	limits.DenyLocalSubmit(e, dirs, nil)
+	if pageCacheOn(s) {
+		// The cache is the web server's alone: no website's PHP account can read another's cached pages.
+		dirs.Mkdir(PageCacheBase, 0o700, agentfs.Owner{UID: web.UID, GID: web.GID})
+		dirs.Mkdir(pageCacheDir(s.Domain), 0o700, agentfs.Owner{UID: web.UID, GID: web.GID})
+	}
 	dirsApplied, err := dirs.Apply()
 	if err != nil {
 		rollbackUser()
@@ -204,6 +210,14 @@ func (m *Manager) ApplyIgnoring(ctx context.Context, s Spec, ignore []string) (*
 			err = selinux.Boolean(ctx, e, "httpd_can_network_connect")
 		}
 		if err != nil {
+			e.Log.Warn("selinux", "err", err)
+		}
+	}
+
+	if pageCacheOn(s) {
+		if err := selinux.Rule(ctx, e, filepath.Dir(PageCacheBase), "httpd_cache_t"); err == nil {
+			err = selinux.Restore(ctx, e, filepath.Dir(PageCacheBase))
+		} else {
 			e.Log.Warn("selinux", "err", err)
 		}
 	}
@@ -267,6 +281,7 @@ func (m *Manager) ApplyIgnoring(ctx context.Context, s Spec, ignore []string) (*
 	}
 	res := &Result{Domain: s.Domain, Changed: append(dirsApplied.Changed, applied.Changed...), Backup: applied.Backup, User: UserInfo{u.Name, u.UID, u.GID}, Created: created}
 	if len(applied.Changed) == 0 {
+		m.dropPageCacheIfOff(s)
 		return res, nil
 	}
 	// 4. Reload: PHP first (so the socket exists), then Nginx. On failure,
@@ -276,6 +291,7 @@ func (m *Manager) ApplyIgnoring(ctx context.Context, s Spec, ignore []string) (*
 		_ = m.reload(ctx, fpm)
 		return nil, host.FailWithValidation("The services did not accept the new configuration", err)
 	}
+	m.dropPageCacheIfOff(s)
 	e.Log.Info("site applied", "domain", s.Domain, "changed", len(res.Changed), "enabled", s.Enabled)
 	return res, nil
 }
@@ -486,6 +502,9 @@ func (m *Manager) handleDelete(ctx context.Context, p json.RawMessage) (any, err
 	}
 	res := map[string]any{"domain": in.Domain, "removed": applied.Changed, "backup": applied.Backup}
 	var warnings []string
+	if err := m.removePageCache(in.Domain, true); err != nil {
+		warnings = append(warnings, "The cached pages could not be removed: "+errText(err))
+	}
 
 	// FTP accounts and SFTP access of the website go with it.
 	if err := ftpmgr.RemoveSite(ctx, e, in.Domain); err != nil {
@@ -604,4 +623,15 @@ func (m *Manager) handleList(ctx context.Context, p json.RawMessage) (any, error
 		out = append(out, map[string]any{"domain": d, "enabled": e.Root.Exists(filepath.Join(e.M.NginxEnabled, filepath.Base(f)))})
 	}
 	return out, nil
+}
+
+// dropPageCacheIfOff removes the cached pages of a website that no longer caches them (after the new configuration is
+// live, so no worker still writes into the folder).
+func (m *Manager) dropPageCacheIfOff(s Spec) {
+	if pageCacheOn(s) {
+		return
+	}
+	if err := m.removePageCache(s.Domain, true); err != nil {
+		m.Env.Log.Warn("page cache not removed", "domain", s.Domain, "err", err)
+	}
 }
