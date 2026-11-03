@@ -139,4 +139,19 @@ final class PostgresRepository
     {
         return (int) $this->db->scalar('SELECT COUNT(*) FROM pg_databases WHERE owner_role_id = ?', [$roleId]);
     }
+
+    // ---- SQL editor history ---------------------------------------------------------------------
+
+    public function recordQuery(int $databaseId, ?int $userId, string $fingerprint, string $mode, int $ms, int $rows, string $status): void
+    {
+        $this->db->run('INSERT INTO pg_query_history (pg_database_id, user_id, fingerprint, mode, duration_ms, rows_returned, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [$databaseId, $userId, $fingerprint, $mode, $ms, $rows, $status, gmdate('c')]);
+        // Keep the newest 200 per user and database.
+        $this->db->run('DELETE FROM pg_query_history WHERE pg_database_id = ? AND user_id IS ? AND id NOT IN (SELECT id FROM pg_query_history WHERE pg_database_id = ? AND user_id IS ? ORDER BY id DESC LIMIT 200)', [$databaseId, $userId, $databaseId, $userId]);
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function history(int $databaseId, ?int $userId, int $limit = 50): array
+    {
+        return $this->db->fetchAll('SELECT fingerprint, mode, duration_ms, rows_returned, status, created_at FROM pg_query_history WHERE pg_database_id = ? AND user_id IS ? ORDER BY id DESC LIMIT ' . max(1, min(200, $limit)), [$databaseId, $userId]);
+    }
 }

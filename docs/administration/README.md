@@ -669,12 +669,42 @@ without one, views and materialized views are browse-only, because a row of such
 a table cannot be addressed unambiguously. Each column is set to a value, NULL or
 its default, so an empty text and NULL are different things. Values longer than
 2,048 characters are cut and marked and cannot be edited there. The browser runs
-as the database's owner (`SET ROLE`), never as the management role, so it can do
+as the database's owner through a dedicated account (see below), never as the management role, so it can do
 no more than the owner could; reads run in a read-only transaction with a 15 second
 limit; the system schemas are not shown. Table and column names are looked up in
 the catalog before use and quoted, values are always parameters. Audit entries
 (`postgres.row_insert`, `postgres.row_update`, `postgres.row_delete`,
 `postgres.export`) name the table, never the data.
+
+### SQL editor
+
+The terminal icon next to a database opens a SQL editor: syntax highlighting,
+completion from the database's table and column names, **Format**, Ctrl+Enter to
+run the selection (or everything), **Explain** (the plan, nothing is run) and
+**Explain analyze** (really runs the statement, so it asks first), **Cancel**,
+a row limit (100 to 1,000), a time limit (5 to 60 seconds) and a **Script** switch
+for several statements (otherwise exactly one is run). Results appear in tabs
+with paging, NULL marked, long values cut and marked, and CSV export. Errors
+show the message, detail, hint, SQLSTATE and the position.
+
+* **Read only** (the default) runs through a read-only account that PostgreSQL
+  itself limits to `SELECT`; nothing in the statement can change that.
+* **Read and write** needs the `databases.manage` permission, runs as the
+  database owner, asks before statements that change or delete data or
+  structure, and is audited (`postgres.query`).
+
+Customer SQL never runs as the management role. For each database NimVor keeps
+two login accounts (`nimvor_q_*` for writing, `nimvor_qr_*` for reading) plus a
+read-only group, with passwords derived from the provisioning secret; they can
+only connect to their own database and have no powers beyond the owner's, so a
+trigger or function created by a customer cannot be used to reach other
+customers' databases. The panel history and the audit trail keep only the
+*shape* of a statement (strings, dollar-quoted text and numbers replaced by
+`?`), never values; the newest 200 statements per user and database are kept.
+Agent actions: `pg.schema_map`, `pg.query`, `pg.query_cancel`. The editor
+(CodeMirror 6 and sql-formatter, both MIT licensed) is one prebuilt file,
+`panel/public/assets/vendor/codemirror/sql-editor.min.js`; rebuild it with
+`scripts/build-sql-editor.sh`.
 
 Every identifier of a database or user NimVor creates is checked against `^[a-z_][a-z0-9_]{0,62}$` (reserved names such
 as `postgres`, `template1`, `pg_*` and `nimvor_*` are refused) and quoted again
@@ -682,7 +712,7 @@ by the server's own `format('%I')`; values are parameters or `format('%L')`.
 Actions accept an optional `target` (host, port, user, password, TLS mode, CA)
 that only the panel builds from an administrator-registered server; a remote
 target must use `require`, `verify-ca` or `verify-full`. Registering remote
-servers, the SQL editor, backups and monitoring are later phases. Audit entries (`postgres.*`) never contain passwords.
+servers, backups and monitoring are later phases. Audit entries (`postgres.*`) never contain passwords.
 
 ## Components
 

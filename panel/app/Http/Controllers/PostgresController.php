@@ -140,6 +140,71 @@ final class PostgresController extends Controller
         return $this->render('postgres/browser', $data);
     }
 
+    // ---- SQL editor -------------------------------------------------------------------------------
+
+    public function sql(Request $request): Response
+    {
+        $db = $this->databaseOf($request, $request->query('db'));
+        if ($db === null) {
+            return $this->redirectWithError(self::BASE, 'Database not found.');
+        }
+        $schema = [];
+        $error = null;
+        try {
+            $schema = $this->pg->schemaMap($db);
+        } catch (UserFacingException $e) {
+            $error = $e;
+        }
+        return $this->render('postgres/sql', [
+            'db' => $db, 'schema' => $schema, 'schemaError' => $error, 'history' => $this->pg->history($db, $this->userId($request)),
+            'canWrite' => $this->view->can(P::DATABASES_MANAGE),
+        ]);
+    }
+
+    /** JSON: run a statement; the answer carries the result (or the SQL error) and the refreshed history. */
+    public function sqlRun(Request $request): Response
+    {
+        $db = $this->databaseOf($request, $request->input('db'));
+        if ($db === null) {
+            return Response::json(['success' => false, 'error' => ['message' => 'Database not found.']], 404);
+        }
+        $mode = (string) $request->input('mode') === 'write' ? 'write' : 'read';
+        if ($mode === 'write' && !$this->view->can(P::DATABASES_MANAGE)) {
+            return Response::json(['success' => false, 'error' => ['message' => 'You may read this database, not change it.']], 403);
+        }
+        $sql = (string) $request->input('query');
+        if (trim($sql) === '' || strlen($sql) > 100 * 1024) {
+            return Response::json(['success' => false, 'error' => ['message' => 'Write a statement of at most 100 KB.']], 422);
+        }
+        $explain = (string) $request->input('explain');
+        $qid = (string) $request->input('query_id');
+        $opts = [
+            'mode' => $mode, 'limit' => max(1, min(1000, (int) $request->input('limit', 500))), 'timeout' => max(1, min(60, (int) $request->input('timeout', 15))),
+            'script' => filter_var($request->input('script'), FILTER_VALIDATE_BOOL), 'explain' => in_array($explain, ['plan', 'analyze'], true) ? $explain : '',
+            'query_id' => preg_match('/^[a-f0-9]{16}$/', $qid) === 1 ? $qid : '',
+        ];
+        try {
+            $res = $this->pg->runQuery($db, $sql, $opts, $this->userId($request));
+        } catch (UserFacingException $e) {
+            return Response::json(['success' => false, 'error' => $e->toArray()], $e->status() >= 400 && $e->status() < 600 ? $e->status() : 502);
+        }
+        return Response::json(['success' => true, 'data' => ['result' => $res, 'history' => $this->pg->history($db, $this->userId($request))]]);
+    }
+
+    public function sqlCancel(Request $request): Response
+    {
+        $db = $this->databaseOf($request, $request->input('db'));
+        $qid = (string) $request->input('query_id');
+        if ($db === null || preg_match('/^[a-f0-9]{16}$/', $qid) !== 1) {
+            return Response::json(['success' => false, 'error' => ['message' => 'Nothing to cancel.']], 404);
+        }
+        try {
+            return Response::json(['success' => true, 'data' => ['cancelled' => $this->pg->cancelQuery($db, $qid)]]);
+        } catch (UserFacingException $e) {
+            return Response::json(['success' => false, 'error' => $e->toArray()], 502);
+        }
+    }
+
     /** The whole filtered table as CSV (up to 50,000 rows), NULL as an empty cell. */
     public function export(Request $request): Response
     {
