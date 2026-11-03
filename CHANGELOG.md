@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-11-03
+
+PostgreSQL: a full database manager, for the server NimVor installs and for servers it only connects to.
+
 ### Security
 - **PostgreSQL table browser: a customer's own code could act as NimVor's management role.** The browser ran as the management role with `SET ROLE <owner>`; a session can `RESET ROLE` back to its login, so a trigger or function a customer created in their own database (and ran by editing a row in the browser) could alter other customers' database users. Customer SQL now runs only through dedicated accounts, one set per database (a member of the database owner, or a read-only group), whose login has no powers beyond the owner's. A regression test plants such a trigger and checks it cannot alter users, create roles or databases. Affects only servers that updated from `main` after the table browser was merged and used the browser; there is no tagged release with it.
 
