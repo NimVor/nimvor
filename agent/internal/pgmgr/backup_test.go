@@ -176,3 +176,24 @@ func jsonOf(t *testing.T, v any) string {
 	}
 	return string(b)
 }
+
+// Two servers that both have a database called "shop" must not share backups: a restore could load the other server's data.
+func TestBackupFoldersAreSeparatePerServer(t *testing.T) {
+	h := testhost.New(t)
+	local := backupDirFor(h.Env, nil)
+	if local != backupDir(h.Env) || backupDirFor(h.Env, &Target{Host: "127.0.0.1"}) != local {
+		t.Fatal("the local server keeps its backups in the main folder")
+	}
+	a := backupDirFor(h.Env, &Target{Host: "db1.example.com", Port: 5432})
+	b := backupDirFor(h.Env, &Target{Host: "db2.example.com", Port: 5432})
+	c := backupDirFor(h.Env, &Target{Host: "db1.example.com", Port: 5433})
+	if a == local || a == b || a == c || b == c {
+		t.Fatalf("folders collide: %s %s %s %s", local, a, b, c)
+	}
+	if a != backupDirFor(h.Env, &Target{Host: "DB1.Example.com", Port: 5432, User: "other"}) {
+		t.Fatal("the folder must depend on the address only")
+	}
+	if filepath.Dir(a) != local {
+		t.Fatalf("remote folder %s is not inside %s", a, local)
+	}
+}

@@ -22,6 +22,11 @@ $databases ??= [];
 $roles ??= [];
 $unmanaged ??= [];
 $sites ??= [];
+$servers ??= [];
+$remoteServers ??= [];
+$sslModes ??= [];
+$isAdmin ??= false;
+$hasRemote = $remoteServers !== [];
 $canManage = $this->can(P::DATABASES_MANAGE);
 $levels = PostgresService::LEVELS;
 ?>
@@ -46,10 +51,10 @@ $levels = PostgresService::LEVELS;
             <p class="small text-body-secondary mb-0">Ask your hosting provider to enable PostgreSQL if your application needs it.</p>
         <?php endif; ?>
     </div></div>
-    <?php return; ?>
+    <?php if (!$hasRemote) { return; } ?>
 <?php endif; ?>
 
-<?php if ($canServer): ?>
+<?php if ($canServer && $status['installed']): ?>
     <div class="card mb-3"><div class="card-body d-flex flex-wrap align-items-center gap-3">
         <div>
             <span class="badge <?= $status['running'] ? 'text-bg-success' : 'text-bg-secondary' ?>"><?= $status['running'] ? 'Running' : 'Stopped' ?></span>
@@ -70,8 +75,8 @@ $levels = PostgresService::LEVELS;
 <?php endif; ?>
 
 <?php if (!$status['running']): ?>
-    <div class="card"><div class="card-body small text-body-secondary">PostgreSQL is installed but not running.<?= $canServer ? ' Start it above.' : ' Ask your hosting provider to start it.' ?></div></div>
-    <?php return; ?>
+    <div class="card mb-3"><div class="card-body small text-body-secondary">PostgreSQL is installed but not running.<?= $canServer ? ' Start it above.' : ' Ask your hosting provider to start it.' ?></div></div>
+    <?php if (!$hasRemote) { return; } ?>
 <?php endif; ?>
 
 <?php if (!$status['managed']): ?>
@@ -91,16 +96,16 @@ $levels = PostgresService::LEVELS;
             <p class="small text-body-secondary mb-0">Ask your hosting provider to set up PostgreSQL management.</p>
         <?php endif; ?>
     </div></div>
-    <?php return; ?>
+    <?php if (!$hasRemote) { return; } ?>
 <?php endif; ?>
 
-<?php if ($live === null): ?>
+<?php if ($live === null && $status['installed'] && $status['running'] && $status['managed']): ?>
     <div class="alert alert-warning small">PostgreSQL is running but did not answer NimVor. The lists below show NimVor's records; sizes are not available.</div>
 <?php endif; ?>
 
 <p class="small text-body-secondary">
     <?php if ($prefix !== ''): ?>Names you create start with <code><?= e($prefix) ?></code> so they stay yours. <?php endif; ?>
-    Connect from your application to <code>127.0.0.1:<?= (int) $status['port'] ?></code> with the database user and password. Each database can only be entered by its owner and by users you give access to.
+    <?php if ($status['installed']): ?>Connect from your application to <code>127.0.0.1:<?= (int) $status['port'] ?></code> (or the server named in the list) with the database user and password.<?php endif; ?> Each database can only be entered by its owner and by users you give access to.
 </p>
 
 <div class="card mb-3">
@@ -113,17 +118,18 @@ $levels = PostgresService::LEVELS;
         <div class="card-body small text-body-secondary">No PostgreSQL databases yet.</div>
     <?php else: ?>
         <div class="nim-dtable table-responsive"><table class="table align-middle mb-0">
-            <thead><tr><th>Database</th><th>Owner</th><th>Website</th><th>Access</th><th class="text-end">Size</th><th class="text-end">Action</th></tr></thead>
+            <thead><tr><th>Database</th><?php if ($hasRemote): ?><th>Server</th><?php endif; ?><th>Owner</th><th>Website</th><th>Access</th><th class="text-end">Size</th><th class="text-end">Action</th></tr></thead>
             <tbody>
             <?php foreach ($databases as $d): ?>
                 <tr>
                     <td class="font-monospace"><?= e((string) $d['name']) ?></td>
+                    <?php if ($hasRemote): ?><td class="small"><?= e((string) $d['server_name']) ?></td><?php endif; ?>
                     <td class="small font-monospace"><?= e((string) ($d['owner_role'] ?? '')) ?></td>
                     <td class="small"><?= e((string) ($d['website'] ?? '')) ?></td>
                     <td class="small text-body-secondary">
                         <?php foreach ($d['grants'] as $g): ?><div><span class="font-monospace"><?= e((string) $g['name']) ?></span> · <?= e($levels[$g['level']] ?? (string) $g['level']) ?></div><?php endforeach; ?>
                     </td>
-                    <td class="text-end small text-body-secondary"><?= $live !== null ? e(format_bytes((int) $d['size_bytes'])) : '' ?></td>
+                    <td class="text-end small text-body-secondary"><?= $live !== null && !$d['remote'] ? e(format_bytes((int) $d['size_bytes'])) : '' ?></td>
                     <td class="text-end text-nowrap">
                         <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('postgres.browse') . '?db=' . (int) $d['id']) ?>" title="Browse tables and rows"><i class="bi bi-table"></i></a>
                         <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('postgres.sql') . '?db=' . (int) $d['id']) ?>" title="SQL editor"><i class="bi bi-terminal"></i></a>
@@ -153,11 +159,12 @@ $levels = PostgresService::LEVELS;
         <div class="card-body small text-body-secondary">No database users yet.</div>
     <?php else: ?>
         <div class="nim-dtable table-responsive"><table class="table align-middle mb-0">
-            <thead><tr><th>User</th><th>Website</th><th class="text-end">Action</th></tr></thead>
+            <thead><tr><th>User</th><?php if ($hasRemote): ?><th>Server</th><?php endif; ?><th>Website</th><th class="text-end">Action</th></tr></thead>
             <tbody>
             <?php foreach ($roles as $r): ?>
                 <tr>
                     <td class="font-monospace"><?= e((string) $r['name']) ?></td>
+                    <?php if ($hasRemote): ?><td class="small"><?= e((string) $r['server_name']) ?></td><?php endif; ?>
                     <td class="small"><?= e((string) ($r['website'] ?? '')) ?></td>
                     <td class="text-end text-nowrap">
                         <?php if ($canManage): ?>
@@ -178,6 +185,40 @@ $levels = PostgresService::LEVELS;
     <?php endif; ?>
 </div>
 
+<?php if ($canServer): ?>
+    <div class="card mb-3">
+        <div class="card-header d-flex align-items-center gap-2">
+            <span class="fw-medium"><i class="bi bi-hdd-network me-1" aria-hidden="true"></i>PostgreSQL servers <span class="badge rounded-pill text-bg-light border ms-1"><?= count($servers) ?></span></span>
+            <span class="me-auto"></span>
+            <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#pg-server"><i class="bi bi-plus-lg me-1"></i>Register a server</button>
+        </div>
+        <div class="nim-dtable table-responsive"><table class="table align-middle mb-0 small">
+            <thead><tr><th>Name</th><th>Address</th><th>Version</th><th>Status</th><th class="text-end">Databases</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+            <?php foreach ($servers as $sv): $remote = (string) $sv['connection_type'] === 'remote'; ?>
+                <tr>
+                    <td><?= e((string) $sv['name']) ?></td>
+                    <td class="font-monospace"><?= $remote ? e((string) $sv['host']) . ':' . (int) $sv['port'] : '127.0.0.1 (this server)' ?></td>
+                    <td><?= e((string) $sv['version']) ?></td>
+                    <td><span class="badge <?= (string) $sv['status'] === 'active' ? 'text-bg-success' : 'text-bg-warning' ?>"><?= e((string) $sv['status']) ?></span></td>
+                    <td class="text-end"><?= (int) $sv['database_count'] ?></td>
+                    <td class="text-end text-nowrap">
+                        <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('postgres.monitor') . '?server=' . (int) $sv['id']) ?>" title="Health"><i class="bi bi-activity"></i></a>
+                        <?php if ($remote): ?>
+                            <form class="d-inline" method="post" action="<?= e($this->url('postgres.server_test')) ?>" data-nim-busy><?= $this->csrfField() ?><input type="hidden" name="id" value="<?= (int) $sv['id'] ?>"><button class="btn btn-sm btn-outline-secondary" title="Test the connection"><i class="bi bi-plug"></i></button></form>
+                            <form class="d-inline" method="post" action="<?= e($this->url('postgres.server_remove')) ?>" data-nim-confirm="Forget the server “<?= e((string) $sv['name']) ?>”? Nothing on it is changed.">
+                                <?= $this->csrfField() ?><input type="hidden" name="id" value="<?= (int) $sv['id'] ?>"><button class="btn btn-sm btn-outline-danger" title="Remove from NimVor"><i class="bi bi-trash"></i></button>
+                            </form>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table></div>
+        <div class="card-footer small text-body-secondary">A registered server is reached over TLS with a PostgreSQL user that can create databases and users but is not a superuser. Its password is stored encrypted and never shown again.</div>
+    </div>
+<?php endif; ?>
+
 <?php if ($unmanaged !== []): ?>
     <div class="card mb-3">
         <div class="card-header fw-medium"><i class="bi bi-binoculars me-1" aria-hidden="true"></i>Other databases on this server <span class="small text-body-secondary fw-normal">(not managed by NimVor, left untouched)</span></div>
@@ -192,11 +233,40 @@ $levels = PostgresService::LEVELS;
     </div>
 <?php endif; ?>
 
+<?php if ($canServer): ?>
+<div class="modal fade" id="pg-server" tabindex="-1" aria-labelledby="pg-server-t" aria-hidden="true"><div class="modal-dialog"><form class="modal-content" method="post" action="<?= e($this->url('postgres.server_create')) ?>" data-nim-busy autocomplete="off">
+    <?= $this->csrfField() ?>
+    <div class="modal-header"><h2 class="modal-title fs-5" id="pg-server-t">Register a PostgreSQL server</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+    <div class="modal-body">
+        <label class="form-label" for="pgs-name">Name</label>
+        <input class="form-control mb-3" id="pgs-name" name="name" required maxlength="60">
+        <div class="row g-2 mb-3">
+            <div class="col-8"><label class="form-label" for="pgs-host">Host name or IP address</label><input class="form-control font-monospace" id="pgs-host" name="host" required maxlength="253"></div>
+            <div class="col-4"><label class="form-label" for="pgs-port">Port</label><input class="form-control" id="pgs-port" name="port" type="number" min="1" max="65535" value="5432" required></div>
+        </div>
+        <div class="row g-2 mb-3">
+            <div class="col-6"><label class="form-label" for="pgs-user">Management user</label><input class="form-control font-monospace" id="pgs-user" name="username" required maxlength="63" autocomplete="off"></div>
+            <div class="col-6"><label class="form-label" for="pgs-pass">Password</label><input class="form-control" id="pgs-pass" name="password" type="password" required autocomplete="new-password"></div>
+        </div>
+        <label class="form-label" for="pgs-ssl">Encryption</label>
+        <select class="form-select mb-3" id="pgs-ssl" name="ssl_mode"><?php foreach ($sslModes as $m => $label): ?><option value="<?= e($m) ?>"<?= $m === 'verify-full' ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select>
+        <label class="form-label" for="pgs-ca">CA certificate (PEM, optional unless the mode checks it against a CA)</label>
+        <textarea class="form-control font-monospace small" id="pgs-ca" name="ca_pem" rows="4" spellcheck="false"></textarea>
+        <div class="form-text mt-2">The user needs the CREATEDB and CREATEROLE rights and must not be a superuser. NimVor tests the connection before it keeps anything.</div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Test and register</button></div>
+</form></div></div>
+<?php endif; ?>
+
 <?php if ($canManage): ?>
 <div class="modal fade" id="pg-db" tabindex="-1" aria-labelledby="pg-db-t" aria-hidden="true"><div class="modal-dialog"><form class="modal-content" method="post" action="<?= e($this->url('postgres.database_create')) ?>" data-nim-busy>
     <?= $this->csrfField() ?>
     <div class="modal-header"><h2 class="modal-title fs-5" id="pg-db-t">Add a database</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
     <div class="modal-body">
+        <?php if ($isAdmin && $hasRemote): ?>
+            <label class="form-label" for="pg-db-server">Server</label>
+            <select class="form-select mb-3" id="pg-db-server" name="pg_server_id"><option value="">This server (local)</option><?php foreach ($remoteServers as $rs): ?><option value="<?= (int) $rs['id'] ?>"><?= e((string) $rs['name']) ?></option><?php endforeach; ?></select>
+        <?php endif; ?>
         <label class="form-label" for="pg-db-name">Database name</label>
         <div class="input-group mb-3"><?php if ($prefix !== ''): ?><span class="input-group-text font-monospace"><?= e($prefix) ?></span><?php endif; ?><input class="form-control font-monospace" id="pg-db-name" name="name" required maxlength="40" pattern="[a-z_][a-z0-9_]*" autocomplete="off"></div>
         <label class="form-label" for="pg-db-owner">Owner</label>
@@ -217,6 +287,10 @@ $levels = PostgresService::LEVELS;
     <?= $this->csrfField() ?>
     <div class="modal-header"><h2 class="modal-title fs-5" id="pg-user-t">Add a database user</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
     <div class="modal-body">
+        <?php if ($isAdmin && $hasRemote): ?>
+            <label class="form-label" for="pg-user-server">Server</label>
+            <select class="form-select mb-3" id="pg-user-server" name="pg_server_id"><option value="">This server (local)</option><?php foreach ($remoteServers as $rs): ?><option value="<?= (int) $rs['id'] ?>"><?= e((string) $rs['name']) ?></option><?php endforeach; ?></select>
+        <?php endif; ?>
         <label class="form-label" for="pg-user-name">User name</label>
         <div class="input-group mb-3"><?php if ($prefix !== ''): ?><span class="input-group-text font-monospace"><?= e($prefix) ?></span><?php endif; ?><input class="form-control font-monospace" id="pg-user-name" name="username" required maxlength="40" pattern="[a-z_][a-z0-9_]*" autocomplete="off"></div>
         <?php if ($sites !== []): ?>

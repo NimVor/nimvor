@@ -54,18 +54,29 @@ final class PostgresController extends Controller
             $error = $e;
         }
         $pg = $this->pg->pgServerId();
-        $databases = $this->repo->databases($pg, $user);
-        $roles = $this->repo->roles($pg, $user);
+        $all = $this->pg->serverIds();
+        $servers = $this->pg->servers();
+        $remote = array_values(array_filter($servers, static fn (array $s): bool => (string) $s['connection_type'] === 'remote'));
+        $names = array_column($servers, 'name', 'id');
+        $databases = $this->repo->databases($all, $user);
+        $roles = $this->repo->roles($all, $user);
         $sizes = [];
         foreach ((array) ($live['databases'] ?? []) as $d) {
             $sizes[(string) $d['name']] = (array) $d;
         }
         foreach ($databases as &$d) {
-            $d['size_bytes'] = (int) ($sizes[(string) $d['name']]['size_bytes'] ?? 0);
-            $d['connections'] = (int) ($sizes[(string) $d['name']]['connections'] ?? 0);
-            $d['live'] = isset($sizes[(string) $d['name']]);
+            $isLocal = (int) $d['pg_server_id'] === $pg;
+            $d['size_bytes'] = $isLocal ? (int) ($sizes[(string) $d['name']]['size_bytes'] ?? 0) : 0;
+            $d['connections'] = $isLocal ? (int) ($sizes[(string) $d['name']]['connections'] ?? 0) : 0;
+            $d['live'] = $isLocal && isset($sizes[(string) $d['name']]);
+            $d['server_name'] = (string) ($names[(int) $d['pg_server_id']] ?? '');
+            $d['remote'] = !$isLocal;
         }
         unset($d);
+        foreach ($roles as &$r) {
+            $r['server_name'] = (string) ($names[(int) $r['pg_server_id']] ?? '');
+        }
+        unset($r);
         // Administrators also see what exists on the server without a record here (read-only).
         $unmanaged = [];
         if (Scope::isAll($user) && $live !== null) {
@@ -82,13 +93,14 @@ final class PostgresController extends Controller
             'status' => $status, 'agentError' => $error, 'live' => $live, 'databases' => $databases, 'roles' => $roles,
             'unmanaged' => $unmanaged, 'prefix' => $this->pg->prefix($user), 'sites' => $siteList,
             'canServer' => $this->view->can(P::POSTGRES_MANAGE), 'isAdmin' => Scope::isAll($user),
+            'servers' => Scope::isAll($user) ? $servers : [], 'remoteServers' => $remote, 'sslModes' => PostgresService::SSL_MODES,
         ]);
     }
 
     /** @return array<string, mixed>|null the database record, only when the signed-in account may use it */
     private function databaseOf(Request $request, mixed $id): ?array
     {
-        return $this->repo->database($this->pg->pgServerId(), (int) $id, $this->user($request));
+        return $this->repo->database($this->pg->serverIds(), (int) $id, $this->user($request));
     }
 
     private function browseUrl(array $db, string $schema, string $table, array $extra = []): string
@@ -307,12 +319,50 @@ final class PostgresController extends Controller
     {
         $data = null;
         $error = null;
+        $servers = $this->pg->servers();
+        $chosen = (int) $request->query('server', 0);
+        $ids = array_map(static fn (array $s): int => (int) $s['id'], $servers);
+        $chosen = in_array($chosen, $ids, true) ? $chosen : $this->pg->pgServerId();
         try {
-            $data = $this->pg->monitor();
-        } catch (AgentException $e) {
+            $data = $this->pg->monitor($chosen);
+        } catch (UserFacingException $e) {
             $error = $e;
         }
-        return $this->render('postgres/monitor', ['m' => $data, 'error' => $error]);
+        return $this->render('postgres/monitor', ['m' => $data, 'error' => $error, 'servers' => $servers, 'chosen' => $chosen]);
+    }
+
+    // ---- registered servers (postgres.manage) -----------------------------------------------------
+
+    public function serverCreate(Request $request): Response
+    {
+        try {
+            $this->pg->registerServer($request->all(), $this->userId($request));
+        } catch (ValidationException $e) {
+            return $this->backWithErrors(self::BASE, $e, $request->all());
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure(self::BASE, $e);
+        }
+        return $this->redirectWithSuccess(self::BASE, 'The PostgreSQL server was registered.');
+    }
+
+    public function serverTest(Request $request): Response
+    {
+        try {
+            $version = $this->pg->testServer((int) $request->input('id'), $this->userId($request));
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure(self::BASE, $e);
+        }
+        return $this->redirectWithSuccess(self::BASE, 'The server answered' . ($version !== '' ? ' (PostgreSQL ' . $version . ').' : '.'));
+    }
+
+    public function serverRemove(Request $request): Response
+    {
+        try {
+            $this->pg->removeServer((int) $request->input('id'), $this->userId($request));
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure(self::BASE, $e);
+        }
+        return $this->redirectWithSuccess(self::BASE, 'The server was removed from NimVor. Nothing on it was changed.');
     }
 
     /** The whole filtered table as CSV (up to 50,000 rows), NULL as an empty cell. */
@@ -460,7 +510,7 @@ final class PostgresController extends Controller
 
     public function password(Request $request): Response
     {
-        $role = $this->repo->role($this->pg->pgServerId(), (int) $request->input('id'), $this->user($request));
+        $role = $this->repo->role($this->pg->serverIds(), (int) $request->input('id'), $this->user($request));
         if ($role === null) {
             return $this->redirectWithError(self::BASE, 'Database user not found.');
         }
@@ -476,7 +526,7 @@ final class PostgresController extends Controller
     public function grant(Request $request): Response
     {
         $user = $this->user($request);
-        $pg = $this->pg->pgServerId();
+        $pg = $this->pg->serverIds();
         $db = $this->repo->database($pg, (int) $request->input('database_id'), $user);
         $role = $this->repo->role($pg, (int) $request->input('role_id'), $user);
         if ($db === null || $role === null) {
@@ -494,7 +544,7 @@ final class PostgresController extends Controller
 
     public function dropDatabase(Request $request): Response
     {
-        $db = $this->repo->database($this->pg->pgServerId(), (int) $request->input('id'), $this->user($request));
+        $db = $this->repo->database($this->pg->serverIds(), (int) $request->input('id'), $this->user($request));
         if ($db === null) {
             return $this->redirectWithError(self::BASE, 'Database not found.');
         }
@@ -508,7 +558,7 @@ final class PostgresController extends Controller
 
     public function dropUser(Request $request): Response
     {
-        $role = $this->repo->role($this->pg->pgServerId(), (int) $request->input('id'), $this->user($request));
+        $role = $this->repo->role($this->pg->serverIds(), (int) $request->input('id'), $this->user($request));
         if ($role === null) {
             return $this->redirectWithError(self::BASE, 'Database user not found.');
         }

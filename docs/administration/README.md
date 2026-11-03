@@ -734,13 +734,42 @@ kind of statement (`SELECT`, `UPDATE`, …) is shown, never its text. Agent acti
 Audit entries: `postgres.backup`, `postgres.restore`, `postgres.backup_delete`,
 `postgres.backup_schedule`.
 
+### Remote PostgreSQL servers
+
+Besides the PostgreSQL NimVor installs on this machine, an administrator
+(permission `postgres.manage`) can register a server that runs elsewhere:
+**PostgreSQL → PostgreSQL servers → Register a server**. Enter the host name or
+address, the port, the management user and its password, the encryption mode and,
+if the server's certificate is signed by a private CA, that CA certificate.
+
+* The management user needs `CREATEDB` and `CREATEROLE` and must not be a
+  superuser (the same shape as the `nimvor_admin` role on the local server).
+* The connection must be encrypted: `require`, `verify-ca` or `verify-full`
+  (recommended, it also checks the host name). Unencrypted modes are not offered.
+* NimVor connects first and saves nothing when that fails. The password is
+  stored encrypted with the panel key and is never shown again; it is sent to the
+  agent only with the requests for that server.
+* Loopback addresses (this machine is already the local server), link-local
+  addresses (which include the cloud metadata service) and reserved addresses are
+  refused. Private network addresses are allowed.
+* A server can be removed from NimVor only when no database or user created
+  through NimVor is left on it; removing it never changes anything on the server.
+
+After registering, the administrator chooses the server when adding a database or
+user. Everything else (table browser, SQL editor, backups and their schedules, the
+Health page) follows the database to its server. Customers always use the local
+server. Backups of a registered server are kept in their own sub-folder of the
+backup folder (`postgres/remote-<id>/`), so two servers that each have a database
+called `shop` never share a list of archives. The SQL and backup features connect
+over the network from this machine, so allow its address in the remote server's
+`pg_hba.conf` and firewall.
+
 Every identifier of a database or user NimVor creates is checked against `^[a-z_][a-z0-9_]{0,62}$` (reserved names such
 as `postgres`, `template1`, `pg_*` and `nimvor_*` are refused) and quoted again
 by the server's own `format('%I')`; values are parameters or `format('%L')`.
 Actions accept an optional `target` (host, port, user, password, TLS mode, CA)
 that only the panel builds from an administrator-registered server; a remote
-target must use `require`, `verify-ca` or `verify-full`. Registering remote
-servers is a later phase. Audit entries (`postgres.*`) never contain passwords.
+target must use `require`, `verify-ca` or `verify-full`. Audit entries (`postgres.*`) never contain passwords.
 
 ## Components
 

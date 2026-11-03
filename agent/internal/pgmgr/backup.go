@@ -34,6 +34,17 @@ var backupFileRe = regexp.MustCompile(`^\d{8}-\d{6}_[a-z_][a-z0-9_]{0,62}\.dump$
 
 func backupDir(env *host.Env) string { return filepath.Join(env.Cfg.BackupDir, backupSubdir) }
 
+// backupDirFor is where the backups of one server are kept. The local server keeps them in the folder itself; every
+// registered server gets its own sub-folder, so two servers that both have a database of the same name never share a
+// list of archives (a restore could otherwise load the other server's data).
+func backupDirFor(env *host.Env, t *Target) string {
+	if t == nil || !t.remote() {
+		return backupDir(env)
+	}
+	sum := sha256.Sum256([]byte(strings.ToLower(t.Host) + ":" + strconv.Itoa(t.Port)))
+	return filepath.Join(backupDir(env), "remote-"+hex.EncodeToString(sum[:])[:12])
+}
+
 func backupDB(file string) string { return file[len(backupStamp)+1 : len(file)-len(".dump")] }
 
 // clientEnv is the libpq environment for pg_dump / pg_restore as the given login (the password never appears in the
@@ -116,7 +127,7 @@ func dumpTo(ctx context.Context, env *host.Env, t *Target, database string, log 
 	if err != nil {
 		return nil, err
 	}
-	dir := backupDir(env)
+	dir := backupDirFor(env, t)
 	if _, err := env.Writer.MkdirAll(dir, 0o700, agentfs.RootOwner); err != nil {
 		return nil, fmt.Errorf("the backup directory could not be created: %w", err)
 	}
@@ -193,12 +204,13 @@ func registerBackup(r *actions.Registry, env *host.Env) {
 	}})
 
 	r.Register(actions.Action{Name: "pg.backup_list", Description: "The backups of one database, newest first, with size and checksum.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
-		db, _, _, err := fileParam(p)
+		db, _, t, err := fileParam(p)
 		if err != nil {
 			return nil, err
 		}
 		out := []map[string]any{}
-		entries, err := env.Root.ReadDir(backupDir(env))
+		dir := backupDirFor(env, t)
+		entries, err := env.Root.ReadDir(dir)
 		if err != nil {
 			return map[string]any{"backups": out}, nil
 		}
@@ -208,13 +220,13 @@ func registerBackup(r *actions.Registry, env *host.Env) {
 				continue
 			}
 			size, created, sum := int64(0), "", ""
-			if fi, err := env.Root.Stat(filepath.Join(backupDir(env), n)); err == nil {
+			if fi, err := env.Root.Stat(filepath.Join(dir, n)); err == nil {
 				size = fi.Size()
 			}
 			if ts, err := time.Parse(backupStamp, n[:len(backupStamp)]); err == nil {
 				created = ts.UTC().Format(time.RFC3339)
 			}
-			if b, err := env.Root.ReadFile(filepath.Join(backupDir(env), n+".sha256")); err == nil {
+			if b, err := env.Root.ReadFile(filepath.Join(dir, n+".sha256")); err == nil {
 				sum = strings.Fields(string(b) + " ")[0]
 			}
 			out = append(out, map[string]any{"file": n, "database": db, "size": size, "created": created, "sha256": sum})
@@ -224,7 +236,7 @@ func registerBackup(r *actions.Registry, env *host.Env) {
 	}})
 
 	r.Register(actions.Action{Name: "pg.backup_delete", Mutating: true, Description: "Delete one backup of a database.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
-		_, file, _, err := fileParam(p)
+		_, file, t, err := fileParam(p)
 		if err != nil {
 			return nil, err
 		}
@@ -232,7 +244,7 @@ func registerBackup(r *actions.Registry, env *host.Env) {
 			return nil, actions.InvalidParams("file: required")
 		}
 		for _, n := range []string{file, file + ".sha256"} {
-			if _, err := env.Writer.Remove(filepath.Join(backupDir(env), n)); err != nil {
+			if _, err := env.Writer.Remove(filepath.Join(backupDirFor(env, t), n)); err != nil {
 				return nil, actions.Failed("The backup could not be deleted.", err.Error())
 			}
 		}
@@ -241,8 +253,9 @@ func registerBackup(r *actions.Registry, env *host.Env) {
 
 	r.Register(actions.Action{Name: "pg.backup_prune", Mutating: true, Description: "Keep only the newest N backups of a database.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
-			Database string `json:"database"`
-			Keep     int    `json:"keep"`
+			Database string  `json:"database"`
+			Keep     int     `json:"keep"`
+			Target   *Target `json:"target"`
 		}
 		if err := host.Decode(p, &in); err != nil {
 			return nil, err
@@ -253,7 +266,8 @@ func registerBackup(r *actions.Registry, env *host.Env) {
 		if in.Keep < 1 || in.Keep > 365 {
 			return nil, actions.InvalidParams("keep: between 1 and 365")
 		}
-		entries, err := env.Root.ReadDir(backupDir(env))
+		pdir := backupDirFor(env, in.Target)
+		entries, err := env.Root.ReadDir(pdir)
 		if err != nil {
 			return map[string]any{"deleted": []string{}}, nil
 		}
@@ -267,7 +281,7 @@ func registerBackup(r *actions.Registry, env *host.Env) {
 		deleted := []string{}
 		for i := in.Keep; i < len(mine); i++ {
 			for _, n := range []string{mine[i], mine[i] + ".sha256"} {
-				env.Writer.Remove(filepath.Join(backupDir(env), n))
+				env.Writer.Remove(filepath.Join(pdir, n))
 			}
 			deleted = append(deleted, mine[i])
 		}
@@ -282,7 +296,7 @@ func registerBackup(r *actions.Registry, env *host.Env) {
 		if file == "" {
 			return nil, actions.InvalidParams("file: required")
 		}
-		path := filepath.Join(backupDir(env), file)
+		path := filepath.Join(backupDirFor(env, t), file)
 		if !env.Root.Exists(path) {
 			return nil, actions.NotFound("That backup no longer exists.")
 		}
