@@ -118,7 +118,7 @@ final class WebPolicyService
 
     public static function defaultCache(): array
     {
-        return ['static_ttl' => 0, 'dynamic_mode' => 'app', 'dynamic_ttl' => 60, 'bypass_paths' => [], 'page_cache' => ['enabled' => false, 'ttl' => 600]];
+        return ['static_ttl' => 0, 'dynamic_mode' => 'app', 'dynamic_ttl' => 60, 'bypass_paths' => [], 'page_cache' => ['enabled' => false, 'ttl' => 600], 'brotli' => true];
     }
 
     /**
@@ -189,6 +189,10 @@ final class WebPolicyService
                 'static_ttl' => (int) $c['static_ttl'], 'dynamic_mode' => (string) $c['dynamic_mode'],
                 'dynamic_ttl' => (int) $c['dynamic_ttl'], 'bypass_paths' => array_values((array) $c['bypass_paths']),
             ];
+            // Brotli follows the server setting (on by default); only a website that turned it off says so.
+            if (isset($c['brotli']) && $c['brotli'] === false) {
+                $out['cache']['brotli'] = false;
+            }
             // Only a PHP website has pages to cache; a saved choice is dropped if the website is not one.
             $pc = (array) ($c['page_cache'] ?? []);
             if (!empty($pc['enabled']) && ($site['kind'] ?? 'php') === 'php' && isset(self::PAGE_CACHE_TTLS[(int) ($pc['ttl'] ?? 0)])) {
@@ -396,6 +400,8 @@ final class WebPolicyService
             'static_ttl' => (int) $static, 'dynamic_mode' => $mode,
             'dynamic_ttl' => $mode === 'public' ? (int) $ttl : 60, 'bypass_paths' => $paths,
             'page_cache' => ['enabled' => $pageOn, 'ttl' => $pageOn ? (int) $pageTtl : 600],
+            // On unless the owner turns it off; a form without the field (an older one) keeps it on.
+            'brotli' => (string) ($input['brotli'] ?? '1') === '1',
         ];
     }
 

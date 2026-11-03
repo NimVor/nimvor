@@ -20,7 +20,7 @@ final class NginxService
     ) {
     }
 
-    /** @return array{installed: bool, running: bool, config_ok: bool, config_error: string, tuning: bool, brotli: array{state: string, reason: string}} */
+    /** @return array{installed: bool, running: bool, config_ok: bool, config_error: string, tuning: bool, brotli: array{state: string, reason: string, in_config: bool}} */
     public function status(): array
     {
         $s = (array) $this->agent->call('nginx.status');
@@ -31,7 +31,11 @@ final class NginxService
             'config_error' => (string) ($s['config_error'] ?? ''),
             'tuning' => !empty($s['tuning']),
             // missing, installed (found but not loaded) or functional
-            'brotli' => ['state' => (string) (((array) ($s['brotli'] ?? []))['state'] ?? 'missing'), 'reason' => (string) (((array) ($s['brotli'] ?? []))['reason'] ?? '')],
+            'brotli' => [
+                'state' => (string) (((array) ($s['brotli'] ?? []))['state'] ?? 'missing'),
+                'reason' => (string) (((array) ($s['brotli'] ?? []))['reason'] ?? ''),
+                'in_config' => !empty(((array) ($s['brotli'] ?? []))['in_config']),
+            ],
         ];
     }
 
@@ -68,8 +72,9 @@ final class NginxService
      * and the stored settings are left unchanged.
      *
      * @param array<string, mixed> $input
+     * @return bool whether Brotli is active on the server after this change
      */
-    public function applyTuning(array $input, ?int $userId): void
+    public function applyTuning(array $input, ?int $userId): bool
     {
         $before = $this->tuning();
         $this->settings->update([
@@ -82,7 +87,7 @@ final class NginxService
             'nginx_hide_version' => ($input['hide_version'] ?? '') === '1',
         ], $userId);
         try {
-            $this->agent->call('nginx.tuning_apply', $this->tuning(), 120);
+            $result = (array) $this->agent->call('nginx.tuning_apply', $this->tuning(), 120);
         } catch (\Throwable $e) {
             // The agent refused or rolled back: the page must keep showing what is really on the server.
             $this->settings->update([
@@ -93,5 +98,7 @@ final class NginxService
             throw $e;
         }
         $this->audit->record('nginx.tuning', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, $this->tuning(), $userId);
+        // Whether Brotli is really on now (it is not while its Nginx module is missing).
+        return !empty($result['brotli_active']);
     }
 }

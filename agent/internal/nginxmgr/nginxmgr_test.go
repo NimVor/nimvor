@@ -155,11 +155,14 @@ func TestTuningReleasesDirectivesNginxConfAlreadySets(t *testing.T) {
 
 func TestBrotliLinesOnlyWhenRequested(t *testing.T) {
 	base := Tuning{ClientMaxBodyMB: 128, KeepaliveTimeout: 65, ClientBodyTimeout: 60, SendTimeout: 60, Gzip: true}
-	if strings.Contains(base.conf(), "brotli") {
-		t.Fatalf("brotli written although it is off:\n%s", base.conf())
+	if strings.Contains(base.conf(true), "brotli") {
+		t.Fatalf("brotli written although it is off:\n%s", base.conf(true))
 	}
 	base.Brotli = true
-	conf := base.conf()
+	if strings.Contains(base.conf(false), "brotli") {
+		t.Fatalf("brotli written although the module is not loaded:\n%s", base.conf(false))
+	}
+	conf := base.conf(true)
 	for _, want := range []string{"brotli on;", "brotli_comp_level 5;", "brotli_types text/plain text/css", "gzip on;"} {
 		if !strings.Contains(conf, want) {
 			t.Errorf("conf lacks %q:\n%s", want, conf)
@@ -169,30 +172,36 @@ func TestBrotliLinesOnlyWhenRequested(t *testing.T) {
 
 const brotliBody = `{"client_max_body_mb":128,"keepalive_timeout":65,"client_body_timeout":60,"send_timeout":60,"gzip":true,"brotli":true}`
 
-func TestBrotliNeedsTheModule(t *testing.T) {
+func TestBrotliWithoutTheModuleIsHarmless(t *testing.T) {
 	h := testhost.New(t)
 	r := actions.NewRegistry(true)
 	Register(r, h.Env)
 	apply, _ := r.Lookup("nginx.tuning_apply")
 	os.MkdirAll(filepath.Dir(confRealPath(h)), 0o755)
 
-	// No module: refused before anything is written, with what to do.
-	if _, err := apply.Handler(context.Background(), json.RawMessage(brotliBody)); err == nil || !strings.Contains(err.Error(), "Brotli module") || !strings.Contains(err.Error(), "Packages") {
+	// No module: the setting is accepted (it is on by default everywhere), nothing about Brotli is written, so
+	// Nginx stays valid, and the answer says it is not active yet.
+	res, err := apply.Handler(context.Background(), json.RawMessage(brotliBody))
+	if err != nil {
 		t.Fatalf("brotli without the module: %v", err)
 	}
-	if _, err := os.Stat(confRealPath(h)); err == nil {
-		t.Fatal("a configuration was written although the module is missing")
+	if res.(map[string]any)["brotli_active"] != false {
+		t.Fatalf("result = %v", res)
+	}
+	if b, _ := os.ReadFile(confRealPath(h)); strings.Contains(string(b), "brotli") || !strings.Contains(string(b), "gzip on;") {
+		t.Fatalf("file:\n%s", b)
 	}
 
-	// A module built into Nginx counts.
+	// A module built into Nginx counts: Brotli is written and reported active.
 	h.Runner.Handler = func(id string, o execx.Opts, args []string) (string, error) {
 		if id == "nginx" && len(args) > 0 && args[0] == "-V" {
 			return "nginx version: nginx/1.24.0\nconfigure arguments: --with-http_v2_module --add-module=/build/ngx_brotli\n", nil
 		}
 		return "", nil
 	}
-	if _, err := apply.Handler(context.Background(), json.RawMessage(brotliBody)); err != nil {
-		t.Fatalf("brotli with the module: %v", err)
+	res, err = apply.Handler(context.Background(), json.RawMessage(brotliBody))
+	if err != nil || res.(map[string]any)["brotli_active"] != true {
+		t.Fatalf("brotli with the module: %v %v", res, err)
 	}
 	if b, _ := os.ReadFile(confRealPath(h)); !strings.Contains(string(b), "brotli on;") {
 		t.Fatalf("brotli not written:\n%s", b)
@@ -235,7 +244,7 @@ func TestBrotliWithARealNginx(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "docroot", "page.css"), []byte(text), 0o644)
 	os.WriteFile(filepath.Join(dir, "docroot", "image.png"), []byte(text), 0o644) // not a compressed type
 	tuning := Tuning{ClientMaxBodyMB: 8, KeepaliveTimeout: 5, ClientBodyTimeout: 5, SendTimeout: 5, Gzip: true, Brotli: true, HideVersion: true}
-	os.WriteFile(filepath.Join(dir, "tuning.conf"), []byte(tuning.conf()), 0o644)
+	os.WriteFile(filepath.Join(dir, "tuning.conf"), []byte(tuning.conf(true)), 0o644)
 	pl, _ := net.Listen("tcp", "127.0.0.1:0")
 	port := pl.Addr().(*net.TCPAddr).Port
 	pl.Close()

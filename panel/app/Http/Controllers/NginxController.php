@@ -63,11 +63,14 @@ final class NginxController extends Controller
     public function tuning(Request $request): Response
     {
         try {
-            $this->nginx->applyTuning($request->all(), $this->userId($request));
+            $brotliActive = $this->nginx->applyTuning($request->all(), $this->userId($request));
         } catch (ValidationException $e) {
             return $this->redirectWithError('/nginx', implode(' ', $e->errors()));
         } catch (AgentException $e) {
             return $this->redirectWithFailure('/nginx', $e);
+        }
+        if (($request->all()['brotli'] ?? '') === '1' && !$brotliActive) {
+            return $this->redirectWithSuccess('/nginx', 'Nginx tuning applied. Brotli is turned on but not active yet: the Nginx Brotli module is not installed. Install it on the Packages page, then press Apply again.');
         }
         return $this->redirectWithSuccess('/nginx', 'Nginx tuning applied.');
     }

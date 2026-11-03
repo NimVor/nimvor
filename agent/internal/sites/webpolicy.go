@@ -54,6 +54,9 @@ type CachePolicy struct {
 	BypassPaths []string `json:"bypass_paths,omitempty"`
 	// PageCache is Nginx's own cache of PHP pages (see PageCache); nil is off.
 	PageCache *PageCache `json:"page_cache,omitempty"`
+	// Brotli: nil or true leaves the website on the server-wide Brotli setting (on by default); false turns
+	// Brotli off for this website ("brotli off;").
+	Brotli *bool `json:"brotli,omitempty"`
 }
 
 // Bounds of the customer-set values.

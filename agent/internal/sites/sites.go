@@ -19,6 +19,7 @@ import (
 
 	"github.com/NimVor/nimvor/agent/internal/actions"
 	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/capability"
 	"github.com/NimVor/nimvor/agent/internal/execx"
 	"github.com/NimVor/nimvor/agent/internal/ftpmgr"
 	"github.com/NimVor/nimvor/agent/internal/host"
@@ -164,6 +165,9 @@ func (m *Manager) ApplyIgnoring(ctx context.Context, s Spec, ignore []string) (*
 		return nil, actions.Failed("The web server account "+e.M.WebUser+" does not exist.", "")
 	}
 	l := m.layout(s)
+	if s.Cache != nil && s.Cache.Brotli != nil && !*s.Cache.Brotli {
+		l.BrotliModule = capability.Modules(ctx, e, false)[capability.Brotli.ID].State == capability.Functional
+	}
 	l.HTTP2Direct = e.NginxAtLeast(ctx, 1, 25, 1)
 	l.IPv6 = e.IPv6()
 

@@ -126,6 +126,34 @@ final class PageCacheTest extends HttpTestCase
         self::assertNotSame('', (string) ($this->flash('error') ?? ''));
     }
 
+    public function testBrotliIsOnByDefaultForAWebsiteAndSentOnlyWhenTurnedOff(): void
+    {
+        $this->login('cust');
+        // Default: the switch is on and nothing about Brotli is sent.
+        self::assertMatchesRegularExpression('/id="wp-brotli"[^>]*checked/', $this->request('GET', $this->url($this->phpSite))->body());
+        $this->post($this->url($this->phpSite, '/cache'), $this->form(['static_ttl' => '3600']));
+        self::assertArrayNotHasKey('brotli', $this->lastCall('sites.apply')['cache']);
+
+        // Off (any kind of website): the agent is told.
+        foreach ([$this->phpSite, $this->staticSite] as $id) {
+            $this->post($this->url($id, '/cache'), $this->form(['brotli' => '0']));
+            self::assertFalse($this->lastCall('sites.apply')['cache']['brotli'], 'website ' . $id);
+        }
+        self::assertDoesNotMatchRegularExpression('/id="wp-brotli"[^>]*checked/', $this->request('GET', $this->url($this->phpSite))->body());
+
+        // Back on: nothing is sent again.
+        $this->post($this->url($this->phpSite, '/cache'), $this->form(['brotli' => '1']));
+        self::assertArrayNotHasKey('brotli', $this->lastCall('sites.apply')['cache']);
+    }
+
+    public function testAnotherCustomerCannotTurnBrotliOffForSomeoneElse(): void
+    {
+        $this->switchTo('other');
+        $before = $this->calls('sites.apply');
+        $this->post($this->url($this->phpSite, '/cache'), $this->form(['brotli' => '0']));
+        self::assertSame($before, $this->calls('sites.apply'));
+    }
+
     public function testAnotherCustomerCannotChangeIt(): void
     {
         $this->switchTo('other');

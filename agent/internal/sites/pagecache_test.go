@@ -183,8 +183,21 @@ func (b *backend) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "page %s hit %d", r.URL.RequestURI(), b.hits.Load())
 }
 
+// nginxOpts are the extras of a test Nginx.
+type nginxOpts struct {
+	loadModule string // load_module path (the Brotli filter module)
+	httpExtra  string // extra lines in the http block (a server-wide tuning file, for example)
+	brotli     bool   // the module is loaded: websites may render "brotli off;"
+}
+
 // startNginx runs a real Nginx with the generated configuration in front of a FastCGI backend and returns its address.
 func startNginx(t *testing.T, s Spec, be *backend) string {
+	t.Helper()
+	return startNginxWith(t, []Spec{s}, be, nginxOpts{})
+}
+
+// startNginxWith serves several websites (by host name) from one real Nginx.
+func startNginxWith(t *testing.T, specs []Spec, be *backend, o nginxOpts) string {
 	t.Helper()
 	bin, err := exec.LookPath("nginx")
 	if err != nil {
@@ -216,19 +229,30 @@ func startNginx(t *testing.T, s Spec, be *backend) string {
 	pl, _ := net.Listen("tcp", "127.0.0.1:0")
 	port := pl.Addr().(*net.TCPAddr).Port
 	pl.Close()
-	s.DocumentRoot = filepath.Join(dir, "docroot")
-	l := Layout{Socket: sock, LogDir: filepath.Join(dir, "logs"), ACMERoot: filepath.Join(dir, "tmp")}
-	vhost := strings.Replace(RenderNginx(s, l), "listen 80;", fmt.Sprintf("listen 127.0.0.1:%d;", port), 1)
-	// The cache folder is the test's own, not the server's.
-	vhost = strings.ReplaceAll(vhost, pageCacheDir(s.Domain), filepath.Join(dir, "cache"))
+	var includes, vhosts string
+	for i, s := range specs {
+		s.DocumentRoot = filepath.Join(dir, "docroot")
+		l := Layout{Socket: sock, LogDir: filepath.Join(dir, "logs"), ACMERoot: filepath.Join(dir, "tmp"), BrotliModule: o.brotli}
+		vhost := strings.Replace(RenderNginx(s, l), "listen 80;", fmt.Sprintf("listen 127.0.0.1:%d;", port), 1)
+		// The cache folder is the test's own, not the server's.
+		vhost = strings.ReplaceAll(vhost, pageCacheDir(s.Domain), filepath.Join(dir, "cache"+fmt.Sprint(i)))
+		name := fmt.Sprintf("vhost%d.conf", i)
+		os.WriteFile(filepath.Join(dir, name), []byte(vhost), 0o644)
+		includes += fmt.Sprintf("    include %s/%s;\n", dir, name)
+		vhosts += vhost
+	}
 	os.WriteFile(filepath.Join(dir, "flags.conf"), []byte(RenderCacheFlags()), 0o644)
-	os.WriteFile(filepath.Join(dir, "vhost.conf"), []byte(vhost), 0o644)
 	os.WriteFile(filepath.Join(dir, "fastcgi_params"), []byte("fastcgi_param REQUEST_METHOD $request_method;\nfastcgi_param QUERY_STRING $query_string;\nfastcgi_param REQUEST_URI $request_uri;\nfastcgi_param CONTENT_LENGTH $content_length;\nfastcgi_param CONTENT_TYPE $content_type;\nfastcgi_param SERVER_PROTOCOL $server_protocol;\n"), 0o644)
-	conf := fmt.Sprintf("pid %s/nginx.pid;\nerror_log %s/logs/main-error.log;\nevents { worker_connections 64; }\nhttp {\n    access_log off;\n    client_body_temp_path %s/tmp/b;\n    fastcgi_temp_path %s/tmp/f;\n    proxy_temp_path %s/tmp/p;\n    uwsgi_temp_path %s/tmp/u;\n    scgi_temp_path %s/tmp/s;\n    include %s/flags.conf;\n    include %s/vhost.conf;\n}\n",
-		dir, dir, dir, dir, dir, dir, dir, dir, dir)
+	os.WriteFile(filepath.Join(dir, "mime.types"), []byte("types { text/html html; text/css css; image/png png; }\n"), 0o644)
+	main := ""
+	if o.loadModule != "" {
+		main = "load_module " + o.loadModule + ";\n"
+	}
+	conf := fmt.Sprintf("%spid %s/nginx.pid;\nerror_log %s/logs/main-error.log;\nevents { worker_connections 64; }\nhttp {\n    access_log off;\n    include %s/mime.types;\n    client_body_temp_path %s/tmp/b;\n    fastcgi_temp_path %s/tmp/f;\n    proxy_temp_path %s/tmp/p;\n    uwsgi_temp_path %s/tmp/u;\n    scgi_temp_path %s/tmp/s;\n%s    include %s/flags.conf;\n%s}\n",
+		main, dir, dir, dir, dir, dir, dir, dir, dir, o.httpExtra, dir, includes)
 	os.WriteFile(filepath.Join(dir, "nginx.conf"), []byte(conf), 0o644)
 	if out, err := exec.Command(bin, "-t", "-p", dir, "-c", filepath.Join(dir, "nginx.conf")).CombinedOutput(); err != nil {
-		t.Fatalf("nginx -t: %v\n%s\n%s", err, out, vhost)
+		t.Fatalf("nginx -t: %v\n%s\n%s", err, out, vhosts)
 	}
 	cmd := exec.Command(bin, "-p", dir, "-c", filepath.Join(dir, "nginx.conf"), "-g", "daemon off;")
 	if err := cmd.Start(); err != nil {
