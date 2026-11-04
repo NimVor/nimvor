@@ -35,7 +35,7 @@ labelled for what it is:
 |---|---|---|
 | PostgreSQL | Yes: real-host job and the seven-system VM matrix (each system's own PostgreSQL version, so several majors) | PostgreSQL 16 |
 | MySQL/MariaDB | Yes: MariaDB in the real-host job and the VMs (`TestRealHostDatabaseBrowser`) | MariaDB |
-| **MongoDB** | **No.** No test installs or starts `mongod`; `mongomgr` tests use a fake `mongosh` runner | **No `mongod`/`mongosh`** |
+| MongoDB | Yes, for the browser: the `mongo-live` job installs MongoDB 8.0 and runs `TestMongoLiveBrowser` (standalone, no authentication); other `mongomgr` tests use a fake `mongosh` runner | MongoDB 8.0 in CI only (not installable in the development sandbox) |
 
 **Consequence for MongoDB:** every MongoDB statement below stays *Script-tested* until a real `mongod` is part of the
 real-host tests. The agent already has `mongo.install`, so the real-host test can install MongoDB through it (as the
@@ -149,24 +149,31 @@ next slice starts.
 
 ## Implementation status
 
-Verified means a test ran against a real server in the development session (PostgreSQL 16, MariaDB 10.11). MongoDB
-could not be installed there; its agent actions are unit-tested against a fake `mongosh` (validation, quoting, the
-script text) and have a live test, `TestMongoLiveBrowser`, that CI runs in the `mongo-live` job against a real
-`mongod`. That job is `continue-on-error` until it has been seen passing; until then MongoDB behaviour against a real
-server is **not verified**.
+Verified means a test ran against a real server: PostgreSQL 16 and MariaDB 10.11 in development, and MongoDB 8.0
+(a standalone server, no authentication) through `TestMongoLiveBrowser`, which CI runs in the `mongo-live` job. That
+live test covers collection creation (plain and capped), the detailed listing and overview, structured update-many,
+duplicate, delete-many, index creation, usage statistics and hide/unhide, validation rules and their enforcement,
+views, collection copy, and bulk validate, empty and drop. Not covered by it: time-series creation (attempted, but a
+failure is only logged because it needs MongoDB 5.0 or newer), the replica-set and sharded-cluster fields of the
+overview (only a standalone server was available), and authenticated or remote MongoDB servers. The `mongo-live`
+job is `continue-on-error`; make it a required check once it has proven stable on the shared runners.
+
+Running the live test found two bugs that the fake `mongosh` could not: with the script on stdin, `mongosh` wraps its
+output in terminal control sequences (which broke JSON parsing) and exits 0 after printing an uncaught error (which
+made a write rejected by validation look successful). Both are fixed in the runner.
 
 | Slice | PostgreSQL | MySQL / MariaDB | MongoDB |
 |---|---|---|---|
-| S1 overview, object list with statistics | done, verified | done, verified | done, fake-runner tested |
-| S2 multi-select, bulk, per-object results | done, verified | done, verified | done, fake-runner tested |
-| S3 table / collection management | create, rename, duplicate, comment, move schema: verified | comment, engine, charset, row format, AUTO_INCREMENT, duplicate: verified | capped, time-series, copy (with indexes): fake-runner tested |
-| S4 columns and documents | add, change type/null/default/comment, rename, drop: verified | already present before this work | delete-many, duplicate, structured update-many: fake-runner tested |
-| S5 indexes | create (all methods, unique, desc, partial, include, concurrent), rebuild, rename, drop; size, scans, validity: verified | listing and add/drop already present; rename added: verified | usage ($indexStats), hide/unhide: fake-runner tested |
-| S6 constraints / validation | primary, unique, check, foreign, NOT VALID, validate, rename, drop: verified | structured CHECK add/drop and listing: verified | `$jsonSchema` rules, level, action: fake-runner tested |
+| S1 overview, object list with statistics | done, verified | done, verified | done, verified live (standalone MongoDB 8.0) |
+| S2 multi-select, bulk, per-object results | done, verified | done, verified | done, verified live (standalone MongoDB 8.0) |
+| S3 table / collection management | create, rename, duplicate, comment, move schema: verified | comment, engine, charset, row format, AUTO_INCREMENT, duplicate: verified | capped, copy (with indexes): verified live (standalone MongoDB 8.0); time-series: not asserted by the live test |
+| S4 columns and documents | add, change type/null/default/comment, rename, drop: verified | already present before this work | delete-many, duplicate, structured update-many: verified live (standalone MongoDB 8.0) |
+| S5 indexes | create (all methods, unique, desc, partial, include, concurrent), rebuild, rename, drop; size, scans, validity: verified | listing and add/drop already present; rename added: verified | usage ($indexStats), hide/unhide: verified live (standalone MongoDB 8.0) |
+| S6 constraints / validation | primary, unique, check, foreign, NOT VALID, validate, rename, drop: verified | structured CHECK add/drop and listing: verified | `$jsonSchema` rules, level, action: verified live (standalone MongoDB 8.0) |
 | S7 triggers, routines, events | triggers enable/disable/drop, routines list/definition/drop: verified | routines, triggers, events: list, definition, drop, event enable/disable: verified | not applicable |
 | S8 sequences | create, alter, set value, restart, sync to column, drop: verified | MariaDB sequences: verified; MySQL shows a note | not applicable |
 | S9 partitions | list, create, attach, detach: verified | list, add, drop, truncate, analyze, rebuild, remove: verified | not applicable |
-| S10 views, advanced | not applicable | not applicable | views (no `$out`/`$merge`), db stats, replica/sharded role: fake-runner tested |
+| S10 views, advanced | not applicable | not applicable | views (no `$out`/`$merge`) and db stats: verified live (standalone MongoDB 8.0); replica-set / sharded role fields: not verified (standalone only) |
 
 ### Deliberate limits (not placeholders)
 
