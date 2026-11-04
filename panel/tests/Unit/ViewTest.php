@@ -69,7 +69,9 @@ final class ViewTest extends TestCase
         $dir = dirname(__DIR__, 2) . '/resources/views/postgres';
         $offenders = [];
         foreach (glob($dir . '/*.php') ?: [] as $file) {
-            if (preg_match('/<[a-z][^>]*\sstyle\s*=/i', (string) file_get_contents($file))) {
+            // Without the PHP blocks, so that a "?>" inside a tag does not end the tag early.
+            $html = (string) preg_replace('/<\?.*?\?>/s', '', (string) file_get_contents($file));
+            if (preg_match('/<[a-z][^>]*\sstyle\s*=/i', $html)) {
                 $offenders[] = basename($file);
             }
         }
