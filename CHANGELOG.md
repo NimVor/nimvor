@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.4.1] — 2026-11-04
+
+A fix for the PostgreSQL Structure tab in 1.4.0.
+
 ### Fixed
 - **PostgreSQL browser: the Structure tab of any table with an ordinary index failed with a 500 error.** The agent leaves out a partial index's condition when an index is not partial, and the page read it without allowing for it being absent. The tests supplied the field in every case, which is why they did not catch it; a test now uses the agent's real shape.
 
