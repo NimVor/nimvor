@@ -276,6 +276,9 @@ type alterReq struct {
 	AutoInc   int64      `json:"auto_increment"`
 	WithData  bool       `json:"with_data"` // duplicate_table
 	Check     *checkSpec `json:"check"`
+	PartKind  string     `json:"part_kind"`  // range | list | hash | key
+	PartValue string     `json:"part_value"` // range: the upper bound or MAXVALUE; list: comma-separated values
+	PartCount int        `json:"part_count"` // hash / key: how many partitions
 }
 
 var fkActions = map[string]string{"": "RESTRICT", "restrict": "RESTRICT", "cascade": "CASCADE", "set null": "SET NULL", "no action": "NO ACTION"}

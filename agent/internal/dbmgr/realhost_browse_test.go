@@ -181,6 +181,83 @@ func TestRealHostDatabaseBrowser(t *testing.T) {
 		t.Fatal("engine injection accepted")
 	}
 	do("db.browse_bulk", `{"database":"nimvor_br","op":"drop","tables":["opt","opt_copy"],"confirm":true}`)
+	// Routines, triggers and events: listing, definitions, enable/disable, drop (only by confirmed, existing names).
+	do("db.query", `{"database":"nimvor_br","sql":"CREATE TABLE logt (id INT AUTO_INCREMENT PRIMARY KEY, m VARCHAR(20)); CREATE FUNCTION f_one() RETURNS INT DETERMINISTIC RETURN 1; CREATE PROCEDURE p_log(IN msg VARCHAR(20)) INSERT INTO logt (m) VALUES (msg); CREATE TRIGGER trg_log BEFORE INSERT ON logt FOR EACH ROW SET NEW.m = UPPER(NEW.m); CREATE EVENT ev_keep ON SCHEDULE EVERY 1 DAY DO DELETE FROM logt WHERE id < 0"}`)
+	rt := do("db.browse_routines", `{"database":"nimvor_br"}`)
+	if len(rt["routines"].([]any)) != 2 || len(rt["triggers"].([]any)) != 1 || len(rt["events"].([]any)) != 1 || rt["triggers"].([]any)[0].(map[string]any)["table"] != "logt" {
+		t.Fatalf("routines listing = %+v", rt)
+	}
+	if def := do("db.browse_object_definition", `{"database":"nimvor_br","kind":"routine","type":"function","name":"f_one"}`)["definition"].(string); !strings.Contains(def, "f_one") {
+		t.Fatalf("function definition = %q", def)
+	}
+	if def := do("db.browse_object_definition", `{"database":"nimvor_br","kind":"trigger","name":"trg_log"}`)["definition"].(string); !strings.Contains(def, "UPPER") {
+		t.Fatalf("trigger definition = %q", def)
+	}
+	do("db.browse_object_op", `{"database":"nimvor_br","kind":"event","name":"ev_keep","op":"disable"}`)
+	if ev := do("db.browse_routines", `{"database":"nimvor_br"}`)["events"].([]any)[0].(map[string]any)["status"]; ev != "DISABLED" {
+		t.Fatalf("event status after disable = %v", ev)
+	}
+	do("db.browse_object_op", `{"database":"nimvor_br","kind":"event","name":"ev_keep","op":"enable"}`)
+	for _, bad := range []string{
+		`{"database":"nimvor_br","kind":"routine","type":"function","name":"f_one","op":"drop"}`,               // no confirm
+		`{"database":"nimvor_br","kind":"routine","type":"function","name":"nope","op":"drop","confirm":true}`, // does not exist
+		`{"database":"nimvor_br","kind":"routine","type":"function","name":"f_one` + "`" + `; DROP TABLE logt","op":"drop","confirm":true}`,
+		`{"database":"nimvor_br","kind":"table","name":"logt","op":"drop","confirm":true}`, // not a droppable kind here
+		`{"database":"nimvor_br","kind":"event","name":"ev_keep","op":"truncate"}`,
+	} {
+		if _, err := call("db.browse_object_op", bad); err == nil {
+			t.Fatalf("accepted: %s", bad)
+		}
+	}
+	for _, ok := range []string{`{"kind":"routine","type":"procedure","name":"p_log"}`, `{"kind":"routine","type":"function","name":"f_one"}`, `{"kind":"trigger","name":"trg_log"}`, `{"kind":"event","name":"ev_keep"}`} {
+		do("db.browse_object_op", `{"database":"nimvor_br","op":"drop","confirm":true,`+ok[1:])
+	}
+	if rt := do("db.browse_routines", `{"database":"nimvor_br"}`); len(rt["routines"].([]any))+len(rt["triggers"].([]any))+len(rt["events"].([]any)) != 0 {
+		t.Fatalf("objects left after drop: %+v", rt)
+	}
+
+	// Sequences (MariaDB only) and partitions.
+	sq := do("db.browse_sequences", `{"database":"nimvor_br"}`)
+	if sq["supported"] == true {
+		do("db.browse_sequence_op", `{"database":"nimvor_br","op":"create","name":"seq_t","start":100,"increment":5}`)
+		do("db.browse_sequence_op", `{"database":"nimvor_br","op":"set_value","name":"seq_t","value":500}`)
+		do("db.browse_sequence_op", `{"database":"nimvor_br","op":"alter","name":"seq_t","max":100000,"cycle":true}`)
+		l := do("db.browse_sequences", `{"database":"nimvor_br"}`)["sequences"].([]any)
+		if len(l) != 1 || l[0].(map[string]any)["increment"].(float64) != 5 || l[0].(map[string]any)["max"].(float64) != 100000 || l[0].(map[string]any)["cycle"] != true {
+			t.Fatalf("sequences = %+v", l)
+		}
+		for _, bad := range []string{`{"database":"nimvor_br","op":"drop","name":"seq_t"}`, `{"database":"nimvor_br","op":"drop","name":"items","confirm":true}`, `{"database":"nimvor_br","op":"alter","name":"seq_t","increment":0}`} {
+			if _, err := call("db.browse_sequence_op", bad); err == nil {
+				t.Fatalf("sequence op accepted: %s", bad)
+			}
+		}
+		do("db.browse_sequence_op", `{"database":"nimvor_br","op":"drop","name":"seq_t","confirm":true}`)
+	} else {
+		if _, err := call("db.browse_sequence_op", `{"database":"nimvor_br","op":"create","name":"s"}`); err == nil {
+			t.Fatal("sequence created on MySQL")
+		}
+	}
+	do("db.query", `{"database":"nimvor_br","sql":"CREATE TABLE ev (id INT NOT NULL, yr INT NOT NULL) PARTITION BY RANGE (yr) (PARTITION p2024 VALUES LESS THAN (2025), PARTITION p2025 VALUES LESS THAN (2026)); INSERT INTO ev VALUES (1, 2024), (2, 2025)"}`)
+	pt := do("db.browse_partitions", `{"database":"nimvor_br","table":"ev"}`)
+	if pt["partitioned"] != true || pt["method"] != "RANGE" || len(pt["partitions"].([]any)) != 2 {
+		t.Fatalf("partitions = %+v", pt)
+	}
+	do("db.browse_alter", `{"database":"nimvor_br","table":"ev","op":"add_partition","name":"p2026","part_kind":"range","part_value":"2027"}`)
+	do("db.browse_alter", `{"database":"nimvor_br","table":"ev","op":"analyze_partition","name":"p2024,p2025"}`)
+	do("db.browse_alter", `{"database":"nimvor_br","table":"ev","op":"truncate_partition","name":"p2024"}`)
+	do("db.browse_alter", `{"database":"nimvor_br","table":"ev","op":"drop_partition","name":"p2026"}`)
+	if c := do("db.query", `{"database":"nimvor_br","sql":"SELECT COUNT(*) FROM ev"}`); c["results"].([]any)[0].(map[string]any)["rows"].([]any)[0].([]any)[0] != "1" {
+		t.Fatalf("partition truncate removed the wrong rows: %+v", c)
+	}
+	if _, err := call("db.browse_alter", `{"database":"nimvor_br","table":"ev","op":"drop_partition","name":"p2025`+"`"+`; DROP TABLE ev"}`); err == nil {
+		t.Fatal("partition name injection accepted")
+	}
+	if np := do("db.browse_partitions", `{"database":"nimvor_br","table":"items"}`); np["partitioned"] != false {
+		t.Fatalf("unpartitioned table reported partitioned: %+v", np)
+	}
+	do("db.browse_alter", `{"database":"nimvor_br","table":"ev","op":"remove_partitioning"}`)
+	do("db.browse_bulk", `{"database":"nimvor_br","op":"drop","tables":["ev","logt"],"confirm":true}`)
+
 	// The other database's tables are out of reach by name.
 	if bm := do("db.browse_bulk", `{"database":"nimvor_br","op":"drop","tables":["secret"],"confirm":true}`); bm["succeeded"].(float64) != 0 {
 		t.Fatalf("dropped a table of another database: %+v", bm)

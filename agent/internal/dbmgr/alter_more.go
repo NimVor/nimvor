@@ -121,6 +121,67 @@ func moreAlterSQL(table string, in alterReq) (string, error) {
 			return "", actions.InvalidParams("the primary key cannot be renamed")
 		}
 		return alter + "RENAME INDEX " + Ident(in.Name) + " TO " + Ident(in.NewName), nil
+	case "add_partition", "drop_partition", "truncate_partition", "rebuild_partition", "optimize_partition", "analyze_partition", "check_partition", "repair_partition":
+		if in.Op == "add_partition" && (in.PartKind == "hash" || in.PartKind == "key") {
+			if in.PartCount < 1 || in.PartCount > 128 {
+				return "", actions.InvalidParams("part_count: 1 to 128")
+			}
+			return alter + "ADD PARTITION PARTITIONS " + strconv.Itoa(in.PartCount), nil
+		}
+		names := strings.Split(in.Name, ",")
+		if len(names) == 0 || len(names) > 32 {
+			return "", actions.InvalidParams("partition: 1 to 32 names")
+		}
+		quoted := make([]string, len(names))
+		for i, n := range names {
+			n = strings.TrimSpace(n)
+			if err := checkIdent("partition", n); err != nil {
+				return "", err
+			}
+			quoted[i] = Ident(n)
+		}
+		list := strings.Join(quoted, ", ")
+		switch in.Op {
+		case "drop_partition":
+			return alter + "DROP PARTITION " + list, nil
+		case "truncate_partition":
+			return alter + "TRUNCATE PARTITION " + list, nil
+		case "rebuild_partition":
+			return alter + "REBUILD PARTITION " + list, nil
+		case "optimize_partition":
+			return alter + "OPTIMIZE PARTITION " + list, nil
+		case "analyze_partition":
+			return alter + "ANALYZE PARTITION " + list, nil
+		case "check_partition":
+			return alter + "CHECK PARTITION " + list, nil
+		case "repair_partition":
+			return alter + "REPAIR PARTITION " + list, nil
+		}
+		// add_partition for RANGE / LIST
+		if len(names) != 1 {
+			return "", actions.InvalidParams("partition: one name when adding")
+		}
+		switch in.PartKind {
+		case "range":
+			v := strings.TrimSpace(in.PartValue)
+			if strings.EqualFold(v, "MAXVALUE") {
+				return alter + "ADD PARTITION (PARTITION " + quoted[0] + " VALUES LESS THAN MAXVALUE)", nil
+			}
+			return alter + "ADD PARTITION (PARTITION " + quoted[0] + " VALUES LESS THAN (" + sqlLit(v) + "))", nil
+		case "list":
+			items := strings.Split(in.PartValue, ",")
+			if len(items) > 100 {
+				return "", actions.InvalidParams("part_value: at most 100 values")
+			}
+			out := make([]string, 0, len(items))
+			for _, it := range items {
+				out = append(out, sqlLit(strings.TrimSpace(it)))
+			}
+			return alter + "ADD PARTITION (PARTITION " + quoted[0] + " VALUES IN (" + strings.Join(out, ", ") + "))", nil
+		}
+		return "", actions.InvalidParams("part_kind: range, list, hash or key")
+	case "remove_partitioning":
+		return alter + "REMOVE PARTITIONING", nil
 	case "add_check":
 		if in.Check == nil {
 			return "", actions.InvalidParams("check: describe the condition")
