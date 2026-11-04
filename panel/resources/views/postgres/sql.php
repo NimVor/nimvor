@@ -41,7 +41,7 @@ ob_start();
             <select class="form-select form-select-sm w-auto" id="pgsql-limit" aria-label="Rows to keep"><option value="100">100 rows</option><option value="500" selected>500 rows</option><option value="1000">1,000 rows</option></select>
             <select class="form-select form-select-sm w-auto" id="pgsql-timeout" aria-label="Time limit"><option value="5">5 s</option><option value="15" selected>15 s</option><option value="30">30 s</option><option value="60">60 s</option></select>
         </div>
-        <div id="pgsql-editor" style="height:14rem;resize:vertical;overflow:auto"></div>
+        <div id="pgsql-editor" class="nim-sql-editor"></div>
         <div class="card-footer small text-body-secondary py-1">Ctrl+Enter runs the selection (or everything). Read only mode is enforced by PostgreSQL; write mode runs as the database owner.</div>
     </div>
 

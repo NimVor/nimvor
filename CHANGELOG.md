@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **The PostgreSQL SQL editor showed without its layout** (a bare line number and the placeholder text, no editor box, no colours, no completion list) on a panel that sends its normal Content-Security-Policy. The page had a `style` attribute on the editor's box, and the editor library adds its own styles as a `<style>` element; the policy (`style-src 'self'`) blocks both. The editor now runs in a shadow root, where its styles are applied as constructed stylesheets that the policy allows, so the policy stays as strict as before. The few other `style` attributes on the PostgreSQL pages (the column menu, the health page's connection bar, the backup schedule's number box) were blocked the same way and now use the stylesheet or `data-width`. The editor's syntax colours now follow the panel's light and dark theme (the library's own palette is unreadable on a dark background). A guard test keeps `style` attributes out of the PostgreSQL pages.
+
 ## [1.3.2] — 2026-11-04
 
 PostgreSQL on every supported system, and a PostgreSQL browser that looks like the MySQL one.

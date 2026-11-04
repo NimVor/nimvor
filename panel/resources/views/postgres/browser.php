@@ -109,7 +109,7 @@ if ($result === null): ?>
         <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('postgres.export') . '?' . http_build_query(array_filter(['db' => $id, 'schema' => $schema, 'table' => $table, 'q' => $q, 'fc' => $fc, 'fo' => $fo, 'fv' => $fv, 'sort' => $sort, 'dir' => $dir], static fn ($v): bool => $v !== ''))) ?>"><i class="bi bi-filetype-csv"></i> Export CSV</a>
         <div class="dropdown">
             <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"><i class="bi bi-layout-three-columns"></i> Columns</button>
-            <div class="dropdown-menu p-2" style="min-width:14rem">
+            <div class="dropdown-menu p-2 nim-colmenu">
                 <?php foreach ($cols as $i => $c): ?>
                     <label class="dropdown-item-text d-flex gap-2 small"><input type="checkbox" class="form-check-input" data-pgb-col="<?= (int) $i ?>" checked><span class="font-monospace"><?= e((string) $c['name']) ?></span></label>
                 <?php endforeach; ?>
