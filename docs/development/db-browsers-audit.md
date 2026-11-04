@@ -146,3 +146,37 @@ next slice starts.
 - MariaDB sequences are MariaDB-only; MySQL gets `AUTO_INCREMENT` control and an explanation, not a fake sequence.
 - MongoDB features that depend on edition or topology (time-series, change streams, sharding) are shown only when the
   server reports them.
+
+## Implementation status
+
+Verified means a test ran against a real server in the development session (PostgreSQL 16, MariaDB 10.11). MongoDB
+could not be installed there; its agent actions are unit-tested against a fake `mongosh` (validation, quoting, the
+script text) and have a live test, `TestMongoLiveBrowser`, that CI runs in the `mongo-live` job against a real
+`mongod`. That job is `continue-on-error` until it has been seen passing; until then MongoDB behaviour against a real
+server is **not verified**.
+
+| Slice | PostgreSQL | MySQL / MariaDB | MongoDB |
+|---|---|---|---|
+| S1 overview, object list with statistics | done, verified | done, verified | done, fake-runner tested |
+| S2 multi-select, bulk, per-object results | done, verified | done, verified | done, fake-runner tested |
+| S3 table / collection management | create, rename, duplicate, comment, move schema: verified | comment, engine, charset, row format, AUTO_INCREMENT, duplicate: verified | capped, time-series, copy (with indexes): fake-runner tested |
+| S4 columns and documents | add, change type/null/default/comment, rename, drop: verified | already present before this work | delete-many, duplicate, structured update-many: fake-runner tested |
+| S5 indexes | create (all methods, unique, desc, partial, include, concurrent), rebuild, rename, drop; size, scans, validity: verified | listing and add/drop already present; rename added: verified | usage ($indexStats), hide/unhide: fake-runner tested |
+| S6 constraints / validation | primary, unique, check, foreign, NOT VALID, validate, rename, drop: verified | structured CHECK add/drop and listing: verified | `$jsonSchema` rules, level, action: fake-runner tested |
+| S7 triggers, routines, events | triggers enable/disable/drop, routines list/definition/drop: verified | routines, triggers, events: list, definition, drop, event enable/disable: verified | not applicable |
+| S8 sequences | create, alter, set value, restart, sync to column, drop: verified | MariaDB sequences: verified; MySQL shows a note | not applicable |
+| S9 partitions | list, create, attach, detach: verified | list, add, drop, truncate, analyze, rebuild, remove: verified | not applicable |
+| S10 views, advanced | not applicable | not applicable | views (no `$out`/`$merge`), db stats, replica/sharded role: fake-runner tested |
+
+### Deliberate limits (not placeholders)
+
+- Creating or editing the *body* of a routine, trigger or event is code and stays on the SQL tab; the browsers list,
+  show, enable/disable and drop them.
+- Partitioning an existing MySQL/MariaDB table (`PARTITION BY`) and partition bounds that need an expression
+  (`TO_DAYS(...)`) are written on the SQL tab; bounds entered in the browser are literal values.
+- PostgreSQL column types are the built-in ones (plus sizes and arrays); other types use the SQL tab.
+- PostgreSQL has no repair statement; VACUUM, ANALYZE and REINDEX are offered. MySQL/MariaDB REPAIR is refused for
+  engines that do not support it.
+- Browser-side JavaScript (MySQL and MongoDB tabs, dialogs) is checked for syntax and exercised through the HTTP
+  contract it calls; it was not driven in a real browser in this session.
+- Extending the PostgreSQL panel to remote servers uses the same actions; remote-server DDL was not separately tested.
