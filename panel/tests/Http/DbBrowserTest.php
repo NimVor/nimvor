@@ -87,6 +87,19 @@ final class DbBrowserTest extends HttpTestCase
         self::assertSame(404, $this->api('/databases/' . $this->otherDb . '/browse/api', ['op' => 'bulk', 'alter_op' => 'drop', 'tables' => ['x'], 'confirm' => true])->status());
     }
 
+    public function testTableOptionFieldsReachTheAgentWithTheirTypes(): void
+    {
+        $this->login('cust');
+        $this->agent->succeed('db.browse_alter', ['sql' => 'ALTER TABLE ...']);
+        $this->api('/databases/' . $this->shopDb . '/browse/api', ['op' => 'alter', 'alter_op' => 'set_auto_increment', 'table' => 'orders', 'auto_increment' => '500', 'dry_run' => true]);
+        self::assertSame(['set_auto_increment', 500, true], [$this->lastCall('db.browse_alter')['op'], $this->lastCall('db.browse_alter')['auto_increment'], $this->lastCall('db.browse_alter')['dry_run']]);
+        $this->api('/databases/' . $this->shopDb . '/browse/api', ['op' => 'alter', 'alter_op' => 'add_check', 'table' => 'orders', 'check' => ['column' => 'qty', 'op' => 'ge', 'value' => '0']]);
+        self::assertSame(['column' => 'qty', 'op' => 'ge', 'value' => '0'], $this->lastCall('db.browse_alter')['check']);
+        $this->api('/databases/' . $this->shopDb . '/browse/api', ['op' => 'alter', 'alter_op' => 'set_charset', 'table' => 'orders', 'charset' => 'utf8mb4', 'collation' => 'utf8mb4_unicode_ci', 'convert' => true]);
+        $call = $this->lastCall('db.browse_alter');
+        self::assertSame(['utf8mb4', 'utf8mb4_unicode_ci', true], [$call['charset'], $call['collation'], $call['convert']]);
+    }
+
     public function testOperationsMapToAgentActionsAndAreAudited(): void
     {
         $this->login('admin');

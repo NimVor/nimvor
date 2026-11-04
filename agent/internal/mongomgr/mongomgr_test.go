@@ -719,3 +719,57 @@ func TestCollectionsBulk(t *testing.T) {
 		t.Errorf("validate needs no confirmation: %v", err)
 	}
 }
+
+func TestCollectionCreateExOptionsAreBuiltFromValidatedValues(t *testing.T) {
+	h, r := setup(t)
+	var seen string
+	h.Runner.Handler = func(id string, o execx.Opts, args []string) (string, error) {
+		if id == "mongosh" {
+			seen = strings.Join(args, " ")
+		}
+		return "", nil
+	}
+	mustCall(t, r, "mongo.collection_create_ex", `{"db":"shop","collection":"logs","kind":"capped","size_bytes":1048576,"max_docs":1000}`)
+	if !strings.Contains(seen, `"capped":true`) || !strings.Contains(seen, `"size":1048576`) || !strings.Contains(seen, `"max":1000`) {
+		t.Errorf("capped script: %s", seen)
+	}
+	mustCall(t, r, "mongo.collection_create_ex", `{"db":"shop","collection":"metrics","kind":"timeseries","time_field":"ts","meta_field":"sensor","granularity":"minutes","expire_seconds":86400}`)
+	if !strings.Contains(seen, `"timeField":"ts"`) || !strings.Contains(seen, `"granularity":"minutes"`) || !strings.Contains(seen, `"expireAfterSeconds":86400`) {
+		t.Errorf("timeseries script: %s", seen)
+	}
+	seen = ""
+	for _, bad := range []string{
+		`{"db":"shop","collection":"x","kind":"capped","size_bytes":10}`,
+		`{"db":"shop","collection":"x","kind":"timeseries","time_field":"ts'); db.dropDatabase(); ('"}`,
+		`{"db":"shop","collection":"x","kind":"timeseries","time_field":"ts","meta_field":"ts"}`,
+		`{"db":"shop","collection":"x","kind":"timeseries","time_field":"ts","granularity":"years"}`,
+		`{"db":"shop","collection":"x","kind":"view"}`,
+		`{"db":"shop","collection":"system.x"}`,
+	} {
+		if _, err := call(t, r, "mongo.collection_create_ex", bad); err == nil {
+			t.Errorf("must be refused: %s", bad)
+		}
+	}
+	if seen != "" {
+		t.Errorf("a refused request reached mongosh: %s", seen)
+	}
+}
+
+func TestCollectionCopyReportsWhatItDid(t *testing.T) {
+	h, r := setup(t)
+	reply := `{"copied":12,"indexes":2}`
+	h.Runner.Handler = func(id string, o execx.Opts, args []string) (string, error) { return reply, nil }
+	res := mustCall(t, r, "mongo.collection_copy", `{"db":"shop","collection":"a","new_name":"b"}`)
+	if res["copied"].(float64) != 12 {
+		t.Errorf("copy: %v", res)
+	}
+	reply = `{"error":"a collection with that name already exists"}`
+	if _, err := call(t, r, "mongo.collection_copy", `{"db":"shop","collection":"a","new_name":"b"}`); err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Errorf("an existing target must be reported: %v", err)
+	}
+	for _, bad := range []string{`{"db":"shop","collection":"a","new_name":"a"}`, `{"db":"shop","collection":"a","new_name":"system.b"}`, `{"db":"shop","collection":"a","new_name":"b'); x(('"}`} {
+		if _, err := call(t, r, "mongo.collection_copy", bad); err == nil {
+			t.Errorf("must be refused: %s", bad)
+		}
+	}
+}

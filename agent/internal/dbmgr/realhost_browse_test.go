@@ -153,6 +153,34 @@ func TestRealHostDatabaseBrowser(t *testing.T) {
 	if bm := do("db.browse_bulk", `{"database":"nimvor_br","op":"drop","tables":["my_isam","v_items","we`+"`"+`ird; DROP TABLE items"],"confirm":true}`); bm["succeeded"].(float64) != 3 {
 		t.Fatalf("drop = %+v", bm)
 	}
+	// Table options, duplicate, index rename and CHECK constraints on a real server.
+	do("db.query", `{"database":"nimvor_br","sql":"CREATE TABLE opt (id INT AUTO_INCREMENT PRIMARY KEY, qty INT, KEY k_qty (qty)) ENGINE=InnoDB; INSERT INTO opt (qty) VALUES (5),(7)"}`)
+	for _, p := range []string{
+		`{"op":"comment_table","comment":"it's a table"}`, `{"op":"set_row_format","row_format":"dynamic"}`, `{"op":"set_charset","charset":"utf8mb4","collation":"utf8mb4_unicode_ci","convert":true}`,
+		`{"op":"set_auto_increment","auto_increment":500}`, `{"op":"rename_index","name":"k_qty","new_name":"idx_qty"}`, `{"op":"add_check","name":"ck_qty","check":{"column":"qty","op":"ge","value":"0"}}`,
+		`{"op":"duplicate_table","new_name":"opt_copy","with_data":true}`,
+	} {
+		do("db.browse_alter", `{"database":"nimvor_br","table":"opt",`+p[1:])
+	}
+	os := do("db.browse_structure", `{"database":"nimvor_br","table":"opt"}`)
+	if !strings.Contains(os["create"].(string), "idx_qty") || !strings.Contains(os["create"].(string), "COMMENT='it''s a table'") || !strings.Contains(strings.ToLower(os["create"].(string)), "ck_qty") {
+		t.Fatalf("structure after options = %v", os["create"])
+	}
+	if c := do("db.query", `{"database":"nimvor_br","sql":"SELECT COUNT(*) FROM opt_copy"}`); c["results"].([]any)[0].(map[string]any)["rows"].([]any)[0].([]any)[0] != "2" {
+		t.Fatalf("duplicate copied the wrong number of rows: %+v", c)
+	}
+	// A CHECK the existing data violates is refused by the server and nothing changes.
+	if ck := os["checks"].([]any); len(ck) != 1 || ck[0].(map[string]any)["name"] != "ck_qty" {
+		t.Fatalf("checks listed = %+v", os["checks"])
+	}
+	if _, err := call("db.browse_alter", `{"database":"nimvor_br","table":"opt","op":"add_check","name":"ck_big","check":{"column":"qty","op":"gt","value":"100"}}`); err == nil {
+		t.Fatal("a CHECK that existing rows violate was accepted")
+	}
+	do("db.browse_alter", `{"database":"nimvor_br","table":"opt","op":"drop_check","name":"ck_qty"}`)
+	if _, err := call("db.browse_alter", `{"database":"nimvor_br","table":"opt","op":"set_engine","engine":"InnoDB; DROP TABLE opt"}`); err == nil {
+		t.Fatal("engine injection accepted")
+	}
+	do("db.browse_bulk", `{"database":"nimvor_br","op":"drop","tables":["opt","opt_copy"],"confirm":true}`)
 	// The other database's tables are out of reach by name.
 	if bm := do("db.browse_bulk", `{"database":"nimvor_br","op":"drop","tables":["secret"],"confirm":true}`); bm["succeeded"].(float64) != 0 {
 		t.Fatalf("dropped a table of another database: %+v", bm)

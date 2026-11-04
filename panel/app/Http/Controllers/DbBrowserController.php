@@ -43,6 +43,8 @@ final class DbBrowserController extends Controller
         'table', 'offset', 'limit', 'order', 'desc', 'filter', 'search', 'sql', 'key', 'keys', 'values', 'insert',
         // Structure changes (the operation travels as alter_op: op names the browser operation).
         'alter_op', 'new_name', 'column', 'columns', 'name', 'after', 'kind', 'index_columns', 'ref_table', 'ref_columns', 'on_delete', 'on_update', 'primary', 'engine', 'dry_run',
+        // Table options, duplicate and checks.
+        'comment', 'charset', 'collation', 'convert', 'row_format', 'auto_increment', 'with_data', 'check',
         // Several tables at once (the operation travels as alter_op).
         'tables', 'confirm',
         // CSV import.
@@ -115,9 +117,10 @@ final class DbBrowserController extends Controller
             if ($v !== null) {
                 $params[$f === 'alter_op' ? 'op' : $f] = match ($f) {
                     'offset', 'limit' => (int) $v,
-                    'desc', 'insert', 'dry_run', 'header', 'confirm' => (bool) $v,
+                    'desc', 'insert', 'dry_run', 'header', 'confirm', 'convert', 'with_data' => (bool) $v,
+                    'auto_increment' => (int) $v,
                     'tables' => is_array($v) ? array_values(array_filter(array_map(static fn ($t): string => is_scalar($t) ? (string) $t : '', $v), static fn (string $t): bool => $t !== '')) : [],
-                    'table', 'order', 'sql', 'search', 'csv', 'alter_op', 'new_name', 'name', 'after', 'kind', 'ref_table', 'on_delete', 'on_update', 'engine', 'delimiter', 'mode' => is_scalar($v) ? (string) $v : '',
+                    'table', 'order', 'sql', 'search', 'csv', 'alter_op', 'new_name', 'name', 'after', 'kind', 'ref_table', 'on_delete', 'on_update', 'engine', 'delimiter', 'mode', 'comment', 'charset', 'collation', 'row_format' => is_scalar($v) ? (string) $v : '',
                     default => $v,
                 };
             }

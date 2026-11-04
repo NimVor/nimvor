@@ -240,7 +240,7 @@
         btn.setAttribute('aria-label', 'Collection actions');
         btn.innerHTML = '<i class="bi bi-three-dots-vertical"></i>';
         var menu = el('ul', 'dropdown-menu dropdown-menu-end');
-        [['Empty', 'empty'], ['Rename…', 'rename'], ['Drop', 'drop']].forEach(function (pair) {
+        [['Empty', 'empty'], ['Rename…', 'rename'], ['Copy…', 'copy'], ['Drop', 'drop']].forEach(function (pair) {
             var item = el('button', 'dropdown-item small' + (pair[1] === 'drop' ? ' text-danger' : ''), pair[0]);
             item.type = 'button';
             item.addEventListener('click', function () { collectionAction(name, pair[1]); });
@@ -254,6 +254,15 @@
     }
 
     function collectionAction(name, op) {
+        if (op === 'copy') {
+            var to = window.prompt('Copy "' + name + '" (documents and indexes) to a new collection named:', name + '_copy');
+            if (!to || !to.trim()) { return; }
+            call('coll_copy', { collection: name, name: to.trim() }).then(function (r) {
+                NimVor.toast('Copied to ' + r.copied + '.', 'success');
+                reloadCollections();
+            }).catch(fail);
+            return;
+        }
         if (op === 'drop') {
             if (!window.confirm('Drop the collection "' + name + '" and all its documents? This cannot be undone.')) { return; }
             call('coll_drop', { collection: name }).then(function () {
@@ -1151,14 +1160,35 @@
     });
     dbSel.addEventListener('change', function () { state.db = dbSel.value; loadCollections(); });
     if (newCollBtn) {
+        var ncEl = document.getElementById('mb-newcoll');
+        var ncModal = ncEl && window.bootstrap ? new bootstrap.Modal(ncEl) : null;
+        var nc = function (k) { return ncEl.querySelector('[data-mb-nc-' + k + ']'); };
+        if (ncEl) {
+            nc('kind').addEventListener('change', function () {
+                nc('capped').classList.toggle('d-none', nc('kind').value !== 'capped');
+                nc('ts').classList.toggle('d-none', nc('kind').value !== 'timeseries');
+            });
+            ncEl.querySelector('[data-mb-newcoll-form]').addEventListener('submit', function (e) {
+                e.preventDefault();
+                var name = nc('name').value.trim(), kind = nc('kind').value;
+                if (!name) { nc('err').textContent = 'Enter a name.'; return; }
+                nc('err').textContent = '';
+                call('coll_create_ex', { collection: name, options: {
+                    kind: kind, size_bytes: parseInt(nc('size').value, 10) || 0, max_docs: parseInt(nc('max').value, 10) || 0,
+                    time_field: nc('time').value.trim(), meta_field: nc('meta').value.trim(), granularity: nc('gran').value, expire_seconds: parseInt(nc('expire').value, 10) || 0
+                } }).then(function () {
+                    ncModal.hide();
+                    NimVor.toast('Collection created.', 'success');
+                    reloadCollections();
+                    if (!state.collection) { showDbOverview(); }
+                }).catch(function (err) { nc('err').textContent = (err.details && err.details.message) || err.message; });
+            });
+        }
         newCollBtn.addEventListener('click', function () {
-            if (!state.db) { return; }
-            var name = window.prompt('New collection name in ' + state.db + ':', '');
-            if (!name || name.trim() === '') { return; }
-            call('coll_create', { collection: name.trim() }).then(function () {
-                NimVor.toast('Collection created.', 'success');
-                reloadCollections();
-            }).catch(fail);
+            if (!state.db || !ncModal) { return; }
+            ncEl.querySelector('[data-mb-newcoll-form]').reset();
+            nc('capped').classList.add('d-none'); nc('ts').classList.add('d-none'); nc('err').textContent = '';
+            ncModal.show();
         });
     }
     collFilter.addEventListener('input', applyCollFilter);

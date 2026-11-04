@@ -434,13 +434,31 @@ GROUP BY k.CONSTRAINT_NAME, k.REFERENCED_TABLE_NAME, r.DELETE_RULE, r.UPDATE_RUL
 					fks = append(fks, map[string]any{"name": str(row[0]), "columns": str(row[1]), "ref_table": str(row[2]), "ref_columns": str(row[3]), "on_delete": str(row[4]), "on_update": str(row[5])})
 				}
 			}
+			// CHECK constraints (MariaDB 10.2+, MySQL 8.0.16+); older servers have none, so a failure just means none.
+			// MariaDB names constraints per table and says which table in CHECK_CONSTRAINTS; MySQL names them per schema.
+			checks := []map[string]any{}
+			for _, q := range []string{
+				"SELECT CONSTRAINT_NAME, CHECK_CLAUSE FROM information_schema.CHECK_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = " + Quote(in.Table) + " ORDER BY CONSTRAINT_NAME",
+				`SELECT c.CONSTRAINT_NAME, c.CHECK_CLAUSE FROM information_schema.CHECK_CONSTRAINTS c
+JOIN information_schema.TABLE_CONSTRAINTS t ON t.CONSTRAINT_SCHEMA = c.CONSTRAINT_SCHEMA AND t.CONSTRAINT_NAME = c.CONSTRAINT_NAME
+WHERE t.TABLE_SCHEMA = DATABASE() AND t.TABLE_NAME = ` + Quote(in.Table) + ` AND t.CONSTRAINT_TYPE = 'CHECK' ORDER BY c.CONSTRAINT_NAME`,
+			} {
+				cr, err := one(conn, q)
+				if err != nil {
+					continue
+				}
+				for _, row := range cr.Rows {
+					checks = append(checks, map[string]any{"name": str(row[0]), "clause": str(row[1])})
+				}
+				break
+			}
 			status := map[string]any{}
 			if sr, err := one(conn, "SELECT TABLE_TYPE, ENGINE, ROW_FORMAT, TABLE_ROWS, AVG_ROW_LENGTH, DATA_LENGTH, INDEX_LENGTH, DATA_FREE, AUTO_INCREMENT, CREATE_TIME, UPDATE_TIME, TABLE_COLLATION, TABLE_COMMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = "+Quote(in.Table)); err == nil && len(sr.Rows) == 1 {
 				for i, k := range []string{"type", "engine", "row_format", "rows", "avg_row_length", "data_bytes", "index_bytes", "free_bytes", "auto_increment", "created", "updated", "collation", "comment"} {
 					status[k] = str(sr.Rows[0][i])
 				}
 			}
-			out = map[string]any{"table": in.Table, "columns": cols, "indexes": idx, "foreign_keys": fks, "status": status, "key": t.Key, "create": create}
+			out = map[string]any{"table": in.Table, "columns": cols, "indexes": idx, "foreign_keys": fks, "checks": checks, "status": status, "key": t.Key, "create": create}
 			return nil
 		})
 		return out, err

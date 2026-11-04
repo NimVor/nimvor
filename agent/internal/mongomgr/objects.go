@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/NimVor/nimvor/agent/internal/actions"
 	"github.com/NimVor/nimvor/agent/internal/host"
 )
+
+var fieldNameRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]{0,63}$`)
 
 // registerObjects adds the database overview and the detailed collection listing of the MongoDB browser. Both are
 // read-only. Numbers are coerced with Number() so a mongosh Long decodes as a plain JSON number, and each collection is
@@ -153,5 +156,121 @@ func registerObjects(r *actions.Registry, env *host.Env, c Client) {
 			}
 		}
 		return map[string]any{"op": in.Op, "results": results, "succeeded": ok, "failed": len(results) - ok}, nil
+	}})
+
+	// Create a collection with options. The options object is built from validated values and written with
+	// json.Marshal, which is also valid JavaScript, so nothing from the request is ever pasted into the script.
+	r.Register(actions.Action{Name: "mongo.collection_create_ex", Mutating: true, Description: "Create a collection with options: capped (size, max documents) or time-series (time field, meta field, granularity).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			DB          string `json:"db"`
+			Coll        string `json:"collection"`
+			Kind        string `json:"kind"` // collection | capped | timeseries
+			SizeBytes   int64  `json:"size_bytes"`
+			MaxDocs     int64  `json:"max_docs"`
+			TimeField   string `json:"time_field"`
+			MetaField   string `json:"meta_field"`
+			Granularity string `json:"granularity"`
+			ExpireSecs  int64  `json:"expire_seconds"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if !nameRe.MatchString(in.DB) || !validColl(in.Coll) {
+			return nil, actions.InvalidParams("db/collection: invalid")
+		}
+		opts := map[string]any{}
+		switch in.Kind {
+		case "", "collection":
+		case "capped":
+			if in.SizeBytes < 4096 || in.SizeBytes > 1<<40 {
+				return nil, actions.InvalidParams("size_bytes: a capped collection needs a size between 4 KiB and 1 TiB.")
+			}
+			if in.MaxDocs < 0 || in.MaxDocs > 1<<31 {
+				return nil, actions.InvalidParams("max_docs: 0 (no limit) up to 2,147,483,648.")
+			}
+			opts["capped"] = true
+			opts["size"] = in.SizeBytes
+			if in.MaxDocs > 0 {
+				opts["max"] = in.MaxDocs
+			}
+		case "timeseries":
+			if !fieldNameRe.MatchString(in.TimeField) {
+				return nil, actions.InvalidParams("time_field: the name of the date field, letters, digits and underscore.")
+			}
+			ts := map[string]any{"timeField": in.TimeField}
+			if in.MetaField != "" {
+				if !fieldNameRe.MatchString(in.MetaField) || in.MetaField == in.TimeField {
+					return nil, actions.InvalidParams("meta_field: a different field name, letters, digits and underscore.")
+				}
+				ts["metaField"] = in.MetaField
+			}
+			switch in.Granularity {
+			case "":
+			case "seconds", "minutes", "hours":
+				ts["granularity"] = in.Granularity
+			default:
+				return nil, actions.InvalidParams("granularity: seconds, minutes or hours.")
+			}
+			opts["timeseries"] = ts
+			if in.ExpireSecs < 0 || in.ExpireSecs > 1<<31 {
+				return nil, actions.InvalidParams("expire_seconds: 0 (keep forever) or a number of seconds.")
+			}
+			if in.ExpireSecs > 0 {
+				opts["expireAfterSeconds"] = in.ExpireSecs
+			}
+		default:
+			return nil, actions.InvalidParams("kind: collection, capped or timeseries.")
+		}
+		if !installed(env) {
+			return nil, actions.Conflict("MongoDB is not installed.")
+		}
+		ob, _ := json.Marshal(opts)
+		out, err := c.eval(ctx, fmt.Sprintf("db.getSiblingDB(%s).createCollection(%s,%s)", jsString(in.DB), jsString(in.Coll), ob))
+		if err != nil {
+			return nil, actions.Failed("The collection could not be created.", lastLine(out))
+		}
+		return map[string]any{"created": in.Coll, "kind": in.Kind}, nil
+	}})
+
+	// Copy a collection's documents (and its indexes) to a new collection of the same database.
+	r.Register(actions.Action{Name: "mongo.collection_copy", Mutating: true, Description: "Copy a collection into a new one in the same database: the documents with an aggregation $out, then the indexes.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			DB   string `json:"db"`
+			From string `json:"collection"`
+			To   string `json:"new_name"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if !nameRe.MatchString(in.DB) || !validColl(in.From) || !validColl(in.To) {
+			return nil, actions.InvalidParams("db/collection/new_name: invalid")
+		}
+		if in.From == in.To {
+			return nil, actions.InvalidParams("new_name: choose a different name.")
+		}
+		if !installed(env) {
+			return nil, actions.Conflict("MongoDB is not installed.")
+		}
+		script := fmt.Sprintf("var d=db.getSiblingDB(%s);var from=%s;var to=%s;"+
+			"var src=d.getCollectionInfos({name:from})[0];"+
+			"if(!src){print(JSON.stringify({error:'there is no such collection'}))}"+
+			"else if(src.type==='view'||(src.options&&src.options.timeseries)){print(JSON.stringify({error:'views and time-series collections cannot be copied this way'}))}"+
+			"else if(d.getCollectionInfos({name:to}).length>0){print(JSON.stringify({error:'a collection with that name already exists'}))}"+
+			"else{d.getCollection(from).aggregate([{$match:{}},{$out:to}]);"+
+			"var n=0;d.getCollection(from).getIndexes().forEach(function(ix){if(ix.name==='_id_'){return}var k=ix.key;var o={};Object.keys(ix).forEach(function(f){if(['v','key','ns'].indexOf(f)<0){o[f]=ix[f]}});try{d.getCollection(to).createIndex(k,o);n++}catch(e){}});"+
+			"print(JSON.stringify({copied:Number(d.getCollection(to).estimatedDocumentCount()),indexes:n}))}",
+			jsString(in.DB), jsString(in.From), jsString(in.To))
+		out, err := c.eval(ctx, script)
+		if err != nil {
+			return nil, actions.Failed("The collection could not be copied.", lastLine(out))
+		}
+		var res map[string]any
+		if err := json.Unmarshal(trimToJSON(out), &res); err != nil {
+			return nil, actions.Failed("The collection could not be copied.", "unexpected output: "+lastLine(out))
+		}
+		if msg, ok := res["error"].(string); ok {
+			return nil, actions.Conflict("The collection was not copied: " + msg + ".")
+		}
+		return res, nil
 	}})
 }

@@ -514,6 +514,18 @@ final class MongoController extends Controller
                     }
                     $this->mongo->dropCollection($db, trim((string) $request->input('collection')), $this->userId($request));
                     return Response::json(['success' => true, 'data' => ['dropped' => trim((string) $request->input('collection'))]]);
+                case 'coll_create_ex':
+                    if (!$this->view->can(P::MONGO_MANAGE)) {
+                        return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
+                    }
+                    $this->mongo->createCollectionEx($db, trim((string) $request->input('collection')), (array) $request->input('options', []), $this->userId($request));
+                    return Response::json(['success' => true, 'data' => ['created' => trim((string) $request->input('collection'))]]);
+                case 'coll_copy':
+                    if (!$this->view->can(P::MONGO_MANAGE)) {
+                        return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
+                    }
+                    $this->mongo->copyCollection($db, trim((string) $request->input('collection')), trim((string) $request->input('name')), $this->userId($request));
+                    return Response::json(['success' => true, 'data' => ['copied' => trim((string) $request->input('name'))]]);
                 case 'colls_bulk':
                     $bulkOp = trim((string) $request->input('bulk_op'));
                     if ($bulkOp !== 'validate' && !$this->view->can(P::MONGO_MANAGE)) {

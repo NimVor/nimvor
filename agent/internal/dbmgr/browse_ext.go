@@ -267,6 +267,15 @@ type alterReq struct {
 	Primary   []string     `json:"primary"` // create_table
 	Engine    string       `json:"engine"`
 	DryRun    bool         `json:"dry_run"`
+	// Table options and checks (see alter_more.go).
+	Comment   string     `json:"comment"`
+	Charset   string     `json:"charset"`
+	Collation string     `json:"collation"`
+	Convert   bool       `json:"convert"` // set_charset: convert existing data (CONVERT TO) instead of changing only the default
+	RowFormat string     `json:"row_format"`
+	AutoInc   int64      `json:"auto_increment"`
+	WithData  bool       `json:"with_data"` // duplicate_table
+	Check     *checkSpec `json:"check"`
 }
 
 var fkActions = map[string]string{"": "RESTRICT", "restrict": "RESTRICT", "cascade": "CASCADE", "set null": "SET NULL", "no action": "NO ACTION"}
@@ -439,7 +448,7 @@ func alterSQL(table string, in alterReq) (string, error) {
 		}
 		return alter + "DROP FOREIGN KEY " + Ident(in.Name), nil
 	}
-	return "", actions.InvalidParams("unknown operation " + in.Op)
+	return moreAlterSQL(table, in)
 }
 
 // ---- CSV ---------------------------------------------------------------------

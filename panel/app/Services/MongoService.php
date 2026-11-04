@@ -166,6 +166,38 @@ final class MongoService
         $this->audit->record('mongo.collection_create', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection], $userId);
     }
 
+    /**
+     * Create a collection with options: plain, capped, or time-series.
+     *
+     * @param array<string, mixed> $opts kind, size_bytes, max_docs, time_field, meta_field, granularity, expire_seconds
+     */
+    public function createCollectionEx(string $db, string $collection, array $opts, ?int $userId): void
+    {
+        $kind = (string) ($opts['kind'] ?? 'collection');
+        if (!in_array($kind, ['collection', 'capped', 'timeseries'], true)) {
+            throw new \NimVor\Support\UserFacingException('Choose a collection type.');
+        }
+        $params = ['db' => $db, 'collection' => $collection, 'kind' => $kind];
+        if ($kind === 'capped') {
+            $params['size_bytes'] = max(0, (int) ($opts['size_bytes'] ?? 0));
+            $params['max_docs'] = max(0, (int) ($opts['max_docs'] ?? 0));
+        } elseif ($kind === 'timeseries') {
+            $params['time_field'] = trim((string) ($opts['time_field'] ?? ''));
+            $params['meta_field'] = trim((string) ($opts['meta_field'] ?? ''));
+            $params['granularity'] = (string) ($opts['granularity'] ?? '');
+            $params['expire_seconds'] = max(0, (int) ($opts['expire_seconds'] ?? 0));
+        }
+        $this->agent->call('mongo.collection_create_ex', $params);
+        $this->audit->record('mongo.collection_create', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection, 'kind' => $kind], $userId);
+    }
+
+    /** Copy a collection (documents and indexes) into a new one of the same database. */
+    public function copyCollection(string $db, string $collection, string $newName, ?int $userId): void
+    {
+        $this->agent->call('mongo.collection_copy', ['db' => $db, 'collection' => $collection, 'new_name' => $newName], 300);
+        $this->audit->record('mongo.collection_copy', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection, 'new_name' => $newName], $userId);
+    }
+
     public function dropCollection(string $db, string $collection, ?int $userId): void
     {
         $this->agent->call('mongo.collection_drop', ['db' => $db, 'collection' => $collection]);

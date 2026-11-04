@@ -203,6 +203,39 @@
     </div>
 </div>
 
+<div class="modal fade" id="mb-newcoll" tabindex="-1" aria-labelledby="mb-newcoll-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form class="modal-content" data-mb-newcoll-form novalidate>
+            <div class="modal-header"><h2 class="modal-title h6" id="mb-newcoll-title">New collection</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+            <div class="modal-body">
+                <label class="form-label small" for="mb-nc-name">Name</label>
+                <input class="form-control font-monospace mb-2" id="mb-nc-name" data-mb-nc-name maxlength="120" autocomplete="off" spellcheck="false">
+                <label class="form-label small" for="mb-nc-kind">Type</label>
+                <select class="form-select form-select-sm mb-2" id="mb-nc-kind" data-mb-nc-kind>
+                    <option value="collection">Collection</option>
+                    <option value="capped">Capped collection (fixed size, oldest documents are replaced)</option>
+                    <option value="timeseries">Time-series collection (MongoDB 5.0 or newer)</option>
+                </select>
+                <div class="row g-2 d-none" data-mb-nc-capped>
+                    <div class="col-6"><label class="form-label small mb-0" for="mb-nc-size">Size (bytes)</label><input class="form-control form-control-sm" type="number" min="4096" id="mb-nc-size" data-mb-nc-size value="1048576"></div>
+                    <div class="col-6"><label class="form-label small mb-0" for="mb-nc-max">Max documents</label><input class="form-control form-control-sm" type="number" min="0" id="mb-nc-max" data-mb-nc-max placeholder="optional"></div>
+                </div>
+                <div class="row g-2 d-none" data-mb-nc-ts>
+                    <div class="col-6"><label class="form-label small mb-0" for="mb-nc-time">Time field</label><input class="form-control form-control-sm" id="mb-nc-time" data-mb-nc-time placeholder="timestamp" autocomplete="off"></div>
+                    <div class="col-6"><label class="form-label small mb-0" for="mb-nc-meta">Meta field</label><input class="form-control form-control-sm" id="mb-nc-meta" data-mb-nc-meta placeholder="optional" autocomplete="off"></div>
+                    <div class="col-6"><label class="form-label small mb-0" for="mb-nc-gran">Granularity</label><select class="form-select form-select-sm" id="mb-nc-gran" data-mb-nc-gran><option value="">default</option><option value="seconds">seconds</option><option value="minutes">minutes</option><option value="hours">hours</option></select></div>
+                    <div class="col-6"><label class="form-label small mb-0" for="mb-nc-expire">Expire after (seconds)</label><input class="form-control form-control-sm" type="number" min="0" id="mb-nc-expire" data-mb-nc-expire placeholder="keep forever"></div>
+                </div>
+                <div class="invalid-feedback d-block" data-mb-nc-err></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="modal fade" id="mb-index" tabindex="-1" aria-labelledby="mb-index-title" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <form class="modal-content" data-mb-index-form novalidate>

@@ -268,6 +268,18 @@ final class MongoTest extends HttpTestCase
         $det = (array) json_decode($this->post('/mongo/browse', ['op' => 'collections_detail', 'db' => 'shop'])->body(), true);
         self::assertSame(300, $det['data']['collections'][0]['size']);
 
+        $this->agent->succeed('mongo.collection_create_ex', ['created' => 'logs']);
+        $this->agent->succeed('mongo.collection_copy', ['copied' => 3, 'indexes' => 1]);
+        $this->post('/mongo/browse', ['op' => 'coll_create_ex', 'db' => 'shop', 'collection' => 'metrics', 'options' => ['kind' => 'timeseries', 'time_field' => 'ts', 'meta_field' => 'sensor', 'granularity' => 'minutes', 'expire_seconds' => '60', 'size_bytes' => '99']]);
+        $call = $this->lastCall('mongo.collection_create_ex');
+        self::assertSame(['timeseries', 'ts', 'sensor', 'minutes', 60], [$call['kind'], $call['time_field'], $call['meta_field'], $call['granularity'], $call['expire_seconds']]);
+        self::assertArrayNotHasKey('size_bytes', $call, 'options of another type are not sent');
+        $before = $this->calls('mongo.collection_create_ex');
+        $this->post('/mongo/browse', ['op' => 'coll_create_ex', 'db' => 'shop', 'collection' => 'x', 'options' => ['kind' => 'view']]);
+        self::assertSame($before, $this->calls('mongo.collection_create_ex'), 'an unknown type never reaches the agent');
+        $this->post('/mongo/browse', ['op' => 'coll_copy', 'db' => 'shop', 'collection' => 'orders', 'name' => 'orders_2']);
+        self::assertSame(['shop', 'orders', 'orders_2'], [$this->lastCall('mongo.collection_copy')['db'], $this->lastCall('mongo.collection_copy')['collection'], $this->lastCall('mongo.collection_copy')['new_name']]);
+
         $this->agent->succeed('mongo.collections_bulk', ['op' => 'empty', 'results' => [['name' => 'orders', 'ok' => true]], 'succeeded' => 1, 'failed' => 0]);
         $bulk = (array) json_decode($this->post('/mongo/browse', ['op' => 'colls_bulk', 'db' => 'shop', 'bulk_op' => 'empty', 'collections' => ['orders', '', 'orders']])->body(), true);
         self::assertSame(1, $bulk['data']['succeeded']);

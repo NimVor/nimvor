@@ -606,6 +606,66 @@
         }, true);
     }
 
+    function duplicateTable() {
+        var n = input(state.table + '_copy'), withData = el('input', 'form-check-input'); withData.type = 'checkbox';
+        var g = el('div', 'row g-2'); g.append(field('Name of the copy', n, 'col-12'));
+        var lab = el('label', 'form-check col-12 ms-2'); lab.append(withData, document.createTextNode(' Copy the rows too')); g.appendChild(lab);
+        formDialog('Duplicate ' + state.table, g, 'Duplicate', function (dry) {
+            var to = n.value.trim();
+            return alter(function () { return { op: 'duplicate_table', new_name: to, with_data: withData.checked }; })(dry).then(function (r) { if (!dry) { selectTable(to); } return r; });
+        }, true);
+    }
+    function renameIndex(old) {
+        var n = input(old);
+        formDialog('Rename index ' + old, field('New name', n, 'col-12'), 'Rename', alter(function () { return { op: 'rename_index', name: old, new_name: n.value.trim() }; }), true);
+    }
+    function addCheck(st) {
+        var names = (st.columns || []).map(function (c) { return c.name; });
+        var name = input('', 'optional'), col = select(names), op = select([['ge', 'is at least (>=)'], ['gt', 'is greater than (>)'], ['le', 'is at most (<=)'], ['lt', 'is less than (<)'], ['eq', 'equals (=)'], ['ne', 'differs from (<>)'], ['between', 'is between'], ['in', 'is one of (comma-separated)'], ['not_in', 'is none of (comma-separated)'], ['like', 'matches (LIKE)'], ['not_like', 'does not match (LIKE)']]);
+        var v1 = input('', 'value'), v2 = input('', 'upper value (between)');
+        var g = el('div', 'row g-2'); g.append(field('Name', name, 'col-12'), field('Column', col, 'col-sm-4'), field('Condition', op, 'col-sm-8'), field('Value', v1, 'col-sm-6'), field('Upper value', v2, 'col-sm-6'));
+        g.appendChild(el('div', 'form-text col-12', 'Every existing row must already satisfy the condition, or the server refuses it. For anything more complex use the SQL tab.'));
+        formDialog('Add a check to ' + state.table, g, 'Add check', alter(function () {
+            return { op: 'add_check', name: name.value.trim(), check: { column: col.value, op: op.value, value: v1.value, value2: v2.value } };
+        }), true);
+    }
+    function tableOptions(st) {
+        var s = st.status || {};
+        var comment = input(s.comment || ''), engine = select([['', '(unchanged)'], ['InnoDB', 'InnoDB'], ['Aria', 'Aria'], ['MyISAM', 'MyISAM'], ['MEMORY', 'MEMORY']]);
+        var charset = input('', 'e.g. utf8mb4'), collation = input('', 'e.g. utf8mb4_unicode_ci'), convert = el('input', 'form-check-input'); convert.type = 'checkbox';
+        var rowFormat = select([['', '(unchanged)'], ['DYNAMIC', 'DYNAMIC'], ['COMPACT', 'COMPACT'], ['REDUNDANT', 'REDUNDANT'], ['COMPRESSED', 'COMPRESSED'], ['FIXED', 'FIXED'], ['DEFAULT', 'DEFAULT']]);
+        var auto = input(s.auto_increment || '', 'next number');
+        var g = el('div', 'row g-2');
+        g.append(field('Comment', comment, 'col-12'), field('Storage engine', engine, 'col-sm-6'), field('Row format', rowFormat, 'col-sm-6'), field('Character set', charset, 'col-sm-6'), field('Collation', collation, 'col-sm-6'), field('Next auto-increment', auto, 'col-sm-6'));
+        var lab = el('label', 'form-check col-12 ms-2'); lab.append(convert, document.createTextNode(' Convert existing text to the new character set (otherwise only new columns use it)')); g.appendChild(lab);
+        g.appendChild(el('div', 'form-text col-12', 'Changes are applied one after the other; empty fields are left as they are. Changing the engine or converting the character set rebuilds the table, which can take a while on a big one.'));
+        // Several statements: the preview shows each; running stops at the first error.
+        var steps = function () {
+            var out = [];
+            if (comment.value !== (s.comment || '')) { out.push({ op: 'comment_table', comment: comment.value }); }
+            if (engine.value && engine.value !== s.engine) { out.push({ op: 'set_engine', engine: engine.value }); }
+            if (rowFormat.value) { out.push({ op: 'set_row_format', row_format: rowFormat.value }); }
+            if (charset.value.trim()) { out.push({ op: 'set_charset', charset: charset.value.trim(), collation: collation.value.trim(), convert: convert.checked }); }
+            if (auto.value.trim() && String(auto.value.trim()) !== String(s.auto_increment || '')) { out.push({ op: 'set_auto_increment', auto_increment: parseInt(auto.value, 10) }); }
+            if (!out.length) { throw new Error('Nothing to change.'); }
+            return out;
+        };
+        formDialog('Options of ' + state.table, g, 'Apply', function (dry) {
+            var list = steps(), sqls = [];
+            return list.reduce(function (p, step) {
+                return p.then(function () {
+                    var q = Object.assign({ table: state.table }, step, { dry_run: true });
+                    q.alter_op = q.op; delete q.op;
+                    return call('alter', q).then(function (r) { sqls.push(r.sql); if (!dry) { var real = Object.assign({}, q, { dry_run: false }); return call('alter', real); } });
+                });
+            }, Promise.resolve()).then(function () {
+                if (dry) { return { sql: sqls.join(';\n') }; }
+                NimVor.toast('Table options saved.', 'success'); delete state.structure[state.table];
+                return loadTables().then(function () { showStructure(); });
+            });
+        }, true);
+    }
+
     // ---- structure --------------------------------------------------------
     function showStructure() {
         var name = state.table; loading(pane);
@@ -637,7 +697,9 @@
                 body.appendChild(h('Indexes', [btn('Add index', 'bi-plus-lg', 'btn-sm btn-outline-primary ms-auto', function () { addIndex(st); })]));
                 body.appendChild((st.indexes || []).length ? opsTable(['Name', 'Columns', 'Unique', 'Type', ''], st.indexes.map(function (i) {
                     var d = btn('', 'bi-trash', 'btn-link p-0 text-danger', function () { dangerAlter({ op: 'drop_index', name: i.name }, 'Drop index', 'Drop the index ' + i.name + '?' + (i.name === 'PRIMARY' ? ' Rows can then only be edited from the SQL tab unless another unique key exists.' : ''), 'Drop'); }); d.setAttribute('aria-label', 'Drop index ' + i.name);
-                    return rowOps([i.name, i.columns, i.unique ? 'yes' : 'no', i.type], [d]);
+                    var rn = i.name === 'PRIMARY' ? null : btn('', 'bi-pencil', 'btn-link p-0 me-2', function () { renameIndex(i.name); });
+                    if (rn) { rn.setAttribute('aria-label', 'Rename index ' + i.name); }
+                    return rowOps([i.name, i.columns, i.unique ? 'yes' : 'no', i.type], rn ? [rn, d] : [d]);
                 })) : el('p', 'text-body-secondary small', 'No indexes.'));
 
                 body.appendChild(h('Foreign keys', [btn('Add foreign key', 'bi-plus-lg', 'btn-sm btn-outline-primary ms-auto', function () { addForeignKey(st); })]));
@@ -645,6 +707,12 @@
                     var d = btn('', 'bi-trash', 'btn-link p-0 text-danger', function () { dangerAlter({ op: 'drop_foreign_key', name: k.name }, 'Drop foreign key', 'Drop the foreign key ' + k.name + '? The column and its values stay.', 'Drop'); }); d.setAttribute('aria-label', 'Drop foreign key ' + k.name);
                     return rowOps([k.name, k.columns, k.ref_table + ' (' + k.ref_columns + ')', k.on_delete, k.on_update], [d]);
                 })) : el('p', 'text-body-secondary small', 'No foreign keys.'));
+
+                body.appendChild(h('Check constraints', [btn('Add check', 'bi-plus-lg', 'btn-sm btn-outline-primary ms-auto', function () { addCheck(st); })]));
+                body.appendChild((st.checks || []).length ? opsTable(['Name', 'Condition', ''], st.checks.map(function (k) {
+                    var d = btn('', 'bi-trash', 'btn-link p-0 text-danger', function () { dangerAlter({ op: 'drop_check', name: k.name }, 'Drop check constraint', 'Drop the check ' + k.name + '? Rows are not changed.', 'Drop'); }); d.setAttribute('aria-label', 'Drop check ' + k.name);
+                    return rowOps([k.name, k.clause], [d]);
+                })) : el('p', 'text-body-secondary small', 'No check constraints. (Needs MariaDB 10.2 or MySQL 8.0.16 or newer.)'));
             }
 
             var ch = h('CREATE statement', [btn('Copy', 'bi-clipboard', 'btn-sm btn-outline-secondary', function () { navigator.clipboard.writeText(st.create || '').then(function () { NimVor.toast('Copied.', 'success'); }); })]);
@@ -656,6 +724,8 @@
             } else {
                 ops.append(
                     btn('Rename', 'bi-input-cursor-text', 'btn-outline-secondary', renameTable),
+                    btn('Table options', 'bi-sliders', 'btn-outline-secondary', function () { tableOptions(st); }),
+                    btn('Duplicate', 'bi-files', 'btn-outline-secondary', duplicateTable),
                     btn('Optimize', 'bi-lightning', 'btn-outline-secondary', function () { alter(function () { return { op: 'optimize_table' }; })(false).catch(fail); }),
                     btn('Analyze', 'bi-graph-up', 'btn-outline-secondary', function () { alter(function () { return { op: 'analyze_table' }; })(false).catch(fail); }),
                     btn('Check', 'bi-check2-square', 'btn-outline-secondary', function () { alter(function () { return { op: 'check_table' }; })(false).catch(fail); }),

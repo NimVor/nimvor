@@ -64,6 +64,18 @@ func TestAlterSQL(t *testing.T) {
 		{alterReq{Op: "drop_foreign_key", Name: "fk_u"}, "ALTER TABLE `t` DROP FOREIGN KEY `fk_u`"},
 		{alterReq{Op: "rename_table", NewName: "t2"}, "RENAME TABLE `t` TO `t2`"},
 		{alterReq{Op: "truncate_table"}, "TRUNCATE TABLE `t`"},
+		{alterReq{Op: "comment_table", Comment: "it's; DROP TABLE t"}, "ALTER TABLE `t` COMMENT = 'it\\'s; DROP TABLE t'"},
+		{alterReq{Op: "set_engine", Engine: "InnoDB"}, "ALTER TABLE `t` ENGINE = InnoDB"},
+		{alterReq{Op: "set_charset", Charset: "utf8mb4", Collation: "utf8mb4_unicode_ci", Convert: true}, "ALTER TABLE `t` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"},
+		{alterReq{Op: "set_charset", Charset: "latin1"}, "ALTER TABLE `t` DEFAULT CHARACTER SET latin1"},
+		{alterReq{Op: "set_row_format", RowFormat: "dynamic"}, "ALTER TABLE `t` ROW_FORMAT = DYNAMIC"},
+		{alterReq{Op: "set_auto_increment", AutoInc: 1000}, "ALTER TABLE `t` AUTO_INCREMENT = 1000"},
+		{alterReq{Op: "duplicate_table", NewName: "t_copy", WithData: true}, "CREATE TABLE `t_copy` LIKE `t`; INSERT INTO `t_copy` SELECT * FROM `t`"},
+		{alterReq{Op: "rename_index", Name: "a", NewName: "b"}, "ALTER TABLE `t` RENAME INDEX `a` TO `b`"},
+		{alterReq{Op: "add_check", Name: "ck_qty", Check: &checkSpec{Column: "qty", Op: "ge", Value: "0"}}, "ALTER TABLE `t` ADD CONSTRAINT `ck_qty` CHECK (`qty` >= 0)"},
+		{alterReq{Op: "add_check", Check: &checkSpec{Column: "s", Op: "in", Value: "a, b'c"}}, "ALTER TABLE `t` ADD CHECK (`s` IN ('a', 'b\\'c'))"},
+		{alterReq{Op: "add_check", Check: &checkSpec{Column: "q", Op: "between", Value: "1", Value2: "9.5"}}, "ALTER TABLE `t` ADD CHECK (`q` BETWEEN 1 AND 9.5)"},
+		{alterReq{Op: "drop_check", Name: "ck_qty"}, "ALTER TABLE `t` DROP CONSTRAINT `ck_qty`"},
 		{alterReq{Op: "create_table", Columns: []ColumnSpec{{Name: "id", Type: "BIGINT", Unsigned: true, AutoIncrement: true}}, Primary: []string{"id"}, Engine: "InnoDB"}, "CREATE TABLE `t` (\n  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`id`)\n) ENGINE=InnoDB"},
 	} {
 		got, err := alterSQL("t", tc.in)
@@ -73,6 +85,13 @@ func TestAlterSQL(t *testing.T) {
 	}
 	for _, bad := range []alterReq{
 		{Op: "drop_database"},
+		{Op: "set_engine", Engine: "InnoDB; DROP TABLE t"},
+		{Op: "set_charset", Charset: "utf8mb4; DROP"},
+		{Op: "set_row_format", RowFormat: "x"},
+		{Op: "set_auto_increment", AutoInc: 0},
+		{Op: "add_check", Check: &checkSpec{Column: "a", Op: "sql", Value: "1"}},
+		{Op: "add_check"},
+		{Op: "rename_index", Name: "PRIMARY", NewName: "x"},
 		{Op: "add_column"},
 		{Op: "add_index", IndexCols: nil},
 		{Op: "add_index", Kind: "spatial", IndexCols: []string{"a"}},
