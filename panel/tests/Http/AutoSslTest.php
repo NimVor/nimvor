@@ -165,5 +165,8 @@ final class AutoSslTest extends HttpTestCase
         self::assertSame(1, $this->calls('ssl.issue'));
         self::assertSame('done', $this->state($plain)['auto_ssl']);
         self::assertStringContainsString('plain.test', $this->request('GET', '/ssl/autossl')->body());
+        // A handler must not start a time limit in the test process: it would then apply to every later test, and
+        // the slowest CI runners cross 300 s before the suite ends ("Maximum execution time exceeded").
+        self::assertSame('0', ini_get('max_execution_time'));
     }
 }
