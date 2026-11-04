@@ -27,6 +27,10 @@ final class DbBrowserTest extends HttpTestCase
         $this->agent->succeed('db.browse_tables', ['database' => 'x', 'tables' => [['name' => 'orders']], 'server' => '10.11']);
         $this->agent->succeed('db.browse_overview', ['database' => 'x', 'server' => '10.11.14-MariaDB', 'family' => 'mariadb', 'tables' => 1, 'views' => 0, 'rows' => 5, 'data_bytes' => 16384, 'index_bytes' => 0, 'free_bytes' => 0, 'engines' => ['InnoDB' => 1], 'routines' => 0, 'triggers' => 0, 'events' => 0, 'sequences' => 0]);
         $this->agent->succeed('db.browse_bulk', ['op' => 'optimize', 'results' => [], 'succeeded' => 2, 'failed' => 0]);
+        foreach (['db.browse_routines' => ['routines' => [], 'triggers' => [], 'events' => []], 'db.browse_object_definition' => ['definition' => 'CREATE ...'], 'db.browse_object_op' => ['sql' => 'DROP ...'],
+            'db.browse_sequences' => ['supported' => true, 'sequences' => []], 'db.browse_sequence_op' => ['sql' => 'CREATE SEQUENCE ...'], 'db.browse_partitions' => ['partitioned' => false, 'partitions' => []]] as $a => $r) {
+            $this->agent->succeed($a, $r);
+        }
         $this->agent->succeed('db.query', ['results' => [['affected_rows' => 1, 'insert_id' => 0, 'info' => '']], 'ms' => 3]);
         $this->agent->succeed('db.browse_save', ['affected_rows' => 1, 'insert_id' => 0]);
     }
@@ -98,6 +102,28 @@ final class DbBrowserTest extends HttpTestCase
         $this->api('/databases/' . $this->shopDb . '/browse/api', ['op' => 'alter', 'alter_op' => 'set_charset', 'table' => 'orders', 'charset' => 'utf8mb4', 'collation' => 'utf8mb4_unicode_ci', 'convert' => true]);
         $call = $this->lastCall('db.browse_alter');
         self::assertSame(['utf8mb4', 'utf8mb4_unicode_ci', true], [$call['charset'], $call['collation'], $call['convert']]);
+    }
+
+    public function testRoutineSequenceAndPartitionOperationsAreMappedTypedAndAudited(): void
+    {
+        $this->login('cust');
+        $api = '/databases/' . $this->shopDb . '/browse/api';
+        $this->api($api, ['op' => 'object_op', 'alter_op' => 'drop', 'kind' => 'routine', 'type' => 'function', 'name' => 'f_one', 'confirm' => true]);
+        $c = $this->lastCall('db.browse_object_op');
+        self::assertSame(['drop', 'routine', 'function', 'f_one', true, 'cust_shop'], [$c['op'], $c['kind'], $c['type'], $c['name'], $c['confirm'], $c['database']]);
+        self::assertSame(1, (int) $this->db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'database.browser_object_op'"));
+        $this->api($api, ['op' => 'sequence_op', 'alter_op' => 'alter', 'name' => 'seq_t', 'increment' => '5', 'max' => 'not a number', 'cycle' => 'true']);
+        $c = $this->lastCall('db.browse_sequence_op');
+        self::assertSame([5, null, true], [$c['increment'], $c['max'], $c['cycle']], 'text where a number belongs is not sent as one');
+        self::assertSame(1, (int) $this->db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'database.browser_sequence_op'"));
+        $this->api($api, ['op' => 'alter', 'alter_op' => 'add_partition', 'table' => 'ev', 'name' => 'p2027', 'part_kind' => 'range', 'part_value' => '2028', 'part_count' => '0', 'dry_run' => true]);
+        $c = $this->lastCall('db.browse_alter');
+        self::assertSame(['add_partition', 'p2027', 'range', '2028'], [$c['op'], $c['name'], $c['part_kind'], $c['part_value']]);
+        foreach (['routines', 'sequences'] as $read) {
+            self::assertSame(200, $this->api($api, ['op' => $read])->status());
+        }
+        self::assertSame(0, (int) $this->db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action IN ('database.browser_routines', 'database.browser_sequences')"), 'reads are not audited');
+        self::assertSame(404, $this->api('/databases/' . $this->otherDb . '/browse/api', ['op' => 'object_op', 'alter_op' => 'drop', 'kind' => 'trigger', 'name' => 't', 'confirm' => true])->status());
     }
 
     public function testOperationsMapToAgentActionsAndAreAudited(): void

@@ -36,6 +36,12 @@ final class DbBrowserController extends Controller
         'query' => ['db.query', true],
         'alter' => ['db.browse_alter', true],
         'bulk' => ['db.browse_bulk', true],
+        'routines' => ['db.browse_routines', false],
+        'object_definition' => ['db.browse_object_definition', false],
+        'object_op' => ['db.browse_object_op', true],
+        'sequences' => ['db.browse_sequences', false],
+        'sequence_op' => ['db.browse_sequence_op', true],
+        'partitions' => ['db.browse_partitions', false],
         'export_csv' => ['db.browse_export_csv', false],
         'import_csv' => ['db.browse_import_csv', true],
     ];
@@ -45,6 +51,8 @@ final class DbBrowserController extends Controller
         'alter_op', 'new_name', 'column', 'columns', 'name', 'after', 'kind', 'index_columns', 'ref_table', 'ref_columns', 'on_delete', 'on_update', 'primary', 'engine', 'dry_run',
         // Table options, duplicate and checks.
         'comment', 'charset', 'collation', 'convert', 'row_format', 'auto_increment', 'with_data', 'check',
+        // Routines, events, sequences and partitions.
+        'type', 'value', 'start', 'increment', 'min', 'max', 'cache', 'cycle', 'part_kind', 'part_value', 'part_count',
         // Several tables at once (the operation travels as alter_op).
         'tables', 'confirm',
         // CSV import.
@@ -118,9 +126,11 @@ final class DbBrowserController extends Controller
                 $params[$f === 'alter_op' ? 'op' : $f] = match ($f) {
                     'offset', 'limit' => (int) $v,
                     'desc', 'insert', 'dry_run', 'header', 'confirm', 'convert', 'with_data' => (bool) $v,
-                    'auto_increment' => (int) $v,
+                    'auto_increment', 'part_count' => (int) $v,
+                    'value', 'start', 'increment', 'min', 'max', 'cache' => is_numeric($v) ? (int) $v : null,
+                    'cycle' => filter_var($v, FILTER_VALIDATE_BOOLEAN),
                     'tables' => is_array($v) ? array_values(array_filter(array_map(static fn ($t): string => is_scalar($t) ? (string) $t : '', $v), static fn (string $t): bool => $t !== '')) : [],
-                    'table', 'order', 'sql', 'search', 'csv', 'alter_op', 'new_name', 'name', 'after', 'kind', 'ref_table', 'on_delete', 'on_update', 'engine', 'delimiter', 'mode', 'comment', 'charset', 'collation', 'row_format' => is_scalar($v) ? (string) $v : '',
+                    'table', 'order', 'sql', 'search', 'csv', 'alter_op', 'new_name', 'name', 'after', 'kind', 'ref_table', 'on_delete', 'on_update', 'engine', 'delimiter', 'mode', 'comment', 'charset', 'collation', 'row_format', 'type', 'part_kind', 'part_value' => is_scalar($v) ? (string) $v : '',
                     default => $v,
                 };
             }
@@ -170,6 +180,8 @@ final class DbBrowserController extends Controller
             'delete' => ['rows' => count((array) ($params['keys'] ?? []))],
             'alter' => ['operation' => (string) ($params['op'] ?? ''), 'sql' => mb_substr((string) ($data['sql'] ?? ''), 0, 1000)],
             'bulk' => ['operation' => (string) ($params['op'] ?? ''), 'tables' => array_slice(array_map('strval', (array) ($params['tables'] ?? [])), 0, 20), 'count' => count((array) ($params['tables'] ?? [])), 'succeeded' => $data['succeeded'] ?? null, 'failed' => $data['failed'] ?? null],
+            'object_op' => ['operation' => (string) ($params['op'] ?? ''), 'kind' => (string) ($params['kind'] ?? ''), 'object' => mb_substr((string) ($params['name'] ?? ''), 0, 64)],
+            'sequence_op' => ['operation' => (string) ($params['op'] ?? ''), 'sequence' => mb_substr((string) ($params['name'] ?? ''), 0, 64)],
             'import_csv' => ['bytes' => strlen((string) ($params['csv'] ?? '')), 'rows' => $data['rows'] ?? null, 'mode' => (string) ($params['mode'] ?? 'insert')],
             default => [],
         };

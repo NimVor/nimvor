@@ -20,6 +20,8 @@
         <nav class="nim-db-tabs" role="tablist">
             <button type="button" class="btn btn-sm" role="tab" data-db-tab="overview"><i class="bi bi-speedometer2"></i> Overview</button>
             <button type="button" class="btn btn-sm" role="tab" data-db-tab="objects"><i class="bi bi-list-ul"></i> Objects</button>
+            <button type="button" class="btn btn-sm" role="tab" data-db-tab="routines"><i class="bi bi-braces"></i> Routines</button>
+            <button type="button" class="btn btn-sm" role="tab" data-db-tab="sequences"><i class="bi bi-123"></i> Sequences</button>
             <button type="button" class="btn btn-sm" role="tab" data-db-tab="browse" disabled><i class="bi bi-grid-3x3"></i> Browse</button>
             <button type="button" class="btn btn-sm" role="tab" data-db-tab="structure" disabled><i class="bi bi-diagram-3"></i> Structure</button>
             <button type="button" class="btn btn-sm" role="tab" data-db-tab="insert" disabled><i class="bi bi-plus-lg"></i> Insert</button>
