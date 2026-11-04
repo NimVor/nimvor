@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/NimVor/nimvor/agent/internal/actions"
 	"github.com/NimVor/nimvor/agent/internal/host"
@@ -86,5 +87,71 @@ func registerObjects(r *actions.Registry, env *host.Env, c Client) {
 		}
 		m["database"] = in.DB
 		return m, nil
+	}})
+
+	// Bulk operations on collections. Names are validated one by one and written into the script as JavaScript string
+	// literals; the operation comes from a fixed list. Each collection is handled in its own try/catch.
+	r.Register(actions.Action{Name: "mongo.collections_bulk", Mutating: true, Description: "Drop, empty or validate up to 50 collections or views at once; each is checked, run on its own and reported on its own.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			DB          string   `json:"db"`
+			Op          string   `json:"op"` // drop | empty | validate
+			Collections []string `json:"collections"`
+			Confirm     bool     `json:"confirm"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if !nameRe.MatchString(in.DB) {
+			return nil, actions.InvalidParams("db: invalid database name")
+		}
+		switch in.Op {
+		case "drop", "empty", "validate":
+		default:
+			return nil, actions.InvalidParams("op: drop, empty or validate.")
+		}
+		if len(in.Collections) == 0 || len(in.Collections) > 50 {
+			return nil, actions.InvalidParams("collections: choose between 1 and 50.")
+		}
+		names := make([]string, 0, len(in.Collections))
+		seen := map[string]bool{}
+		for _, n := range in.Collections {
+			if !validColl(n) {
+				return nil, actions.InvalidParams("collections: " + fmt.Sprintf("%q", n) + " is not a collection name.")
+			}
+			if !seen[n] {
+				seen[n] = true
+				names = append(names, jsString(n))
+			}
+		}
+		if (in.Op == "drop" || in.Op == "empty") && !in.Confirm {
+			return nil, actions.InvalidParams("confirm: dropping or emptying collections must be confirmed.")
+		}
+		if !installed(env) {
+			return nil, actions.Conflict("MongoDB is not installed.")
+		}
+		body := map[string]string{
+			"drop":     "r.ok=d.getCollection(n).drop()===true;if(!r.ok){r.error='the collection could not be dropped'}",
+			"empty":    "if(infos[0].type==='view'){r.error='a view holds no documents to remove'}else{r.deleted=Number(d.getCollection(n).deleteMany({}).deletedCount);r.ok=true}",
+			"validate": "if(infos[0].type==='view'){r.error='a view cannot be validated'}else{var v=d.getCollection(n).validate({full:false});r.ok=v.valid===true;r.records=Number(v.nrecords||0);r.errors=(v.errors||[]).slice(0,5).map(String);r.warnings=(v.warnings||[]).slice(0,5).map(String);if(!r.ok){r.error='validation found problems'}}",
+		}[in.Op]
+		script := fmt.Sprintf("var d=db.getSiblingDB(%s);var out=[%s].map(function(n){var r={name:n,ok:false};"+
+			"try{var infos=d.getCollectionInfos({name:n});if(infos.length===0){r.error='there is no such collection';return r}%s}"+
+			"catch(e){r.error=String(e.message||e)}return r});print(EJSON.stringify(out,null,0,{relaxed:true}))",
+			jsString(in.DB), strings.Join(names, ","), body)
+		out, err := c.eval(ctx, script)
+		if err != nil {
+			return nil, actions.Failed("The operation could not be run.", lastLine(out))
+		}
+		var results []map[string]any
+		if err := json.Unmarshal(trimToJSON(out), &results); err != nil {
+			return nil, actions.Failed("The operation could not be run.", "unexpected output: "+lastLine(out))
+		}
+		ok := 0
+		for _, res := range results {
+			if res["ok"] == true {
+				ok++
+			}
+		}
+		return map[string]any{"op": in.Op, "results": results, "succeeded": ok, "failed": len(results) - ok}, nil
 	}})
 }

@@ -122,6 +122,44 @@ func TestRealHostDatabaseBrowser(t *testing.T) {
 	if k := st["key"].([]any); len(k) != 1 || k[0] != "id" || !strings.Contains(st["create"].(string), "CREATE TABLE `items`") {
 		t.Fatalf("structure = %+v", st)
 	}
+	// Bulk operations: confirmation, per-table results, REPAIR only where the engine supports it, injection-shaped names.
+	do("db.query", `{"database":"nimvor_br","sql":"CREATE TABLE my_isam (a INT) ENGINE=MyISAM; INSERT INTO my_isam VALUES (1); CREATE TABLE `+"`we``ird; DROP TABLE items`"+` (x INT); CREATE VIEW v_items AS SELECT id FROM items"}`)
+	if _, err := call("db.browse_bulk", `{"database":"nimvor_br","op":"drop","tables":["my_isam"]}`); err == nil {
+		t.Fatal("drop without confirm accepted")
+	}
+	if _, err := call("db.browse_bulk", `{"database":"nimvor_br","op":"format","tables":["my_isam"],"confirm":true}`); err == nil {
+		t.Fatal("unknown bulk op accepted")
+	}
+	bm := do("db.browse_bulk", `{"database":"nimvor_br","op":"repair","tables":["items","my_isam","v_items","missing"]}`)
+	if bm["succeeded"].(float64) != 1 || bm["failed"].(float64) != 3 {
+		t.Fatalf("repair mix = %+v", bm)
+	}
+	if m := bm["results"].([]any)[0].(map[string]any)["message"].(string); !strings.Contains(m, "does not support REPAIR") {
+		t.Fatalf("InnoDB repair message = %q", m)
+	}
+	if bm := do("db.browse_bulk", `{"database":"nimvor_br","op":"optimize","tables":["items","my_isam"]}`); bm["failed"].(float64) != 0 {
+		t.Fatalf("optimize = %+v", bm)
+	}
+	if bm := do("db.browse_bulk", `{"database":"nimvor_br","op":"check","tables":["items","v_items"]}`); bm["succeeded"].(float64) != 1 {
+		t.Fatalf("check = %+v", bm)
+	}
+	dry := do("db.browse_bulk", `{"database":"nimvor_br","op":"drop","tables":["we`+"`"+`ird; DROP TABLE items"],"dry_run":true}`)
+	if st := dry["results"].([]any)[0].(map[string]any)["statement"]; st != "DROP TABLE `we``ird; DROP TABLE items`" {
+		t.Fatalf("dry-run statement = %v", st)
+	}
+	if bm := do("db.browse_bulk", `{"database":"nimvor_br","op":"truncate","tables":["my_isam","items"],"confirm":true}`); bm["succeeded"].(float64) != 2 {
+		t.Fatalf("truncate = %+v", bm)
+	}
+	if bm := do("db.browse_bulk", `{"database":"nimvor_br","op":"drop","tables":["my_isam","v_items","we`+"`"+`ird; DROP TABLE items"],"confirm":true}`); bm["succeeded"].(float64) != 3 {
+		t.Fatalf("drop = %+v", bm)
+	}
+	// The other database's tables are out of reach by name.
+	if bm := do("db.browse_bulk", `{"database":"nimvor_br","op":"drop","tables":["secret"],"confirm":true}`); bm["succeeded"].(float64) != 0 {
+		t.Fatalf("dropped a table of another database: %+v", bm)
+	}
+	// Restore the rows the following checks expect.
+	do("db.query", `{"database":"nimvor_br","sql":"INSERT INTO items (name, note, data) VALUES ('a', NULL, 0x00FF), ('b', 'NULL', NULL), ('c\\ttab', 'x', NULL)"}`)
+
 	pg := do("db.browse_rows", `{"database":"nimvor_br","table":"items","limit":2,"order":"name","desc":true}`)
 	if pg["total"].(float64) != 3 || len(pg["rows"].([]any)) != 2 || pg["rows"].([]any)[0].([]any)[1] != "c\ttab" {
 		t.Fatalf("rows page = %+v", pg)

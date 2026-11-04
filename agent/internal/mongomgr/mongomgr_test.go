@@ -682,3 +682,40 @@ func TestCollectionsDetailAndDbOverview(t *testing.T) {
 		}
 	}
 }
+
+func TestCollectionsBulk(t *testing.T) {
+	h, r := setup(t)
+	var seen string
+	h.Runner.Handler = func(id string, o execx.Opts, args []string) (string, error) {
+		if id == "mongosh" {
+			seen = strings.Join(args, " ")
+			return `[{"name":"a","ok":true},{"name":"gone","ok":false,"error":"there is no such collection"}]`, nil
+		}
+		return "", nil
+	}
+	res := mustCall(t, r, "mongo.collections_bulk", `{"db":"shop","op":"drop","collections":["a","gone","a"],"confirm":true}`)
+	if res["succeeded"] != 1 || res["failed"] != 1 {
+		t.Errorf("result: %v", res)
+	}
+	if !strings.Contains(seen, "['a','gone']") && !strings.Contains(seen, `'a','gone'`) {
+		t.Errorf("duplicates must be folded and names quoted: %s", seen)
+	}
+	for _, bad := range []string{
+		`{"db":"shop","op":"drop","collections":["a"]}`,                                         // no confirm
+		`{"db":"shop","op":"drop","collections":["a'); db.dropDatabase(); ('"],"confirm":true}`, // injection
+		`{"db":"shop","op":"drop","collections":["system.users"],"confirm":true}`,               // system collection
+		`{"db":"shop","op":"eval","collections":["a"],"confirm":true}`,                          // unknown op
+		`{"db":"shop","op":"validate","collections":[]}`,                                        // nothing selected
+	} {
+		before := seen
+		if _, err := call(t, r, "mongo.collections_bulk", bad); err == nil {
+			t.Errorf("must be refused: %s", bad)
+		}
+		if seen != before {
+			t.Errorf("a refused request reached mongosh: %s", bad)
+		}
+	}
+	if _, err := call(t, r, "mongo.collections_bulk", `{"db":"shop","op":"validate","collections":["a"]}`); err != nil {
+		t.Errorf("validate needs no confirmation: %v", err)
+	}
+}
