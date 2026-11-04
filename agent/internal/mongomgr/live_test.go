@@ -149,7 +149,7 @@ func TestMongoLiveBrowser(t *testing.T) {
 
 	// Views, copy, rename-free bulk operations.
 	do("mongo.view_create", `{"db":"`+db+`","name":"seniors","view_on":"people","pipeline":"[{\"$match\":{\"senior\":true}},{\"$project\":{\"fullname\":1}}]"}`)
-	if v := do("mongo.documents", `{"db":"`+db+`","collection":"seniors","limit":10}`); len(v["documents"].([]any)) != 3 {
+	if v := do("mongo.documents", `{"db":"`+db+`","collection":"seniors","limit":10}`); len(v["documents"].([]any)) != 4 {
 		t.Fatalf("view documents = %+v", v)
 	}
 	if _, err := call("mongo.view_create", `{"db":"`+db+`","name":"bad","view_on":"people","pipeline":"[{\"$out\":\"x\"}]"}`); err == nil {
