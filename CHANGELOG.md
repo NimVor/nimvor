@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **PostgreSQL browser: the Structure tab of any table with an ordinary index failed with a 500 error.** The agent leaves out a partial index's condition when an index is not partial, and the page read it without allowing for it being absent. The tests supplied the field in every case, which is why they did not catch it; a test now uses the agent's real shape.
+
 ## [1.4.0] — 2026-11-04
 
 The database browsers (PostgreSQL, MySQL/MariaDB, MongoDB) gain an overview, bulk actions and structure management. The agent gains new actions, so upgrade the panel and the agent together (`installer/upgrade.sh` does both).

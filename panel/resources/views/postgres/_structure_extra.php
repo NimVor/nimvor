@@ -52,7 +52,7 @@ $triggers = (array) ($d['triggers'] ?? []);
             <td class="small">
                 <?= !empty($ix['primary']) ? '<span class="badge text-bg-warning">primary</span> ' : (!empty($ix['unique']) ? '<span class="badge text-bg-info">unique</span> ' : '') ?>
                 <?= empty($ix['valid']) ? '<span class="badge text-bg-danger" title="The index is not usable (a concurrent build failed). Rebuild or drop it.">invalid</span> ' : '' ?>
-                <?= (string) $ix['predicate'] !== '' ? '<span class="text-body-secondary">where ' . e((string) $ix['predicate']) . '</span>' : '' ?>
+                <?= (string) ($ix['predicate'] ?? '') !== '' ? '<span class="text-body-secondary">where ' . e((string) $ix['predicate']) . '</span>' : '' ?>
                 <?= (string) ($ix['backs_constraint'] ?? '') !== '' ? '<span class="text-body-secondary">backs constraint ' . e((string) $ix['backs_constraint']) . '</span>' : '' ?>
                 <?= (int) $ix['scans'] === 0 && empty($ix['primary']) && empty($ix['unique']) ? '<span class="text-body-secondary" title="Since the statistics were last reset">never used</span>' : '' ?>
             </td>
