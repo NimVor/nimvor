@@ -227,18 +227,16 @@ final class PostgresController extends Controller
         return ['column' => $col, 'op' => $op, 'value' => (string) $request->input('pval', ''), 'value2' => (string) $request->input('pval2', '')];
     }
 
-    /** One structure change from a form: create / rename / duplicate / comment / move a table, or change a column. */
-    public function alter(Request $request): Response
+    /**
+     * The agent requests one form describes, in the order they must run. Returns null for an operation that is not
+     * offered. "edit_column" is one dialog that changes several things at once (type, null, default, comment, name);
+     * the rename runs last so the other steps still address the column by its current name.
+     *
+     * @return list<array<string, mixed>>|null
+     */
+    private function alterSteps(Request $request, string $op, string $schema, string $table): ?array
     {
-        $db = $this->databaseOf($request, $request->input('db'));
-        if ($db === null) {
-            return $this->redirectWithError(self::BASE, 'Database not found.');
-        }
-        $op = (string) $request->input('op', '');
-        $schema = trim((string) $request->input('schema', ''));
-        $table = trim((string) $request->input('table', ''));
         $params = ['op' => $op, 'schema' => $schema, 'table' => $table];
-        $tab = 'structure';
         switch ($op) {
             case 'create_table':
                 $cols = [];
@@ -249,22 +247,53 @@ final class PostgresController extends Controller
                 }
                 $params['columns'] = $cols;
                 $params['if_not_exists'] = false;
-                $tab = 'browse';
-                break;
+                return [$params];
             case 'rename_table':
             case 'duplicate_table':
                 $params['new_name'] = trim((string) $request->input('new_name', ''));
                 $params['with_data'] = $op === 'duplicate_table' && (string) $request->input('with_data', '') !== '';
-                break;
+                return [$params];
             case 'set_schema':
                 $params['new_schema'] = trim((string) $request->input('new_schema', ''));
-                break;
+                return [$params];
             case 'comment_table':
                 $params['comment'] = (string) $request->input('comment', '');
-                break;
+                return [$params];
             case 'add_column':
                 $params['column'] = $this->columnFrom((array) $request->input('col', []));
-                break;
+                return [$params];
+            case 'edit_column':
+                $name = trim((string) $request->input('name', ''));
+                $step = static fn (string $what, string $value = '', string $kind = ''): array => ['op' => 'alter_column', 'schema' => $schema, 'table' => $table, 'name' => $name,
+                    'extra' => ['alter_what' => $what, 'value' => $value, 'kind' => $kind]];
+                $norm = static fn (string $t): string => strtolower(trim((string) preg_replace('/\s+/', ' ', $t)));
+                $steps = [];
+                $type = trim((string) $request->input('type', ''));
+                if ($type !== '' && $norm($type) !== $norm((string) $request->input('cur_type', ''))) {
+                    $steps[] = $step('type', $type);
+                }
+                $notNull = (string) $request->input('not_null', '') !== '';
+                if ($notNull !== ((string) $request->input('cur_not_null', '') !== '')) {
+                    $steps[] = $step($notNull ? 'set_not_null' : 'drop_not_null');
+                }
+                $mode = (string) $request->input('default_mode', 'keep');
+                if ($mode === 'remove') {
+                    $steps[] = $step('drop_default');
+                } elseif ($mode === 'literal' || $mode === 'function') {
+                    $steps[] = $step('set_default', (string) $request->input('default', ''), $mode === 'function' ? 'function' : '');
+                }
+                $comment = (string) $request->input('comment', '');
+                if ($comment !== '') {
+                    $steps[] = $step('comment', $comment);
+                }
+                $new = trim((string) $request->input('new_name', ''));
+                if ($new !== '' && $new !== $name) {
+                    $steps[] = ['op' => 'rename_column', 'schema' => $schema, 'table' => $table, 'name' => $name, 'new_name' => $new];
+                }
+                if ($steps === []) {
+                    throw new UserFacingException('Nothing to change.', '', 'Change at least one field.');
+                }
+                return $steps;
             case 'drop_column':
             case 'rename_column':
             case 'alter_column':
@@ -272,7 +301,10 @@ final class PostgresController extends Controller
                 $params['new_name'] = trim((string) $request->input('new_name', ''));
                 $params['cascade'] = (string) $request->input('cascade', '') !== '';
                 $params['extra'] = ['alter_what' => (string) $request->input('alter_what', ''), 'value' => (string) $request->input('value', ''), 'kind' => (string) $request->input('value_kind', '')];
-                break;
+                if ($op === 'drop_column' && trim((string) $request->input('confirm', '')) !== $params['name'] && (string) $request->input('dry_run', '') === '') {
+                    throw new UserFacingException('Type the column name to confirm dropping it.', '', 'Nothing was changed.');
+                }
+                return [$params];
             case 'create_index':
                 $icols = [];
                 foreach ((array) $request->input('icols', []) as $c) {
@@ -285,7 +317,7 @@ final class PostgresController extends Controller
                     'method' => (string) $request->input('method', 'btree'), 'unique' => (string) $request->input('unique', '') !== '', 'concurrent' => (string) $request->input('concurrent', '') !== '',
                     'index_columns' => $icols, 'include' => $this->csv((string) $request->input('include', '')), 'predicate' => $this->predicateFrom($request),
                 ];
-                break;
+                return [$params];
             case 'drop_index':
             case 'rename_index':
             case 'reindex_index':
@@ -299,7 +331,7 @@ final class PostgresController extends Controller
                 $params['new_name'] = trim((string) $request->input('new_name', ''));
                 $params['cascade'] = (string) $request->input('cascade', '') !== '';
                 $params['extra'] = ['concurrent' => (string) $request->input('concurrent', '') !== ''];
-                break;
+                return [$params];
             case 'create_partition':
             case 'attach_partition':
             case 'detach_partition':
@@ -309,8 +341,7 @@ final class PostgresController extends Controller
                     'kind' => (string) $request->input('bound_kind', ''), 'from' => $this->csv((string) $request->input('bound_from', '')), 'to' => $this->csv((string) $request->input('bound_to', '')),
                     'values' => $this->csv((string) $request->input('bound_values', '')), 'modulus' => (int) $request->input('bound_modulus', 0), 'remainder' => (int) $request->input('bound_remainder', 0),
                 ]];
-                $params['schema'] = $schema;
-                break;
+                return [$params];
             case 'add_constraint':
                 $params['name'] = trim((string) $request->input('name', ''));
                 $params['extra'] = [
@@ -319,27 +350,74 @@ final class PostgresController extends Controller
                     'on_delete' => (string) $request->input('on_delete', ''), 'on_update' => (string) $request->input('on_update', ''),
                     'not_valid' => (string) $request->input('not_valid', '') !== '', 'deferrable' => (string) $request->input('deferrable', '') !== '',
                 ];
-                break;
-            default:
-                return $this->redirectWithError($this->browseUrl($db, $schema, $table), 'That change is not available.');
+                return [$params];
         }
-        if ($op === 'drop_column' && trim((string) $request->input('confirm', '')) !== $params['name']) {
-            return $this->redirectWithError($this->browseUrl($db, $schema, $table, ['tab' => 'structure']), 'Type the column name to confirm dropping it. Nothing was changed.');
+        return null;
+    }
+
+    /** One structure change from a form: create / rename / duplicate / comment / move a table, or change a column, index, constraint, trigger or partition. */
+    public function alter(Request $request): Response
+    {
+        $db = $this->databaseOf($request, $request->input('db'));
+        if ($db === null) {
+            return $this->redirectWithError(self::BASE, 'Database not found.');
+        }
+        $op = (string) $request->input('op', '');
+        $schema = trim((string) $request->input('schema', ''));
+        $table = trim((string) $request->input('table', ''));
+        $tab = $op === 'create_table' ? 'browse' : 'structure';
+        $back = fn (): string => $this->browseUrl($db, $schema, $table, $table === '' || $op === 'create_table' ? [] : ['tab' => $tab]);
+        try {
+            $steps = $this->alterSteps($request, $op, $schema, $table);
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure($back(), $e);
+        }
+        if ($steps === null) {
+            return $this->redirectWithError($this->browseUrl($db, $schema, $table), 'That change is not available.');
+        }
+        $done = 0;
+        foreach ($steps as $step) {
+            try {
+                $this->pg->alter($db, $step, $this->userId($request));
+                $done++;
+            } catch (UserFacingException $e) {
+                return $this->redirectWithFailure($back(), $done > 0
+                    ? new UserFacingException($e->getMessage(), $e->reason(), $done . ' of ' . count($steps) . ' changes were already applied; the rest were not.')
+                    : $e);
+            }
         }
         // After a rename or a move the table has a new address.
-        $target = $params['new_name'] ?? '';
-        try {
-            $this->pg->alter($db, $params, $this->userId($request));
-        } catch (UserFacingException $e) {
-            return $this->redirectWithFailure($this->browseUrl($db, $schema, $table, $table === '' ? [] : ['tab' => $tab]), $e);
-        }
-        if ($op === 'rename_table' && $target !== '') {
-            $table = $target;
+        if ($op === 'rename_table') {
+            $table = trim((string) $request->input('new_name', '')) ?: $table;
         } elseif ($op === 'set_schema') {
-            $schema = (string) ($params['new_schema'] ?? $schema);
+            $schema = trim((string) $request->input('new_schema', '')) ?: $schema;
         }
         $extra = $op === 'create_table' || $table === '' ? [] : ['tab' => $tab];
-        return $this->redirectWithSuccess($this->browseUrl($db, $schema, $table, $extra), PostgresService::ALTER_OPS[$op] . '.');
+        $label = $op === 'edit_column' ? 'Column changed' : PostgresService::ALTER_OPS[$op];
+        return $this->redirectWithSuccess($this->browseUrl($db, $schema, $table, $extra), $label . '.');
+    }
+
+    /** JSON: the SQL a structure form would run (every statement, in order), without running or auditing anything. */
+    public function alterPreview(Request $request): Response
+    {
+        $db = $this->databaseOf($request, $request->input('db'));
+        if ($db === null) {
+            return Response::json(['success' => false, 'error' => ['message' => 'Database not found.']], 404);
+        }
+        $op = (string) $request->input('op', '');
+        try {
+            $steps = $this->alterSteps($request, $op, trim((string) $request->input('schema', '')), trim((string) $request->input('table', '')));
+            if ($steps === null) {
+                return Response::json(['success' => false, 'error' => ['message' => 'That change is not available.']], 400);
+            }
+            $sql = [];
+            foreach ($steps as $step) {
+                $sql[] = (string) ($this->pg->alter($db, $step + ['dry_run' => true], $this->userId($request))['sql'] ?? '');
+            }
+        } catch (UserFacingException $e) {
+            return Response::json(['success' => false, 'error' => ['message' => $e->getMessage() . ($e->reason() !== '' ? ' ' . $e->reason() : '')]], 422);
+        }
+        return Response::json(['success' => true, 'data' => ['sql' => implode(";\n", array_filter($sql, static fn (string $q): bool => $q !== ''))]]);
     }
 
     /** Several tables / views at once (maintenance, empty, drop) from the Objects list. */
@@ -390,14 +468,9 @@ final class PostgresController extends Controller
         return $this->redirectWithSuccess($back, 'Routine dropped.');
     }
 
-    /** Create / change / set the value of / sync / drop a sequence. */
-    public function sequenceAlter(Request $request): Response
+    /** @return array<string, mixed> the agent's sequence request from a form's fields (numbers only where numbers belong) */
+    private function sequenceParams(Request $request): array
     {
-        $db = $this->databaseOf($request, $request->input('db'));
-        if ($db === null) {
-            return $this->redirectWithError(self::BASE, 'Database not found.');
-        }
-        $back = self::BASE . '/browse?' . http_build_query(['db' => (int) $db['id'], 'tab' => 'sequences']);
         $num = static function (mixed $v): ?int {
             $v = trim((string) $v);
             return $v !== '' && preg_match('/^-?\d{1,18}$/', $v) === 1 ? (int) $v : null;
@@ -413,6 +486,18 @@ final class PostgresController extends Controller
         if ($cycle !== '') {
             $params['cycle'] = $cycle === 'yes';
         }
+        return $params;
+    }
+
+    /** Create / change / set the value of / sync / drop a sequence. */
+    public function sequenceAlter(Request $request): Response
+    {
+        $db = $this->databaseOf($request, $request->input('db'));
+        if ($db === null) {
+            return $this->redirectWithError(self::BASE, 'Database not found.');
+        }
+        $back = self::BASE . '/browse?' . http_build_query(['db' => (int) $db['id'], 'tab' => 'sequences']);
+        $params = $this->sequenceParams($request);
         if ($params['op'] === 'drop' && trim((string) $request->input('confirm', '')) !== $params['name']) {
             return $this->redirectWithError($back, 'Type the sequence name to confirm dropping it. Nothing was changed.');
         }
@@ -422,6 +507,21 @@ final class PostgresController extends Controller
             return $this->redirectWithFailure($back, $e);
         }
         return $this->redirectWithSuccess($back, PostgresService::SEQ_OPS[$params['op']] . '.');
+    }
+
+    /** JSON: the SQL a sequence form would run, without running or auditing it. */
+    public function sequencePreview(Request $request): Response
+    {
+        $db = $this->databaseOf($request, $request->input('db'));
+        if ($db === null) {
+            return Response::json(['success' => false, 'error' => ['message' => 'Database not found.']], 404);
+        }
+        try {
+            $out = $this->pg->sequenceAlter($db, $this->sequenceParams($request) + ['dry_run' => true], $this->userId($request));
+        } catch (UserFacingException $e) {
+            return Response::json(['success' => false, 'error' => ['message' => $e->getMessage() . ($e->reason() !== '' ? ' ' . $e->reason() : '')]], 422);
+        }
+        return Response::json(['success' => true, 'data' => ['sql' => (string) ($out['sql'] ?? '')]]);
     }
 
     // ---- SQL editor -------------------------------------------------------------------------------

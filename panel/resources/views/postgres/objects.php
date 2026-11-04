@@ -55,19 +55,7 @@ if ($error !== null): ?>
         <a class="btn btn-sm btn-outline-secondary ms-auto" href="<?= e($url()) ?>" title="Reload the figures"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Refresh</a>
     </form>
     <?php if ($canWrite): ?>
-    <details class="border-bottom p-2"><summary class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-lg"></i> New table</summary>
-        <form class="mt-2" method="post" action="<?= e($this->url('postgres.alter')) ?>"><?= $this->csrfField() ?>
-            <input type="hidden" name="db" value="<?= $id ?>"><input type="hidden" name="op" value="create_table">
-            <div class="row g-2 mb-2">
-                <div class="col-12 col-md-3"><input class="form-control form-control-sm" name="table" placeholder="table name" maxlength="63" required aria-label="Table name"></div>
-                <div class="col-12 col-md-3"><select class="form-select form-select-sm" name="schema" aria-label="Schema"><?php foreach ($schemas ?: ['public'] as $sc): ?><option value="<?= e($sc) ?>"><?= e($sc) ?></option><?php endforeach; ?></select></div>
-            </div>
-            <p class="small text-body-secondary mb-1">Describe up to six columns here; add more afterwards on the table's Structure tab. Rows with no name are ignored.</p>
-            <?php for ($i = 0; $i < 6; $i++): ?><?= $this->partial('postgres/_column_fields', ['prefix' => 'cols[' . $i . ']', 'primary' => true]) ?><?php endfor; ?>
-            <?= $this->partial('postgres/_types', []) ?>
-            <button class="btn btn-sm btn-primary mt-1">Create table</button>
-        </form>
-    </details>
+    <div class="border-bottom p-2"><button type="button" class="btn btn-sm btn-outline-primary" data-pgd-open="new_table"><i class="bi bi-plus-lg"></i> New table</button></div>
     <?php endif; ?>
     <?php if ($items === []): ?>
         <div class="nim-db-empty"><i class="bi bi-table" aria-hidden="true"></i><div><?= $filtered ? 'No object matches this filter.' : 'This database has no tables yet. Create them from your application, the SQL tab or a client such as psql.' ?></div></div>
@@ -135,5 +123,6 @@ $inner = (string) ob_get_clean();
 <?php $this->start(); ?><i class="bi bi-table me-1"></i>Database <span class="font-monospace"><?= e((string) $db['name']) ?></span><?php $this->end('title'); ?>
 <?php $this->start(); ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('postgres.backups') . '?db=' . $id) ?>"><i class="bi bi-cloud-arrow-down"></i> Backups</a><?php $this->end('actions'); ?>
 
+<?php if ($canWrite): ?><?= $this->partial('postgres/_dialogs_objects', ['db' => $db, 'schemas' => $schemas]) ?><?php endif; ?>
 <?= $this->partial('postgres/_frame', ['db' => $db, 'schema' => '', 'table' => '', 'tables' => $tables, 'tab' => 'objects', 'inner' => $inner]) ?>
-<?php $this->start(); ?><script src="<?= e($this->asset('assets/js/postgres-frame.js')) ?>" defer></script><script src="<?= e($this->asset('assets/js/postgres-objects.js')) ?>" defer></script><?php $this->end('scripts'); ?>
+<?php $this->start(); ?><script src="<?= e($this->asset('assets/js/postgres-frame.js')) ?>" defer></script><script src="<?= e($this->asset('assets/js/postgres-objects.js')) ?>" defer></script><?php if ($canWrite): ?><script src="<?= e($this->asset('assets/js/postgres-dialogs.js')) ?>" defer></script><?php endif; ?><?php $this->end('scripts'); ?>

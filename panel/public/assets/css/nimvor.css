@@ -981,3 +981,4 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 .nim-sql-editor { height: 14rem; resize: vertical; overflow: auto; }
 .nim-colmenu { min-width: 14rem; }
 .nim-keep-input { width: 6rem; }
+.nim-db-create:empty { display: none; }

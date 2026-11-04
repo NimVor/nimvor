@@ -58,6 +58,8 @@ final class PostgresSqlTest extends HttpTestCase
         // encoded as an object, as JSON_FORCE_OBJECT did.
         self::assertStringContainsString('data-schema="{&quot;items&quot;:[&quot;id&quot;,&quot;name&quot;]}"', $page);
         self::assertStringNotContainsString('<script>', $page);
+        // Several statements are the normal case: the editor runs them all unless the box is cleared.
+        self::assertMatchesRegularExpression('~<input[^>]*id="pgsql-script"[^>]*\schecked~', $page);
         self::assertSame('alice_shop', $this->lastCall('pg.schema_map')['database']);
     }
 
