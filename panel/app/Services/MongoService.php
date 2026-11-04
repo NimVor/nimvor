@@ -147,16 +147,156 @@ final class MongoService
         return array_map(static fn ($c): array => ['name' => (string) ($c['name'] ?? ''), 'count' => (int) ($c['count'] ?? 0)], (array) ($o['collections'] ?? []));
     }
 
+    /** @return array<string, mixed> */
+    public function dbOverview(string $db): array
+    {
+        return (array) $this->agent->call('mongo.db_overview', ['db' => $db]);
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function collectionsDetail(string $db): array
+    {
+        $o = (array) $this->agent->call('mongo.collections_detail', ['db' => $db]);
+        return array_map(static fn ($c): array => (array) $c, (array) ($o['collections'] ?? []));
+    }
+
     public function createCollection(string $db, string $collection, ?int $userId): void
     {
         $this->agent->call('mongo.collection_create', ['db' => $db, 'collection' => $collection]);
         $this->audit->record('mongo.collection_create', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection], $userId);
     }
 
+    /**
+     * Create a collection with options: plain, capped, or time-series.
+     *
+     * @param array<string, mixed> $opts kind, size_bytes, max_docs, time_field, meta_field, granularity, expire_seconds
+     */
+    public function createCollectionEx(string $db, string $collection, array $opts, ?int $userId): void
+    {
+        $kind = (string) ($opts['kind'] ?? 'collection');
+        if (!in_array($kind, ['collection', 'capped', 'timeseries'], true)) {
+            throw new \NimVor\Support\UserFacingException('Choose a collection type.');
+        }
+        $params = ['db' => $db, 'collection' => $collection, 'kind' => $kind];
+        if ($kind === 'capped') {
+            $params['size_bytes'] = max(0, (int) ($opts['size_bytes'] ?? 0));
+            $params['max_docs'] = max(0, (int) ($opts['max_docs'] ?? 0));
+        } elseif ($kind === 'timeseries') {
+            $params['time_field'] = trim((string) ($opts['time_field'] ?? ''));
+            $params['meta_field'] = trim((string) ($opts['meta_field'] ?? ''));
+            $params['granularity'] = (string) ($opts['granularity'] ?? '');
+            $params['expire_seconds'] = max(0, (int) ($opts['expire_seconds'] ?? 0));
+        }
+        $this->agent->call('mongo.collection_create_ex', $params);
+        $this->audit->record('mongo.collection_create', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection, 'kind' => $kind], $userId);
+    }
+
+    /** Copy a collection (documents and indexes) into a new one of the same database. */
+    public function copyCollection(string $db, string $collection, string $newName, ?int $userId): void
+    {
+        $this->agent->call('mongo.collection_copy', ['db' => $db, 'collection' => $collection, 'new_name' => $newName], 300);
+        $this->audit->record('mongo.collection_copy', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection, 'new_name' => $newName], $userId);
+    }
+
     public function dropCollection(string $db, string $collection, ?int $userId): void
     {
         $this->agent->call('mongo.collection_drop', ['db' => $db, 'collection' => $collection]);
         $this->audit->record('mongo.collection_drop', 'server', (string) $this->server->id(), AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection], $userId);
+    }
+
+    /**
+     * Drop, empty or validate several collections at once; each is reported on its own.
+     *
+     * @param list<string> $names
+     * @return array<string, mixed>
+     */
+    public function collectionsBulk(string $db, string $op, array $names, ?int $userId): array
+    {
+        if (!in_array($op, ['drop', 'empty', 'validate'], true)) {
+            throw new \NimVor\Support\UserFacingException('Choose what to do with the selected collections.');
+        }
+        $names = array_values(array_unique(array_filter(array_map(static fn ($n): string => is_string($n) ? $n : '', $names), static fn (string $n): bool => $n !== '')));
+        if ($names === []) {
+            throw new \NimVor\Support\UserFacingException('Select at least one collection first.');
+        }
+        $o = (array) $this->agent->call('mongo.collections_bulk', ['db' => $db, 'op' => $op, 'collections' => array_slice($names, 0, 50), 'confirm' => $op !== 'validate'], 300);
+        if ($op !== 'validate') {
+            $this->audit->record('mongo.collections_' . $op, 'server', (string) $this->server->id(), (int) ($o['failed'] ?? 0) === 0 ? AuditLogger::SUCCESS : AuditLogger::FAILURE,
+                ['db' => $db, 'collections' => array_slice($names, 0, 20), 'count' => count($names), 'succeeded' => (int) ($o['succeeded'] ?? 0), 'failed' => (int) ($o['failed'] ?? 0)], $userId);
+        }
+        return $o;
+    }
+
+    /** The document / index / validation / view operations of the browser, each mapped to one agent action. */
+    private const DOC_OPS = [
+        'docs_delete_many' => ['mongo.documents_delete_many', true], 'doc_duplicate' => ['mongo.document_duplicate', true], 'docs_update_many' => ['mongo.documents_update_many', true],
+        'index_stats' => ['mongo.index_stats', false], 'index_hide' => ['mongo.index_hide', true], 'validation_set' => ['mongo.validation_set', true], 'view_create' => ['mongo.view_create', true],
+    ];
+
+    /** Whether the browser operation changes data (and so needs the manage permission). */
+    public static function docOpChanges(string $op): bool
+    {
+        return (self::DOC_OPS[$op][1] ?? true) === true;
+    }
+
+    /**
+     * @param array<string, mixed> $in the operation's own fields (ids, filter, ops, name, hidden, validator, level, action, pipeline, view_on, ...)
+     * @return array<string, mixed>
+     */
+    public function docOp(string $db, string $collection, string $op, array $in, ?int $userId): array
+    {
+        if (!isset(self::DOC_OPS[$op])) {
+            throw new \NimVor\Support\UserFacingException('That operation is not available.');
+        }
+        [$action, $changes] = self::DOC_OPS[$op];
+        $params = ['db' => $db, 'collection' => $collection];
+        switch ($op) {
+            case 'docs_delete_many':
+                $params['ids'] = array_values(array_filter(array_map(static fn ($i): string => is_scalar($i) ? (string) $i : '', (array) ($in['ids'] ?? [])), static fn (string $i): bool => $i !== ''));
+                break;
+            case 'doc_duplicate':
+                $params['id'] = (string) ($in['id'] ?? '');
+                break;
+            case 'docs_update_many':
+                $params['filter'] = (string) ($in['filter'] ?? '');
+                $params['all'] = !empty($in['all']);
+                $params['dry_run'] = !empty($in['dry_run']);
+                $params['ops'] = array_values(array_map(static fn ($o): array => ['op' => (string) ($o['op'] ?? ''), 'field' => trim((string) ($o['field'] ?? '')), 'value' => (string) ($o['value'] ?? '')], array_filter((array) ($in['ops'] ?? []), 'is_array')));
+                $changes = empty($params['dry_run']);
+                break;
+            case 'index_hide':
+                $params['name'] = (string) ($in['name'] ?? '');
+                $params['hidden'] = !empty($in['hidden']);
+                break;
+            case 'validation_set':
+                $params['validator'] = (string) ($in['validator'] ?? '');
+                $params['level'] = (string) ($in['level'] ?? '');
+                $params['action'] = (string) ($in['action'] ?? '');
+                break;
+            case 'view_create':
+                unset($params['collection']);
+                $params['name'] = $collection;
+                $params['view_on'] = trim((string) ($in['view_on'] ?? ''));
+                $params['pipeline'] = (string) ($in['pipeline'] ?? '');
+                break;
+        }
+        $out = (array) $this->agent->call($action, $params, 300);
+        if ($changes) {
+            $ctx = ['db' => $db, 'collection' => $collection];
+            if ($op === 'docs_delete_many') {
+                $ctx['count'] = count($params['ids']);
+            } elseif ($op === 'docs_update_many') {
+                $ctx += ['filter' => mb_substr((string) $params['filter'], 0, 500), 'fields' => array_slice(array_map(static fn (array $o): string => $o['op'] . ':' . $o['field'], $params['ops']), 0, 20), 'modified' => $out['modified'] ?? null];
+            } elseif ($op === 'index_hide') {
+                $ctx += ['name' => $params['name'], 'hidden' => $params['hidden']];
+            } elseif ($op === 'validation_set') {
+                $ctx += ['level' => $params['level'], 'action' => $params['action'], 'cleared' => trim($params['validator']) === ''];
+            } elseif ($op === 'view_create') {
+                $ctx += ['view_on' => $params['view_on']];
+            }
+            $this->audit->record('mongo.' . $op, 'server', (string) $this->server->id(), AuditLogger::SUCCESS, $ctx, $userId);
+        }
+        return $out;
     }
 
     public function emptyCollection(string $db, string $collection, ?int $userId): int

@@ -48,6 +48,37 @@ jobs:
       - name: build
         run: make build
 
+  # The MongoDB browser against a real mongod and mongosh (installed from MongoDB's own apt repository). Kept apart from
+  # the real-host job, which fails on a skipped test and should not depend on a third-party package repository.
+  # continue-on-error: this reports the result without blocking a merge or a release; make it required once it has
+  # proven stable on the shared runners.
+  mongo-live:
+    runs-on: ubuntu-24.04
+    needs: [agent]
+    continue-on-error: true
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - name: Install MongoDB
+        run: |
+          curl -fsSL https://pgp.mongodb.com/server-8.0.asc | sudo gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg --dearmor
+          echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
+          sudo apt-get update -q
+          sudo apt-get install -y -q mongodb-org-server mongodb-mongosh
+          # Start mongod directly (no systemd unit games on the runner) and wait until it answers.
+          sudo systemctl stop mongod 2>/dev/null || true
+          mkdir -p "$RUNNER_TEMP/mdb"
+          mongod --dbpath "$RUNNER_TEMP/mdb" --bind_ip 127.0.0.1 --port 27017 --fork --logpath "$RUNNER_TEMP/mongod.log"
+          ok=0
+          for i in $(seq 1 60); do mongosh --quiet --eval 'db.runCommand({ping:1}).ok' >/dev/null 2>&1 && ok=1 && break; sleep 1; done
+          if [ "$ok" != 1 ]; then echo "mongod did not answer"; tail -40 "$RUNNER_TEMP/mongod.log" || true; exit 1; fi
+          mongosh --quiet --eval 'db.version()'
+      - name: MongoDB browser against a real server
+        run: cd agent && NIMVOR_MONGO_LIVE=1 go test -tags realhost -run TestMongoLiveBrowser -count=1 -v ./internal/mongomgr
+
   panel:
     runs-on: ubuntu-24.04
     strategy:

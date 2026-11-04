@@ -498,6 +498,10 @@ final class MongoController extends Controller
             switch ($op) {
                 case 'collections':
                     return Response::json(['success' => true, 'data' => ['collections' => $this->mongo->collections($db)]]);
+                case 'db_overview':
+                    return Response::json(['success' => true, 'data' => $this->mongo->dbOverview($db)]);
+                case 'collections_detail':
+                    return Response::json(['success' => true, 'data' => ['collections' => $this->mongo->collectionsDetail($db)]]);
                 case 'coll_create':
                     if (!$this->view->can(P::MONGO_MANAGE)) {
                         return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
@@ -510,6 +514,35 @@ final class MongoController extends Controller
                     }
                     $this->mongo->dropCollection($db, trim((string) $request->input('collection')), $this->userId($request));
                     return Response::json(['success' => true, 'data' => ['dropped' => trim((string) $request->input('collection'))]]);
+                case 'coll_create_ex':
+                    if (!$this->view->can(P::MONGO_MANAGE)) {
+                        return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
+                    }
+                    $this->mongo->createCollectionEx($db, trim((string) $request->input('collection')), (array) $request->input('options', []), $this->userId($request));
+                    return Response::json(['success' => true, 'data' => ['created' => trim((string) $request->input('collection'))]]);
+                case 'coll_copy':
+                    if (!$this->view->can(P::MONGO_MANAGE)) {
+                        return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
+                    }
+                    $this->mongo->copyCollection($db, trim((string) $request->input('collection')), trim((string) $request->input('name')), $this->userId($request));
+                    return Response::json(['success' => true, 'data' => ['copied' => trim((string) $request->input('name'))]]);
+                case 'docs_delete_many':
+                case 'doc_duplicate':
+                case 'docs_update_many':
+                case 'index_stats':
+                case 'index_hide':
+                case 'validation_set':
+                case 'view_create':
+                    if (\NimVor\Services\MongoService::docOpChanges($request->string('op')) && !$this->view->can(P::MONGO_MANAGE)) {
+                        return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
+                    }
+                    return Response::json(['success' => true, 'data' => $this->mongo->docOp($db, trim((string) $request->input('collection')), $request->string('op'), $request->all(), $this->userId($request))]);
+                case 'colls_bulk':
+                    $bulkOp = trim((string) $request->input('bulk_op'));
+                    if ($bulkOp !== 'validate' && !$this->view->can(P::MONGO_MANAGE)) {
+                        return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
+                    }
+                    return Response::json(['success' => true, 'data' => $this->mongo->collectionsBulk($db, $bulkOp, (array) $request->input('collections', []), $this->userId($request))]);
                 case 'coll_empty':
                     if (!$this->view->can(P::MONGO_MANAGE)) {
                         return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);

@@ -111,6 +111,103 @@
         call('collections').then(function (d) {
             renderCollections((d && d.collections) || []);
         }).catch(function (e) { collList.replaceChildren(); collCount.textContent = ''; fail(e); });
+        showDbOverview();
+    }
+
+    // The database overview shown while no collection is open: size and counts, the deployment role and every
+    // collection with its statistics (click one to open it).
+    function overviewStat(label, value, hint) {
+        var col = el('div', 'col-6 col-md-4 col-xl-3'), box = el('div', 'border rounded p-3 h-100');
+        box.appendChild(el('div', 'small text-body-secondary', label));
+        box.appendChild(el('div', 'fs-5 fw-semibold', value));
+        if (hint) { box.appendChild(el('div', 'small text-body-secondary', hint)); }
+        col.appendChild(box);
+        return col;
+    }
+    function showDbOverview() {
+        var db = state.db;
+        placeholder(pane, 'Loading…');
+        Promise.all([call('db_overview'), call('collections_detail')]).then(function (res) {
+            if (state.db !== db || state.collection) { return; }
+            var o = res[0] || {}, cols = (res[1] && res[1].collections) || [];
+            var wrap = el('div', 'p-3'), grid = el('div', 'row g-3 mb-4');
+            grid.appendChild(overviewStat('Data size', fmtBytes(o.dataSize || 0), 'storage ' + fmtBytes(o.storageSize || 0)));
+            grid.appendChild(overviewStat('Documents', fmtInt(o.objects || 0), 'average ' + fmtBytes(o.avgObjSize || 0)));
+            grid.appendChild(overviewStat('Collections', fmtInt(o.collections || 0), fmtInt(o.views || 0) + ' views' + (o.timeseries ? ' · ' + fmtInt(o.timeseries) + ' time-series' : '')));
+            grid.appendChild(overviewStat('Indexes', fmtInt(o.indexes || 0), fmtBytes(o.indexSize || 0)));
+            wrap.appendChild(grid);
+            var dl = el('dl', 'row small mb-3');
+            var role = o.sharded ? 'Sharded cluster router' : (o.replicaSet ? 'Replica set ' + o.replicaSet + (o.primary ? ' (primary)' : o.secondary ? ' (secondary)' : '') : 'Standalone server');
+            [['MongoDB', o.version || '—'], ['Deployment', role]].forEach(function (kv) { dl.appendChild(el('dt', 'col-sm-3', kv[0])); dl.appendChild(el('dd', 'col-sm-9', kv[1])); });
+            wrap.appendChild(dl);
+            if (!cols.length) {
+                wrap.appendChild(el('div', 'text-body-secondary', 'This database has no collections yet.'));
+            } else {
+                var table = el('table', 'table table-sm table-hover align-middle mb-0'), head = el('tr');
+                var picked = new Set(), bulkCount = el('span', '', 'None selected');
+                var allBox = el('input', 'form-check-input'); allBox.type = 'checkbox'; allBox.setAttribute('aria-label', 'Select all collections');
+                var thc = el('th', 'nim-col-check'); thc.scope = 'col'; thc.appendChild(allBox); head.appendChild(thc);
+                var boxes = [];
+                ['Name', 'Type', 'Documents', 'Data size', 'Storage', 'Indexes', 'Index size', 'Validation'].forEach(function (h, i) { var th = el('th', i > 1 && i < 7 ? 'text-end' : '', h); th.scope = 'col'; head.appendChild(th); });
+                var thead = el('thead'); thead.appendChild(head); table.appendChild(thead);
+                var tb = el('tbody');
+                cols.forEach(function (c) {
+                    var tr = el('tr'), td = el('td'), a = el('a', 'font-monospace', c.name); a.href = '#';
+                    var pick = el('input', 'form-check-input'); pick.type = 'checkbox'; pick.setAttribute('aria-label', 'Select ' + c.name); boxes.push(pick);
+                    pick.addEventListener('change', function () { if (pick.checked) { picked.add(c.name); } else { picked.delete(c.name); } syncBulk(); });
+                    var tdc = el('td', 'nim-col-check'); tdc.appendChild(pick); tr.appendChild(tdc);
+                    a.addEventListener('click', function (e) { e.preventDefault(); openCollection(c.name); });
+                    td.appendChild(a); tr.appendChild(td);
+                    var kind = c.type === 'view' ? 'view on ' + (c.viewOn || '?') : c.type === 'timeseries' ? 'time-series' : (c.capped ? 'capped' : 'collection');
+                    tr.appendChild(el('td', 'small', kind));
+                    var isView = c.type === 'view';
+                    tr.appendChild(el('td', 'text-end', isView ? '' : fmtInt(c.count)));
+                    tr.appendChild(el('td', 'text-end', isView ? '' : fmtBytes(c.size || 0)));
+                    tr.appendChild(el('td', 'text-end', isView ? '' : fmtBytes(c.storageSize || 0)));
+                    tr.appendChild(el('td', 'text-end', isView ? '' : fmtInt(c.nindexes)));
+                    tr.appendChild(el('td', 'text-end', isView ? '' : fmtBytes(c.totalIndexSize || 0)));
+                    tr.appendChild(el('td', 'small', c.validated ? 'rules set' : ''));
+                    tb.appendChild(tr);
+                });
+                table.appendChild(tb);
+                var holder = el('div', 'table-responsive'); holder.appendChild(table); wrap.appendChild(holder);
+                var bar = el('div', 'd-flex flex-wrap align-items-center gap-2 pt-3 small'), opSel = el('select', 'form-select form-select-sm w-auto');
+                opSel.setAttribute('aria-label', 'Action for the selected collections');
+                [['', 'Action…'], ['validate', 'Validate (check structure)']].concat(canDelete ? [['empty', 'Empty (remove all documents)'], ['drop', 'Drop']] : []).forEach(function (o) { var op = el('option', '', o[1]); op.value = o[0]; opSel.appendChild(op); });
+                var goBtn = el('button', 'btn btn-sm btn-primary', 'Apply to selected'); goBtn.type = 'button'; goBtn.addEventListener('click', function () { runBulk(opSel.value); });
+                bar.appendChild(bulkCount); bar.appendChild(opSel); bar.appendChild(goBtn);
+                bar.appendChild(el('span', 'text-body-secondary', 'Each collection is done on its own; one that fails does not stop the others.'));
+                wrap.appendChild(bar);
+                function syncBulk() {
+                    bulkCount.textContent = picked.size ? picked.size + ' selected' : 'None selected';
+                    goBtn.disabled = !picked.size || !opSel.value;
+                    var destructive = opSel.value === 'drop' || opSel.value === 'empty';
+                    goBtn.classList.toggle('btn-danger', destructive); goBtn.classList.toggle('btn-primary', !destructive);
+                    allBox.checked = picked.size > 0 && picked.size === cols.length; allBox.indeterminate = picked.size > 0 && picked.size < cols.length;
+                }
+                opSel.addEventListener('change', syncBulk);
+                allBox.addEventListener('change', function () { boxes.forEach(function (b, i) { b.checked = allBox.checked; if (allBox.checked) { picked.add(cols[i].name); } else { picked.delete(cols[i].name); } }); syncBulk(); });
+                function runBulk(op) {
+                    var names = Array.from(picked), destructive = op === 'drop' || op === 'empty';
+                    if (destructive) {
+                        var typed = window.prompt((op === 'drop' ? 'Drop ' : 'Empty ') + names.length + ' collection(s) in "' + db + '"? This cannot be undone.\n\n' + names.slice(0, 15).join(', ') + '\n\nType the database name to confirm:');
+                        if (typed !== db) { if (typed !== null) { NimVor.toast('The name did not match. Nothing was changed.', 'warning'); } return; }
+                    }
+                    call('colls_bulk', { bulk_op: op, collections: names }).then(function (r) {
+                        var bad = (r.results || []).filter(function (x) { return !x.ok; });
+                        var msg = r.succeeded + ' done' + (bad.length ? ', ' + bad.length + ' failed: ' + bad.slice(0, 4).map(function (x) { return x.name + ' – ' + (x.error || 'failed'); }).join('; ') : '.');
+                        if (op === 'validate' && !bad.length) { msg = r.succeeded + ' collection(s) are valid.'; }
+                        NimVor.toast(msg, bad.length ? 'danger' : 'success');
+                        if (op !== 'validate') { reloadCollections(); showDbOverview(); }
+                    }).catch(fail);
+                }
+                syncBulk();
+            }
+            pane.replaceChildren(wrap);
+        }).catch(function (e) {
+            if (state.db === db && !state.collection) { emptyState(pane, 'collection', 'Choose a collection', 'Pick a collection on the left to browse its documents.'); }
+            fail(e);
+        });
     }
 
     function renderCollections(cols) {
@@ -143,7 +240,7 @@
         btn.setAttribute('aria-label', 'Collection actions');
         btn.innerHTML = '<i class="bi bi-three-dots-vertical"></i>';
         var menu = el('ul', 'dropdown-menu dropdown-menu-end');
-        [['Empty', 'empty'], ['Rename…', 'rename'], ['Drop', 'drop']].forEach(function (pair) {
+        [['Empty', 'empty'], ['Rename…', 'rename'], ['Copy…', 'copy'], ['Drop', 'drop']].forEach(function (pair) {
             var item = el('button', 'dropdown-item small' + (pair[1] === 'drop' ? ' text-danger' : ''), pair[0]);
             item.type = 'button';
             item.addEventListener('click', function () { collectionAction(name, pair[1]); });
@@ -157,6 +254,15 @@
     }
 
     function collectionAction(name, op) {
+        if (op === 'copy') {
+            var to = window.prompt('Copy "' + name + '" (documents and indexes) to a new collection named:', name + '_copy');
+            if (!to || !to.trim()) { return; }
+            call('coll_copy', { collection: name, name: to.trim() }).then(function (r) {
+                NimVor.toast('Copied to ' + r.copied + '.', 'success');
+                reloadCollections();
+            }).catch(fail);
+            return;
+        }
         if (op === 'drop') {
             if (!window.confirm('Drop the collection "' + name + '" and all its documents? This cannot be undone.')) { return; }
             call('coll_drop', { collection: name }).then(function () {
@@ -332,18 +438,37 @@
 
     function renderValidation() {
         withStats(function (s) {
-            if (!s.validator || (typeof s.validator === 'object' && Object.keys(s.validator).length === 0)) {
-                emptyState(pane, 'shield-check', 'No validation rules', 'This collection accepts any document shape.');
-                return;
-            }
+            var has = s.validator && !(typeof s.validator === 'object' && Object.keys(s.validator).length === 0);
             var wrap = el('div', 'p-3');
-            var meta = el('div', 'd-flex gap-2 mb-2');
-            meta.appendChild(el('span', 'badge text-bg-light border', 'Level: ' + (s.validationLevel || 'strict')));
-            meta.appendChild(el('span', 'badge text-bg-light border', 'Action: ' + (s.validationAction || 'error')));
-            wrap.appendChild(meta);
-            var pre = el('pre', 'nim-mongo-json mb-0 p-3 border rounded');
-            pre.textContent = JSON.stringify(s.validator, null, 2);
-            wrap.appendChild(pre);
+            if (!has) { wrap.appendChild(el('p', 'text-body-secondary', 'No validation rules: this collection accepts any document shape.')); }
+            if (s.type === 'view') { wrap.appendChild(el('p', 'text-body-secondary', 'A view has no validation rules.')); pane.replaceChildren(wrap); return; }
+            var form = el('div');
+            var ta = el('textarea', 'form-control font-monospace small mb-2'); ta.rows = 12; ta.spellcheck = false;
+            ta.value = has ? JSON.stringify(s.validator, null, 2) : '{\n  "$jsonSchema": {\n    "bsonType": "object",\n    "required": [],\n    "properties": {}\n  }\n}';
+            ta.disabled = !canDelete;
+            var row = el('div', 'd-flex flex-wrap gap-2 align-items-center');
+            var lvl = el('select', 'form-select form-select-sm w-auto'); [['strict', 'level: strict (all inserts and updates)'], ['moderate', 'level: moderate (only documents that already pass)'], ['off', 'level: off']].forEach(function (o) { var op = el('option', '', o[1]); op.value = o[0]; lvl.appendChild(op); });
+            var act = el('select', 'form-select form-select-sm w-auto'); [['error', 'on violation: reject'], ['warn', 'on violation: log a warning']].forEach(function (o) { var op = el('option', '', o[1]); op.value = o[0]; act.appendChild(op); });
+            lvl.value = s.validationLevel || 'strict'; act.value = s.validationAction || 'error'; lvl.disabled = act.disabled = !canDelete;
+            row.append(lvl, act);
+            if (canDelete) {
+                var save = el('button', 'btn btn-sm btn-primary', 'Save rules'); save.type = 'button';
+                var clear = el('button', 'btn btn-sm btn-outline-danger', 'Remove rules'); clear.type = 'button'; clear.disabled = !has;
+                var send = function (validator) {
+                    call('validation_set', { collection: state.collection, validator: validator, level: lvl.value, action: act.value }).then(function () {
+                        NimVor.toast(validator ? 'Validation rules saved.' : 'Validation rules removed.', 'success'); state.stats = null; renderValidation();
+                    }).catch(fail);
+                };
+                save.addEventListener('click', function () {
+                    try { JSON.parse(ta.value); } catch (err) { NimVor.toast('The rules are not valid JSON: ' + err.message, 'danger'); return; }
+                    send(ta.value);
+                });
+                clear.addEventListener('click', function () { if (window.confirm('Remove the validation rules from "' + state.collection + '"? Any document will be accepted again.')) { send(''); } });
+                row.append(save, clear);
+            }
+            form.append(el('label', 'form-label small', 'Rules ($jsonSchema, JSON)'), ta, row);
+            form.appendChild(el('div', 'form-text mt-2', 'Only a $jsonSchema rule is accepted here. Existing documents are not changed; with level "moderate" documents that already fail may still be updated.'));
+            wrap.appendChild(form);
             pane.replaceChildren(wrap);
         });
     }
@@ -671,6 +796,12 @@
         var table = el('table', 'table table-hover align-middle mb-0 nim-mongo-table');
         var thead = el('thead');
         var hr = el('tr');
+        var picked = new Set(), pickBoxes = [];
+        if (canDelete) {
+            var allBox = el('input', 'form-check-input'); allBox.type = 'checkbox'; allBox.setAttribute('aria-label', 'Select all documents on this page');
+            allBox.addEventListener('change', function () { pickBoxes.forEach(function (b, i) { b.checked = allBox.checked; if (allBox.checked) { picked.add(i); } else { picked.delete(i); } }); syncPicked(); });
+            var thc = el('th', 'nim-col-check'); thc.appendChild(allBox); hr.appendChild(thc);
+        }
         cols.forEach(function (c) { hr.appendChild(el('th', c === '_id' ? 'nim-mongo-idcol' : null, c)); });
         if (canDelete) { hr.appendChild(el('th', 'text-end', '')); }
         thead.appendChild(hr);
@@ -680,6 +811,12 @@
             var tr = el('tr');
             tr.setAttribute('data-mb-rowidx', String(i));
             tr.addEventListener('click', function () { selectDoc(i); });
+            if (canDelete) {
+                var pk = el('input', 'form-check-input'); pk.type = 'checkbox'; pk.setAttribute('aria-label', 'Select document ' + (i + 1)); pickBoxes.push(pk);
+                pk.addEventListener('click', function (e) { e.stopPropagation(); });
+                pk.addEventListener('change', function () { if (pk.checked) { picked.add(i); } else { picked.delete(i); } syncPicked(); });
+                var tdp = el('td', 'nim-col-check'); tdp.appendChild(pk); tr.appendChild(tdp);
+            }
             cols.forEach(function (c) {
                 if (c === '_id') {
                     var td = el('td', 'nim-mongo-idcol');
@@ -711,7 +848,69 @@
         });
         table.appendChild(tb);
         wrap.appendChild(table);
+        if (canDelete) {
+            var bar = el('div', 'd-flex flex-wrap align-items-center gap-2 p-2 border-top bg-body-tertiary small sticky-bottom'), cnt = el('span', '', 'None selected');
+            var delSel = el('button', 'btn btn-sm btn-outline-danger', 'Delete selected'); delSel.type = 'button';
+            var dupSel = el('button', 'btn btn-sm btn-outline-secondary', 'Duplicate'); dupSel.type = 'button';
+            var updAll = el('button', 'btn btn-sm btn-outline-secondary ms-auto', 'Update many…'); updAll.type = 'button';
+            bar.append(cnt, delSel, dupSel, updAll);
+            wrap.appendChild(bar);
+            var syncPicked = function () {
+                cnt.textContent = picked.size ? picked.size + ' selected' : 'None selected';
+                delSel.disabled = !picked.size; dupSel.disabled = !picked.size;
+                allBox.checked = picked.size > 0 && picked.size === docs.length; allBox.indeterminate = picked.size > 0 && picked.size < docs.length;
+            };
+            syncPicked();
+            var idsOf = function () { return Array.from(picked).map(function (i) { return docs[i]; }).filter(function (d) { return d && typeof d._id !== 'undefined'; }).map(function (d) { return JSON.stringify(d._id); }); };
+            delSel.addEventListener('click', function () {
+                var ids = idsOf(); if (!ids.length) { return; }
+                if (!window.confirm('Delete ' + ids.length + ' selected document' + (ids.length === 1 ? '' : 's') + '? This cannot be undone.')) { return; }
+                call('docs_delete_many', { collection: state.collection, ids: ids }).then(function (r) { NimVor.toast('Deleted ' + r.deleted + '.', 'success'); loadRail(); loadDocuments(); }).catch(fail);
+            });
+            dupSel.addEventListener('click', function () {
+                var ids = idsOf(); if (!ids.length) { return; }
+                ids.reduce(function (p, id) { return p.then(function () { return call('doc_duplicate', { collection: state.collection, id: id }); }); }, Promise.resolve())
+                    .then(function () { NimVor.toast('Duplicated ' + ids.length + '.', 'success'); loadRail(); loadDocuments(); }).catch(fail);
+            });
+            updAll.addEventListener('click', function () { openUpdateMany(); });
+        }
         pane.replaceChildren(wrap);
+    }
+
+    // Update many documents with structured operations (no expressions or JavaScript).
+    var upEl = document.getElementById('mb-update'), upModal = upEl && window.bootstrap ? new bootstrap.Modal(upEl) : null;
+    function upq(k) { return upEl.querySelector('[data-mb-up-' + k + ']'); }
+    function upOps() {
+        var ops = [];
+        Array.prototype.forEach.call(upEl.querySelectorAll('[data-mb-up-row]'), function (row) {
+            var f = row.querySelector('[data-mb-up-field]').value.trim();
+            if (f) { ops.push({ op: row.querySelector('[data-mb-up-op]').value, field: f, value: row.querySelector('[data-mb-up-value]').value.trim() }); }
+        });
+        return ops;
+    }
+    function openUpdateMany() {
+        if (!upModal) { return; }
+        upEl.querySelector('[data-mb-update-form]').reset();
+        upq('filter').value = (filterIn && filterIn.value.trim() !== '' && filterIn.value.trim() !== '{}') ? filterIn.value.trim() : '';
+        upq('count').textContent = ''; upq('err').textContent = '';
+        upModal.show();
+    }
+    if (upEl) {
+        var upBase = function (dry) { return { collection: state.collection, filter: upq('filter').value.trim(), all: upq('all').checked, ops: upOps(), dry_run: dry }; };
+        upq('preview').addEventListener('click', function () {
+            upq('err').textContent = '';
+            call('docs_update_many', upBase(true)).then(function (r) { upq('count').textContent = r.matched + ' document' + (r.matched === 1 ? '' : 's') + ' match.'; })
+                .catch(function (e) { upq('err').textContent = (e.details && e.details.message) || e.message; });
+        });
+        upEl.querySelector('[data-mb-update-form]').addEventListener('submit', function (e) {
+            e.preventDefault(); upq('err').textContent = '';
+            var p = upBase(false);
+            if (!p.ops.length) { upq('err').textContent = 'Fill in at least one operation.'; return; }
+            call('docs_update_many', Object.assign({}, p, { dry_run: true })).then(function (c) {
+                if (!window.confirm('Change ' + c.matched + ' document' + (c.matched === 1 ? '' : 's') + '? This cannot be undone.')) { return null; }
+                return call('docs_update_many', p).then(function (r) { upModal.hide(); NimVor.toast(r.modified + ' of ' + r.matched + ' changed.', 'success'); loadDocuments(); });
+            }).catch(function (err) { upq('err').textContent = (err.details && err.details.message) || err.message; });
+        });
     }
 
     function renderJsonView(docs) {
@@ -872,7 +1071,7 @@
         var table = el('table', 'table table-sm align-middle mb-0');
         var thead = el('thead');
         var htr = el('tr');
-        ['Name', 'Keys', 'Properties', ''].forEach(function (h) { htr.appendChild(el('th', h === '' ? 'text-end' : null, h)); });
+        ['Name', 'Keys', 'Properties', 'Uses', ''].forEach(function (h) { htr.appendChild(el('th', h === '' ? 'text-end' : null, h)); });
         thead.appendChild(htr);
         table.appendChild(thead);
         var tb = el('tbody');
@@ -880,9 +1079,16 @@
             var tr = el('tr');
             tr.appendChild(el('td', 'font-monospace small', ix.name));
             tr.appendChild(el('td', 'font-monospace small', JSON.stringify(ix.key || {})));
-            tr.appendChild(el('td', 'small text-body-secondary', indexProps(ix)));
-            var act = el('td', 'text-end');
+            tr.appendChild(el('td', 'small text-body-secondary', indexProps(ix) + (ix.hidden ? (indexProps(ix) ? ', ' : '') + 'hidden' : '')));
+            var uses = el('td', 'small', '…'); uses.setAttribute('data-mb-uses', ix.name); tr.appendChild(uses);
+            var act = el('td', 'text-end text-nowrap');
             if (canDelete && ix.name !== '_id_') {
+                var hide = el('button', 'btn btn-sm btn-outline-secondary py-0 me-1', ix.hidden ? 'Unhide' : 'Hide');
+                hide.type = 'button'; hide.title = ix.hidden ? 'Let queries use this index again' : 'Keep queries from using this index without dropping it (MongoDB 4.4+)';
+                hide.addEventListener('click', function () {
+                    call('index_hide', { collection: state.collection, name: ix.name, hidden: !ix.hidden }).then(function () { loadIndexes(); }).catch(fail);
+                });
+                act.appendChild(hide);
                 var drop = el('button', 'btn btn-sm btn-outline-danger py-0', 'Drop');
                 drop.type = 'button';
                 drop.addEventListener('click', function () { dropIndex(ix.name, drop); });
@@ -894,6 +1100,14 @@
         table.appendChild(tb);
         wrap.appendChild(table);
         pane.replaceChildren(wrap);
+        call('index_stats', { collection: state.collection }).then(function (d) {
+            var by = {}; ((d && d.stats) || []).forEach(function (x) { by[x.name] = x.ops; });
+            Array.prototype.forEach.call(pane.querySelectorAll('[data-mb-uses]'), function (td) {
+                var n = by[td.getAttribute('data-mb-uses')];
+                td.textContent = n === undefined ? '—' : fmtInt(n);
+                if (n === 0 && td.getAttribute('data-mb-uses') !== '_id_') { td.title = 'Not used since the server started'; td.classList.add('text-warning'); }
+            });
+        }).catch(function () { Array.prototype.forEach.call(pane.querySelectorAll('[data-mb-uses]'), function (td) { td.textContent = '—'; }); });
     }
 
     function dropIndex(name, btn) {
@@ -1054,14 +1268,42 @@
     });
     dbSel.addEventListener('change', function () { state.db = dbSel.value; loadCollections(); });
     if (newCollBtn) {
+        var ncEl = document.getElementById('mb-newcoll');
+        var ncModal = ncEl && window.bootstrap ? new bootstrap.Modal(ncEl) : null;
+        var nc = function (k) { return ncEl.querySelector('[data-mb-nc-' + k + ']'); };
+        if (ncEl) {
+            nc('kind').addEventListener('change', function () {
+                nc('capped').classList.toggle('d-none', nc('kind').value !== 'capped');
+                nc('ts').classList.toggle('d-none', nc('kind').value !== 'timeseries');
+                nc('view').classList.toggle('d-none', nc('kind').value !== 'view');
+            });
+            ncEl.querySelector('[data-mb-newcoll-form]').addEventListener('submit', function (e) {
+                e.preventDefault();
+                var name = nc('name').value.trim(), kind = nc('kind').value;
+                if (!name) { nc('err').textContent = 'Enter a name.'; return; }
+                nc('err').textContent = '';
+                var after = function () { ncModal.hide(); NimVor.toast('Created.', 'success'); reloadCollections(); if (!state.collection) { showDbOverview(); } };
+                if (kind === 'view') {
+                    call('view_create', { collection: name, view_on: nc('on').value.trim(), pipeline: nc('pipe').value.trim() || '[]' }).then(after)
+                        .catch(function (err) { nc('err').textContent = (err.details && err.details.message) || err.message; });
+                    return;
+                }
+                call('coll_create_ex', { collection: name, options: {
+                    kind: kind, size_bytes: parseInt(nc('size').value, 10) || 0, max_docs: parseInt(nc('max').value, 10) || 0,
+                    time_field: nc('time').value.trim(), meta_field: nc('meta').value.trim(), granularity: nc('gran').value, expire_seconds: parseInt(nc('expire').value, 10) || 0
+                } }).then(function () {
+                    ncModal.hide();
+                    NimVor.toast('Collection created.', 'success');
+                    reloadCollections();
+                    if (!state.collection) { showDbOverview(); }
+                }).catch(function (err) { nc('err').textContent = (err.details && err.details.message) || err.message; });
+            });
+        }
         newCollBtn.addEventListener('click', function () {
-            if (!state.db) { return; }
-            var name = window.prompt('New collection name in ' + state.db + ':', '');
-            if (!name || name.trim() === '') { return; }
-            call('coll_create', { collection: name.trim() }).then(function () {
-                NimVor.toast('Collection created.', 'success');
-                reloadCollections();
-            }).catch(fail);
+            if (!state.db || !ncModal) { return; }
+            ncEl.querySelector('[data-mb-newcoll-form]').reset();
+            nc('capped').classList.add('d-none'); nc('ts').classList.add('d-none'); nc('view').classList.add('d-none'); nc('err').textContent = '';
+            ncModal.show();
         });
     }
     collFilter.addEventListener('input', applyCollFilter);

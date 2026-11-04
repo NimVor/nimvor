@@ -9,7 +9,7 @@
     var api = root.dataset.api;
     var $ = function (s) { return root.querySelector(s); };
     var pane = $('[data-db-pane]'), tableList = $('[data-db-tables]'), current = $('[data-db-current]');
-    var state = { tables: [], table: null, tab: 'sql', structure: {}, page: { offset: 0, limit: 50, order: '', desc: false, filter: null, search: '' }, sql: '', rows: null, selected: new Set() };
+    var state = { tables: [], table: null, tab: 'overview', structure: {}, page: { offset: 0, limit: 50, order: '', desc: false, filter: null, search: '' }, sql: '', rows: null, selected: new Set() };
 
     function el(tag, cls, text) { var e = document.createElement(tag); if (cls) { e.className = cls; } if (text !== undefined && text !== null) { e.textContent = text; } return e; }
     function btn(label, icon, cls, fn) { var b = el('button', 'btn btn-sm ' + cls); b.type = 'button'; if (icon) { b.appendChild(el('i', 'bi ' + icon + (label ? ' me-1' : ''))); } if (label) { b.appendChild(document.createTextNode(label)); } if (fn) { b.addEventListener('click', fn); } return b; }
@@ -95,9 +95,9 @@
         state.page = { offset: 0, limit: state.page.limit, order: '', desc: false, filter: null, search: '' };
         state.selected = new Set();
         current.textContent = name || '';
-        root.querySelectorAll('[data-db-tab]').forEach(function (b) { if (b.dataset.dbTab !== 'sql') { b.disabled = !name; } });
+        root.querySelectorAll('[data-db-tab]').forEach(function (b) { if (['browse', 'structure', 'insert'].indexOf(b.dataset.dbTab) >= 0) { b.disabled = !name; } });
         renderTables();
-        if (name) { state.sql = 'SELECT * FROM ' + ident(name) + ' LIMIT 50'; switchTab('browse'); } else { switchTab('sql'); }
+        if (name) { state.sql = 'SELECT * FROM ' + ident(name) + ' LIMIT 50'; switchTab('browse'); } else { switchTab('overview'); }
     }
 
     function structure(name) {
@@ -109,9 +109,136 @@
     function switchTab(tab) {
         state.tab = tab;
         root.querySelectorAll('[data-db-tab]').forEach(function (b) { var on = b.dataset.dbTab === tab; b.classList.toggle('btn-primary', on); b.classList.toggle('btn-outline-secondary', !on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
-        if (tab === 'browse') { browse(); } else if (tab === 'structure') { showStructure(); } else if (tab === 'insert') { editRow(null); } else { showSql(); }
+        if (tab === 'overview') { showOverview(); } else if (tab === 'objects') { showObjects(); } else if (tab === 'routines') { showRoutines(); } else if (tab === 'sequences') { showSequences(); } else if (tab === 'browse') { browse(); } else if (tab === 'structure') { showStructure(); } else if (tab === 'insert') { editRow(null); } else { showSql(); }
     }
     root.querySelectorAll('[data-db-tab]').forEach(function (b) { b.addEventListener('click', function () { if (!b.disabled) { switchTab(b.dataset.dbTab); } }); });
+
+    // ---- overview and objects --------------------------------------------
+    function stat(label, value, hint) {
+        var col = el('div', 'col-6 col-md-4 col-xl-3'), box = el('div', 'border rounded p-3 h-100');
+        box.appendChild(el('div', 'small text-body-secondary', label)); box.appendChild(el('div', 'fs-5 fw-semibold', value));
+        if (hint) { box.appendChild(el('div', 'small text-body-secondary', hint)); }
+        col.appendChild(box); return col;
+    }
+    function showOverview() {
+        loading(pane);
+        call('overview').then(function (o) {
+            if (state.tab !== 'overview') { return; }
+            var n = function (v) { return Number(v || 0).toLocaleString(); };
+            var wrap = el('div', 'p-3'), grid = el('div', 'row g-3 mb-4');
+            grid.appendChild(stat('Size on disk', fmtBytes((o.data_bytes || 0) + (o.index_bytes || 0)), 'indexes ' + fmtBytes(o.index_bytes || 0)));
+            grid.appendChild(stat('Tables', n(o.tables), n(o.views) + ' views'));
+            grid.appendChild(stat('Rows (estimate)', n(o.rows), 'from the engine statistics'));
+            grid.appendChild(stat('Routines', n(o.routines), n(o.triggers) + ' triggers · ' + n(o.events) + ' events'));
+            if (o.family === 'mariadb') { grid.appendChild(stat('Sequences', n(o.sequences))); }
+            grid.appendChild(stat('Reclaimable space', fmtBytes(o.free_bytes || 0), 'free space inside table files'));
+            wrap.appendChild(grid);
+            var dl = el('dl', 'row small mb-3');
+            [['Server', o.server], ['Engine family', o.family === 'mariadb' ? 'MariaDB' : 'MySQL'], ['Character set', o.charset], ['Collation', o.collation],
+                ['Storage engines', Object.keys(o.engines || {}).map(function (k) { return k + ' (' + o.engines[k] + ')'; }).join(', ') || '—']].forEach(function (kv) {
+                dl.appendChild(el('dt', 'col-sm-3', kv[0])); dl.appendChild(el('dd', 'col-sm-9', kv[1] || '—'));
+            });
+            wrap.appendChild(dl);
+            wrap.appendChild(btn('Browse all objects', 'bi-list-ul', 'btn-primary', function () { switchTab('objects'); }));
+            pane.replaceChildren(wrap);
+        }).catch(function (e) { pane.replaceChildren(el('div', 'alert alert-danger m-3', (e.details && e.details.details) || e.message)); });
+    }
+    var objSort = { key: 'name', desc: false }, objKind = '', objSearch = '', objPicked = new Set();
+    function showObjects() {
+        loading(pane);
+        loadTables().then(function () {
+            if (state.tab !== 'objects') { return; }
+            var wrap = el('div', 'd-flex flex-column h-100'), bar = el('div', 'd-flex flex-wrap gap-2 align-items-center p-2 border-bottom');
+            var search = el('input', 'form-control form-control-sm w-auto'); search.type = 'search'; search.placeholder = 'Search by name'; search.value = objSearch; search.setAttribute('aria-label', 'Search by name');
+            var kind = el('select', 'form-select form-select-sm w-auto'); kind.setAttribute('aria-label', 'Type');
+            [['', 'All types'], ['table', 'Tables'], ['view', 'Views']].forEach(function (o) { var op = el('option', '', o[1]); op.value = o[0]; kind.appendChild(op); }); kind.value = objKind;
+            bar.appendChild(search); bar.appendChild(kind);
+            bar.appendChild(btn('Refresh', 'bi-arrow-clockwise', 'btn-outline-secondary ms-auto', function () { showObjects(); }));
+            var holder = el('div', 'table-responsive'); wrap.appendChild(bar); wrap.appendChild(holder);
+            var bulk = el('div', 'd-flex flex-wrap align-items-center gap-2 p-2 border-top bg-body-tertiary small mt-auto'), bulkCount = el('span', '', 'None selected');
+            var opSel = el('select', 'form-select form-select-sm w-auto'); opSel.setAttribute('aria-label', 'Action for the selected tables');
+            [['', 'Action…'], ['optimize', 'Optimize'], ['analyze', 'Analyze'], ['check', 'Check'], ['repair', 'Repair (MyISAM, Aria, Archive, CSV only)'], ['truncate', 'Empty (truncate)'], ['drop', 'Drop']].forEach(function (o) { var op = el('option', '', o[1]); op.value = o[0]; opSel.appendChild(op); });
+            var goBtn = btn('Apply to selected', '', 'btn-primary', function () { runBulk(opSel.value); });
+            bulk.appendChild(bulkCount); bulk.appendChild(opSel); bulk.appendChild(goBtn);
+            bulk.appendChild(el('span', 'text-body-secondary', 'Each table is done on its own; one that fails does not stop the others.'));
+            wrap.appendChild(bulk);
+            function syncBar() {
+                var n = objPicked.size;
+                bulkCount.textContent = n === 0 ? 'None selected' : n + ' selected';
+                goBtn.disabled = n === 0 || !opSel.value;
+                var destructive = opSel.value === 'drop' || opSel.value === 'truncate';
+                goBtn.classList.toggle('btn-danger', destructive); goBtn.classList.toggle('btn-primary', !destructive);
+            }
+            opSel.addEventListener('change', syncBar);
+            function runBulk(op) {
+                var names = Array.from(objPicked);
+                var views = state.tables.filter(function (t) { return t.view && objPicked.has(t.name); }).length;
+                var destructive = op === 'drop' || op === 'truncate';
+                var go = function () {
+                    call('bulk', { alter_op: op, tables: names, confirm: destructive }).then(function (r) {
+                        var bad = (r.results || []).filter(function (x) { return !x.ok; });
+                        if (!bad.length) { NimVor.toast(r.succeeded + ' table(s) done.', 'success'); } else {
+                            NimVor.toast(r.succeeded + ' done, ' + bad.length + ' failed: ' + bad.slice(0, 4).map(function (x) { return x.table + ' – ' + (x.message || 'failed'); }).join('; '), 'danger');
+                        }
+                        objPicked = new Set(bad.map(function (x) { return x.table; }));
+                        state.structure = {};
+                        showObjects();
+                    }).catch(fail);
+                };
+                if (!destructive) { go(); return; }
+                confirmDialog((op === 'drop' ? 'Drop ' : 'Empty ') + names.length + ' selected ' + (names.length === 1 ? 'table' : 'tables') + '?',
+                    (op === 'drop' ? 'The tables' + (views ? ' and views' : '') + ' and all their data are deleted. ' : 'Every row is removed; the tables stay. ') + 'This cannot be undone. ' + names.slice(0, 15).join(', ') + (names.length > 15 ? ', and ' + (names.length - 15) + ' more' : ''),
+                    op === 'drop' ? 'Drop' : 'Empty', root.dataset.database).then(function (yes) { if (yes) { go(); } });
+            }
+            function draw() {
+                objSearch = search.value; objKind = kind.value;
+                var list = state.tables.filter(function (t) {
+                    return (!objSearch || t.name.toLowerCase().indexOf(objSearch.toLowerCase()) >= 0) && (!objKind || (objKind === 'view') === !!t.view);
+                });
+                var key = objSort.key, dir = objSort.desc ? -1 : 1;
+                list.sort(function (a, b) { var x = a[key], y = b[key]; if (typeof x === 'string') { return dir * x.localeCompare(y); } return dir * ((x || 0) - (y || 0)); });
+                var table = el('table', 'table table-sm table-hover align-middle mb-0'), head = el('tr');
+                var allBox = el('input', 'form-check-input'); allBox.type = 'checkbox'; allBox.setAttribute('aria-label', 'Select all shown');
+                var thc = el('th', 'nim-col-check'); thc.scope = 'col'; thc.appendChild(allBox); head.appendChild(thc);
+                allBox.addEventListener('change', function () { list.forEach(function (t) { if (allBox.checked) { objPicked.add(t.name); } else { objPicked.delete(t.name); } }); draw(); });
+                [['name', 'Name'], ['engine', 'Engine'], ['rows', 'Rows (est.)'], ['bytes', 'Size'], ['index_bytes', 'Indexes size'], ['columns', 'Columns'], ['indexes', 'Indexes'], ['auto_increment', 'Auto-inc.'], ['collation', 'Collation'], ['updated', 'Updated']].forEach(function (c) {
+                    var th = el('th', c[0] === 'name' || c[0] === 'engine' || c[0] === 'collation' || c[0] === 'updated' ? '' : 'text-end'); th.scope = 'col';
+                    var a = el('a', 'text-reset text-decoration-none', c[1] + (objSort.key === c[0] ? (objSort.desc ? ' ▾' : ' ▴') : '')); a.href = '#';
+                    a.addEventListener('click', function (e) { e.preventDefault(); objSort = { key: c[0], desc: objSort.key === c[0] ? !objSort.desc : false }; draw(); });
+                    th.appendChild(a); head.appendChild(th);
+                });
+                var thead = el('thead'); thead.appendChild(head); table.appendChild(thead);
+                var tb = el('tbody');
+                list.forEach(function (t) {
+                    var tr = el('tr'), nm = el('td'), link = el('a', 'font-monospace', t.name); link.href = '#';
+                    var pick = el('input', 'form-check-input'); pick.type = 'checkbox'; pick.checked = objPicked.has(t.name); pick.setAttribute('aria-label', 'Select ' + t.name);
+                    pick.addEventListener('change', function () { if (pick.checked) { objPicked.add(t.name); } else { objPicked.delete(t.name); } syncBar(); });
+                    var tdc = el('td', 'nim-col-check'); tdc.appendChild(pick); tr.appendChild(tdc);
+                    link.addEventListener('click', function (e) { e.preventDefault(); selectTable(t.name); });
+                    nm.appendChild(el('i', 'bi ' + (t.view ? 'bi-eye' : 'bi-table') + ' me-1')); nm.appendChild(link);
+                    if (t.comment) { nm.appendChild(el('div', 'small text-body-secondary', t.comment)); }
+                    tr.appendChild(nm);
+                    tr.appendChild(el('td', 'small', t.view ? 'view' : (t.engine || '')));
+                    tr.appendChild(el('td', 'text-end', t.view ? '' : Number(t.rows || 0).toLocaleString()));
+                    tr.appendChild(el('td', 'text-end', t.view ? '' : fmtBytes(t.bytes || 0)));
+                    tr.appendChild(el('td', 'text-end', t.view ? '' : fmtBytes(t.index_bytes || 0)));
+                    tr.appendChild(el('td', 'text-end', String(t.columns || 0)));
+                    tr.appendChild(el('td', 'text-end', t.view ? '' : String(t.indexes || 0)));
+                    tr.appendChild(el('td', 'text-end', t.auto_increment !== undefined ? Number(t.auto_increment).toLocaleString() : ''));
+                    tr.appendChild(el('td', 'small', t.view ? '' : (t.collation || '')));
+                    tr.appendChild(el('td', 'small text-body-secondary', t.updated || ''));
+                    tb.appendChild(tr);
+                });
+                table.appendChild(tb);
+                var picked = list.filter(function (t) { return objPicked.has(t.name); }).length;
+                allBox.checked = picked > 0 && picked === list.length; allBox.indeterminate = picked > 0 && picked < list.length;
+                syncBar();
+                holder.replaceChildren(list.length ? table : el('div', 'p-4 text-body-secondary', state.tables.length ? 'No object matches this filter.' : 'This database has no tables yet. Create one with the + button, the SQL tab or your application.'));
+            }
+            search.addEventListener('input', draw); kind.addEventListener('change', draw);
+            pane.replaceChildren(wrap); draw();
+        });
+    }
 
     // ---- browse ---------------------------------------------------------
     function browse() {
@@ -479,6 +606,174 @@
         }, true);
     }
 
+    function duplicateTable() {
+        var n = input(state.table + '_copy'), withData = el('input', 'form-check-input'); withData.type = 'checkbox';
+        var g = el('div', 'row g-2'); g.append(field('Name of the copy', n, 'col-12'));
+        var lab = el('label', 'form-check col-12 ms-2'); lab.append(withData, document.createTextNode(' Copy the rows too')); g.appendChild(lab);
+        formDialog('Duplicate ' + state.table, g, 'Duplicate', function (dry) {
+            var to = n.value.trim();
+            return alter(function () { return { op: 'duplicate_table', new_name: to, with_data: withData.checked }; })(dry).then(function (r) { if (!dry) { selectTable(to); } return r; });
+        }, true);
+    }
+    function renameIndex(old) {
+        var n = input(old);
+        formDialog('Rename index ' + old, field('New name', n, 'col-12'), 'Rename', alter(function () { return { op: 'rename_index', name: old, new_name: n.value.trim() }; }), true);
+    }
+    function addCheck(st) {
+        var names = (st.columns || []).map(function (c) { return c.name; });
+        var name = input('', 'optional'), col = select(names), op = select([['ge', 'is at least (>=)'], ['gt', 'is greater than (>)'], ['le', 'is at most (<=)'], ['lt', 'is less than (<)'], ['eq', 'equals (=)'], ['ne', 'differs from (<>)'], ['between', 'is between'], ['in', 'is one of (comma-separated)'], ['not_in', 'is none of (comma-separated)'], ['like', 'matches (LIKE)'], ['not_like', 'does not match (LIKE)']]);
+        var v1 = input('', 'value'), v2 = input('', 'upper value (between)');
+        var g = el('div', 'row g-2'); g.append(field('Name', name, 'col-12'), field('Column', col, 'col-sm-4'), field('Condition', op, 'col-sm-8'), field('Value', v1, 'col-sm-6'), field('Upper value', v2, 'col-sm-6'));
+        g.appendChild(el('div', 'form-text col-12', 'Every existing row must already satisfy the condition, or the server refuses it. For anything more complex use the SQL tab.'));
+        formDialog('Add a check to ' + state.table, g, 'Add check', alter(function () {
+            return { op: 'add_check', name: name.value.trim(), check: { column: col.value, op: op.value, value: v1.value, value2: v2.value } };
+        }), true);
+    }
+    function tableOptions(st) {
+        var s = st.status || {};
+        var comment = input(s.comment || ''), engine = select([['', '(unchanged)'], ['InnoDB', 'InnoDB'], ['Aria', 'Aria'], ['MyISAM', 'MyISAM'], ['MEMORY', 'MEMORY']]);
+        var charset = input('', 'e.g. utf8mb4'), collation = input('', 'e.g. utf8mb4_unicode_ci'), convert = el('input', 'form-check-input'); convert.type = 'checkbox';
+        var rowFormat = select([['', '(unchanged)'], ['DYNAMIC', 'DYNAMIC'], ['COMPACT', 'COMPACT'], ['REDUNDANT', 'REDUNDANT'], ['COMPRESSED', 'COMPRESSED'], ['FIXED', 'FIXED'], ['DEFAULT', 'DEFAULT']]);
+        var auto = input(s.auto_increment || '', 'next number');
+        var g = el('div', 'row g-2');
+        g.append(field('Comment', comment, 'col-12'), field('Storage engine', engine, 'col-sm-6'), field('Row format', rowFormat, 'col-sm-6'), field('Character set', charset, 'col-sm-6'), field('Collation', collation, 'col-sm-6'), field('Next auto-increment', auto, 'col-sm-6'));
+        var lab = el('label', 'form-check col-12 ms-2'); lab.append(convert, document.createTextNode(' Convert existing text to the new character set (otherwise only new columns use it)')); g.appendChild(lab);
+        g.appendChild(el('div', 'form-text col-12', 'Changes are applied one after the other; empty fields are left as they are. Changing the engine or converting the character set rebuilds the table, which can take a while on a big one.'));
+        // Several statements: the preview shows each; running stops at the first error.
+        var steps = function () {
+            var out = [];
+            if (comment.value !== (s.comment || '')) { out.push({ op: 'comment_table', comment: comment.value }); }
+            if (engine.value && engine.value !== s.engine) { out.push({ op: 'set_engine', engine: engine.value }); }
+            if (rowFormat.value) { out.push({ op: 'set_row_format', row_format: rowFormat.value }); }
+            if (charset.value.trim()) { out.push({ op: 'set_charset', charset: charset.value.trim(), collation: collation.value.trim(), convert: convert.checked }); }
+            if (auto.value.trim() && String(auto.value.trim()) !== String(s.auto_increment || '')) { out.push({ op: 'set_auto_increment', auto_increment: parseInt(auto.value, 10) }); }
+            if (!out.length) { throw new Error('Nothing to change.'); }
+            return out;
+        };
+        formDialog('Options of ' + state.table, g, 'Apply', function (dry) {
+            var list = steps(), sqls = [];
+            return list.reduce(function (p, step) {
+                return p.then(function () {
+                    var q = Object.assign({ table: state.table }, step, { dry_run: true });
+                    q.alter_op = q.op; delete q.op;
+                    return call('alter', q).then(function (r) { sqls.push(r.sql); if (!dry) { var real = Object.assign({}, q, { dry_run: false }); return call('alter', real); } });
+                });
+            }, Promise.resolve()).then(function () {
+                if (dry) { return { sql: sqls.join(';\n') }; }
+                NimVor.toast('Table options saved.', 'success'); delete state.structure[state.table];
+                return loadTables().then(function () { showStructure(); });
+            });
+        }, true);
+    }
+
+    // ---- routines, triggers, events, sequences, partitions -------------------------
+    function showText(title, text) {
+        var pre = el('pre', 'nim-db-create mb-0', text || '(nothing to show)');
+        formDialog(title, pre, 'Close', function () { return Promise.resolve({}); }, false);
+    }
+    function objOp(params, title, msg, ok, word) {
+        confirmDialog(title, msg, ok, word).then(function (yes) {
+            if (!yes) { return; }
+            call('object_op', Object.assign({ confirm: params.alter_op === 'drop' }, params)).then(function () { NimVor.toast('Done.', 'success'); showRoutines(); }).catch(fail);
+        });
+    }
+    function showRoutines() {
+        loading(pane);
+        call('routines').then(function (d) {
+            if (state.tab !== 'routines') { return; }
+            var body = el('div', 'p-3');
+            var h = function (text) { return el('h2', 'h6 mt-3 mb-2', text); };
+            var defBtn = function (kind, type, name) { var b = btn('Definition', '', 'btn-sm btn-outline-secondary me-1', function () { call('object_definition', { kind: kind, type: type, name: name }).then(function (r) { showText(name, r.definition || r.note); }).catch(fail); }); return b; };
+            var dropBtn = function (kind, type, name) { return btn('Drop', '', 'btn-sm btn-outline-danger', function () { objOp({ kind: kind, type: type, name: name, alter_op: 'drop' }, 'Drop ' + kind, 'Drop the ' + kind + ' ' + name + '? This cannot be undone.', 'Drop', root.dataset.database); }); };
+            var cell = function (nodes) { var td = el('td', 'text-end text-nowrap'); nodes.forEach(function (n) { td.appendChild(n); }); return td; };
+            var table = function (head, rows) { return opsTable(head, rows); };
+            body.appendChild(h('Functions and procedures'));
+            body.appendChild((d.routines || []).length ? table(['Name', 'Type', 'Returns', 'Security', 'Modified', ''], d.routines.map(function (r) { return [r.name, r.type, r.returns, r.security, r.modified, cell([defBtn('routine', r.type, r.name), dropBtn('routine', r.type, r.name)])]; })) : el('p', 'text-body-secondary small', 'None.'));
+            body.appendChild(h('Triggers'));
+            body.appendChild((d.triggers || []).length ? table(['Name', 'Table', 'When', ''], d.triggers.map(function (t) { return [t.name, t.table, t.timing + ' ' + t.event, cell([defBtn('trigger', '', t.name), dropBtn('trigger', '', t.name)])]; })) : el('p', 'text-body-secondary small', 'None.'));
+            body.appendChild(h('Events'));
+            body.appendChild(el('p', 'small text-body-secondary', 'Event scheduler: ' + (d.event_scheduler || 'unknown') + (String(d.event_scheduler).toUpperCase() === 'ON' ? '' : ' (events only run when it is ON; that is a server setting)')));
+            body.appendChild((d.events || []).length ? table(['Name', 'Status', 'Schedule', 'Last run', ''], d.events.map(function (e) {
+                var on = e.status === 'ENABLED';
+                var tog = btn(on ? 'Disable' : 'Enable', '', 'btn-sm btn-outline-secondary me-1', function () { call('object_op', { kind: 'event', name: e.name, alter_op: on ? 'disable' : 'enable' }).then(function () { showRoutines(); }).catch(fail); });
+                return [e.name, e.status, e.type === 'ONE TIME' ? 'once at ' + e.execute_at : 'every ' + e.every, e.last_executed, cell([defBtn('event', '', e.name), tog, dropBtn('event', '', e.name)])];
+            })) : el('p', 'text-body-secondary small', 'None.'));
+            body.appendChild(el('p', 'small text-body-secondary mt-3', 'To create or change a routine, trigger or event, use the SQL tab: its body is code.'));
+            pane.replaceChildren(body);
+        }).catch(function (e) { pane.replaceChildren(el('div', 'alert alert-danger m-3', (e.details && e.details.details) || e.message)); });
+    }
+    function showSequences() {
+        loading(pane);
+        call('sequences').then(function (d) {
+            if (state.tab !== 'sequences') { return; }
+            var body = el('div', 'p-3');
+            if (!d.supported) { body.appendChild(el('div', 'text-body-secondary', d.note)); pane.replaceChildren(body); return; }
+            var bar = el('div', 'd-flex align-items-center gap-2 mb-2');
+            bar.appendChild(btn('New sequence', 'bi-plus-lg', 'btn-sm btn-outline-primary', function () { sequenceForm(null); }));
+            body.appendChild(bar);
+            var n = function (v) { return Number(v).toLocaleString(); };
+            body.appendChild((d.sequences || []).length ? opsTable(['Name', 'Next value', 'Step', 'Min', 'Max', 'Cycle', ''], d.sequences.map(function (q) {
+                var td = el('td', 'text-end text-nowrap');
+                td.appendChild(btn('Change', '', 'btn-sm btn-outline-secondary me-1', function () { sequenceForm(q); }));
+                td.appendChild(btn('Drop', '', 'btn-sm btn-outline-danger', function () { confirmDialog('Drop sequence', 'Drop the sequence ' + q.name + '? Tables that use it as a default will fail until you change them.', 'Drop', q.name).then(function (yes) { if (yes) { call('sequence_op', { alter_op: 'drop', name: q.name, confirm: true }).then(function () { NimVor.toast('Sequence dropped.', 'success'); showSequences(); }).catch(fail); } }); }));
+                return [q.name, n(q.next), n(q.increment), n(q.min), n(q.max), q.cycle ? 'yes' : 'no', td];
+            })) : el('p', 'text-body-secondary', 'No sequences yet.'));
+            pane.replaceChildren(body);
+        }).catch(function (e) { pane.replaceChildren(el('div', 'alert alert-danger m-3', (e.details && e.details.details) || e.message)); });
+    }
+    function sequenceForm(q) {
+        var name = input(q ? q.name : '', 'name'); if (q) { name.disabled = true; }
+        var start = input('', 'start'), inc = input(q ? q.increment : '', 'step'), min = input('', 'minimum'), max = input('', 'maximum'), value = input('', 'set the last value used'), cycle = select([['', '(unchanged)'], ['true', 'cycle'], ['false', 'no cycle']]);
+        var g = el('div', 'row g-2'); g.append(field('Name', name, 'col-12'));
+        if (!q) { g.append(field('Start with', start, 'col-sm-6')); }
+        g.append(field('Step', inc, 'col-sm-6'), field('Minimum', min, 'col-sm-6'), field('Maximum', max, 'col-sm-6'), field('Cycle', cycle, 'col-sm-6'));
+        if (q) { g.append(field('Set value', value, 'col-sm-6', 'Makes the next number follow this one.')); }
+        var num = function (i) { return i.value.trim() === '' ? undefined : parseInt(i.value, 10); };
+        formDialog(q ? 'Change ' + q.name : 'New sequence', g, q ? 'Apply' : 'Create', function (dry) {
+            var common = { name: name.value.trim(), start: num(start), increment: num(inc), min: num(min), max: num(max), cycle: cycle.value === '' ? undefined : cycle.value === 'true' };
+            var steps = q ? [] : [Object.assign({ alter_op: 'create' }, common)];
+            if (q) {
+                if (common.increment !== undefined || common.min !== undefined || common.max !== undefined || common.cycle !== undefined) { steps.push(Object.assign({ alter_op: 'alter' }, common)); }
+                if (num(value) !== undefined) { steps.push({ alter_op: 'set_value', name: q.name, value: num(value) }); }
+                if (!steps.length) { throw new Error('Nothing to change.'); }
+            }
+            var sqls = [];
+            return steps.reduce(function (p, st) { return p.then(function () { return call('sequence_op', Object.assign({}, st, { dry_run: true })).then(function (r) { sqls.push(r.sql); if (!dry) { return call('sequence_op', Object.assign({}, st, { dry_run: false })); } }); }); }, Promise.resolve()).then(function () {
+                if (dry) { return { sql: sqls.join(';\n') }; }
+                NimVor.toast('Saved.', 'success'); showSequences();
+            });
+        }, true);
+    }
+    function partitionSection(name, body) {
+        call('partitions', { table: name }).then(function (d) {
+            if (state.table !== name || state.tab !== 'structure') { return; }
+            var sec = el('div'); var head = el('div', 'd-flex align-items-center gap-2 mt-3 mb-2');
+            head.appendChild(el('h2', 'h6 mb-0', 'Partitions' + (d.partitioned ? ' by ' + d.method + ' (' + d.expression + ')' : '')));
+            head.appendChild(btn('Add partition', 'bi-plus-lg', 'btn-sm btn-outline-primary ms-auto', function () { partitionForm(d); }));
+            if (d.partitioned) { head.appendChild(btn('Remove partitioning', '', 'btn-sm btn-outline-danger', function () { dangerAlter({ op: 'remove_partitioning' }, 'Remove partitioning', 'The table becomes a normal table and keeps all its rows.', 'Remove'); })); }
+            sec.appendChild(head);
+            if (!d.partitioned) { sec.appendChild(el('p', 'small text-body-secondary', 'This table is not partitioned. Partitioning an existing table is done with ALTER TABLE ... PARTITION BY on the SQL tab; once it is partitioned you can manage the partitions here.')); body.appendChild(sec); return; }
+            sec.appendChild(opsTable(['Partition', 'Bounds', 'Rows (est.)', 'Data', ''], d.partitions.map(function (p) {
+                var td = el('td', 'text-end text-nowrap');
+                [['Analyze', 'analyze_partition'], ['Rebuild', 'rebuild_partition']].forEach(function (o) { td.appendChild(btn(o[0], '', 'btn-sm btn-outline-secondary me-1', function () { alter(function () { return { op: o[1], name: p.name }; })(false).catch(fail); })); });
+                td.appendChild(btn('Empty', '', 'btn-sm btn-outline-danger me-1', function () { dangerAlter({ op: 'truncate_partition', name: p.name }, 'Empty partition', 'Delete every row in partition ' + p.name + '?', 'Empty'); }));
+                td.appendChild(btn('Drop', '', 'btn-sm btn-outline-danger', function () { dangerAlter({ op: 'drop_partition', name: p.name }, 'Drop partition', 'Drop partition ' + p.name + ' and the rows in it? This cannot be undone.', 'Drop', p.name); }));
+                return [p.name, p.description, Number(p.rows).toLocaleString(), fmtBytes(p.data_bytes), td];
+            })));
+            body.appendChild(sec);
+        }).catch(function () { /* partition info is optional */ });
+    }
+    function partitionForm(d) {
+        var method = (d.method || '').toUpperCase().replace(' COLUMNS', '');
+        var kind = select(d.partitioned ? [[method === 'LIST' ? 'list' : method === 'RANGE' ? 'range' : method === 'HASH' || method === 'LINEAR HASH' ? 'hash' : 'key', method]] : [['range', 'RANGE'], ['list', 'LIST']]);
+        var name = input('', 'p2027'), value = input('', 'value'), count = input('1', 'how many');
+        var g = el('div', 'row g-2'); g.append(field('Method', kind, 'col-sm-4'), field('Partition name', name, 'col-sm-8'), field('RANGE: values less than (a number, a date such as 2027-01-01, or MAXVALUE) · LIST: values, comma-separated', value, 'col-12'), field('HASH / KEY: partitions to add', count, 'col-sm-4'));
+        g.appendChild(el('div', 'form-text col-12', 'Bounds are literal values. A partitioning expression such as TO_DAYS(date) needs the bound written the same way: use the SQL tab.'));
+        formDialog('Add a partition to ' + state.table, g, 'Add partition', alter(function () {
+            return { op: 'add_partition', name: name.value.trim(), part_kind: kind.value, part_value: value.value.trim(), part_count: parseInt(count.value, 10) || 1 };
+        }), true);
+    }
+
     // ---- structure --------------------------------------------------------
     function showStructure() {
         var name = state.table; loading(pane);
@@ -510,7 +805,9 @@
                 body.appendChild(h('Indexes', [btn('Add index', 'bi-plus-lg', 'btn-sm btn-outline-primary ms-auto', function () { addIndex(st); })]));
                 body.appendChild((st.indexes || []).length ? opsTable(['Name', 'Columns', 'Unique', 'Type', ''], st.indexes.map(function (i) {
                     var d = btn('', 'bi-trash', 'btn-link p-0 text-danger', function () { dangerAlter({ op: 'drop_index', name: i.name }, 'Drop index', 'Drop the index ' + i.name + '?' + (i.name === 'PRIMARY' ? ' Rows can then only be edited from the SQL tab unless another unique key exists.' : ''), 'Drop'); }); d.setAttribute('aria-label', 'Drop index ' + i.name);
-                    return rowOps([i.name, i.columns, i.unique ? 'yes' : 'no', i.type], [d]);
+                    var rn = i.name === 'PRIMARY' ? null : btn('', 'bi-pencil', 'btn-link p-0 me-2', function () { renameIndex(i.name); });
+                    if (rn) { rn.setAttribute('aria-label', 'Rename index ' + i.name); }
+                    return rowOps([i.name, i.columns, i.unique ? 'yes' : 'no', i.type], rn ? [rn, d] : [d]);
                 })) : el('p', 'text-body-secondary small', 'No indexes.'));
 
                 body.appendChild(h('Foreign keys', [btn('Add foreign key', 'bi-plus-lg', 'btn-sm btn-outline-primary ms-auto', function () { addForeignKey(st); })]));
@@ -518,6 +815,12 @@
                     var d = btn('', 'bi-trash', 'btn-link p-0 text-danger', function () { dangerAlter({ op: 'drop_foreign_key', name: k.name }, 'Drop foreign key', 'Drop the foreign key ' + k.name + '? The column and its values stay.', 'Drop'); }); d.setAttribute('aria-label', 'Drop foreign key ' + k.name);
                     return rowOps([k.name, k.columns, k.ref_table + ' (' + k.ref_columns + ')', k.on_delete, k.on_update], [d]);
                 })) : el('p', 'text-body-secondary small', 'No foreign keys.'));
+
+                body.appendChild(h('Check constraints', [btn('Add check', 'bi-plus-lg', 'btn-sm btn-outline-primary ms-auto', function () { addCheck(st); })]));
+                body.appendChild((st.checks || []).length ? opsTable(['Name', 'Condition', ''], st.checks.map(function (k) {
+                    var d = btn('', 'bi-trash', 'btn-link p-0 text-danger', function () { dangerAlter({ op: 'drop_check', name: k.name }, 'Drop check constraint', 'Drop the check ' + k.name + '? Rows are not changed.', 'Drop'); }); d.setAttribute('aria-label', 'Drop check ' + k.name);
+                    return rowOps([k.name, k.clause], [d]);
+                })) : el('p', 'text-body-secondary small', 'No check constraints. (Needs MariaDB 10.2 or MySQL 8.0.16 or newer.)'));
             }
 
             var ch = h('CREATE statement', [btn('Copy', 'bi-clipboard', 'btn-sm btn-outline-secondary', function () { navigator.clipboard.writeText(st.create || '').then(function () { NimVor.toast('Copied.', 'success'); }); })]);
@@ -529,6 +832,8 @@
             } else {
                 ops.append(
                     btn('Rename', 'bi-input-cursor-text', 'btn-outline-secondary', renameTable),
+                    btn('Table options', 'bi-sliders', 'btn-outline-secondary', function () { tableOptions(st); }),
+                    btn('Duplicate', 'bi-files', 'btn-outline-secondary', duplicateTable),
                     btn('Optimize', 'bi-lightning', 'btn-outline-secondary', function () { alter(function () { return { op: 'optimize_table' }; })(false).catch(fail); }),
                     btn('Analyze', 'bi-graph-up', 'btn-outline-secondary', function () { alter(function () { return { op: 'analyze_table' }; })(false).catch(fail); }),
                     btn('Check', 'bi-check2-square', 'btn-outline-secondary', function () { alter(function () { return { op: 'check_table' }; })(false).catch(fail); }),
@@ -539,6 +844,7 @@
             }
             body.appendChild(ops);
             pane.appendChild(body);
+            if (!view) { partitionSection(name, body); }
         }).catch(function (e) { pane.replaceChildren(el('div', 'alert alert-danger m-3', (e.details && e.details.details) || e.message)); });
     }
     function dangerAlter(params, title, msg, ok, word) {
@@ -755,5 +1061,5 @@
     }
 
     loadTables();
-    switchTab('sql');
+    switchTab('overview');
 })();

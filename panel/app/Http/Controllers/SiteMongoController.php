@@ -193,12 +193,32 @@ final class SiteMongoController extends SiteController
             switch ($request->string('op')) {
                 case 'collections':
                     return Response::json(['success' => true, 'data' => ['collections' => $this->mongo->collections($site, $db)]]);
+                case 'db_overview':
+                    return Response::json(['success' => true, 'data' => $this->mongo->dbOverview($site, $db)]);
+                case 'collections_detail':
+                    return Response::json(['success' => true, 'data' => ['collections' => $this->mongo->collectionsDetail($site, $db)]]);
                 case 'coll_create':
                     $this->mongo->createCollection($site, $db, trim((string) $request->input('collection')), $this->userId($request));
                     return Response::json(['success' => true, 'data' => ['created' => trim((string) $request->input('collection'))]]);
                 case 'coll_drop':
                     $this->mongo->dropCollection($site, $db, trim((string) $request->input('collection')), $this->userId($request));
                     return Response::json(['success' => true, 'data' => ['dropped' => trim((string) $request->input('collection'))]]);
+                case 'coll_create_ex':
+                    $this->mongo->createCollectionEx($site, $db, trim((string) $request->input('collection')), (array) $request->input('options', []), $this->userId($request));
+                    return Response::json(['success' => true, 'data' => ['created' => trim((string) $request->input('collection'))]]);
+                case 'coll_copy':
+                    $this->mongo->copyCollection($site, $db, trim((string) $request->input('collection')), trim((string) $request->input('name')), $this->userId($request));
+                    return Response::json(['success' => true, 'data' => ['copied' => trim((string) $request->input('name'))]]);
+                case 'docs_delete_many':
+                case 'doc_duplicate':
+                case 'docs_update_many':
+                case 'index_stats':
+                case 'index_hide':
+                case 'validation_set':
+                case 'view_create':
+                    return Response::json(['success' => true, 'data' => $this->mongo->docOp($site, $db, trim((string) $request->input('collection')), $request->string('op'), $request->all(), $this->userId($request))]);
+                case 'colls_bulk':
+                    return Response::json(['success' => true, 'data' => $this->mongo->collectionsBulk($site, $db, trim((string) $request->input('bulk_op')), (array) $request->input('collections', []), $this->userId($request))]);
                 case 'coll_empty':
                     return Response::json(['success' => true, 'data' => ['deleted' => $this->mongo->emptyCollection($site, $db, trim((string) $request->input('collection')), $this->userId($request))]]);
                 case 'coll_rename':

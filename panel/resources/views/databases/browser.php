@@ -18,6 +18,10 @@
     </aside>
     <section class="nim-db-main">
         <nav class="nim-db-tabs" role="tablist">
+            <button type="button" class="btn btn-sm" role="tab" data-db-tab="overview"><i class="bi bi-speedometer2"></i> Overview</button>
+            <button type="button" class="btn btn-sm" role="tab" data-db-tab="objects"><i class="bi bi-list-ul"></i> Objects</button>
+            <button type="button" class="btn btn-sm" role="tab" data-db-tab="routines"><i class="bi bi-braces"></i> Routines</button>
+            <button type="button" class="btn btn-sm" role="tab" data-db-tab="sequences"><i class="bi bi-123"></i> Sequences</button>
             <button type="button" class="btn btn-sm" role="tab" data-db-tab="browse" disabled><i class="bi bi-grid-3x3"></i> Browse</button>
             <button type="button" class="btn btn-sm" role="tab" data-db-tab="structure" disabled><i class="bi bi-diagram-3"></i> Structure</button>
             <button type="button" class="btn btn-sm" role="tab" data-db-tab="insert" disabled><i class="bi bi-plus-lg"></i> Insert</button>
@@ -25,7 +29,7 @@
             <span class="ms-auto small text-body-secondary font-monospace text-truncate" data-db-current></span>
         </nav>
         <div class="nim-db-pane" data-db-pane aria-live="polite">
-            <div class="text-body-secondary p-4">Choose a table on the left, or open the SQL tab.</div>
+            <div class="text-body-secondary p-4">Loading…</div>
         </div>
     </section>
 </div>

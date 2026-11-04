@@ -12,6 +12,8 @@
  * @var array{schemas: list<string>, tables: list<array<string, mixed>>} $tables
  * @var array<string, mixed>|null $result
  * @var array<string, mixed>|null $structure
+ * @var array<string, mixed>|null $partitions  strategy, key and partitions of a partitioned table
+ * @var array<string, mixed>|null $details   indexes, constraints and triggers of the table (structure tab)
  * @var bool $canWrite
  */
 $id = (int) $db['id'];
@@ -39,21 +41,75 @@ ob_start();
 if ($result === null): ?>
     <div class="nim-db-empty"><i class="bi bi-table" aria-hidden="true"></i><div>Choose a table on the left, or open the SQL tab.</div></div>
 <?php elseif ($tab === 'structure'): ?>
+    <?php $isTable = in_array((string) ($structure['kind'] ?? 'r'), ['r', 'p'], true); $canAlter = $canWrite && $isTable; $hid = '<input type="hidden" name="db" value="' . $id . '"><input type="hidden" name="schema" value="' . e($schema) . '"><input type="hidden" name="table" value="' . e($table) . '">'; ?>
     <div class="nim-db-editor">
         <h2 class="h6 mb-2">Columns</h2>
         <div class="table-responsive"><table class="table table-sm nim-db-grid mb-3">
-            <thead><tr><th>Column</th><th>Type</th><th>Null</th><th>Default</th><th>Key</th></tr></thead>
+            <thead><tr><th>Column</th><th>Type</th><th>Null</th><th>Default</th><th>Key</th><?php if ($canAlter): ?><th></th><?php endif; ?></tr></thead>
             <tbody>
-            <?php foreach ((array) ($structure['columns'] ?? []) as $c): ?>
-                <tr><td><?= e((string) $c['name']) ?></td><td><?= e((string) $c['type']) ?></td><td><?= !empty($c['not_null']) ? 'NOT NULL' : 'null' ?></td><td><?= e((string) ($c['default'] ?? '')) ?></td><td><?= !empty($c['key']) ? '<i class="bi bi-key-fill text-warning" title="Key column" aria-hidden="true"></i> yes' : '' ?></td></tr>
+            <?php foreach ((array) ($structure['columns'] ?? []) as $c): $cn = (string) $c['name']; ?>
+                <tr><td><?= e($cn) ?></td><td><?= e((string) $c['type']) ?></td><td><?= !empty($c['not_null']) ? 'NOT NULL' : 'null' ?></td><td><?= e((string) ($c['default'] ?? '')) ?></td><td><?= !empty($c['key']) ? '<i class="bi bi-key-fill text-warning" title="Key column" aria-hidden="true"></i> yes' : '' ?></td>
+                <?php if ($canAlter): ?>
+                    <td class="text-end">
+                        <details class="nim-col-edit"><summary class="btn btn-sm btn-outline-secondary">Change</summary>
+                            <div class="border rounded p-2 mt-1 text-start bg-body">
+                                <?php foreach ([
+                                    ['type', 'Type', 'type', (string) $c['type'], 'pg-types'],
+                                    ['set_default', 'Default value', 'default', '', ''],
+                                    ['comment', 'Comment', 'comment', '', ''],
+                                ] as [$what, $label, $field, $current, $list]): ?>
+                                <form class="d-flex gap-1 mb-1" method="post" action="<?= e($this->url('postgres.alter')) ?>"><?= $this->csrfField() ?><?= $hid ?>
+                                    <input type="hidden" name="op" value="alter_column"><input type="hidden" name="name" value="<?= e($cn) ?>"><input type="hidden" name="alter_what" value="<?= e($what) ?>">
+                                    <input class="form-control form-control-sm" name="value" value="<?= e($current) ?>" placeholder="<?= e($label) ?>"<?= $list !== '' ? ' list="' . e($list) . '"' : '' ?> aria-label="<?= e($label) ?> of <?= e($cn) ?>" maxlength="200">
+                                    <button class="btn btn-sm btn-outline-primary text-nowrap">Set <?= e(strtolower($label)) ?></button>
+                                </form>
+                                <?php endforeach; ?>
+                                <form class="d-flex flex-wrap gap-1 mb-1" method="post" action="<?= e($this->url('postgres.alter')) ?>"><?= $this->csrfField() ?><?= $hid ?>
+                                    <input type="hidden" name="op" value="alter_column"><input type="hidden" name="name" value="<?= e($cn) ?>">
+                                    <button class="btn btn-sm btn-outline-secondary" name="alter_what" value="<?= !empty($c['not_null']) ? 'drop_not_null' : 'set_not_null' ?>"><?= !empty($c['not_null']) ? 'Allow NULL' : 'Require a value (NOT NULL)' ?></button>
+                                    <button class="btn btn-sm btn-outline-secondary" name="alter_what" value="drop_default">Remove default</button>
+                                </form>
+                                <form class="d-flex gap-1 mb-1" method="post" action="<?= e($this->url('postgres.alter')) ?>"><?= $this->csrfField() ?><?= $hid ?>
+                                    <input type="hidden" name="op" value="rename_column"><input type="hidden" name="name" value="<?= e($cn) ?>">
+                                    <input class="form-control form-control-sm" name="new_name" placeholder="new name" maxlength="63" aria-label="New name of <?= e($cn) ?>"><button class="btn btn-sm btn-outline-primary">Rename</button>
+                                </form>
+                                <form class="d-flex gap-1" method="post" action="<?= e($this->url('postgres.alter')) ?>"><?= $this->csrfField() ?><?= $hid ?>
+                                    <input type="hidden" name="op" value="drop_column"><input type="hidden" name="name" value="<?= e($cn) ?>">
+                                    <input class="form-control form-control-sm" name="confirm" placeholder="type <?= e($cn) ?> to drop" autocomplete="off" aria-label="Type <?= e($cn) ?> to confirm"><button class="btn btn-sm btn-danger">Drop</button>
+                                </form>
+                            </div>
+                        </details>
+                    </td>
+                <?php endif; ?>
+                </tr>
             <?php endforeach; ?>
             </tbody>
         </table></div>
-        <h2 class="h6 mb-2">Indexes</h2>
-        <?php if (empty($structure['indexes'])): ?>
-            <p class="small text-body-secondary">This table has no indexes.</p>
-        <?php else: ?>
-            <?php foreach ((array) $structure['indexes'] as $ix): ?><pre class="nim-db-create mb-2"><?= e((string) $ix['definition']) ?></pre><?php endforeach; ?>
+        <?php if ($canAlter): ?>
+        <details class="mb-3"><summary class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-lg"></i> Add a column</summary>
+            <form class="border rounded p-2 mt-2" method="post" action="<?= e($this->url('postgres.alter')) ?>"><?= $this->csrfField() ?><?= $hid ?><input type="hidden" name="op" value="add_column">
+                <?= $this->partial('postgres/_column_fields', ['prefix' => 'col', 'primary' => false]) ?>
+                <button class="btn btn-sm btn-primary mt-1">Add column</button>
+            </form>
+        </details>
+        <?= $this->partial('postgres/_types', []) ?>
+        <?php endif; ?>
+        <?= $this->partial('postgres/_structure_extra', ['db' => $db, 'schema' => $schema, 'table' => $table, 'structure' => $structure, 'details' => $details, 'partitions' => $partitions, 'canAlter' => $canAlter, 'hid' => $hid]) ?>
+        <?php if ($canWrite): ?>
+        <h2 class="h6 mt-4 mb-2">This <?= e($isTable ? 'table' : 'view') ?></h2>
+        <div class="row g-2 small">
+            <?php foreach ([
+                ['rename_table', 'new_name', 'New name', 'Rename'],
+                ['set_schema', 'new_schema', 'Schema', 'Move to schema'],
+                ['comment_table', 'comment', 'Comment', 'Save comment'],
+            ] + ($isTable ? [3 => ['duplicate_table', 'new_name', 'Name of the copy', 'Duplicate']] : []) as [$op, $field, $ph, $label]): ?>
+            <div class="col-12 col-lg-6"><form class="d-flex gap-1 align-items-center" method="post" action="<?= e($this->url('postgres.alter')) ?>"><?= $this->csrfField() ?><?= $hid ?><input type="hidden" name="op" value="<?= e($op) ?>">
+                <input class="form-control form-control-sm" name="<?= e($field) ?>" placeholder="<?= e($ph) ?>" maxlength="200" aria-label="<?= e($ph) ?>">
+                <?php if ($op === 'duplicate_table'): ?><label class="form-check mb-0 text-nowrap"><input class="form-check-input" type="checkbox" name="with_data" value="1"> with data</label><?php endif; ?>
+                <button class="btn btn-sm btn-outline-primary text-nowrap"><?= e($label) ?></button>
+            </form></div>
+            <?php endforeach; ?>
+        </div>
         <?php endif; ?>
     </div>
 <?php elseif ($tab === 'insert'): ?>
@@ -109,7 +165,7 @@ if ($result === null): ?>
         <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('postgres.export') . '?' . http_build_query(array_filter(['db' => $id, 'schema' => $schema, 'table' => $table, 'q' => $q, 'fc' => $fc, 'fo' => $fo, 'fv' => $fv, 'sort' => $sort, 'dir' => $dir], static fn ($v): bool => $v !== ''))) ?>"><i class="bi bi-filetype-csv"></i> Export CSV</a>
         <div class="dropdown">
             <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"><i class="bi bi-layout-three-columns"></i> Columns</button>
-            <div class="dropdown-menu p-2" style="min-width:14rem">
+            <div class="dropdown-menu p-2 nim-colmenu">
                 <?php foreach ($cols as $i => $c): ?>
                     <label class="dropdown-item-text d-flex gap-2 small"><input type="checkbox" class="form-check-input" data-pgb-col="<?= (int) $i ?>" checked><span class="font-monospace"><?= e((string) $c['name']) ?></span></label>
                 <?php endforeach; ?>

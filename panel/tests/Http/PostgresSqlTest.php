@@ -72,7 +72,7 @@ final class PostgresSqlTest extends HttpTestCase
         }
         // SQL is the current tab; the editor, its settings and its scripts are all still there.
         self::assertMatchesRegularExpression('~btn-primary"[^>]*aria-current="page"[^>]*><i class="bi bi-terminal"~', $page);
-        self::assertStringContainsString('id="pgsql-editor"', $page);
+        self::assertStringContainsString('id="pgsql-editor" class="nim-sql-editor"', $page);
         self::assertStringContainsString('sql-editor.min.js', $page);
         self::assertStringContainsString('postgres-sql.js', $page);
         // The tabs lead back to the table that was open.

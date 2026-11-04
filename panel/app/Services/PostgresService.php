@@ -476,6 +476,188 @@ final class PostgresService
     }
 
     /**
+     * The database overview (version, size, object counts, connection details).
+     *
+     * @param array<string, mixed> $database
+     * @return array<string, mixed>
+     */
+    public function dbOverview(array $database): array
+    {
+        return (array) $this->callOn((int) $database['pg_server_id'], 'pg.db_overview', ['database' => (string) $database['name']], 60);
+    }
+
+    /**
+     * Tables, views, materialized views and foreign tables with their statistics. $q: schema, kind, search, sort, dir, offset, limit.
+     *
+     * @param array<string, mixed> $database
+     * @param array<string, mixed> $q
+     * @return array<string, mixed>
+     */
+    public function objects(array $database, array $q): array
+    {
+        return (array) $this->callOn((int) $database['pg_server_id'], 'pg.objects', ['database' => (string) $database['name']] + $q, 60);
+    }
+
+    /** Structure changes the panel offers, with the label the audit log and messages use. */
+    public const ALTER_OPS = [
+        'create_table' => 'Table created', 'rename_table' => 'Table renamed', 'comment_table' => 'Comment saved', 'duplicate_table' => 'Table duplicated',
+        'set_schema' => 'Table moved', 'add_column' => 'Column added', 'alter_column' => 'Column changed', 'rename_column' => 'Column renamed', 'drop_column' => 'Column dropped',
+        'create_index' => 'Index created', 'drop_index' => 'Index dropped', 'rename_index' => 'Index renamed', 'reindex_index' => 'Index rebuilt',
+        'add_constraint' => 'Constraint added', 'drop_constraint' => 'Constraint dropped', 'validate_constraint' => 'Constraint validated', 'rename_constraint' => 'Constraint renamed',
+        'create_partition' => 'Partition created', 'attach_partition' => 'Partition attached', 'detach_partition' => 'Partition detached',
+        'enable_trigger' => 'Trigger enabled', 'disable_trigger' => 'Trigger disabled', 'drop_trigger' => 'Trigger dropped',
+    ];
+
+    /**
+     * One structure change (see pg.table_alter). dry_run returns the SQL only and is not audited.
+     *
+     * @param array<string, mixed> $database
+     * @param array<string, mixed> $params op, schema, table and the operation's own fields
+     * @return array<string, mixed>
+     */
+    public function alter(array $database, array $params, ?int $userId): array
+    {
+        $op = (string) ($params['op'] ?? '');
+        if (!isset(self::ALTER_OPS[$op])) {
+            throw new UserFacingException('That change is not available.');
+        }
+        $params['database'] = (string) $database['name'];
+        try {
+            $out = (array) $this->callOn((int) $database['pg_server_id'], 'pg.table_alter', $params, 300);
+        } catch (UserFacingException $e) {
+            if (empty($params['dry_run'])) {
+                $this->audit->record('postgres.' . $op, 'pg_database', (string) $database['name'], AuditLogger::FAILURE, ['table' => (string) ($params['table'] ?? ''), 'error' => mb_substr($e->getMessage(), 0, 200)], $userId);
+            }
+            throw $e;
+        }
+        if (empty($params['dry_run'])) {
+            $this->audit->record('postgres.' . $op, 'pg_database', (string) $database['name'], AuditLogger::SUCCESS,
+                ['schema' => (string) ($params['schema'] ?? ''), 'table' => (string) ($params['table'] ?? ''), 'sql' => mb_substr((string) ($out['sql'] ?? ''), 0, 1000)], $userId);
+        }
+        return $out;
+    }
+
+    /**
+     * @param array<string, mixed> $database
+     * @return list<array<string, mixed>>
+     */
+    public function routines(array $database, string $schema, string $search): array
+    {
+        $o = (array) $this->callOn((int) $database['pg_server_id'], 'pg.routines', ['database' => (string) $database['name'], 'schema' => $schema, 'search' => $search], 60);
+        return array_map(static fn ($r): array => (array) $r, (array) ($o['routines'] ?? []));
+    }
+
+    /** @param array<string, mixed> $database */
+    public function routineDefinition(array $database, int $oid): string
+    {
+        $o = (array) $this->callOn((int) $database['pg_server_id'], 'pg.routine_definition', ['database' => (string) $database['name'], 'oid' => $oid], 60);
+        return (string) ($o['definition'] ?? '');
+    }
+
+    /** @param array<string, mixed> $database */
+    public function routineDrop(array $database, int $oid, string $label, bool $cascade, string $confirm, ?int $userId): void
+    {
+        if ($confirm !== (string) $database['name']) {
+            throw new UserFacingException('Type the database name to confirm.', '', 'Nothing was dropped.');
+        }
+        $o = (array) $this->callOn((int) $database['pg_server_id'], 'pg.routine_drop', ['database' => (string) $database['name'], 'oid' => $oid, 'cascade' => $cascade, 'confirm' => true], 120);
+        $this->audit->record('postgres.routine_drop', 'pg_database', (string) $database['name'], AuditLogger::SUCCESS, ['routine' => mb_substr($label, 0, 200), 'sql' => mb_substr((string) ($o['sql'] ?? ''), 0, 500)], $userId);
+    }
+
+    /**
+     * @param array<string, mixed> $database
+     * @return list<array<string, mixed>>
+     */
+    public function sequences(array $database): array
+    {
+        $o = (array) $this->callOn((int) $database['pg_server_id'], 'pg.sequences', ['database' => (string) $database['name']], 60);
+        return array_map(static fn ($r): array => (array) $r, (array) ($o['sequences'] ?? []));
+    }
+
+    public const SEQ_OPS = ['create' => 'Sequence created', 'set_value' => 'Value set', 'restart' => 'Sequence restarted', 'alter' => 'Sequence changed', 'sync' => 'Sequence follows its column again', 'drop' => 'Sequence dropped'];
+
+    /**
+     * @param array<string, mixed> $database
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
+    public function sequenceAlter(array $database, array $params, ?int $userId): array
+    {
+        $op = (string) ($params['op'] ?? '');
+        if (!isset(self::SEQ_OPS[$op])) {
+            throw new UserFacingException('That change is not available.');
+        }
+        $params['database'] = (string) $database['name'];
+        try {
+            $out = (array) $this->callOn((int) $database['pg_server_id'], 'pg.sequence_alter', $params, 120);
+        } catch (UserFacingException $e) {
+            $this->audit->record('postgres.sequence_' . $op, 'pg_database', (string) $database['name'], AuditLogger::FAILURE, ['sequence' => (string) ($params['name'] ?? ''), 'error' => mb_substr($e->getMessage(), 0, 200)], $userId);
+            throw $e;
+        }
+        $this->audit->record('postgres.sequence_' . $op, 'pg_database', (string) $database['name'], AuditLogger::SUCCESS, ['schema' => (string) ($params['schema'] ?? ''), 'sequence' => (string) ($params['name'] ?? ''), 'sql' => mb_substr((string) ($out['sql'] ?? ''), 0, 500)], $userId);
+        return $out;
+    }
+
+    /**
+     * @param array<string, mixed> $database
+     * @return array<string, mixed>
+     */
+    public function partitions(array $database, string $schema, string $table): array
+    {
+        return (array) $this->callOn((int) $database['pg_server_id'], 'pg.partitions', ['database' => (string) $database['name'], 'schema' => $schema, 'table' => $table], 60);
+    }
+
+    public const BULK_OPS = [
+        'vacuum' => 'Vacuum', 'vacuum_analyze' => 'Vacuum and analyze', 'analyze' => 'Analyze', 'reindex' => 'Rebuild indexes',
+        'refresh' => 'Refresh materialized views', 'truncate' => 'Empty (truncate)', 'drop' => 'Drop',
+    ];
+
+    /**
+     * Run one maintenance or destructive operation on several tables / views. Dropping and emptying need the database
+     * name typed back; every object is reported on its own.
+     *
+     * @param array<string, mixed> $database
+     * @param list<array{0: string, 1: string}> $items [schema, name] pairs
+     * @param array<string, mixed> $opts cascade, restart_identity
+     * @return array<string, mixed>
+     */
+    public function objectsBulk(array $database, string $op, array $items, array $opts, string $confirm, ?int $userId): array
+    {
+        if (!isset(self::BULK_OPS[$op])) {
+            throw new UserFacingException('Choose what to do with the selected objects.');
+        }
+        if ($items === []) {
+            throw new UserFacingException('Select at least one table or view first.');
+        }
+        $destructive = $op === 'drop' || $op === 'truncate';
+        if ($destructive && $confirm !== (string) $database['name']) {
+            throw new UserFacingException('Type the database name to confirm.', '', 'Nothing was changed.');
+        }
+        $params = [
+            'database' => (string) $database['name'], 'op' => $op, 'confirm' => $destructive,
+            'cascade' => $destructive && !empty($opts['cascade']), 'restart_identity' => $op === 'truncate' && !empty($opts['restart_identity']),
+            'items' => array_map(static fn (array $i): array => ['schema' => $i[0], 'name' => $i[1]], $items),
+        ];
+        $out = (array) $this->callOn((int) $database['pg_server_id'], 'pg.objects_bulk', $params, 600);
+        $names = array_map(static fn (array $i): string => $i[0] . '.' . $i[1], array_slice($items, 0, 20));
+        $this->audit->record('postgres.objects_' . $op, 'pg_database', (string) $database['name'],
+            (int) ($out['failed'] ?? 0) === 0 ? AuditLogger::SUCCESS : AuditLogger::FAILURE,
+            ['objects' => $names, 'count' => count($items), 'succeeded' => (int) ($out['succeeded'] ?? 0), 'failed' => (int) ($out['failed'] ?? 0)], $userId);
+        return $out;
+    }
+
+    /**
+     * A table's indexes, constraints and triggers.
+     *
+     * @param array<string, mixed> $database
+     * @return array<string, mixed>
+     */
+    public function details(array $database, string $schema, string $table): array
+    {
+        return (array) $this->callOn((int) $database['pg_server_id'], 'pg.table_details', ['database' => (string) $database['name'], 'schema' => $schema, 'table' => $table], 60);
+    }
+
+    /**
      * @param array<string, mixed> $database
      * @return array<string, mixed>
      */

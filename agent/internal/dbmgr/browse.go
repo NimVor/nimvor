@@ -363,15 +363,19 @@ func registerBrowse(r *actions.Registry, c Client) {
 		}
 		var out map[string]any
 		err = c.withBrowser(ctx, in.Database, func(conn *mysqlwire.Conn) error {
-			r, err := one(conn, "SELECT TABLE_NAME, TABLE_TYPE, ENGINE, TABLE_ROWS, COALESCE(DATA_LENGTH,0) + COALESCE(INDEX_LENGTH,0), TABLE_COLLATION, TABLE_COMMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME")
+			r, err := one(conn, "SELECT TABLE_NAME, TABLE_TYPE, ENGINE, TABLE_ROWS, COALESCE(DATA_LENGTH,0) + COALESCE(INDEX_LENGTH,0), TABLE_COLLATION, TABLE_COMMENT, COALESCE(DATA_LENGTH,0), COALESCE(INDEX_LENGTH,0), COALESCE(DATA_FREE,0), AUTO_INCREMENT, ROW_FORMAT, CREATE_TIME, UPDATE_TIME, (SELECT COUNT(*) FROM information_schema.COLUMNS c WHERE c.TABLE_SCHEMA = t.TABLE_SCHEMA AND c.TABLE_NAME = t.TABLE_NAME), (SELECT COUNT(DISTINCT s.INDEX_NAME) FROM information_schema.STATISTICS s WHERE s.TABLE_SCHEMA = t.TABLE_SCHEMA AND s.TABLE_NAME = t.TABLE_NAME) FROM information_schema.TABLES t WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME")
 			if err != nil {
 				return sqlFailed(err)
 			}
 			tables := []map[string]any{}
 			for _, row := range r.Rows {
-				rows, _ := strconv.ParseInt(str(row[3]), 10, 64)
-				size, _ := strconv.ParseInt(str(row[4]), 10, 64)
-				tables = append(tables, map[string]any{"name": str(row[0]), "view": str(row[1]) == "VIEW", "engine": str(row[2]), "rows": rows, "bytes": size, "collation": str(row[5]), "comment": str(row[6])})
+				i := func(n int) int64 { v, _ := strconv.ParseInt(str(row[n]), 10, 64); return v }
+				t := map[string]any{"name": str(row[0]), "view": str(row[1]) == "VIEW", "engine": str(row[2]), "rows": i(3), "bytes": i(4), "collation": str(row[5]), "comment": str(row[6]),
+					"data_bytes": i(7), "index_bytes": i(8), "free_bytes": i(9), "row_format": str(row[11]), "created": str(row[12]), "updated": str(row[13]), "columns": i(14), "indexes": i(15)}
+				if row[10] != nil {
+					t["auto_increment"] = i(10)
+				}
+				tables = append(tables, t)
 			}
 			v, _ := one(conn, "SELECT VERSION(), @@character_set_database, @@collation_database")
 			out = map[string]any{"database": in.Database, "tables": tables, "server": str(v.Rows[0][0]), "charset": str(v.Rows[0][1]), "collation": str(v.Rows[0][2])}
@@ -430,13 +434,31 @@ GROUP BY k.CONSTRAINT_NAME, k.REFERENCED_TABLE_NAME, r.DELETE_RULE, r.UPDATE_RUL
 					fks = append(fks, map[string]any{"name": str(row[0]), "columns": str(row[1]), "ref_table": str(row[2]), "ref_columns": str(row[3]), "on_delete": str(row[4]), "on_update": str(row[5])})
 				}
 			}
+			// CHECK constraints (MariaDB 10.2+, MySQL 8.0.16+); older servers have none, so a failure just means none.
+			// MariaDB names constraints per table and says which table in CHECK_CONSTRAINTS; MySQL names them per schema.
+			checks := []map[string]any{}
+			for _, q := range []string{
+				"SELECT CONSTRAINT_NAME, CHECK_CLAUSE FROM information_schema.CHECK_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = " + Quote(in.Table) + " ORDER BY CONSTRAINT_NAME",
+				`SELECT c.CONSTRAINT_NAME, c.CHECK_CLAUSE FROM information_schema.CHECK_CONSTRAINTS c
+JOIN information_schema.TABLE_CONSTRAINTS t ON t.CONSTRAINT_SCHEMA = c.CONSTRAINT_SCHEMA AND t.CONSTRAINT_NAME = c.CONSTRAINT_NAME
+WHERE t.TABLE_SCHEMA = DATABASE() AND t.TABLE_NAME = ` + Quote(in.Table) + ` AND t.CONSTRAINT_TYPE = 'CHECK' ORDER BY c.CONSTRAINT_NAME`,
+			} {
+				cr, err := one(conn, q)
+				if err != nil {
+					continue
+				}
+				for _, row := range cr.Rows {
+					checks = append(checks, map[string]any{"name": str(row[0]), "clause": str(row[1])})
+				}
+				break
+			}
 			status := map[string]any{}
 			if sr, err := one(conn, "SELECT TABLE_TYPE, ENGINE, ROW_FORMAT, TABLE_ROWS, AVG_ROW_LENGTH, DATA_LENGTH, INDEX_LENGTH, DATA_FREE, AUTO_INCREMENT, CREATE_TIME, UPDATE_TIME, TABLE_COLLATION, TABLE_COMMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = "+Quote(in.Table)); err == nil && len(sr.Rows) == 1 {
 				for i, k := range []string{"type", "engine", "row_format", "rows", "avg_row_length", "data_bytes", "index_bytes", "free_bytes", "auto_increment", "created", "updated", "collation", "comment"} {
 					status[k] = str(sr.Rows[0][i])
 				}
 			}
-			out = map[string]any{"table": in.Table, "columns": cols, "indexes": idx, "foreign_keys": fks, "status": status, "key": t.Key, "create": create}
+			out = map[string]any{"table": in.Table, "columns": cols, "indexes": idx, "foreign_keys": fks, "checks": checks, "status": status, "key": t.Key, "create": create}
 			return nil
 		})
 		return out, err

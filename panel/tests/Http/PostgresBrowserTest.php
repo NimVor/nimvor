@@ -24,6 +24,23 @@ final class PostgresBrowserTest extends HttpTestCase
         $this->db = $this->app->container->get(Connection::class);
         $this->agent->succeed('pg.status', ['installed' => true, 'running' => true, 'managed' => true, 'version' => '16.4', 'port' => 5432]);
         $this->agent->succeed('pg.overview', ['databases' => [], 'roles' => [], 'version' => '16.4', 'max_connections' => 100, 'active_connections' => 1]);
+        $this->agent->succeed('pg.objects_bulk', ['op' => 'vacuum', 'succeeded' => 2, 'failed' => 0, 'results' => [['schema' => 'public', 'name' => 'items', 'ok' => true]]]);
+        $this->agent->succeed('pg.table_alter', ['sql' => 'ALTER TABLE ...']);
+        $this->agent->succeed('pg.table_details', ['kind' => 'table', 'indexes' => [
+            ['name' => 'items_pkey', 'definition' => 'CREATE UNIQUE INDEX ...', 'method' => 'btree', 'unique' => true, 'primary' => true, 'valid' => true, 'backs_constraint' => 'items_pkey', 'predicate' => '', 'bytes' => 16384, 'scans' => 40, 'columns' => 'id'],
+            ['name' => 'items_name', 'definition' => 'CREATE INDEX ...', 'method' => 'btree', 'unique' => false, 'primary' => false, 'valid' => false, 'backs_constraint' => '', 'predicate' => "(qty > 5)", 'bytes' => 8192, 'scans' => 0, 'columns' => 'name'],
+        ], 'constraints' => [
+            ['name' => 'ck_qty', 'type' => 'check', 'definition' => 'CHECK ((qty >= 0))', 'validated' => false, 'deferrable' => false],
+        ], 'triggers' => [['name' => 't_audit', 'enabled' => 'enabled', 'definition' => 'CREATE TRIGGER t_audit ...', 'function' => 'audit_fn']]]);
+        $this->agent->succeed('pg.partitions', ['partitioned' => true, 'key' => 'RANGE (at)', 'partitions' => [['schema' => 'public', 'name' => 'ev_2026', 'bound' => "FOR VALUES FROM ('2026-01-01') TO ('2027-01-01')", 'partitioned' => false, 'rows_estimate' => 10, 'total_bytes' => 8192]]]);
+        $this->agent->succeed('pg.routines', ['routines' => [['oid' => 16401, 'schema' => 'public', 'name' => 'add_one', 'kind' => 'function', 'language' => 'sql', 'arguments' => 'i integer', 'returns' => 'integer', 'volatility' => 'immutable', 'security_definer' => false, 'owner' => 'alice_u', 'comment' => '<i>x</i>', 'trigger_function' => false]]]);
+        $this->agent->succeed('pg.routine_definition', ['definition' => 'CREATE FUNCTION add_one(i integer) ...']);
+        $this->agent->succeed('pg.routine_drop', ['sql' => 'DROP FUNCTION add_one(integer)']);
+        $this->agent->succeed('pg.sequences', ['sequences' => [
+            ['schema' => 'public', 'name' => 'items_id_seq', 'type' => 'integer', 'start' => 1, 'min' => 1, 'max' => 2147483647, 'increment' => 1, 'cycle' => false, 'cache' => 1, 'last_value' => 120, 'owned_by' => 'items.id'],
+            ['schema' => 'public', 'name' => 'ticket_seq', 'type' => 'bigint', 'start' => 100, 'min' => 1, 'max' => 9223372036854775807, 'increment' => 1, 'cycle' => false, 'cache' => 1, 'owned_by' => ''],
+        ]]);
+        $this->agent->succeed('pg.sequence_alter', ['sql' => 'ALTER SEQUENCE ...']);
         foreach (['pg.role_create', 'pg.database_create', 'pg.row_insert', 'pg.row_update', 'pg.row_delete'] as $a) {
             $this->agent->succeed($a, ['ok' => true]);
         }
@@ -39,6 +56,15 @@ final class PostgresBrowserTest extends HttpTestCase
             'columns' => $cols, 'rows' => [['1', 'Ana, "the" first'], ['2', null]], 'truncated' => [], 'total' => 2, 'total_capped' => false,
             'offset' => 0, 'limit' => 50, 'key' => ['id'], 'editable' => true, 'kind' => 'r',
         ]);
+        $this->agent->succeed('pg.db_overview', ['database' => 'alice_shop', 'server_version' => '16.4', 'owner' => 'alice_u', 'encoding' => 'UTF8', 'collation' => 'C.UTF-8', 'ctype' => 'C.UTF-8',
+            'size_bytes' => 8388608, 'index_bytes' => 16384, 'rows_estimate' => 1234, 'tables' => 3, 'partitioned_tables' => 1, 'views' => 1, 'materialized_views' => 0, 'foreign_tables' => 0,
+            'sequences' => 2, 'indexes' => 4, 'functions' => 1, 'triggers' => 0, 'schemas' => 1, 'extensions' => ['plpgsql'], 'capabilities' => ['partitioning' => true],
+            'connection' => ['host' => '127.0.0.1', 'port' => 5432, 'database' => 'alice_shop', 'role' => 'alice_u', 'tls' => '', 'remote' => false]]);
+        $this->agent->succeed('pg.objects', ['total' => 2, 'offset' => 0, 'limit' => 50, 'kinds' => ['table' => 1, 'view' => 1], 'schemas' => ['public'], 'items' => [
+            ['schema' => 'public', 'name' => 'items', 'kind' => 'table', 'rows_estimate' => 300, 'rows_from_statistics' => true, 'total_bytes' => 65536, 'data_bytes' => 40960, 'index_bytes' => 24576,
+                'indexes' => 2, 'columns' => 3, 'constraints' => 2, 'triggers' => 0, 'partitions' => 0, 'last_analyze' => '2026-05-01T10:00:00Z', 'comment' => '<b>note</b>', 'has_primary_key' => true],
+            ['schema' => 'public', 'name' => 'v_items', 'kind' => 'view', 'rows_estimate' => 0, 'total_bytes' => 0, 'data_bytes' => 0, 'index_bytes' => 0, 'indexes' => 0, 'columns' => 2, 'constraints' => 0, 'triggers' => 0, 'partitions' => 0],
+        ]]);
         $this->agent->succeed('pg.table_structure', ['columns' => $cols, 'key' => ['id'], 'indexes' => [['name' => 'items_pkey', 'definition' => 'CREATE UNIQUE INDEX items_pkey ON public.items USING btree (id)', 'unique' => true, 'primary' => true]], 'editable' => true, 'reason' => '', 'kind' => 'r']);
         $this->login('alice');
         $this->post('/postgres/databases', ['name' => 'shop']);
@@ -50,6 +76,190 @@ final class PostgresBrowserTest extends HttpTestCase
         $this->session = new ArraySession();
         $this->app = $this->makeApp();
         $this->login($who);
+    }
+
+    public function testOverviewIsTheDefaultPageAndShowsNoPassword(): void
+    {
+        $page = $this->request('GET', '/postgres/browse', [], [], '', ['db' => (string) $this->aliceDb])->body();
+        self::assertStringContainsString('Size on disk', $page);
+        self::assertStringContainsString('8 MB', $page);
+        self::assertStringContainsString('1,234', $page);
+        self::assertStringContainsString('127.0.0.1', $page);
+        self::assertStringContainsString('not shown here', $page);
+        self::assertStringNotContainsString('admin-secret', $page);
+        self::assertSame('alice_shop', $this->lastCall('pg.db_overview')['database']);
+    }
+
+    public function testObjectsListFiltersAndEscapes(): void
+    {
+        $page = $this->request('GET', '/postgres/browse', [], [], '', ['db' => (string) $this->aliceDb, 'tab' => 'objects', 'kind' => 'view', 'q' => '100%_', 'sort' => 'size', 'dir' => 'desc'])->body();
+        self::assertStringContainsString('v_items', $page);
+        self::assertStringContainsString('&lt;b&gt;note&lt;/b&gt;', $page, 'comments are escaped');
+        self::assertStringNotContainsString('<b>note</b>', $page);
+        $call = $this->lastCall('pg.objects');
+        self::assertSame('view', $call['kind']);
+        self::assertSame('100%_', $call['search']);
+        self::assertSame('size', $call['sort']);
+        self::assertSame('desc', $call['dir']);
+        self::assertSame(50, $call['limit']);
+    }
+
+    public function testOverviewOfSomeoneElsesDatabaseIsRefused(): void
+    {
+        $this->switchTo('bob');
+        $res = $this->request('GET', '/postgres/browse', [], [], '', ['db' => (string) $this->aliceDb, 'tab' => 'objects']);
+        self::assertNotSame(200, $res->status());
+    }
+
+    public function testBulkMaintenanceIsSentWithCheckedNamesAndAudited(): void
+    {
+        $sel = [json_encode(['public', 'items']), json_encode(['public', 'v_items'])];
+        $res = $this->post('/postgres/objects/bulk', ['db' => (string) $this->aliceDb, 'op' => 'vacuum', 'sel' => $sel]);
+        self::assertSame(303, $res->status());
+        $call = $this->lastCall('pg.objects_bulk');
+        self::assertSame('vacuum', $call['op']);
+        self::assertFalse($call['confirm']);
+        self::assertSame([['schema' => 'public', 'name' => 'items'], ['schema' => 'public', 'name' => 'v_items']], $call['items']);
+        self::assertSame('alice_shop', $call['database']);
+        self::assertSame(1, (int) $this->db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'postgres.objects_vacuum'"));
+    }
+
+    public function testBulkDropNeedsTheDatabaseNameTypedBack(): void
+    {
+        $sel = [json_encode(['public', 'items'])];
+        $this->post('/postgres/objects/bulk', ['db' => (string) $this->aliceDb, 'op' => 'drop', 'sel' => $sel, 'confirm' => 'wrong']);
+        self::assertSame(0, $this->calls('pg.objects_bulk'), 'nothing reaches the agent without the typed name');
+        $this->post('/postgres/objects/bulk', ['db' => (string) $this->aliceDb, 'op' => 'drop', 'sel' => $sel, 'confirm' => 'alice_shop', 'cascade' => '1']);
+        $call = $this->lastCall('pg.objects_bulk');
+        self::assertTrue($call['confirm']);
+        self::assertTrue($call['cascade']);
+    }
+
+    public function testBulkRefusesUnknownActionsEmptySelectionsAndForeignDatabases(): void
+    {
+        $this->post('/postgres/objects/bulk', ['db' => (string) $this->aliceDb, 'op' => 'format', 'sel' => [json_encode(['public', 'items'])]]);
+        $this->post('/postgres/objects/bulk', ['db' => (string) $this->aliceDb, 'op' => 'vacuum', 'sel' => ['not json', json_encode(['only one'])]]);
+        self::assertSame(0, $this->calls('pg.objects_bulk'));
+        $this->switchTo('bob');
+        $this->post('/postgres/objects/bulk', ['db' => (string) $this->aliceDb, 'op' => 'vacuum', 'sel' => [json_encode(['public', 'items'])]]);
+        self::assertSame(0, $this->calls('pg.objects_bulk'), "another customer's database never reaches the agent");
+    }
+
+    public function testViewerSeesNoSelectionControls(): void
+    {
+        $this->switchTo('admin');
+        $page = $this->request('GET', '/postgres/browse', [], [], '', ['db' => (string) $this->aliceDb, 'tab' => 'objects'])->body();
+        self::assertStringContainsString('data-pgo-all', $page);
+        self::assertStringContainsString('Type alice_shop to confirm', $page);
+    }
+
+    public function testCreateTableSendsStructuredColumnsOnly(): void
+    {
+        $res = $this->post('/postgres/alter', ['db' => (string) $this->aliceDb, 'op' => 'create_table', 'schema' => 'public', 'table' => 'posts', 'cols' => [
+            ['name' => 'id', 'type' => 'integer', 'identity' => '1', 'primary' => '1', 'not_null' => '1', 'default_kind' => 'none'],
+            ['name' => '', 'type' => 'text'],
+            ['name' => 'created', 'type' => 'timestamptz', 'default_kind' => 'function', 'default' => 'now'],
+        ]]);
+        self::assertSame(303, $res->status());
+        $call = $this->lastCall('pg.table_alter');
+        self::assertSame('create_table', $call['op']);
+        self::assertCount(2, $call['columns'], 'rows without a name are ignored');
+        self::assertTrue($call['columns'][0]['identity'] && $call['columns'][0]['primary'] && $call['columns'][0]['not_null']);
+        self::assertTrue($call['columns'][1]['has_default'] && $call['columns'][1]['default_fn']);
+        self::assertSame(1, (int) $this->db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'postgres.create_table'"));
+    }
+
+    public function testStructureFormsAreOfferedToWritersAndDropColumnNeedsItsName(): void
+    {
+        $page = $this->request('GET', '/postgres/browse', [], [], '', ['db' => (string) $this->aliceDb, 'schema' => 'public', 'table' => 'items', 'tab' => 'structure'])->body();
+        self::assertStringContainsString('Add a column', $page);
+        self::assertStringContainsString('name="op" value="drop_column"', $page);
+        $before = $this->calls('pg.table_alter');
+        $this->post('/postgres/alter', ['db' => (string) $this->aliceDb, 'op' => 'drop_column', 'schema' => 'public', 'table' => 'items', 'name' => 'name', 'confirm' => 'nope']);
+        self::assertSame($before, $this->calls('pg.table_alter'));
+        $this->post('/postgres/alter', ['db' => (string) $this->aliceDb, 'op' => 'drop_column', 'schema' => 'public', 'table' => 'items', 'name' => 'name', 'confirm' => 'name']);
+        self::assertSame('drop_column', $this->lastCall('pg.table_alter')['op']);
+        $this->post('/postgres/alter', ['db' => (string) $this->aliceDb, 'op' => 'drop_database', 'schema' => 'public', 'table' => 'items']);
+        self::assertSame($before + 1, $this->calls('pg.table_alter'), 'an unknown change never reaches the agent');
+    }
+
+    public function testStructureTabListsIndexesConstraintsAndTriggersWithEscaping(): void
+    {
+        $page = $this->request('GET', '/postgres/browse', [], [], '', ['db' => (string) $this->aliceDb, 'schema' => 'public', 'table' => 'items', 'tab' => 'structure'])->body();
+        foreach (['items_name', 'never used', 'invalid', 'where (qty &gt; 5)', 'ck_qty', 'not validated', 'Validate', 't_audit', 'Create an index', 'Add a constraint'] as $want) {
+            self::assertStringContainsString($want, $page, $want);
+        }
+        self::assertStringContainsString('backs constraint items_pkey', $page);
+        self::assertSame('alice_shop', $this->lastCall('pg.table_details')['database']);
+    }
+
+    public function testIndexAndConstraintFormsBecomeStructuredRequests(): void
+    {
+        $base = ['db' => (string) $this->aliceDb, 'schema' => 'public', 'table' => 'items'];
+        $this->post('/postgres/alter', $base + ['op' => 'create_index', 'name' => 'idx_q', 'method' => 'btree', 'unique' => '1', 'concurrent' => '1', 'include' => 'name, qty',
+            'icols' => [['name' => 'qty', 'order' => 'desc', 'nulls' => 'last'], ['name' => ''], ['name' => 'name']], 'pcol' => 'qty', 'pop' => 'gt', 'pval' => '5']);
+        $c = $this->lastCall('pg.table_alter');
+        self::assertSame('create_index', $c['op']);
+        self::assertSame([['name' => 'qty', 'order' => 'desc', 'nulls' => 'last'], ['name' => 'name', 'order' => '', 'nulls' => '']], $c['extra']['index_columns']);
+        self::assertSame(['name', 'qty'], $c['extra']['include']);
+        self::assertTrue($c['extra']['unique'] && $c['extra']['concurrent']);
+        self::assertSame(['column' => 'qty', 'op' => 'gt', 'value' => '5', 'value2' => ''], $c['extra']['predicate']);
+
+        $this->post('/postgres/alter', $base + ['op' => 'add_constraint', 'kind' => 'foreign', 'name' => 'fk_o', 'columns' => 'user_id', 'ref_table' => 'users', 'ref_columns' => 'id', 'on_delete' => 'cascade', 'not_valid' => '1']);
+        $c = $this->lastCall('pg.table_alter');
+        self::assertSame(['foreign', ['user_id'], 'public', 'users', ['id'], 'cascade', true], [$c['extra']['kind'], $c['extra']['columns'], $c['extra']['ref_schema'], $c['extra']['ref_table'], $c['extra']['ref_columns'], $c['extra']['on_delete'], $c['extra']['not_valid']]);
+        self::assertNull($c['extra']['predicate']);
+
+        $this->post('/postgres/alter', $base + ['op' => 'drop_trigger', 'name' => 't_audit']);
+        self::assertSame(['drop_trigger', 't_audit'], [$this->lastCall('pg.table_alter')['op'], $this->lastCall('pg.table_alter')['name']]);
+        self::assertSame(1, (int) $this->db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'postgres.drop_trigger'"));
+    }
+
+    public function testRoutinesAndSequencesSections(): void
+    {
+        $q = ['db' => (string) $this->aliceDb];
+        $page = $this->request('GET', '/postgres/browse', [], [], '', $q + ['tab' => 'routines', 'def' => '16401'])->body();
+        foreach (['add_one', 'i integer', 'immutable', '&lt;i&gt;x&lt;/i&gt;', 'CREATE FUNCTION add_one', 'use the SQL tab'] as $want) {
+            self::assertStringContainsString($want, $page, $want);
+        }
+        self::assertSame(16401, $this->lastCall('pg.routine_definition')['oid']);
+        $page = $this->request('GET', '/postgres/browse', [], [], '', $q + ['tab' => 'sequences'])->body();
+        foreach (['items_id_seq', 'items.id', 'free-standing', 'not used yet', 'Follow items.id again'] as $want) {
+            self::assertStringContainsString($want, $page, $want);
+        }
+        // Dropping a routine needs the database name typed back.
+        $this->post('/postgres/routines/drop', $q + ['oid' => '16401', 'label' => 'public.add_one(i integer)', 'confirm' => 'wrong']);
+        self::assertSame(0, $this->calls('pg.routine_drop'));
+        $this->post('/postgres/routines/drop', $q + ['oid' => '16401', 'label' => 'public.add_one(i integer)', 'confirm' => 'alice_shop']);
+        self::assertSame([16401, true, 'alice_shop'], [$this->lastCall('pg.routine_drop')['oid'], $this->lastCall('pg.routine_drop')['confirm'], $this->lastCall('pg.routine_drop')['database']]);
+        self::assertSame(1, (int) $this->db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'postgres.routine_drop'"));
+    }
+
+    public function testSequenceFormsSendOnlyNumbers(): void
+    {
+        $q = ['db' => (string) $this->aliceDb, 'schema' => 'public', 'name' => 'ticket_seq'];
+        $this->post('/postgres/sequences', $q + ['op' => 'alter', 'increment' => '10', 'max' => '1000x', 'cycle' => 'yes']);
+        $c = $this->lastCall('pg.sequence_alter');
+        self::assertSame([10, true], [$c['increment'], $c['cycle']]);
+        self::assertArrayNotHasKey('max', $c, 'a value that is not a number is dropped, not sent');
+        $before = $this->calls('pg.sequence_alter');
+        $this->post('/postgres/sequences', $q + ['op' => 'drop', 'confirm' => 'nope']);
+        self::assertSame($before, $this->calls('pg.sequence_alter'));
+        $this->post('/postgres/sequences', $q + ['op' => 'drop', 'confirm' => 'ticket_seq']);
+        self::assertSame('drop', $this->lastCall('pg.sequence_alter')['op']);
+        $this->post('/postgres/sequences', $q + ['op' => 'wipe']);
+        self::assertSame($before + 1, $this->calls('pg.sequence_alter'));
+    }
+
+    public function testPartitionsAreListedAndDetachIsOffered(): void
+    {
+        $page = $this->request('GET', '/postgres/browse', [], [], '', ['db' => (string) $this->aliceDb, 'schema' => 'public', 'table' => 'items', 'tab' => 'structure'])->body();
+        self::assertStringContainsString('RANGE (at)', $page);
+        self::assertStringContainsString('ev_2026', $page);
+        self::assertStringContainsString('Add a partition', $page);
+        $this->post('/postgres/alter', ['db' => (string) $this->aliceDb, 'schema' => 'public', 'table' => 'items', 'op' => 'create_partition', 'new_name' => 'ev_2027', 'bound_kind' => 'range', 'bound_from' => '2027-01-01', 'bound_to' => '2028-01-01']);
+        $c = $this->lastCall('pg.table_alter');
+        self::assertSame(['range', ['2027-01-01'], ['2028-01-01']], [$c['extra']['bound']['kind'], $c['extra']['bound']['from'], $c['extra']['bound']['to']]);
     }
 
     public function testOwnerBrowsesRowsAndTables(): void

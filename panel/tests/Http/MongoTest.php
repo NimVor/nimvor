@@ -260,6 +260,60 @@ final class MongoTest extends HttpTestCase
         self::assertSame('orders', $body['data']['collections'][0]['name']);
         self::assertSame(['db' => 'shop'], $this->lastCall('mongo.collections'));
 
+        $this->agent->succeed('mongo.db_overview', ['database' => 'shop', 'version' => '7.0.5', 'dataSize' => 1000, 'objects' => 3, 'collections' => 1]);
+        $this->agent->succeed('mongo.collections_detail', ['collections' => [['name' => 'orders', 'type' => 'collection', 'count' => 3, 'size' => 300]]]);
+        $ov = (array) json_decode($this->post('/mongo/browse', ['op' => 'db_overview', 'db' => 'shop'])->body(), true);
+        self::assertSame('7.0.5', $ov['data']['version']);
+        self::assertSame(['db' => 'shop'], $this->lastCall('mongo.db_overview'));
+        $det = (array) json_decode($this->post('/mongo/browse', ['op' => 'collections_detail', 'db' => 'shop'])->body(), true);
+        self::assertSame(300, $det['data']['collections'][0]['size']);
+
+        $this->agent->succeed('mongo.collection_create_ex', ['created' => 'logs']);
+        $this->agent->succeed('mongo.collection_copy', ['copied' => 3, 'indexes' => 1]);
+        $this->post('/mongo/browse', ['op' => 'coll_create_ex', 'db' => 'shop', 'collection' => 'metrics', 'options' => ['kind' => 'timeseries', 'time_field' => 'ts', 'meta_field' => 'sensor', 'granularity' => 'minutes', 'expire_seconds' => '60', 'size_bytes' => '99']]);
+        $call = $this->lastCall('mongo.collection_create_ex');
+        self::assertSame(['timeseries', 'ts', 'sensor', 'minutes', 60], [$call['kind'], $call['time_field'], $call['meta_field'], $call['granularity'], $call['expire_seconds']]);
+        self::assertArrayNotHasKey('size_bytes', $call, 'options of another type are not sent');
+        $before = $this->calls('mongo.collection_create_ex');
+        $this->post('/mongo/browse', ['op' => 'coll_create_ex', 'db' => 'shop', 'collection' => 'x', 'options' => ['kind' => 'view']]);
+        self::assertSame($before, $this->calls('mongo.collection_create_ex'), 'an unknown type never reaches the agent');
+        $this->post('/mongo/browse', ['op' => 'coll_copy', 'db' => 'shop', 'collection' => 'orders', 'name' => 'orders_2']);
+        self::assertSame(['shop', 'orders', 'orders_2'], [$this->lastCall('mongo.collection_copy')['db'], $this->lastCall('mongo.collection_copy')['collection'], $this->lastCall('mongo.collection_copy')['new_name']]);
+
+        foreach (['mongo.documents_delete_many' => ['deleted' => 2], 'mongo.document_duplicate' => ['inserted_id' => 'x'], 'mongo.documents_update_many' => ['matched' => 3, 'modified' => 3],
+            'mongo.index_stats' => ['stats' => []], 'mongo.index_hide' => ['hidden' => true], 'mongo.validation_set' => ['ok' => true], 'mongo.view_create' => ['created' => 'v']] as $a => $r) {
+            $this->agent->succeed($a, $r);
+        }
+        $this->post('/mongo/browse', ['op' => 'docs_delete_many', 'db' => 'shop', 'collection' => 'orders', 'ids' => ['"a"', '', '5']]);
+        self::assertSame(['"a"', '5'], $this->lastCall('mongo.documents_delete_many')['ids']);
+        $this->post('/mongo/browse', ['op' => 'docs_update_many', 'db' => 'shop', 'collection' => 'orders', 'filter' => '{"a":1}', 'ops' => [['op' => 'set', 'field' => ' status ', 'value' => '"x"'], 'junk']]);
+        $c = $this->lastCall('mongo.documents_update_many');
+        self::assertSame([['op' => 'set', 'field' => 'status', 'value' => '"x"']], $c['ops']);
+        self::assertFalse($c['all']);
+        $audit = (string) $this->app->container->get(Connection::class)->scalar("SELECT details FROM audit_logs WHERE action = 'mongo.docs_update_many'");
+        self::assertStringContainsString('set:status', $audit);
+        self::assertStringNotContainsString('"x"', $audit, 'values are not copied into the audit log');
+        $this->post('/mongo/browse', ['op' => 'docs_update_many', 'db' => 'shop', 'collection' => 'orders', 'filter' => '{}', 'dry_run' => '1', 'ops' => []]);
+        self::assertTrue($this->lastCall('mongo.documents_update_many')['dry_run']);
+        $this->post('/mongo/browse', ['op' => 'index_hide', 'db' => 'shop', 'collection' => 'orders', 'name' => 'a_1', 'hidden' => '1']);
+        self::assertTrue($this->lastCall('mongo.index_hide')['hidden']);
+        $this->post('/mongo/browse', ['op' => 'validation_set', 'db' => 'shop', 'collection' => 'orders', 'validator' => '', 'level' => 'off']);
+        self::assertSame(['', 'off'], [$this->lastCall('mongo.validation_set')['validator'], $this->lastCall('mongo.validation_set')['level']]);
+        $this->post('/mongo/browse', ['op' => 'view_create', 'db' => 'shop', 'collection' => 'active', 'view_on' => 'orders', 'pipeline' => '[{"$match":{"a":1}}]']);
+        $c = $this->lastCall('mongo.view_create');
+        self::assertSame(['active', 'orders'], [$c['name'], $c['view_on']]);
+        self::assertArrayNotHasKey('collection', $c);
+        self::assertSame(200, $this->post('/mongo/browse', ['op' => 'index_stats', 'db' => 'shop', 'collection' => 'orders'])->status());
+
+        $this->agent->succeed('mongo.collections_bulk', ['op' => 'empty', 'results' => [['name' => 'orders', 'ok' => true]], 'succeeded' => 1, 'failed' => 0]);
+        $bulk = (array) json_decode($this->post('/mongo/browse', ['op' => 'colls_bulk', 'db' => 'shop', 'bulk_op' => 'empty', 'collections' => ['orders', '', 'orders']])->body(), true);
+        self::assertSame(1, $bulk['data']['succeeded']);
+        $call = $this->lastCall('mongo.collections_bulk');
+        self::assertSame(['shop', 'empty', ['orders'], true], [$call['db'], $call['op'], $call['collections'], $call['confirm']]);
+        self::assertSame(1, (int) $this->app->container->get(Connection::class)->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'mongo.collections_empty'"));
+        $this->post('/mongo/browse', ['op' => 'colls_bulk', 'db' => 'shop', 'bulk_op' => 'format', 'collections' => ['orders']]);
+        self::assertSame(1, $this->calls('mongo.collections_bulk'), 'an unknown action never reaches the agent');
+
         $this->agent->succeed('mongo.documents', ['documents' => [['_id' => 'a1', 'name' => 'x']], 'total' => 1, 'skip' => 0, 'limit' => 50]);
         $res = $this->post('/mongo/browse', ['op' => 'documents', 'db' => 'shop', 'collection' => 'orders', 'filter' => '{"name":"x"}', 'skip' => '0', 'limit' => '50']);
         $body = (array) json_decode($res->body(), true);
@@ -398,6 +452,15 @@ final class MongoTest extends HttpTestCase
         self::assertSame(200, $this->post('/mongo/browse', ['op' => 'indexes', 'db' => 'shop', 'collection' => 'c'])->status());
         self::assertSame(403, $this->post('/mongo/browse', ['op' => 'index_create', 'db' => 'shop', 'collection' => 'c', 'keys' => '{"a":1}'])->status());
         self::assertSame(403, $this->post('/mongo/browse', ['op' => 'index_drop', 'db' => 'shop', 'collection' => 'c', 'name' => 'a_1'])->status());
+        // Nor may a viewer bulk-update, bulk-delete, hide an index, change validation or create a view.
+        foreach ([['docs_delete_many', ['ids' => ['"a"']]], ['docs_update_many', ['filter' => '{"a":1}', 'ops' => [['op' => 'set', 'field' => 'a', 'value' => '1']]]], ['doc_duplicate', ['id' => '"a"']],
+            ['index_hide', ['name' => 'a_1', 'hidden' => '1']], ['validation_set', ['validator' => '']], ['view_create', ['view_on' => 'c', 'pipeline' => '[]']], ['colls_bulk', ['bulk_op' => 'drop', 'collections' => ['c']]],
+            ['coll_create_ex', ['options' => ['kind' => 'capped']]], ['coll_copy', ['name' => 'd']]] as [$op, $extra]) {
+            self::assertSame(403, $this->post('/mongo/browse', ['op' => $op, 'db' => 'shop', 'collection' => 'c'] + $extra)->status(), $op);
+        }
+        foreach (['mongo.documents_delete_many', 'mongo.documents_update_many', 'mongo.document_duplicate', 'mongo.index_hide', 'mongo.validation_set', 'mongo.view_create', 'mongo.collections_bulk', 'mongo.collection_create_ex', 'mongo.collection_copy'] as $a) {
+            self::assertSame(0, $this->calls($a), $a);
+        }
         // A viewer may not import (a write); the agent is never reached.
         self::assertSame(403, $this->post('/mongo/browse', ['op' => 'import', 'db' => 'shop', 'collection' => 'c', 'format' => 'json', 'content' => '[{"a":1}]'])->status());
         self::assertSame(0, $this->calls('mongo.import'));

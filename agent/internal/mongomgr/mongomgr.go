@@ -134,7 +134,36 @@ func (c Client) run(ctx context.Context, script string, secret bool) ([]byte, er
 	if err != nil {
 		return out, fmt.Errorf("mongosh: %w: %s", err, lastLine(out))
 	}
+	// With the script on stdin mongosh prints an uncaught error and still exits 0, so a rejected write (a document
+	// that fails validation, a duplicate key) would otherwise look like a success.
+	if secret {
+		if msg := scriptError(out); msg != "" {
+			return out, fmt.Errorf("mongosh: %s", msg)
+		}
+	}
 	return out, nil
+}
+
+var scriptErrRe = regexp.MustCompile(`(?m)^(?:\s*test> )?\s*(Uncaught|Mongo[A-Za-z]*Error)\b.*$`)
+
+// scriptError returns the first error line mongosh printed, or "".
+func scriptError(out []byte) string {
+	clean := ansiRe.ReplaceAllString(string(out), "")
+	if !scriptErrRe.MatchString(clean) {
+		return ""
+	}
+	// The message is on the line after "Uncaught:" or on the error line itself.
+	lines := strings.Split(clean, "\n")
+	for i, l := range lines {
+		if scriptErrRe.MatchString(l) {
+			l = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(l), "test>"))
+			if strings.HasPrefix(l, "Uncaught") && i+1 < len(lines) && strings.TrimSpace(lines[i+1]) != "" {
+				l = strings.TrimSpace(lines[i+1])
+			}
+			return l
+		}
+	}
+	return "script error"
 }
 
 func lastLine(b []byte) string {
@@ -217,6 +246,8 @@ func Register(r *actions.Registry, env *host.Env) {
 	registerBackup(r, env, c)
 	registerSecurity(r, env, c)
 	registerRemote(r, env, c)
+	registerObjects(r, env, c)
+	registerDocuments(r, env, c)
 
 	r.Register(actions.Action{Name: "mongo.status", Description: "MongoDB: installed, running, version.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		st := Status{Installed: installed(env), Auth: env.Root.Exists(AdminURIFile)}
@@ -1499,10 +1530,14 @@ func (c Client) logTail(path string, n int64) ([]byte, error) {
 	return b, nil
 }
 
-// trimToJSON returns the first JSON array/object in mongosh's output, so any
-// stray banner line is ignored.
+// ansiRe matches the terminal control sequences mongosh adds when its script comes in on stdin (cursor moves, line
+// erase) around the echoed prompt.
+var ansiRe = regexp.MustCompile("\x1b\\[[0-9;?]*[A-Za-z]")
+
+// trimToJSON returns the first complete JSON array/object in mongosh's output, so a banner line, terminal control
+// sequences, the echoed "test>" prompt and anything after the value are ignored.
 func trimToJSON(b []byte) []byte {
-	s := strings.TrimSpace(string(b))
+	s := strings.TrimSpace(ansiRe.ReplaceAllString(string(b), ""))
 	// Start at the earliest opening bracket, whether the value is an object or
 	// an array — picking '[' unconditionally would cut into an object whose
 	// first field is an array.
@@ -1512,8 +1547,12 @@ func trimToJSON(b []byte) []byte {
 			best = i
 		}
 	}
-	if best >= 0 {
-		return []byte(s[best:])
+	if best < 0 {
+		return b
 	}
-	return b
+	var raw json.RawMessage
+	if err := json.NewDecoder(strings.NewReader(s[best:])).Decode(&raw); err == nil {
+		return raw
+	}
+	return []byte(s[best:])
 }

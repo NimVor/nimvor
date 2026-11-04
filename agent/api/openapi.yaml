@@ -102,12 +102,20 @@ paths:
               - cron.log
               - cron.run
               - db.browse_alter
+              - db.browse_bulk
               - db.browse_delete
               - db.browse_export_csv
               - db.browse_import_csv
+              - db.browse_object_definition
+              - db.browse_object_op
+              - db.browse_overview
+              - db.browse_partitions
+              - db.browse_routines
               - db.browse_row
               - db.browse_rows
               - db.browse_save
+              - db.browse_sequence_op
+              - db.browse_sequences
               - db.browse_structure
               - db.browse_tables
               - db.create
@@ -256,27 +264,37 @@ paths:
               - mongo.backup
               - mongo.backup_delete
               - mongo.backups
+              - mongo.collection_copy
               - mongo.collection_create
+              - mongo.collection_create_ex
               - mongo.collection_drop
               - mongo.collection_empty
               - mongo.collection_rename
               - mongo.collection_stats
               - mongo.collections
+              - mongo.collections_bulk
+              - mongo.collections_detail
               - mongo.config_get
               - mongo.config_set
               - mongo.config_write
               - mongo.database_create
               - mongo.database_drop
               - mongo.database_users
+              - mongo.db_overview
               - mongo.document_delete
+              - mongo.document_duplicate
               - mongo.document_insert
               - mongo.document_update
               - mongo.documents
+              - mongo.documents_delete_many
+              - mongo.documents_update_many
               - mongo.explain
               - mongo.export
               - mongo.import
               - mongo.index_create
               - mongo.index_drop
+              - mongo.index_hide
+              - mongo.index_stats
               - mongo.indexes
               - mongo.install
               - mongo.log
@@ -292,6 +310,8 @@ paths:
               - mongo.user_create
               - mongo.user_drop
               - mongo.user_password
+              - mongo.validation_set
+              - mongo.view_create
               - net.addresses
               - net.ipv6_ranges
               - nginx.reload
@@ -319,22 +339,33 @@ paths:
               - pg.browse
               - pg.database_create
               - pg.database_delete
+              - pg.db_overview
               - pg.grant_list
               - pg.grant_set
               - pg.install
               - pg.monitor
+              - pg.objects
+              - pg.objects_bulk
               - pg.overview
+              - pg.partitions
               - pg.query
               - pg.query_cancel
               - pg.role_create
               - pg.role_delete
               - pg.role_password
+              - pg.routine_definition
+              - pg.routine_drop
+              - pg.routines
               - pg.row_delete
               - pg.row_insert
               - pg.row_update
               - pg.schema_map
+              - pg.sequence_alter
+              - pg.sequences
               - pg.service
               - pg.status
+              - pg.table_alter
+              - pg.table_details
               - pg.table_structure
               - pg.tables
               - pg.test
@@ -619,12 +650,20 @@ x-nimvor-actions:
   cron.log: { mutating: false, description: "The end (up to 512 KiB) of a website cron job's log, read confined to the website." }
   cron.run: { mutating: true, description: "Run a cron command now as the website user (job)." }
   db.browse_alter: { mutating: true, description: "Database browser: change a table's structure from structured input (create, rename, truncate, drop, optimize/analyze/check/repair; add, change or drop columns, indexes and foreign keys). dry_run returns the SQL only." }
+  db.browse_bulk: { mutating: true, description: "Database browser: drop, empty, optimize, analyze, check or repair up to 50 tables or views at once; each is checked in information_schema, run on its own and reported on its own. dry_run returns the statements only." }
   db.browse_delete: { mutating: true, description: "Database browser: delete rows by their keys (in one transaction)." }
   db.browse_export_csv: { mutating: true, description: "Database browser: a table (optionally filtered or searched) as CSV; NULL is written as \\N and binary values as 0x… hex." }
   db.browse_import_csv: { mutating: true, description: "Database browser: insert CSV rows into a table in one transaction (all or nothing). columns maps each CSV column to a table column (\"\" skips it); \\N is NULL." }
+  db.browse_object_definition: { mutating: true, description: "Database browser: the CREATE statement of a routine, trigger, event or view." }
+  db.browse_object_op: { mutating: true, description: "Database browser: drop a routine, trigger or event, or enable / disable an event." }
+  db.browse_overview: { mutating: true, description: "Database browser: overview of one database (size, object counts, server version and engine family, character set)." }
+  db.browse_partitions: { mutating: true, description: "Database browser: a table's partitioning method, expression and partitions." }
+  db.browse_routines: { mutating: true, description: "Database browser: stored functions and procedures, triggers and events of the database." }
   db.browse_row: { mutating: true, description: "Database browser: one full row by its key (for editing)." }
   db.browse_rows: { mutating: true, description: "Database browser: a page of rows (sort, filter) with the row key." }
   db.browse_save: { mutating: true, description: "Database browser: insert a row, or update one row by its key." }
+  db.browse_sequence_op: { mutating: true, description: "Database browser (MariaDB): create, alter, set the value of, or drop a sequence. dry_run returns the SQL only." }
+  db.browse_sequences: { mutating: true, description: "Database browser (MariaDB): the database's sequences with their settings." }
   db.browse_structure: { mutating: true, description: "Database browser: columns, indexes and CREATE statement of a table." }
   db.browse_tables: { mutating: true, description: "Database browser: tables and views of a database with sizes." }
   db.create: { mutating: true, description: "Create a database (utf8mb4)." }
@@ -773,27 +812,37 @@ x-nimvor-actions:
   mongo.backup: { mutating: true, description: "Back up one database to a gzip mongodump archive (async job)." }
   mongo.backup_delete: { mutating: true, description: "Delete one MongoDB backup archive." }
   mongo.backups: { mutating: false, description: "List the MongoDB backup archives (optionally for one database)." }
+  mongo.collection_copy: { mutating: true, description: "Copy a collection into a new one in the same database: the documents with an aggregation $out, then the indexes." }
   mongo.collection_create: { mutating: true, description: "Create an empty collection." }
+  mongo.collection_create_ex: { mutating: true, description: "Create a collection with options: capped (size, max documents) or time-series (time field, meta field, granularity)." }
   mongo.collection_drop: { mutating: true, description: "Drop a collection and all its documents." }
   mongo.collection_empty: { mutating: true, description: "Remove every document from a collection (keeps the collection and its indexes)." }
   mongo.collection_rename: { mutating: true, description: "Rename a collection within the same database." }
   mongo.collection_stats: { mutating: false, description: "Size, counts and validation rules for one collection." }
   mongo.collections: { mutating: false, description: "List a database's collections with document counts." }
+  mongo.collections_bulk: { mutating: true, description: "Drop, empty or validate up to 50 collections or views at once; each is checked, run on its own and reported on its own." }
+  mongo.collections_detail: { mutating: false, description: "A database's collections, views and time-series collections with document count, sizes, index count, capped and validation flags." }
   mongo.config_get: { mutating: false, description: "Read MongoDB's configuration (port, bindIp, paths, authorization) and the raw file." }
   mongo.config_set: { mutating: true, description: "Set MongoDB's port, bindIp and authorization, then restart (rolls back on failure)." }
   mongo.config_write: { mutating: true, description: "Replace MongoDB's whole configuration file, then restart (rolls back on failure)." }
   mongo.database_create: { mutating: true, description: "Create a MongoDB database (an empty collection makes it exist)." }
   mongo.database_drop: { mutating: true, description: "Drop a MongoDB database (requires confirm = name)." }
   mongo.database_users: { mutating: false, description: "List the users defined on one database." }
+  mongo.db_overview: { mutating: false, description: "One database's overview: server version, size and counts, and the deployment role (standalone, replica set member or sharded router)." }
   mongo.document_delete: { mutating: true, description: "Delete one document by its _id (EJSON value)." }
+  mongo.document_duplicate: { mutating: true, description: "Insert a copy of one document (found by _id) with a new _id." }
   mongo.document_insert: { mutating: true, description: "Insert one document (EJSON) into a collection." }
   mongo.document_update: { mutating: true, description: "Replace one document (found by _id) with a new document (EJSON)." }
   mongo.documents: { mutating: false, description: "Find documents in a collection (optional EJSON filter, skip, limit)." }
+  mongo.documents_delete_many: { mutating: true, description: "Delete up to 500 documents addressed by their _id values (EJSON)." }
+  mongo.documents_update_many: { mutating: true, description: "Update the documents matching a filter with structured $set, $unset, $inc and $rename operations on named fields." }
   mongo.explain: { mutating: false, description: "Explain an aggregation pipeline (query planner) without running it." }
   mongo.export: { mutating: false, description: "Export documents as a JSON array or JSONL (bounded)." }
   mongo.import: { mutating: true, description: "Import documents from a JSON array or JSONL into a collection (bounded)." }
   mongo.index_create: { mutating: true, description: "Create an index from a keys object and options (EJSON)." }
   mongo.index_drop: { mutating: true, description: "Drop an index by name (the _id index is refused)." }
+  mongo.index_hide: { mutating: true, description: "Hide or unhide an index from the query planner (MongoDB 4.4 or newer) without dropping it." }
+  mongo.index_stats: { mutating: false, description: "How often each index of a collection was used since the server started ($indexStats)." }
   mongo.indexes: { mutating: false, description: "List a collection's indexes." }
   mongo.install: { mutating: true, description: "Install MongoDB (mongodb-org) from its repository, then enable and start the mongod service." }
   mongo.log: { mutating: false, description: "The tail of MongoDB's log." }
@@ -809,6 +858,8 @@ x-nimvor-actions:
   mongo.user_create: { mutating: true, description: "Create a MongoDB user scoped to one database with a role." }
   mongo.user_drop: { mutating: true, description: "Drop a MongoDB user." }
   mongo.user_password: { mutating: true, description: "Change a MongoDB user's password." }
+  mongo.validation_set: { mutating: true, description: "Set (or clear) a collection's validation rules: a $jsonSchema validator object, the level and the action." }
+  mongo.view_create: { mutating: true, description: "Create a read-only view over a collection from an aggregation pipeline (EJSON array of stages)." }
   net.addresses: { mutating: false, description: "The server's IP addresses (per interface), default gateways and the routed IPv6 ranges NimVor makes local." }
   net.ipv6_ranges: { mutating: true, description: "Set the routed IPv6 ranges (exactly these) whose addresses websites may use: each becomes a local route on lo, kept at boot by nimvor-ipv6-ranges.service. Ranges overlapping an interface's on-link prefix or containing a gateway are refused." }
   nginx.reload: { mutating: true, description: "Reload Nginx (after validating the configuration)." }
@@ -836,22 +887,33 @@ x-nimvor-actions:
   pg.browse: { mutating: false, description: "One page of a table's rows (read-only transaction, as the database owner): sorting, text search, column filters; cells over 2048 characters are cut and marked." }
   pg.database_create: { mutating: true, description: "Create a database owned by an existing database user; PUBLIC is stripped of access, so only the owner and users granted later can connect." }
   pg.database_delete: { mutating: true, description: "Delete a database (connections to it are ended). Deleting one that is gone is not an error." }
+  pg.db_overview: { mutating: false, description: "One database's overview: server version and capabilities, size, object counts, estimated rows, index size, owner and the connection details (never a password)." }
   pg.grant_list: { mutating: false, description: "The database users that may connect to a database (besides its owner)." }
   pg.grant_set: { mutating: true, description: "Set what a database user may do in a database: none, readonly, readwrite or all (existing objects and ones created later)." }
   pg.install: { mutating: true, description: "Install PostgreSQL from the operating system's packages, start it and create NimVor's provisioning role. Refuses when a server is already installed." }
   pg.monitor: { mutating: false, description: "Server health: version, uptime, connections, per-database size and activity, cache hit ratio, lock waits and long-running statements." }
+  pg.objects: { mutating: false, description: "A database's tables, views, materialized views and foreign tables with statistics (row estimate, data, index and total size, column, index, constraint, trigger and partition counts, last vacuum and analyze), filtered, sorted and paged. Catalog queries only." }
+  pg.objects_bulk: { mutating: true, description: "Drop, empty, vacuum, analyze, reindex or refresh up to 100 tables, views or materialized views at once; each object is checked in the catalog, run on its own and reported on its own." }
   pg.overview: { mutating: false, description: "The server's databases (with sizes and connections) and database users." }
+  pg.partitions: { mutating: false, description: "A partitioned table's strategy, key and partitions with bounds, estimated rows and size." }
   pg.query: { mutating: true, description: "Run SQL in a database as its dedicated query account: read mode (SELECT only, enforced by PostgreSQL privileges) or write mode (as the database owner). One statement unless script is set; rows and cell sizes are capped, statements time out, explain shows a plan (analyze runs the statement)." }
   pg.query_cancel: { mutating: true, description: "Cancel a running statement by the id it was started with." }
   pg.role_create: { mutating: true, description: "Create a database user: login only, no superuser, database or role creation, replication or row-security bypass." }
   pg.role_delete: { mutating: true, description: "Delete a database user and its privileges. Refuses while the user owns a database." }
   pg.role_password: { mutating: true, description: "Change a database user's password." }
+  pg.routine_definition: { mutating: false, description: "The CREATE statement of one routine, addressed by OID." }
+  pg.routine_drop: { mutating: true, description: "Drop a function, procedure or aggregate addressed by OID (the statement is written by the server from that OID)." }
+  pg.routines: { mutating: false, description: "A database's functions, procedures and aggregates (extensions' own excluded) with language, arguments, result, volatility and owner." }
   pg.row_delete: { mutating: true, description: "Delete one row, addressed by every key column; refuses tables without a primary key and any change that does not touch exactly one row." }
   pg.row_insert: { mutating: true, description: "Add a row to a table (values are text, cast by the server; omitted columns use their defaults)." }
   pg.row_update: { mutating: true, description: "Change one row, addressed by every key column; refuses tables without a primary key and any change that does not touch exactly one row." }
   pg.schema_map: { mutating: false, description: "Table and column names of a database (user schemas, up to 3,000 columns), for the SQL editor's completion." }
+  pg.sequence_alter: { mutating: true, description: "Create, alter, restart, set the value of, sync to its column, or drop a sequence. dry_run returns the SQL only." }
+  pg.sequences: { mutating: false, description: "A database's sequences with their settings, last value and the column that owns them." }
   pg.service: { mutating: true, description: "Start, stop, restart or reload the PostgreSQL service." }
   pg.status: { mutating: false, description: "PostgreSQL on this server: installed, running, version, and whether NimVor holds credentials for it." }
+  pg.table_alter: { mutating: true, description: "Change a database's structure from structured input: create, rename, duplicate, comment or move a table; add, change, rename or drop a column. dry_run returns the SQL only." }
+  pg.table_details: { mutating: false, description: "One table's indexes (method, columns, predicate, size, scans, validity), constraints and triggers." }
   pg.table_structure: { mutating: false, description: "A table's columns (type, null, default, key), its row identity and its indexes." }
   pg.tables: { mutating: false, description: "The tables, views and materialized views of a database (system schemas excluded) with estimated rows, size and whether their rows can be edited." }
   pg.test: { mutating: false, description: "Test a connection to the local server or, with a target, to a registered remote server (TLS settings included)." }
