@@ -268,6 +268,15 @@ final class MongoTest extends HttpTestCase
         $det = (array) json_decode($this->post('/mongo/browse', ['op' => 'collections_detail', 'db' => 'shop'])->body(), true);
         self::assertSame(300, $det['data']['collections'][0]['size']);
 
+        $this->agent->succeed('mongo.collections_bulk', ['op' => 'empty', 'results' => [['name' => 'orders', 'ok' => true]], 'succeeded' => 1, 'failed' => 0]);
+        $bulk = (array) json_decode($this->post('/mongo/browse', ['op' => 'colls_bulk', 'db' => 'shop', 'bulk_op' => 'empty', 'collections' => ['orders', '', 'orders']])->body(), true);
+        self::assertSame(1, $bulk['data']['succeeded']);
+        $call = $this->lastCall('mongo.collections_bulk');
+        self::assertSame(['shop', 'empty', ['orders'], true], [$call['db'], $call['op'], $call['collections'], $call['confirm']]);
+        self::assertSame(1, (int) $this->app->container->get(Connection::class)->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'mongo.collections_empty'"));
+        $this->post('/mongo/browse', ['op' => 'colls_bulk', 'db' => 'shop', 'bulk_op' => 'format', 'collections' => ['orders']]);
+        self::assertSame(1, $this->calls('mongo.collections_bulk'), 'an unknown action never reaches the agent');
+
         $this->agent->succeed('mongo.documents', ['documents' => [['_id' => 'a1', 'name' => 'x']], 'total' => 1, 'skip' => 0, 'limit' => 50]);
         $res = $this->post('/mongo/browse', ['op' => 'documents', 'db' => 'shop', 'collection' => 'orders', 'filter' => '{"name":"x"}', 'skip' => '0', 'limit' => '50']);
         $body = (array) json_decode($res->body(), true);

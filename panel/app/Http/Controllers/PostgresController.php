@@ -190,6 +190,38 @@ final class PostgresController extends Controller
         return $this->tool('postgres/' . $tab, $data);
     }
 
+    /** Several tables / views at once (maintenance, empty, drop) from the Objects list. */
+    public function objectsBulk(Request $request): Response
+    {
+        $db = $this->databaseOf($request, $request->input('db'));
+        if ($db === null) {
+            return $this->redirectWithError(self::BASE, 'Database not found.');
+        }
+        $back = self::BASE . '/browse?' . http_build_query(['db' => (int) $db['id'], 'tab' => 'objects']);
+        $items = [];
+        foreach ((array) $request->input('sel', []) as $raw) {
+            $pair = json_decode((string) $raw, true);
+            if (is_array($pair) && count($pair) === 2 && is_string($pair[0] ?? null) && is_string($pair[1] ?? null)) {
+                $items[] = [$pair[0], $pair[1]];
+            }
+        }
+        $op = (string) $request->input('op', '');
+        try {
+            $out = $this->pg->objectsBulk($db, $op, array_slice($items, 0, 100), [
+                'cascade' => (string) $request->input('cascade', '') !== '', 'restart_identity' => (string) $request->input('restart_identity', '') !== '',
+            ], trim((string) $request->input('confirm', '')), $this->userId($request));
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure($back, $e);
+        }
+        $failed = array_values(array_filter((array) ($out['results'] ?? []), static fn ($r): bool => empty($r['ok'])));
+        $ok = (int) ($out['succeeded'] ?? 0);
+        if ($failed === []) {
+            return $this->redirectWithSuccess($back, PostgresService::BULK_OPS[$op] . ': done for ' . $ok . ' object' . ($ok === 1 ? '' : 's') . '.');
+        }
+        $why = implode('; ', array_map(static fn ($r): string => (string) $r['schema'] . '.' . (string) $r['name'] . ' - ' . (string) ($r['error'] ?? 'failed'), array_slice($failed, 0, 5)));
+        return $this->redirectWithError($back, PostgresService::BULK_OPS[$op] . ': ' . $ok . ' done, ' . count($failed) . ' failed. ' . $why . (count($failed) > 5 ? '; and ' . (count($failed) - 5) . ' more.' : ''));
+    }
+
     // ---- SQL editor -------------------------------------------------------------------------------
 
     public function sql(Request $request): Response

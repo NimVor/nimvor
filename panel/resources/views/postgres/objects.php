@@ -11,6 +11,7 @@
  * @var int $per
  * @var int $pageNo
  * @var \NimVor\Support\UserFacingException|null $error
+ * @var bool $canWrite
  */
 $id = (int) $db['id'];
 $o = (array) $objects;
@@ -56,9 +57,13 @@ if ($error !== null): ?>
     <?php if ($items === []): ?>
         <div class="nim-db-empty"><i class="bi bi-table" aria-hidden="true"></i><div><?= $filtered ? 'No object matches this filter.' : 'This database has no tables yet. Create them from your application, the SQL tab or a client such as psql.' ?></div></div>
     <?php else: ?>
+    <form method="post" action="<?= e($this->url('postgres.objects_bulk')) ?>" data-pgo-form>
+    <?= $this->csrfField() ?>
+    <input type="hidden" name="db" value="<?= $id ?>">
     <div class="table-responsive">
         <table class="table table-sm table-hover align-middle mb-0">
             <thead><tr>
+                <?php if ($canWrite): ?><th scope="col" class="nim-col-check"><input class="form-check-input" type="checkbox" aria-label="Select all on this page" data-pgo-all></th><?php endif; ?>
                 <th scope="col"><?= $sortLink('name', 'Name') ?></th><th scope="col"><?= $sortLink('kind', 'Type') ?></th>
                 <th scope="col" class="text-end"><?= $sortLink('rows', 'Rows (est.)') ?></th><th scope="col" class="text-end"><?= $sortLink('size', 'Size') ?></th>
                 <th scope="col" class="text-end">Columns</th><th scope="col" class="text-end">Indexes</th><th scope="col" class="text-end">Constraints</th><th scope="col" class="text-end">Triggers</th><th scope="col">Last analyzed</th>
@@ -66,6 +71,7 @@ if ($error !== null): ?>
             <tbody>
             <?php foreach ($items as $it): $it = (array) $it; $isTable = in_array($it['kind'], ['table', 'partitioned table', 'foreign table'], true) || $it['kind'] === 'materialized view'; ?>
                 <tr>
+                    <?php if ($canWrite): ?><td class="nim-col-check"><input class="form-check-input" type="checkbox" name="sel[]" value="<?= e((string) json_encode([(string) $it['schema'], (string) $it['name']])) ?>" aria-label="Select <?= e((string) $it['name']) ?>" data-pgo-row></td><?php endif; ?>
                     <td><i class="bi bi-<?= e($icon[(string) $it['kind']] ?? 'table') ?> me-1" aria-hidden="true"></i><a class="font-monospace" href="<?= e($this->url('postgres.browse') . '?' . http_build_query(['db' => $id, 'schema' => $it['schema'], 'table' => $it['name']])) ?>"><?= e(($it['schema'] !== 'public' ? $it['schema'] . '.' : '') . $it['name']) ?></a>
                         <?php if (($it['partition_of'] ?? '') !== ''): ?><span class="badge text-bg-light border ms-1">partition of <?= e((string) $it['partition_of']) ?></span><?php endif; ?>
                         <?php if (($it['comment'] ?? '') !== ''): ?><div class="small text-body-secondary text-truncate nim-ellipsis-cell"><?= e((string) $it['comment']) ?></div><?php endif; ?></td>
@@ -82,6 +88,23 @@ if ($error !== null): ?>
             </tbody>
         </table>
     </div>
+    <?php if ($canWrite): ?>
+    <div class="d-flex flex-wrap align-items-center gap-2 p-2 border-top bg-body-tertiary small" data-pgo-bar>
+        <span data-pgo-count>None selected</span>
+        <select class="form-select form-select-sm w-auto" name="op" aria-label="Action for the selected objects" data-pgo-op>
+            <option value="">Action…</option>
+            <?php foreach (\NimVor\Services\PostgresService::BULK_OPS as $key => $label): ?><option value="<?= e($key) ?>"><?= e($label) ?></option><?php endforeach; ?>
+        </select>
+        <span class="d-none d-flex flex-wrap align-items-center gap-2" data-pgo-danger>
+            <label class="form-check form-check-inline mb-0"><input class="form-check-input" type="checkbox" name="cascade" value="1"> also dependent objects (CASCADE)</label>
+            <label class="form-check form-check-inline mb-0" data-pgo-restart><input class="form-check-input" type="checkbox" name="restart_identity" value="1"> reset counters</label>
+            <input class="form-control form-control-sm w-auto" type="text" name="confirm" placeholder="Type <?= e((string) $db['name']) ?> to confirm" autocomplete="off" aria-label="Type the database name to confirm">
+        </span>
+        <button class="btn btn-sm btn-primary" data-pgo-go disabled>Apply to selected</button>
+        <span class="text-body-secondary">Each object is done on its own; one that fails does not stop the others.</span>
+    </div>
+    <?php endif; ?>
+    </form>
     <div class="d-flex flex-wrap align-items-center gap-2 p-2 border-top small">
         <span><?= number_format((($pageNo - 1) * $per) + 1) ?>–<?= number_format(min($total, $pageNo * $per)) ?> of <?= number_format($total) ?></span>
         <span class="ms-auto d-flex gap-1">
@@ -98,4 +121,4 @@ $inner = (string) ob_get_clean();
 <?php $this->start(); ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('postgres.backups') . '?db=' . $id) ?>"><i class="bi bi-cloud-arrow-down"></i> Backups</a><?php $this->end('actions'); ?>
 
 <?= $this->partial('postgres/_frame', ['db' => $db, 'schema' => '', 'table' => '', 'tables' => $tables, 'tab' => 'objects', 'inner' => $inner]) ?>
-<?php $this->start(); ?><script src="<?= e($this->asset('assets/js/postgres-frame.js')) ?>" defer></script><?php $this->end('scripts'); ?>
+<?php $this->start(); ?><script src="<?= e($this->asset('assets/js/postgres-frame.js')) ?>" defer></script><script src="<?= e($this->asset('assets/js/postgres-objects.js')) ?>" defer></script><?php $this->end('scripts'); ?>

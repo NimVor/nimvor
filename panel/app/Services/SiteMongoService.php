@@ -221,6 +221,30 @@ final class SiteMongoService
         $this->audit->record('mongo.collection_drop', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['db' => $db, 'collection' => $collection], $userId);
     }
 
+    /**
+     * Drop, empty or validate several collections at once; each is reported on its own.
+     *
+     * @param list<string> $names
+     * @return array<string, mixed>
+     */
+    public function collectionsBulk(array $site, string $db, string $op, array $names, ?int $userId): array
+    {
+        $this->assertOwned($site, $db);
+        if (!in_array($op, ['drop', 'empty', 'validate'], true)) {
+            throw new \NimVor\Support\UserFacingException('Choose what to do with the selected collections.');
+        }
+        $names = array_values(array_unique(array_filter(array_map(static fn ($n): string => is_string($n) ? $n : '', $names), static fn (string $n): bool => $n !== '')));
+        if ($names === []) {
+            throw new \NimVor\Support\UserFacingException('Select at least one collection first.');
+        }
+        $o = (array) $this->agent->call('mongo.collections_bulk', ['db' => $db, 'op' => $op, 'collections' => array_slice($names, 0, 50), 'confirm' => $op !== 'validate'], 300);
+        if ($op !== 'validate') {
+            $this->audit->record('mongo.collections_' . $op, 'website', (string) $site['id'], (int) ($o['failed'] ?? 0) === 0 ? AuditLogger::SUCCESS : AuditLogger::FAILURE,
+                ['db' => $db, 'collections' => array_slice($names, 0, 20), 'count' => count($names), 'succeeded' => (int) ($o['succeeded'] ?? 0), 'failed' => (int) ($o['failed'] ?? 0)], $userId);
+        }
+        return $o;
+    }
+
     public function emptyCollection(array $site, string $db, string $collection, ?int $userId): int
     {
         $this->assertOwned($site, $db);

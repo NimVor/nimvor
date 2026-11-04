@@ -144,11 +144,18 @@
                 wrap.appendChild(el('div', 'text-body-secondary', 'This database has no collections yet.'));
             } else {
                 var table = el('table', 'table table-sm table-hover align-middle mb-0'), head = el('tr');
+                var picked = new Set(), bulkCount = el('span', '', 'None selected');
+                var allBox = el('input', 'form-check-input'); allBox.type = 'checkbox'; allBox.setAttribute('aria-label', 'Select all collections');
+                var thc = el('th', 'nim-col-check'); thc.scope = 'col'; thc.appendChild(allBox); head.appendChild(thc);
+                var boxes = [];
                 ['Name', 'Type', 'Documents', 'Data size', 'Storage', 'Indexes', 'Index size', 'Validation'].forEach(function (h, i) { var th = el('th', i > 1 && i < 7 ? 'text-end' : '', h); th.scope = 'col'; head.appendChild(th); });
                 var thead = el('thead'); thead.appendChild(head); table.appendChild(thead);
                 var tb = el('tbody');
                 cols.forEach(function (c) {
                     var tr = el('tr'), td = el('td'), a = el('a', 'font-monospace', c.name); a.href = '#';
+                    var pick = el('input', 'form-check-input'); pick.type = 'checkbox'; pick.setAttribute('aria-label', 'Select ' + c.name); boxes.push(pick);
+                    pick.addEventListener('change', function () { if (pick.checked) { picked.add(c.name); } else { picked.delete(c.name); } syncBulk(); });
+                    var tdc = el('td', 'nim-col-check'); tdc.appendChild(pick); tr.appendChild(tdc);
                     a.addEventListener('click', function (e) { e.preventDefault(); openCollection(c.name); });
                     td.appendChild(a); tr.appendChild(td);
                     var kind = c.type === 'view' ? 'view on ' + (c.viewOn || '?') : c.type === 'timeseries' ? 'time-series' : (c.capped ? 'capped' : 'collection');
@@ -164,6 +171,37 @@
                 });
                 table.appendChild(tb);
                 var holder = el('div', 'table-responsive'); holder.appendChild(table); wrap.appendChild(holder);
+                var bar = el('div', 'd-flex flex-wrap align-items-center gap-2 pt-3 small'), opSel = el('select', 'form-select form-select-sm w-auto');
+                opSel.setAttribute('aria-label', 'Action for the selected collections');
+                [['', 'Action…'], ['validate', 'Validate (check structure)']].concat(canDelete ? [['empty', 'Empty (remove all documents)'], ['drop', 'Drop']] : []).forEach(function (o) { var op = el('option', '', o[1]); op.value = o[0]; opSel.appendChild(op); });
+                var goBtn = el('button', 'btn btn-sm btn-primary', 'Apply to selected'); goBtn.type = 'button'; goBtn.addEventListener('click', function () { runBulk(opSel.value); });
+                bar.appendChild(bulkCount); bar.appendChild(opSel); bar.appendChild(goBtn);
+                bar.appendChild(el('span', 'text-body-secondary', 'Each collection is done on its own; one that fails does not stop the others.'));
+                wrap.appendChild(bar);
+                function syncBulk() {
+                    bulkCount.textContent = picked.size ? picked.size + ' selected' : 'None selected';
+                    goBtn.disabled = !picked.size || !opSel.value;
+                    var destructive = opSel.value === 'drop' || opSel.value === 'empty';
+                    goBtn.classList.toggle('btn-danger', destructive); goBtn.classList.toggle('btn-primary', !destructive);
+                    allBox.checked = picked.size > 0 && picked.size === cols.length; allBox.indeterminate = picked.size > 0 && picked.size < cols.length;
+                }
+                opSel.addEventListener('change', syncBulk);
+                allBox.addEventListener('change', function () { boxes.forEach(function (b, i) { b.checked = allBox.checked; if (allBox.checked) { picked.add(cols[i].name); } else { picked.delete(cols[i].name); } }); syncBulk(); });
+                function runBulk(op) {
+                    var names = Array.from(picked), destructive = op === 'drop' || op === 'empty';
+                    if (destructive) {
+                        var typed = window.prompt((op === 'drop' ? 'Drop ' : 'Empty ') + names.length + ' collection(s) in "' + db + '"? This cannot be undone.\n\n' + names.slice(0, 15).join(', ') + '\n\nType the database name to confirm:');
+                        if (typed !== db) { if (typed !== null) { NimVor.toast('The name did not match. Nothing was changed.', 'warning'); } return; }
+                    }
+                    call('colls_bulk', { bulk_op: op, collections: names }).then(function (r) {
+                        var bad = (r.results || []).filter(function (x) { return !x.ok; });
+                        var msg = r.succeeded + ' done' + (bad.length ? ', ' + bad.length + ' failed: ' + bad.slice(0, 4).map(function (x) { return x.name + ' – ' + (x.error || 'failed'); }).join('; ') : '.');
+                        if (op === 'validate' && !bad.length) { msg = r.succeeded + ' collection(s) are valid.'; }
+                        NimVor.toast(msg, bad.length ? 'danger' : 'success');
+                        if (op !== 'validate') { reloadCollections(); showDbOverview(); }
+                    }).catch(fail);
+                }
+                syncBulk();
             }
             pane.replaceChildren(wrap);
         }).catch(function (e) {

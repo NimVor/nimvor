@@ -24,6 +24,7 @@ final class PostgresBrowserTest extends HttpTestCase
         $this->db = $this->app->container->get(Connection::class);
         $this->agent->succeed('pg.status', ['installed' => true, 'running' => true, 'managed' => true, 'version' => '16.4', 'port' => 5432]);
         $this->agent->succeed('pg.overview', ['databases' => [], 'roles' => [], 'version' => '16.4', 'max_connections' => 100, 'active_connections' => 1]);
+        $this->agent->succeed('pg.objects_bulk', ['op' => 'vacuum', 'succeeded' => 2, 'failed' => 0, 'results' => [['schema' => 'public', 'name' => 'items', 'ok' => true]]]);
         foreach (['pg.role_create', 'pg.database_create', 'pg.row_insert', 'pg.row_update', 'pg.row_delete'] as $a) {
             $this->agent->succeed($a, ['ok' => true]);
         }
@@ -92,6 +93,48 @@ final class PostgresBrowserTest extends HttpTestCase
         $this->switchTo('bob');
         $res = $this->request('GET', '/postgres/browse', [], [], '', ['db' => (string) $this->aliceDb, 'tab' => 'objects']);
         self::assertNotSame(200, $res->status());
+    }
+
+    public function testBulkMaintenanceIsSentWithCheckedNamesAndAudited(): void
+    {
+        $sel = [json_encode(['public', 'items']), json_encode(['public', 'v_items'])];
+        $res = $this->post('/postgres/objects/bulk', ['db' => (string) $this->aliceDb, 'op' => 'vacuum', 'sel' => $sel]);
+        self::assertSame(303, $res->status());
+        $call = $this->lastCall('pg.objects_bulk');
+        self::assertSame('vacuum', $call['op']);
+        self::assertFalse($call['confirm']);
+        self::assertSame([['schema' => 'public', 'name' => 'items'], ['schema' => 'public', 'name' => 'v_items']], $call['items']);
+        self::assertSame('alice_shop', $call['database']);
+        self::assertSame(1, (int) $this->db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'postgres.objects_vacuum'"));
+    }
+
+    public function testBulkDropNeedsTheDatabaseNameTypedBack(): void
+    {
+        $sel = [json_encode(['public', 'items'])];
+        $this->post('/postgres/objects/bulk', ['db' => (string) $this->aliceDb, 'op' => 'drop', 'sel' => $sel, 'confirm' => 'wrong']);
+        self::assertSame(0, $this->calls('pg.objects_bulk'), 'nothing reaches the agent without the typed name');
+        $this->post('/postgres/objects/bulk', ['db' => (string) $this->aliceDb, 'op' => 'drop', 'sel' => $sel, 'confirm' => 'alice_shop', 'cascade' => '1']);
+        $call = $this->lastCall('pg.objects_bulk');
+        self::assertTrue($call['confirm']);
+        self::assertTrue($call['cascade']);
+    }
+
+    public function testBulkRefusesUnknownActionsEmptySelectionsAndForeignDatabases(): void
+    {
+        $this->post('/postgres/objects/bulk', ['db' => (string) $this->aliceDb, 'op' => 'format', 'sel' => [json_encode(['public', 'items'])]]);
+        $this->post('/postgres/objects/bulk', ['db' => (string) $this->aliceDb, 'op' => 'vacuum', 'sel' => ['not json', json_encode(['only one'])]]);
+        self::assertSame(0, $this->calls('pg.objects_bulk'));
+        $this->switchTo('bob');
+        $this->post('/postgres/objects/bulk', ['db' => (string) $this->aliceDb, 'op' => 'vacuum', 'sel' => [json_encode(['public', 'items'])]]);
+        self::assertSame(0, $this->calls('pg.objects_bulk'), "another customer's database never reaches the agent");
+    }
+
+    public function testViewerSeesNoSelectionControls(): void
+    {
+        $this->switchTo('admin');
+        $page = $this->request('GET', '/postgres/browse', [], [], '', ['db' => (string) $this->aliceDb, 'tab' => 'objects'])->body();
+        self::assertStringContainsString('data-pgo-all', $page);
+        self::assertStringContainsString('Type alice_shop to confirm', $page);
     }
 
     public function testOwnerBrowsesRowsAndTables(): void

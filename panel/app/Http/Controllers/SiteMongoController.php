@@ -203,6 +203,8 @@ final class SiteMongoController extends SiteController
                 case 'coll_drop':
                     $this->mongo->dropCollection($site, $db, trim((string) $request->input('collection')), $this->userId($request));
                     return Response::json(['success' => true, 'data' => ['dropped' => trim((string) $request->input('collection'))]]);
+                case 'colls_bulk':
+                    return Response::json(['success' => true, 'data' => $this->mongo->collectionsBulk($site, $db, trim((string) $request->input('bulk_op')), (array) $request->input('collections', []), $this->userId($request))]);
                 case 'coll_empty':
                     return Response::json(['success' => true, 'data' => ['deleted' => $this->mongo->emptyCollection($site, $db, trim((string) $request->input('collection')), $this->userId($request))]]);
                 case 'coll_rename':

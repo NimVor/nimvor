@@ -514,6 +514,12 @@ final class MongoController extends Controller
                     }
                     $this->mongo->dropCollection($db, trim((string) $request->input('collection')), $this->userId($request));
                     return Response::json(['success' => true, 'data' => ['dropped' => trim((string) $request->input('collection'))]]);
+                case 'colls_bulk':
+                    $bulkOp = trim((string) $request->input('bulk_op'));
+                    if ($bulkOp !== 'validate' && !$this->view->can(P::MONGO_MANAGE)) {
+                        return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
+                    }
+                    return Response::json(['success' => true, 'data' => $this->mongo->collectionsBulk($db, $bulkOp, (array) $request->input('collections', []), $this->userId($request))]);
                 case 'coll_empty':
                     if (!$this->view->can(P::MONGO_MANAGE)) {
                         return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);

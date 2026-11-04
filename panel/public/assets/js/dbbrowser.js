@@ -143,7 +143,7 @@
             pane.replaceChildren(wrap);
         }).catch(function (e) { pane.replaceChildren(el('div', 'alert alert-danger m-3', (e.details && e.details.details) || e.message)); });
     }
-    var objSort = { key: 'name', desc: false }, objKind = '', objSearch = '';
+    var objSort = { key: 'name', desc: false }, objKind = '', objSearch = '', objPicked = new Set();
     function showObjects() {
         loading(pane);
         loadTables().then(function () {
@@ -155,6 +155,41 @@
             bar.appendChild(search); bar.appendChild(kind);
             bar.appendChild(btn('Refresh', 'bi-arrow-clockwise', 'btn-outline-secondary ms-auto', function () { showObjects(); }));
             var holder = el('div', 'table-responsive'); wrap.appendChild(bar); wrap.appendChild(holder);
+            var bulk = el('div', 'd-flex flex-wrap align-items-center gap-2 p-2 border-top bg-body-tertiary small mt-auto'), bulkCount = el('span', '', 'None selected');
+            var opSel = el('select', 'form-select form-select-sm w-auto'); opSel.setAttribute('aria-label', 'Action for the selected tables');
+            [['', 'Action…'], ['optimize', 'Optimize'], ['analyze', 'Analyze'], ['check', 'Check'], ['repair', 'Repair (MyISAM, Aria, Archive, CSV only)'], ['truncate', 'Empty (truncate)'], ['drop', 'Drop']].forEach(function (o) { var op = el('option', '', o[1]); op.value = o[0]; opSel.appendChild(op); });
+            var goBtn = btn('Apply to selected', '', 'btn-primary', function () { runBulk(opSel.value); });
+            bulk.appendChild(bulkCount); bulk.appendChild(opSel); bulk.appendChild(goBtn);
+            bulk.appendChild(el('span', 'text-body-secondary', 'Each table is done on its own; one that fails does not stop the others.'));
+            wrap.appendChild(bulk);
+            function syncBar() {
+                var n = objPicked.size;
+                bulkCount.textContent = n === 0 ? 'None selected' : n + ' selected';
+                goBtn.disabled = n === 0 || !opSel.value;
+                var destructive = opSel.value === 'drop' || opSel.value === 'truncate';
+                goBtn.classList.toggle('btn-danger', destructive); goBtn.classList.toggle('btn-primary', !destructive);
+            }
+            opSel.addEventListener('change', syncBar);
+            function runBulk(op) {
+                var names = Array.from(objPicked);
+                var views = state.tables.filter(function (t) { return t.view && objPicked.has(t.name); }).length;
+                var destructive = op === 'drop' || op === 'truncate';
+                var go = function () {
+                    call('bulk', { alter_op: op, tables: names, confirm: destructive }).then(function (r) {
+                        var bad = (r.results || []).filter(function (x) { return !x.ok; });
+                        if (!bad.length) { NimVor.toast(r.succeeded + ' table(s) done.', 'success'); } else {
+                            NimVor.toast(r.succeeded + ' done, ' + bad.length + ' failed: ' + bad.slice(0, 4).map(function (x) { return x.table + ' – ' + (x.message || 'failed'); }).join('; '), 'danger');
+                        }
+                        objPicked = new Set(bad.map(function (x) { return x.table; }));
+                        state.structure = {};
+                        showObjects();
+                    }).catch(fail);
+                };
+                if (!destructive) { go(); return; }
+                confirmDialog((op === 'drop' ? 'Drop ' : 'Empty ') + names.length + ' selected ' + (names.length === 1 ? 'table' : 'tables') + '?',
+                    (op === 'drop' ? 'The tables' + (views ? ' and views' : '') + ' and all their data are deleted. ' : 'Every row is removed; the tables stay. ') + 'This cannot be undone. ' + names.slice(0, 15).join(', ') + (names.length > 15 ? ', and ' + (names.length - 15) + ' more' : ''),
+                    op === 'drop' ? 'Drop' : 'Empty', root.dataset.database).then(function (yes) { if (yes) { go(); } });
+            }
             function draw() {
                 objSearch = search.value; objKind = kind.value;
                 var list = state.tables.filter(function (t) {
@@ -163,6 +198,9 @@
                 var key = objSort.key, dir = objSort.desc ? -1 : 1;
                 list.sort(function (a, b) { var x = a[key], y = b[key]; if (typeof x === 'string') { return dir * x.localeCompare(y); } return dir * ((x || 0) - (y || 0)); });
                 var table = el('table', 'table table-sm table-hover align-middle mb-0'), head = el('tr');
+                var allBox = el('input', 'form-check-input'); allBox.type = 'checkbox'; allBox.setAttribute('aria-label', 'Select all shown');
+                var thc = el('th', 'nim-col-check'); thc.scope = 'col'; thc.appendChild(allBox); head.appendChild(thc);
+                allBox.addEventListener('change', function () { list.forEach(function (t) { if (allBox.checked) { objPicked.add(t.name); } else { objPicked.delete(t.name); } }); draw(); });
                 [['name', 'Name'], ['engine', 'Engine'], ['rows', 'Rows (est.)'], ['bytes', 'Size'], ['index_bytes', 'Indexes size'], ['columns', 'Columns'], ['indexes', 'Indexes'], ['auto_increment', 'Auto-inc.'], ['collation', 'Collation'], ['updated', 'Updated']].forEach(function (c) {
                     var th = el('th', c[0] === 'name' || c[0] === 'engine' || c[0] === 'collation' || c[0] === 'updated' ? '' : 'text-end'); th.scope = 'col';
                     var a = el('a', 'text-reset text-decoration-none', c[1] + (objSort.key === c[0] ? (objSort.desc ? ' ▾' : ' ▴') : '')); a.href = '#';
@@ -173,6 +211,9 @@
                 var tb = el('tbody');
                 list.forEach(function (t) {
                     var tr = el('tr'), nm = el('td'), link = el('a', 'font-monospace', t.name); link.href = '#';
+                    var pick = el('input', 'form-check-input'); pick.type = 'checkbox'; pick.checked = objPicked.has(t.name); pick.setAttribute('aria-label', 'Select ' + t.name);
+                    pick.addEventListener('change', function () { if (pick.checked) { objPicked.add(t.name); } else { objPicked.delete(t.name); } syncBar(); });
+                    var tdc = el('td', 'nim-col-check'); tdc.appendChild(pick); tr.appendChild(tdc);
                     link.addEventListener('click', function (e) { e.preventDefault(); selectTable(t.name); });
                     nm.appendChild(el('i', 'bi ' + (t.view ? 'bi-eye' : 'bi-table') + ' me-1')); nm.appendChild(link);
                     if (t.comment) { nm.appendChild(el('div', 'small text-body-secondary', t.comment)); }
@@ -189,6 +230,9 @@
                     tb.appendChild(tr);
                 });
                 table.appendChild(tb);
+                var picked = list.filter(function (t) { return objPicked.has(t.name); }).length;
+                allBox.checked = picked > 0 && picked === list.length; allBox.indeterminate = picked > 0 && picked < list.length;
+                syncBar();
                 holder.replaceChildren(list.length ? table : el('div', 'p-4 text-body-secondary', state.tables.length ? 'No object matches this filter.' : 'This database has no tables yet. Create one with the + button, the SQL tab or your application.'));
             }
             search.addEventListener('input', draw); kind.addEventListener('change', draw);

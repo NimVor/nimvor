@@ -26,6 +26,7 @@ final class DbBrowserTest extends HttpTestCase
         $this->otherDb = $this->db->lastInsertId();
         $this->agent->succeed('db.browse_tables', ['database' => 'x', 'tables' => [['name' => 'orders']], 'server' => '10.11']);
         $this->agent->succeed('db.browse_overview', ['database' => 'x', 'server' => '10.11.14-MariaDB', 'family' => 'mariadb', 'tables' => 1, 'views' => 0, 'rows' => 5, 'data_bytes' => 16384, 'index_bytes' => 0, 'free_bytes' => 0, 'engines' => ['InnoDB' => 1], 'routines' => 0, 'triggers' => 0, 'events' => 0, 'sequences' => 0]);
+        $this->agent->succeed('db.browse_bulk', ['op' => 'optimize', 'results' => [], 'succeeded' => 2, 'failed' => 0]);
         $this->agent->succeed('db.query', ['results' => [['affected_rows' => 1, 'insert_id' => 0, 'info' => '']], 'ms' => 3]);
         $this->agent->succeed('db.browse_save', ['affected_rows' => 1, 'insert_id' => 0]);
     }
@@ -71,6 +72,19 @@ final class DbBrowserTest extends HttpTestCase
         self::assertStringContainsString('mariadb', $res->body());
         self::assertSame(404, $this->api('/databases/' . $this->otherDb . '/browse/api', ['op' => 'overview'])->status());
         self::assertSame(1, $this->calls('db.browse_overview'));
+    }
+
+    public function testBulkOperationSendsCleanNamesAndIsAuditedWithoutValues(): void
+    {
+        $this->login('cust');
+        $res = $this->api('/databases/' . $this->shopDb . '/browse/api', ['op' => 'bulk', 'alter_op' => 'drop', 'tables' => ['orders', '', ['nested'], 'items'], 'confirm' => true, 'database' => 'admin_crm']);
+        self::assertSame(200, $res->status());
+        $call = $this->lastCall('db.browse_bulk');
+        self::assertSame(['cust_shop', 'drop', ['orders', 'items'], true], [$call['database'], $call['op'], $call['tables'], $call['confirm']]);
+        $audit = $this->db->fetch("SELECT * FROM audit_logs WHERE action = 'database.browser_bulk'");
+        self::assertNotNull($audit);
+        self::assertStringContainsString('orders', (string) $audit['details']);
+        self::assertSame(404, $this->api('/databases/' . $this->otherDb . '/browse/api', ['op' => 'bulk', 'alter_op' => 'drop', 'tables' => ['x'], 'confirm' => true])->status());
     }
 
     public function testOperationsMapToAgentActionsAndAreAudited(): void

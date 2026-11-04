@@ -498,6 +498,45 @@ final class PostgresService
         return (array) $this->callOn((int) $database['pg_server_id'], 'pg.objects', ['database' => (string) $database['name']] + $q, 60);
     }
 
+    public const BULK_OPS = [
+        'vacuum' => 'Vacuum', 'vacuum_analyze' => 'Vacuum and analyze', 'analyze' => 'Analyze', 'reindex' => 'Rebuild indexes',
+        'refresh' => 'Refresh materialized views', 'truncate' => 'Empty (truncate)', 'drop' => 'Drop',
+    ];
+
+    /**
+     * Run one maintenance or destructive operation on several tables / views. Dropping and emptying need the database
+     * name typed back; every object is reported on its own.
+     *
+     * @param array<string, mixed> $database
+     * @param list<array{0: string, 1: string}> $items [schema, name] pairs
+     * @param array<string, mixed> $opts cascade, restart_identity
+     * @return array<string, mixed>
+     */
+    public function objectsBulk(array $database, string $op, array $items, array $opts, string $confirm, ?int $userId): array
+    {
+        if (!isset(self::BULK_OPS[$op])) {
+            throw new UserFacingException('Choose what to do with the selected objects.');
+        }
+        if ($items === []) {
+            throw new UserFacingException('Select at least one table or view first.');
+        }
+        $destructive = $op === 'drop' || $op === 'truncate';
+        if ($destructive && $confirm !== (string) $database['name']) {
+            throw new UserFacingException('Type the database name to confirm.', '', 'Nothing was changed.');
+        }
+        $params = [
+            'database' => (string) $database['name'], 'op' => $op, 'confirm' => $destructive,
+            'cascade' => $destructive && !empty($opts['cascade']), 'restart_identity' => $op === 'truncate' && !empty($opts['restart_identity']),
+            'items' => array_map(static fn (array $i): array => ['schema' => $i[0], 'name' => $i[1]], $items),
+        ];
+        $out = (array) $this->callOn((int) $database['pg_server_id'], 'pg.objects_bulk', $params, 600);
+        $names = array_map(static fn (array $i): string => $i[0] . '.' . $i[1], array_slice($items, 0, 20));
+        $this->audit->record('postgres.objects_' . $op, 'pg_database', (string) $database['name'],
+            (int) ($out['failed'] ?? 0) === 0 ? AuditLogger::SUCCESS : AuditLogger::FAILURE,
+            ['objects' => $names, 'count' => count($items), 'succeeded' => (int) ($out['succeeded'] ?? 0), 'failed' => (int) ($out['failed'] ?? 0)], $userId);
+        return $out;
+    }
+
     /**
      * @param array<string, mixed> $database
      * @return array<string, mixed>

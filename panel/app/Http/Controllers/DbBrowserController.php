@@ -35,6 +35,7 @@ final class DbBrowserController extends Controller
         'delete' => ['db.browse_delete', true],
         'query' => ['db.query', true],
         'alter' => ['db.browse_alter', true],
+        'bulk' => ['db.browse_bulk', true],
         'export_csv' => ['db.browse_export_csv', false],
         'import_csv' => ['db.browse_import_csv', true],
     ];
@@ -42,6 +43,8 @@ final class DbBrowserController extends Controller
         'table', 'offset', 'limit', 'order', 'desc', 'filter', 'search', 'sql', 'key', 'keys', 'values', 'insert',
         // Structure changes (the operation travels as alter_op: op names the browser operation).
         'alter_op', 'new_name', 'column', 'columns', 'name', 'after', 'kind', 'index_columns', 'ref_table', 'ref_columns', 'on_delete', 'on_update', 'primary', 'engine', 'dry_run',
+        // Several tables at once (the operation travels as alter_op).
+        'tables', 'confirm',
         // CSV import.
         'csv', 'delimiter', 'header', 'mode',
     ];
@@ -112,7 +115,8 @@ final class DbBrowserController extends Controller
             if ($v !== null) {
                 $params[$f === 'alter_op' ? 'op' : $f] = match ($f) {
                     'offset', 'limit' => (int) $v,
-                    'desc', 'insert', 'dry_run', 'header' => (bool) $v,
+                    'desc', 'insert', 'dry_run', 'header', 'confirm' => (bool) $v,
+                    'tables' => is_array($v) ? array_values(array_filter(array_map(static fn ($t): string => is_scalar($t) ? (string) $t : '', $v), static fn (string $t): bool => $t !== '')) : [],
                     'table', 'order', 'sql', 'search', 'csv', 'alter_op', 'new_name', 'name', 'after', 'kind', 'ref_table', 'on_delete', 'on_update', 'engine', 'delimiter', 'mode' => is_scalar($v) ? (string) $v : '',
                     default => $v,
                 };
@@ -132,7 +136,8 @@ final class DbBrowserController extends Controller
             if ($op === 'query' && isset($data['error'])) {
                 $ctx['error'] = mb_substr((string) $data['error'], 0, 300);
             }
-            $this->audit->record('database.browser_' . $op, $target[0], $target[1], isset($data['error']) ? AuditLogger::FAILURE : AuditLogger::SUCCESS, $ctx);
+            $failed = isset($data['error']) || (int) ($data['failed'] ?? 0) > 0;
+            $this->audit->record('database.browser_' . $op, $target[0], $target[1], $failed ? AuditLogger::FAILURE : AuditLogger::SUCCESS, $ctx);
         }
         return Response::json(['success' => true, 'data' => $data]);
     }
@@ -161,6 +166,7 @@ final class DbBrowserController extends Controller
             'save' => ['insert' => !empty($params['insert']), 'columns' => array_slice(array_map('strval', array_keys((array) ($params['values'] ?? []))), 0, 50), 'key' => $params['key'] ?? null],
             'delete' => ['rows' => count((array) ($params['keys'] ?? []))],
             'alter' => ['operation' => (string) ($params['op'] ?? ''), 'sql' => mb_substr((string) ($data['sql'] ?? ''), 0, 1000)],
+            'bulk' => ['operation' => (string) ($params['op'] ?? ''), 'tables' => array_slice(array_map('strval', (array) ($params['tables'] ?? [])), 0, 20), 'count' => count((array) ($params['tables'] ?? [])), 'succeeded' => $data['succeeded'] ?? null, 'failed' => $data['failed'] ?? null],
             'import_csv' => ['bytes' => strlen((string) ($params['csv'] ?? '')), 'rows' => $data['rows'] ?? null, 'mode' => (string) ($params['mode'] ?? 'insert')],
             default => [],
         };
