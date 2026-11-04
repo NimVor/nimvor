@@ -45,7 +45,7 @@ func registerObjects(r *actions.Registry, env *host.Env, c Client) {
 			"var o=i.options||{};var s={};"+
 			"if(i.type!=='view'){try{s=d.runCommand({collStats:i.name})}catch(e){s={}}}"+
 			"return {name:i.name,type:o.timeseries?'timeseries':(i.type||'collection'),capped:!!o.capped,"+
-			"viewOn:o.viewOn||null,"+
+			"viewOn:o.viewOn||null,pipeline:o.pipeline||null,"+
 			"count:Number(s.count||0),size:Number(s.size||0),storageSize:Number(s.storageSize||0),avgObjSize:Number(s.avgObjSize||0),"+
 			"nindexes:Number(s.nindexes||0),totalIndexSize:Number(s.totalIndexSize||0),"+
 			"validated:!!o.validator&&Object.keys(o.validator).length>0}});"+

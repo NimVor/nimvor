@@ -773,3 +773,132 @@ func TestCollectionCopyReportsWhatItDid(t *testing.T) {
 		}
 	}
 }
+
+// scriptSpy records what reaches mongosh (arguments and stdin) and answers with reply.
+func scriptSpy(h *testhost.Host, reply *string) *string {
+	var seen string
+	h.Runner.Handler = func(id string, o execx.Opts, args []string) (string, error) {
+		if id == "mongosh" {
+			seen = strings.Join(args, " ")
+			if n := len(h.Runner.Stdins); n > 0 {
+				seen += " " + h.Runner.Stdins[n-1]
+			}
+			return *reply, nil
+		}
+		return "", nil
+	}
+	return &seen
+}
+
+func TestDocumentsBulkDuplicateAndStructuredUpdate(t *testing.T) {
+	h, r := setup(t)
+	reply := `{"deleted":2}`
+	seen := scriptSpy(h, &reply)
+	res := mustCall(t, r, "mongo.documents_delete_many", `{"db":"shop","collection":"orders","ids":["{\"$oid\":\"507f1f77bcf86cd799439011\"}","5"]}`)
+	if res["deleted"].(float64) != 2 || !strings.Contains(*seen, "$in:ids") {
+		t.Errorf("delete many: %v / %s", res, *seen)
+	}
+	reply = `{"matched":4,"modified":3}`
+	res = mustCall(t, r, "mongo.documents_update_many", `{"db":"shop","collection":"orders","filter":"{\"status\":\"new\"}","ops":[{"op":"set","field":"status","value":"\"seen\""},{"op":"inc","field":"stats.views","value":"1"},{"op":"unset","field":"tmp"},{"op":"rename","field":"old","value":"fresh"}]}`)
+	if res["modified"].(float64) != 3 {
+		t.Errorf("update many: %v", res)
+	}
+	for _, want := range []string{`$set`, `$inc`, `$unset`, `$rename`, `updateMany`} {
+		if !strings.Contains(*seen, want) {
+			t.Errorf("script lacks %s: %s", want, *seen)
+		}
+	}
+	reply = `{"matched":9}`
+	mustCall(t, r, "mongo.documents_update_many", `{"db":"shop","collection":"orders","filter":"{}","all":true,"dry_run":true}`)
+	if !strings.Contains(*seen, "countDocuments") || strings.Contains(*seen, "updateMany") {
+		t.Errorf("dry run must only count: %s", *seen)
+	}
+	reply = `{"inserted_id":"x"}`
+	mustCall(t, r, "mongo.document_duplicate", `{"db":"shop","collection":"orders","id":"{\"$oid\":\"507f1f77bcf86cd799439011\"}"}`)
+	reply = `{"error":"there is no such document."}`
+	if _, err := call(t, r, "mongo.document_duplicate", `{"db":"shop","collection":"orders","id":"5"}`); err == nil {
+		t.Error("duplicating a missing document must say so")
+	}
+
+	*seen = ""
+	for name, bad := range map[string]string{
+		"no ids":            `{"db":"shop","collection":"c","ids":[]}`,
+		"too many ids":      `{"db":"shop","collection":"c","ids":[` + strings.Repeat(`"1",`, 500) + `"1"]}`,
+		"id not json":       `{"db":"shop","collection":"c","ids":["not json"]}`,
+		"empty filter":      `{"db":"shop","collection":"c","filter":"","ops":[{"op":"set","field":"a","value":"1"}]}`,
+		"where":             `{"db":"shop","collection":"c","filter":"{\"$where\":\"sleep(10000)\"}","ops":[{"op":"set","field":"a","value":"1"}]}`,
+		"function":          `{"db":"shop","collection":"c","filter":"{\"$expr\":{\"$function\":{}}}","ops":[{"op":"set","field":"a","value":"1"}]}`,
+		"_id field":         `{"db":"shop","collection":"c","filter":"{\"a\":1}","ops":[{"op":"set","field":"_id","value":"1"}]}`,
+		"operator field":    `{"db":"shop","collection":"c","filter":"{\"a\":1}","ops":[{"op":"set","field":"$where","value":"1"}]}`,
+		"injected field":    `{"db":"shop","collection":"c","filter":"{\"a\":1}","ops":[{"op":"set","field":"a'); db.dropDatabase(); ('","value":"1"}]}`,
+		"duplicate field":   `{"db":"shop","collection":"c","filter":"{\"a\":1}","ops":[{"op":"set","field":"a","value":"1"},{"op":"unset","field":"a"}]}`,
+		"unknown op":        `{"db":"shop","collection":"c","filter":"{\"a\":1}","ops":[{"op":"mul","field":"a","value":"2"}]}`,
+		"bad value":         `{"db":"shop","collection":"c","filter":"{\"a\":1}","ops":[{"op":"set","field":"a","value":"{broken"}]}`,
+		"rename to _id":     `{"db":"shop","collection":"c","filter":"{\"a\":1}","ops":[{"op":"rename","field":"a","value":"_id"}]}`,
+		"no ops":            `{"db":"shop","collection":"c","filter":"{\"a\":1}","ops":[]}`,
+		"system collection": `{"db":"shop","collection":"system.users","filter":"{\"a\":1}","ops":[{"op":"set","field":"a","value":"1"}]}`,
+	} {
+		action := "mongo.documents_update_many"
+		if strings.Contains(name, "id") && strings.HasPrefix(name, "no ids") || name == "too many ids" || name == "id not json" {
+			action = "mongo.documents_delete_many"
+		}
+		if _, err := call(t, r, action, bad); err == nil {
+			t.Errorf("%s: must be refused", name)
+		}
+	}
+	if *seen != "" {
+		t.Errorf("a refused request reached mongosh: %s", *seen)
+	}
+}
+
+func TestIndexStatsHideValidationAndViews(t *testing.T) {
+	h, r := setup(t)
+	reply := `{"stats":[{"name":"a_1","ops":12,"since":"2026-01-01T00:00:00Z"}]}`
+	seen := scriptSpy(h, &reply)
+	if st := mustCall(t, r, "mongo.index_stats", `{"db":"shop","collection":"orders"}`); len(st["stats"].([]any)) != 1 || !strings.Contains(*seen, "$indexStats") {
+		t.Errorf("index stats: %v / %s", st, *seen)
+	}
+	reply = `{"hidden":true}`
+	mustCall(t, r, "mongo.index_hide", `{"db":"shop","collection":"orders","name":"a_1","hidden":true}`)
+	if !strings.Contains(*seen, "hidden:true") || !strings.Contains(*seen, "collMod") {
+		t.Errorf("hide: %s", *seen)
+	}
+	reply = `{"ok":true}`
+	mustCall(t, r, "mongo.validation_set", `{"db":"shop","collection":"orders","validator":"{\"$jsonSchema\":{\"required\":[\"email\"]}}","level":"moderate","action":"warn"}`)
+	for _, want := range []string{"collMod", "validationLevel", "moderate", "warn", "jsonSchema"} {
+		if !strings.Contains(*seen, want) {
+			t.Errorf("validation script lacks %s: %s", want, *seen)
+		}
+	}
+	mustCall(t, r, "mongo.validation_set", `{"db":"shop","collection":"orders","validator":"","level":"off"}`)
+	reply = `{"created":"active_orders"}`
+	mustCall(t, r, "mongo.view_create", `{"db":"shop","name":"active_orders","view_on":"orders","pipeline":"[{\"$match\":{\"status\":\"active\"}}]"}`)
+	if !strings.Contains(*seen, "createView") {
+		t.Errorf("view: %s", *seen)
+	}
+	reply = `{"error":"a collection or view with that name already exists."}`
+	if _, err := call(t, r, "mongo.view_create", `{"db":"shop","name":"orders","view_on":"orders"}`); err == nil {
+		t.Error("an existing name must be reported")
+	}
+	*seen = ""
+	for name, c := range map[string][2]string{
+		"hide _id":           {"mongo.index_hide", `{"db":"shop","collection":"o","name":"_id_","hidden":true}`},
+		"hide injection":     {"mongo.index_hide", `{"db":"shop","collection":"o","name":"a'); x(('","hidden":true}`},
+		"validator where":    {"mongo.validation_set", `{"db":"shop","collection":"o","validator":"{\"$where\":\"1\"}"}`},
+		"validator two keys": {"mongo.validation_set", `{"db":"shop","collection":"o","validator":"{\"$jsonSchema\":{},\"$expr\":{}}"}`},
+		"validator array":    {"mongo.validation_set", `{"db":"shop","collection":"o","validator":"[1]"}`},
+		"bad level":          {"mongo.validation_set", `{"db":"shop","collection":"o","level":"paranoid"}`},
+		"view out":           {"mongo.view_create", `{"db":"shop","name":"v","view_on":"o","pipeline":"[{\"$out\":\"x\"}]"}`},
+		"view merge":         {"mongo.view_create", `{"db":"shop","name":"v","view_on":"o","pipeline":"[{\"$merge\":{\"into\":\"x\"}}]"}`},
+		"view function":      {"mongo.view_create", `{"db":"shop","name":"v","view_on":"o","pipeline":"[{\"$addFields\":{\"a\":{\"$function\":{}}}}]"}`},
+		"view not array":     {"mongo.view_create", `{"db":"shop","name":"v","view_on":"o","pipeline":"{}"}`},
+		"view system name":   {"mongo.view_create", `{"db":"shop","name":"system.v","view_on":"o"}`},
+	} {
+		if _, err := call(t, r, c[0], c[1]); err == nil {
+			t.Errorf("%s: must be refused", name)
+		}
+	}
+	if *seen != "" {
+		t.Errorf("a refused request reached mongosh: %s", *seen)
+	}
+}
