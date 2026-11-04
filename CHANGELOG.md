@@ -7,6 +7,7 @@ All notable changes to NimVor are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **PostgreSQL did not work on the RHEL family (AlmaLinux, Rocky Linux 9 and 10) or on PostgreSQL 14 and older (Ubuntu 22.04).** On the RHEL family `pg_hba.conf` answers `127.0.0.1` with `ident`, so NimVor's management role and every database user were refused (`Ident authentication failed`). When that is what stops NimVor's own login, one marked block is now added at the top of `pg_hba.conf` (the original is kept as `pg_hba.conf.nimvor-backup`, PostgreSQL is reloaded, the login is tried again and the file is put back if it still fails). On PostgreSQL 14 and older, creating a database failed with `must be owner of schema public`; the local server's `postgres` account now locks that schema down, and a registered remote server older than 15 is refused for new databases with a clear message. Ubuntu 24.04 and 26.04 were not affected. These two faults also kept the release tests from passing on those systems, so no GitHub release was published for 1.2.0 to 1.3.1.
 - **`curl -fsSL https://nimvor.com/install | sudo bash` had nothing to answer it.** The website advertised the one-line installer but had no `/install` address, so the command failed on a fresh server. `https://nimvor.com/install` now redirects (302) to `installer/bootstrap.sh` in the repository, which fetches the newest release and runs the installer; `--version`, `--commit` and the other options work as documented. Deploy the website (`website/`) for it to take effect.
 
 ## [1.3.1] — 2026-11-03

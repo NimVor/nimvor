@@ -124,7 +124,8 @@ func saveAdminFile(env *host.Env, t Target) error {
 }
 
 // bootstrapAdmin creates (or re-keys) the nimvor_admin role through the postgres account's own socket access
-// and stores its credentials. It changes no PostgreSQL configuration file.
+// and stores its credentials. The only configuration it may change is pg_hba.conf, when the server refuses the
+// role's password over 127.0.0.1 (ensureLoopbackLogin).
 func bootstrapAdmin(ctx context.Context, env *host.Env, log io.Writer, harden bool) error {
 	cred, err := postgresCred()
 	if err != nil {
@@ -155,11 +156,13 @@ GRANT CONNECT ON DATABASE postgres TO %[1]s;
 	if err != nil {
 		return fmt.Errorf("the provisioning role could not be created: %s", host.Output(out))
 	}
-	if err := saveAdminFile(env, Target{Host: "127.0.0.1", Port: 5432, User: AdminRole, Password: pw}); err != nil {
+	tgt := Target{Host: "127.0.0.1", Port: 5432, User: AdminRole, Password: pw}
+	if err := saveAdminFile(env, tgt); err != nil {
 		return err
 	}
 	fmt.Fprintln(log, "  ✓ the provisioning role "+AdminRole+" is ready (no superuser rights)")
-	return nil
+	// The role exists, but a RHEL-family server still refuses its password over 127.0.0.1 until pg_hba.conf allows it.
+	return ensureLoopbackLogin(ctx, env, log, tgt)
 }
 
 // hardenSQL takes PUBLIC's right to connect to the maintenance databases away. template0 already refuses connections.

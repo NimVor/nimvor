@@ -72,6 +72,11 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		"/etc/nimvor/mongo-admin.uri",
 		// PostgreSQL provisioning role (pgmgr): root-only.
 		"/etc/nimvor/pg-admin.json",
+		// PostgreSQL's pg_hba.conf (pgmgr): on the RHEL family it answers 127.0.0.1 with "ident", so NimVor adds one
+		// marked block that allows password logins there, and keeps the original beside it.
+		"/var/lib/pgsql/data/pg_hba.conf*",
+		"/var/lib/pgsql/*/data/pg_hba.conf*",
+		"/etc/postgresql/*/*/pg_hba.conf*",
 		// Nginx's page cache of PHP websites (sites): owned by the web server's account.
 		"/var/cache/nimvor-fastcgi",
 		"/var/cache/nimvor-fastcgi/**",
