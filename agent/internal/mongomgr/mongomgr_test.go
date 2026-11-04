@@ -915,3 +915,26 @@ func TestTrimToJSONIgnoresTerminalNoiseAroundTheValue(t *testing.T) {
 		t.Errorf("plain text must come back unchanged: %q", got)
 	}
 }
+
+func TestScriptErrorsPrintedByMongoshAreFailures(t *testing.T) {
+	noisy := "\x1b[1G\x1b[0J test> Uncaught:\nMongoServerError: Document failed validation\n  Additional information: {...}\n"
+	if got := scriptError([]byte(noisy)); !strings.Contains(got, "Document failed validation") {
+		t.Errorf("error line: %q", got)
+	}
+	if got := scriptError([]byte("MongoServerError: E11000 duplicate key error")); !strings.Contains(got, "E11000") {
+		t.Errorf("direct error: %q", got)
+	}
+	for _, fine := range []string{`{"inserted_id":"x"}`, "test> {\"name\":\"MongoServerError in a value\"}", ""} {
+		if got := scriptError([]byte(fine)); got != "" {
+			t.Errorf("%q is not an error, got %q", fine, got)
+		}
+	}
+	// End to end: an insert whose mongosh output carries an error is reported as failed.
+	h, r := setup(t)
+	h.Runner.Handler = func(id string, o execx.Opts, args []string) (string, error) {
+		return "Uncaught:\nMongoServerError: Document failed validation\n", nil
+	}
+	if _, err := call(t, r, "mongo.document_insert", `{"db":"shop","collection":"c","document":"{\"a\":1}"}`); err == nil {
+		t.Error("a rejected insert must not be reported as done")
+	}
+}

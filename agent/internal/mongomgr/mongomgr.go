@@ -134,7 +134,36 @@ func (c Client) run(ctx context.Context, script string, secret bool) ([]byte, er
 	if err != nil {
 		return out, fmt.Errorf("mongosh: %w: %s", err, lastLine(out))
 	}
+	// With the script on stdin mongosh prints an uncaught error and still exits 0, so a rejected write (a document
+	// that fails validation, a duplicate key) would otherwise look like a success.
+	if secret {
+		if msg := scriptError(out); msg != "" {
+			return out, fmt.Errorf("mongosh: %s", msg)
+		}
+	}
 	return out, nil
+}
+
+var scriptErrRe = regexp.MustCompile(`(?m)^(?:\s*test> )?\s*(Uncaught|Mongo[A-Za-z]*Error)\b.*$`)
+
+// scriptError returns the first error line mongosh printed, or "".
+func scriptError(out []byte) string {
+	clean := ansiRe.ReplaceAllString(string(out), "")
+	if !scriptErrRe.MatchString(clean) {
+		return ""
+	}
+	// The message is on the line after "Uncaught:" or on the error line itself.
+	lines := strings.Split(clean, "\n")
+	for i, l := range lines {
+		if scriptErrRe.MatchString(l) {
+			l = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(l), "test>"))
+			if strings.HasPrefix(l, "Uncaught") && i+1 < len(lines) && strings.TrimSpace(lines[i+1]) != "" {
+				l = strings.TrimSpace(lines[i+1])
+			}
+			return l
+		}
+	}
+	return "script error"
 }
 
 func lastLine(b []byte) string {
