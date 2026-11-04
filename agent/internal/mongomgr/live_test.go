@@ -5,6 +5,7 @@ package mongomgr
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -43,6 +44,9 @@ func TestMongoLiveBrowser(t *testing.T) {
 		}
 		res, err := a.Handler(ctx, json.RawMessage(params))
 		if err != nil {
+			if ae, ok := err.(*actions.Error); ok && ae.Details != "" {
+				err = fmt.Errorf("%w [details: %s]", err, ae.Details)
+			}
 			return nil, err
 		}
 		b, _ := json.Marshal(res)
