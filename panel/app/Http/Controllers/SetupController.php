@@ -149,7 +149,9 @@ final class SetupController extends Controller
             return Response::json(['success' => false, 'error' => ['message' => 'Running the setup needs an administrator: it installs packages and changes the firewall, email, DNS, plans and backups.']], 403);
         }
         // Package installs are jobs; email or the firewall can take a while.
-        set_time_limit(600);
+        if (PHP_SAPI !== 'cli') { // the command line (and the test suite) has no limit to raise
+            set_time_limit(600);
+        }
         $this->setup->actorId = $this->userId($request);
         $this->setup->actorIp = $request->ip();
         $profile = $request->string('profile');

@@ -395,7 +395,11 @@ final class SslCenterController extends Controller
         }
         // The first ones now (each can take up to a minute), the rest with
         // the scheduler every 5 minutes.
-        @set_time_limit(300);
+        // A web request gets longer than PHP's default; the command line (and the test suite, whose clock this would
+        // otherwise restart at 300 s for every later test) has no limit to raise.
+        if (PHP_SAPI !== 'cli') {
+            @set_time_limit(300);
+        }
         $done = $this->autoSsl->process(3);
         return $this->redirectWithSuccess('/ssl/autossl', $n . ' website(s) queued; ' . count($done) . ' handled now, the rest within the next scheduler runs (every 5 minutes). See the log below.');
     }

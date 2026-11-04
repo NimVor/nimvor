@@ -647,10 +647,29 @@ has it).
 (`postgresql`, or `postgresql-server` plus the cluster initialisation on the RHEL
 family), starts the service and creates one management role. *Adopt* does the
 same for a server that is already installed, with a confirmation: it creates the
-role through the `postgres` account and changes no configuration file. The
-optional hardening step removes PUBLIC's right to connect to the `postgres` and
+role through the `postgres` account. The only configuration file it may change is
+`pg_hba.conf`, and only when needed (next paragraph). The optional hardening step removes PUBLIC's right to connect to the `postgres` and
 `template1` databases so database users cannot enter them; it is off for adopted
 servers unless you tick it, because other applications may rely on it.
+
+**Password logins over 127.0.0.1 (`pg_hba.conf`).** NimVor, and the database users
+you create for your websites, log in to the local server with a password over
+`127.0.0.1`. Debian and Ubuntu allow that by default. The RHEL family
+(AlmaLinux, Rocky Linux) ships `pg_hba.conf` with `ident` for `127.0.0.1`, which
+refuses every password (`Ident authentication failed`). When that is what stops
+NimVor's own login, NimVor adds one marked block at the **top** of `pg_hba.conf`
+(`# BEGIN NIMVOR` ... `# END NIMVOR`: `scram-sha-256` for `127.0.0.1` and `::1`,
+`md5` on PostgreSQL 13 and older, which also accepts a SCRAM password), keeps the
+file as it was beside it (`pg_hba.conf.nimvor-backup`), reloads PostgreSQL and
+tries the login again; if the login still fails the file is put back exactly as it
+was. Nothing is changed when the login already works. Delete the marked lines to
+undo it.
+
+**PostgreSQL 14 and older.** Before PostgreSQL 15 the `public` schema of a new
+database belongs to the server's superuser, so the management role (not a
+superuser) cannot lock it down. On the local server NimVor does that one step
+through the `postgres` account. A registered remote server older than 15 is
+refused for new databases, with a message saying so.
 
 **The management role.** `nimvor_admin` can create databases and users but is not
 a superuser, and its password lives only in `/etc/nimvor/pg-admin.json` (root,
