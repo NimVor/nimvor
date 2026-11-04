@@ -12,7 +12,21 @@ use NimVorSite\Support\Validator;
 
 final class PageController extends Controller
 {
+    private const INSTALL_SCRIPT = 'https://raw.githubusercontent.com/NimVor/nimvor/main/installer/bootstrap.sh';
     private const INSTALL = 'curl -fsSL https://nimvor.com/install | sudo bash';
+
+    /**
+     * The one-line installer: `curl -fsSL https://nimvor.com/install | sudo bash`. The script itself lives in the
+     * repository (installer/bootstrap.sh); this sends curl to it. The address is fixed here, never taken from the
+     * request. It is a temporary (302) redirect so it can move without clients remembering the old place.
+     */
+    public function installScript(Ctx $ctx): Response
+    {
+        return new Response(302, '', [
+            'Location' => self::INSTALL_SCRIPT,
+            'Cache-Control' => 'public, max-age=300',
+        ]);
+    }
 
     public function home(Ctx $ctx): Response
     {
