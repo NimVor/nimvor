@@ -59,10 +59,64 @@ final class PostgresBrowserTest extends HttpTestCase
         self::assertStringContainsString('nokey', $page);
         self::assertStringContainsString('Ana, &quot;the&quot; first', $page, 'values are escaped');
         self::assertStringContainsString('NULL', $page);
-        self::assertStringContainsString('Add row', $page);
+        self::assertStringContainsString('Insert row', $page);
         $call = $this->lastCall('pg.browse');
         self::assertSame('alice_shop', $call['database']);
         self::assertSame(['offset' => 0, 'limit' => 50], ['offset' => $call['offset'], 'limit' => $call['limit']]);
+    }
+
+    public function testThePageHasTheSameLayoutAsTheMysqlBrowser(): void
+    {
+        $page = $this->request('GET', '/postgres/browse', [], [], '', ['db' => (string) $this->aliceDb, 'schema' => 'public', 'table' => 'items'])->body();
+        // The full-height tool layout and the shared database-browser structure and styles.
+        foreach (['class="nim-tool"', 'class="nim-db"', 'nim-db-side', 'nim-db-main', 'nim-db-tabs', 'nim-db-pane', 'nim-db-bar', 'nim-db-grid-wrap', 'nim-db-grid'] as $needle) {
+            self::assertStringContainsString($needle, $page, $needle);
+        }
+        // The four tabs, Browse being the current one, and the table list with the open table marked.
+        foreach (['Browse', 'Structure', 'Insert', 'SQL'] as $label) {
+            self::assertStringContainsString($label, $page);
+        }
+        self::assertMatchesRegularExpression('~<a class="btn btn-sm btn-primary"[^>]*aria-current="page"[^>]*><i class="bi bi-grid-3x3"~', $page);
+        self::assertMatchesRegularExpression('~nim-db-table active"[^>]*data-pgf-name="public\.items"~', $page);
+        self::assertStringContainsString('Filter tables', $page);
+        // The SQL tab keeps the table that was open.
+        self::assertStringContainsString('/postgres/sql?db=' . $this->aliceDb . '&amp;schema=public&amp;table=items', $page);
+        // No inline script or style: the panel's content security policy blocks them.
+        self::assertStringNotContainsString('<script>', $page);
+    }
+
+    public function testTheTabsShowTheStructureAndAnInsertForm(): void
+    {
+        $q = ['db' => (string) $this->aliceDb, 'schema' => 'public', 'table' => 'items'];
+        $structure = $this->request('GET', '/postgres/browse', [], [], '', $q + ['tab' => 'structure'])->body();
+        self::assertStringContainsString('items_pkey', $structure);
+        self::assertStringContainsString('NOT NULL', $structure);
+        self::assertMatchesRegularExpression('~btn-primary"[^>]*aria-current="page"[^>]*><i class="bi bi-diagram-3"~', $structure);
+
+        $insert = $this->request('GET', '/postgres/browse', [], [], '', $q + ['tab' => 'insert'])->body();
+        self::assertStringContainsString('action="/postgres/rows"', $insert);
+        self::assertStringContainsString('name="mode[name]"', $insert);
+        self::assertStringContainsString('name="value[name]"', $insert);
+        self::assertStringContainsString('csrf', strtolower($insert));
+        // A tab the page does not offer, or a tab with no table open, falls back to Browse.
+        $odd = $this->request('GET', '/postgres/browse', [], [], '', $q + ['tab' => 'drop'])->body();
+        self::assertMatchesRegularExpression('~btn-primary"[^>]*aria-current="page"[^>]*><i class="bi bi-grid-3x3"~', $odd);
+        $none = $this->request('GET', '/postgres/browse', [], [], '', ['db' => (string) $this->aliceDb, 'tab' => 'insert'])->body();
+        self::assertStringContainsString('Choose a table on the left', $none);
+    }
+
+    public function testATableWithoutAKeyOffersNoInsertFormAndSaysWhy(): void
+    {
+        $cols = [['name' => 'v', 'type' => 'integer', 'not_null' => false, 'key' => false, 'generated' => false, 'identity' => false]];
+        $this->agent->succeed('pg.browse', ['columns' => $cols, 'rows' => [['1']], 'truncated' => [], 'total' => 1, 'total_capped' => false, 'offset' => 0, 'limit' => 50, 'key' => [],
+            'editable' => false, 'reason' => 'This table has no primary or unique key, so single rows cannot be addressed.', 'kind' => 'r']);
+        $q = ['db' => (string) $this->aliceDb, 'schema' => 'public', 'table' => 'nokey'];
+        $insert = $this->request('GET', '/postgres/browse', [], [], '', $q + ['tab' => 'insert'])->body();
+        self::assertStringNotContainsString('action="/postgres/rows"', $insert);
+        self::assertStringContainsString('no primary or unique key', $insert);
+        $browse = $this->request('GET', '/postgres/browse', [], [], '', $q)->body();
+        self::assertStringNotContainsString('Insert row', $browse, 'no button that leads to a form that is not there');
+        self::assertStringContainsString('no primary or unique key', $browse);
     }
 
     public function testSortSearchAndFilterAreForwardedAsData(): void

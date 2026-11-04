@@ -8,19 +8,19 @@
  * @var array<string, list<string>> $schema
  * @var list<array<string, mixed>> $history
  * @var bool $canWrite
+ * @var array{schemas: list<string>, tables: list<array<string, mixed>>} $tables  the sidebar's table list
+ * @var string $selSchema  the table that was selected when the SQL tab was opened ('' for none)
+ * @var string $selTable
  */
 $id = (int) $db['id'];
+ob_start();
 ?>
-<?php $this->start(); ?><?= e((string) $db['name']) ?> · SQL<?php $this->end('title'); ?>
-<?php $this->start(); ?>PostgreSQL SQL editor<?php $this->end('subtitle'); ?>
-
-<p class="mb-2 d-flex gap-3"><a href="<?= e($this->url('postgres')) ?>" class="small"><i class="bi bi-arrow-left"></i> PostgreSQL</a><a href="<?= e($this->url('postgres.browse') . '?db=' . $id) ?>" class="small"><i class="bi bi-table"></i> Browse tables</a></p>
-
+<div class="p-3">
 <?php if (!empty($schemaError)): ?>
     <div class="alert alert-warning small">The table names for completion could not be read (<?= e($schemaError->getMessage()) ?>). You can still run statements.</div>
 <?php endif; ?>
 
-<div id="pgsql" data-run="<?= e($this->url('postgres.sql_run')) ?>" data-cancel="<?= e($this->url('postgres.sql_cancel')) ?>" data-db="<?= $id ?>" data-name="<?= e((string) $db['name']) ?>" data-can-write="<?= $canWrite ? '1' : '0' ?>" data-schema="<?= e((string) json_encode($schema, JSON_FORCE_OBJECT)) ?>" data-history="<?= e((string) json_encode($history)) ?>">
+<div id="pgsql" data-run="<?= e($this->url('postgres.sql_run')) ?>" data-cancel="<?= e($this->url('postgres.sql_cancel')) ?>" data-db="<?= $id ?>" data-name="<?= e((string) $db['name']) ?>" data-can-write="<?= $canWrite ? '1' : '0' ?>" data-schema="<?= e((string) json_encode($schema === [] ? new \stdClass() : $schema)) ?>" data-history="<?= e((string) json_encode($history)) ?>">
     <div class="card mb-3">
         <div class="card-header d-flex flex-wrap align-items-center gap-2 py-2">
             <div class="btn-group btn-group-sm" role="group" aria-label="Mode">
@@ -64,4 +64,13 @@ $id = (int) $db['id'];
         <div class="col-md-6"><div class="card"><div class="card-header small fw-medium">History <span class="text-body-secondary fw-normal">(the shape of each statement, never its values)</span></div><div class="list-group list-group-flush small" id="pgsql-history"></div></div></div>
     </div>
 </div>
-<?php $this->start(); ?><script src="<?= e($this->asset('assets/vendor/codemirror/sql-editor.min.js')) ?>" defer></script><script src="<?= e($this->asset('assets/js/postgres-sql.js')) ?>" defer></script><?php $this->end('scripts'); ?>
+</div>
+<?php
+$inner = (string) ob_get_clean();
+?>
+<?php $this->start(); ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('postgres')) ?>"><i class="bi bi-arrow-left"></i> PostgreSQL</a><?php $this->end('back'); ?>
+<?php $this->start(); ?><i class="bi bi-table me-1"></i>Database <span class="font-monospace"><?= e((string) $db['name']) ?></span><?php $this->end('title'); ?>
+<?php $this->start(); ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('postgres.backups') . '?db=' . $id) ?>"><i class="bi bi-cloud-arrow-down"></i> Backups</a><?php $this->end('actions'); ?>
+
+<?= $this->partial('postgres/_frame', ['db' => $db, 'schema' => $selSchema, 'table' => $selTable, 'tables' => $tables, 'tab' => 'sql', 'inner' => $inner]) ?>
+<?php $this->start(); ?><script src="<?= e($this->asset('assets/vendor/codemirror/sql-editor.min.js')) ?>" defer></script><script src="<?= e($this->asset('assets/js/postgres-sql.js')) ?>" defer></script><script src="<?= e($this->asset('assets/js/postgres-frame.js')) ?>" defer></script><?php $this->end('scripts'); ?>

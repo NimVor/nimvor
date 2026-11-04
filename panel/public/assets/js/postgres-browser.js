@@ -25,6 +25,14 @@
         });
     } catch (err) { /* ignore a damaged saved value */ }
 
+    // The Insert tab: typing in a value box means "set it" (the same as in the edit window).
+    document.addEventListener('input', function (e) {
+        var t = e.target.closest ? e.target.closest('[data-pgb-text]') : null;
+        if (!t) { return; }
+        var sel = t.form ? t.form.elements[t.name.replace(/^value\[/, 'mode[')] : null;
+        if (sel && !sel.disabled && sel.value !== 'value') { sel.value = 'value'; }
+    });
+
     var modal = document.getElementById('pgb-row');
     if (!modal) { return; }
     var columns = [];

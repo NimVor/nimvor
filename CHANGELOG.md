@@ -6,6 +6,12 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- **The PostgreSQL database browser now has the same layout as the MySQL one.** The table list with a filter on the left, the tab strip **Browse / Structure / Insert / SQL** on top (the SQL editor is a tab now, not a separate page), the same toolbar (column filter, search, pager, rows per page, **Insert row**, **Refresh**, **Export CSV**, **Columns**), grid and styling, in the same full-height page. It uses the same agent actions as before; nothing new touches the server. Rows are still edited and deleted from the grid, and a row is added on the Insert tab.
+
+### Fixed
+- **The PostgreSQL SQL editor stayed blank for any database that had a table.** The table and column names for completion were sent to the page with every list turned into an object, which made the editor's script loop until the browser stopped it. Empty databases were not affected.
+
 ### Fixed
 - **`curl -fsSL https://nimvor.com/install | sudo bash` had nothing to answer it.** The website advertised the one-line installer but had no `/install` address, so the command failed on a fresh server. `https://nimvor.com/install` now redirects (302) to `installer/bootstrap.sh` in the repository, which fetches the newest release and runs the installer; `--version`, `--commit` and the other options work as documented. Deploy the website (`website/`) for it to take effect.
 
