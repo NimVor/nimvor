@@ -12,6 +12,7 @@
  * @var array{schemas: list<string>, tables: list<array<string, mixed>>} $tables
  * @var array<string, mixed>|null $result
  * @var array<string, mixed>|null $structure
+ * @var array<string, mixed>|null $partitions  strategy, key and partitions of a partitioned table
  * @var array<string, mixed>|null $details   indexes, constraints and triggers of the table (structure tab)
  * @var bool $canWrite
  */
@@ -93,7 +94,7 @@ if ($result === null): ?>
         </details>
         <?= $this->partial('postgres/_types', []) ?>
         <?php endif; ?>
-        <?= $this->partial('postgres/_structure_extra', ['db' => $db, 'schema' => $schema, 'table' => $table, 'structure' => $structure, 'details' => $details, 'canAlter' => $canAlter, 'hid' => $hid]) ?>
+        <?= $this->partial('postgres/_structure_extra', ['db' => $db, 'schema' => $schema, 'table' => $table, 'structure' => $structure, 'details' => $details, 'partitions' => $partitions, 'canAlter' => $canAlter, 'hid' => $hid]) ?>
         <?php if ($canWrite): ?>
         <h2 class="h6 mt-4 mb-2">This <?= e($isTable ? 'table' : 'view') ?></h2>
         <div class="row g-2 small">

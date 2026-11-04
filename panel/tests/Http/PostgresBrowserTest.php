@@ -32,6 +32,15 @@ final class PostgresBrowserTest extends HttpTestCase
         ], 'constraints' => [
             ['name' => 'ck_qty', 'type' => 'check', 'definition' => 'CHECK ((qty >= 0))', 'validated' => false, 'deferrable' => false],
         ], 'triggers' => [['name' => 't_audit', 'enabled' => 'enabled', 'definition' => 'CREATE TRIGGER t_audit ...', 'function' => 'audit_fn']]]);
+        $this->agent->succeed('pg.partitions', ['partitioned' => true, 'key' => 'RANGE (at)', 'partitions' => [['schema' => 'public', 'name' => 'ev_2026', 'bound' => "FOR VALUES FROM ('2026-01-01') TO ('2027-01-01')", 'partitioned' => false, 'rows_estimate' => 10, 'total_bytes' => 8192]]]);
+        $this->agent->succeed('pg.routines', ['routines' => [['oid' => 16401, 'schema' => 'public', 'name' => 'add_one', 'kind' => 'function', 'language' => 'sql', 'arguments' => 'i integer', 'returns' => 'integer', 'volatility' => 'immutable', 'security_definer' => false, 'owner' => 'alice_u', 'comment' => '<i>x</i>', 'trigger_function' => false]]]);
+        $this->agent->succeed('pg.routine_definition', ['definition' => 'CREATE FUNCTION add_one(i integer) ...']);
+        $this->agent->succeed('pg.routine_drop', ['sql' => 'DROP FUNCTION add_one(integer)']);
+        $this->agent->succeed('pg.sequences', ['sequences' => [
+            ['schema' => 'public', 'name' => 'items_id_seq', 'type' => 'integer', 'start' => 1, 'min' => 1, 'max' => 2147483647, 'increment' => 1, 'cycle' => false, 'cache' => 1, 'last_value' => 120, 'owned_by' => 'items.id'],
+            ['schema' => 'public', 'name' => 'ticket_seq', 'type' => 'bigint', 'start' => 100, 'min' => 1, 'max' => 9223372036854775807, 'increment' => 1, 'cycle' => false, 'cache' => 1, 'owned_by' => ''],
+        ]]);
+        $this->agent->succeed('pg.sequence_alter', ['sql' => 'ALTER SEQUENCE ...']);
         foreach (['pg.role_create', 'pg.database_create', 'pg.row_insert', 'pg.row_update', 'pg.row_delete'] as $a) {
             $this->agent->succeed($a, ['ok' => true]);
         }
@@ -204,6 +213,53 @@ final class PostgresBrowserTest extends HttpTestCase
         $this->post('/postgres/alter', $base + ['op' => 'drop_trigger', 'name' => 't_audit']);
         self::assertSame(['drop_trigger', 't_audit'], [$this->lastCall('pg.table_alter')['op'], $this->lastCall('pg.table_alter')['name']]);
         self::assertSame(1, (int) $this->db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'postgres.drop_trigger'"));
+    }
+
+    public function testRoutinesAndSequencesSections(): void
+    {
+        $q = ['db' => (string) $this->aliceDb];
+        $page = $this->request('GET', '/postgres/browse', [], [], '', $q + ['tab' => 'routines', 'def' => '16401'])->body();
+        foreach (['add_one', 'i integer', 'immutable', '&lt;i&gt;x&lt;/i&gt;', 'CREATE FUNCTION add_one', 'use the SQL tab'] as $want) {
+            self::assertStringContainsString($want, $page, $want);
+        }
+        self::assertSame(16401, $this->lastCall('pg.routine_definition')['oid']);
+        $page = $this->request('GET', '/postgres/browse', [], [], '', $q + ['tab' => 'sequences'])->body();
+        foreach (['items_id_seq', 'items.id', 'free-standing', 'not used yet', 'Follow items.id again'] as $want) {
+            self::assertStringContainsString($want, $page, $want);
+        }
+        // Dropping a routine needs the database name typed back.
+        $this->post('/postgres/routines/drop', $q + ['oid' => '16401', 'label' => 'public.add_one(i integer)', 'confirm' => 'wrong']);
+        self::assertSame(0, $this->calls('pg.routine_drop'));
+        $this->post('/postgres/routines/drop', $q + ['oid' => '16401', 'label' => 'public.add_one(i integer)', 'confirm' => 'alice_shop']);
+        self::assertSame([16401, true, 'alice_shop'], [$this->lastCall('pg.routine_drop')['oid'], $this->lastCall('pg.routine_drop')['confirm'], $this->lastCall('pg.routine_drop')['database']]);
+        self::assertSame(1, (int) $this->db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'postgres.routine_drop'"));
+    }
+
+    public function testSequenceFormsSendOnlyNumbers(): void
+    {
+        $q = ['db' => (string) $this->aliceDb, 'schema' => 'public', 'name' => 'ticket_seq'];
+        $this->post('/postgres/sequences', $q + ['op' => 'alter', 'increment' => '10', 'max' => '1000x', 'cycle' => 'yes']);
+        $c = $this->lastCall('pg.sequence_alter');
+        self::assertSame([10, true], [$c['increment'], $c['cycle']]);
+        self::assertArrayNotHasKey('max', $c, 'a value that is not a number is dropped, not sent');
+        $before = $this->calls('pg.sequence_alter');
+        $this->post('/postgres/sequences', $q + ['op' => 'drop', 'confirm' => 'nope']);
+        self::assertSame($before, $this->calls('pg.sequence_alter'));
+        $this->post('/postgres/sequences', $q + ['op' => 'drop', 'confirm' => 'ticket_seq']);
+        self::assertSame('drop', $this->lastCall('pg.sequence_alter')['op']);
+        $this->post('/postgres/sequences', $q + ['op' => 'wipe']);
+        self::assertSame($before + 1, $this->calls('pg.sequence_alter'));
+    }
+
+    public function testPartitionsAreListedAndDetachIsOffered(): void
+    {
+        $page = $this->request('GET', '/postgres/browse', [], [], '', ['db' => (string) $this->aliceDb, 'schema' => 'public', 'table' => 'items', 'tab' => 'structure'])->body();
+        self::assertStringContainsString('RANGE (at)', $page);
+        self::assertStringContainsString('ev_2026', $page);
+        self::assertStringContainsString('Add a partition', $page);
+        $this->post('/postgres/alter', ['db' => (string) $this->aliceDb, 'schema' => 'public', 'table' => 'items', 'op' => 'create_partition', 'new_name' => 'ev_2027', 'bound_kind' => 'range', 'bound_from' => '2027-01-01', 'bound_to' => '2028-01-01']);
+        $c = $this->lastCall('pg.table_alter');
+        self::assertSame(['range', ['2027-01-01'], ['2028-01-01']], [$c['extra']['bound']['kind'], $c['extra']['bound']['from'], $c['extra']['bound']['to']]);
     }
 
     public function testOwnerBrowsesRowsAndTables(): void

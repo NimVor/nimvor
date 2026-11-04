@@ -8,6 +8,7 @@
  * @var string $table
  * @var array<string, mixed>|null $structure
  * @var array<string, mixed>|null $details
+ * @var array<string, mixed>|null $partitions
  * @var bool $canAlter
  * @var string $hid   hidden db/schema/table fields (already escaped)
  */
@@ -156,4 +157,42 @@ $triggers = (array) ($d['triggers'] ?? []);
     <?php endforeach; ?>
     </tbody>
 </table></div>
+<?php endif; ?>
+
+<?php $pt = (array) $partitions; if (!empty($pt['partitioned'])): ?>
+<h2 class="h6 mb-2 mt-3">Partitions <span class="text-body-secondary fw-normal small">by <?= e((string) $pt['key']) ?></span></h2>
+<?php if ((array) $pt['partitions'] === []): ?>
+    <p class="small text-body-secondary">No partitions yet. Rows cannot be inserted until a partition accepts them.</p>
+<?php else: ?>
+<div class="table-responsive"><table class="table table-sm nim-db-grid mb-2">
+    <thead><tr><th>Partition</th><th>Bounds</th><th class="text-end">Rows (est.)</th><th class="text-end">Size</th><?php if ($canAlter): ?><th></th><?php endif; ?></tr></thead>
+    <tbody>
+    <?php foreach ((array) $pt['partitions'] as $p): ?>
+        <tr><td class="font-monospace"><a href="<?= e($this->url('postgres.browse') . '?' . http_build_query(['db' => (int) $db['id'], 'schema' => $p['schema'], 'table' => $p['name']])) ?>"><?= e((string) $p['name']) ?></a></td>
+            <td class="font-monospace small"><?= e((string) $p['bound']) ?></td><td class="text-end"><?= number_format((int) $p['rows_estimate']) ?></td><td class="text-end"><?= e(format_bytes((int) $p['total_bytes'])) ?></td>
+            <?php if ($canAlter): ?><td class="text-end"><?= $form('detach_partition', ['name' => (string) $p['name']], 'Detach', 'btn-outline-secondary', 'Detach the partition ' . $p['name'] . '? It becomes a normal table with its rows; the partitioned table no longer includes them.') ?></td><?php endif; ?></tr>
+    <?php endforeach; ?>
+    </tbody>
+</table></div>
+<?php endif; ?>
+<?php if ($canAlter): ?>
+<details class="mb-3"><summary class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-lg"></i> Add a partition</summary>
+    <form class="border rounded p-2 mt-2" method="post" action="<?= e($this->url('postgres.alter')) ?>"><?= $this->csrfField() ?><?= $hid ?>
+        <div class="row g-1 mb-1">
+            <div class="col-6 col-md-3"><select class="form-select form-select-sm" name="op" aria-label="Create a new partition or attach an existing table"><option value="create_partition">create a new partition</option><option value="attach_partition">attach an existing table</option></select></div>
+            <div class="col-6 col-md-3"><input class="form-control form-control-sm" name="new_name" placeholder="new partition name" maxlength="63" aria-label="New partition name"></div>
+            <div class="col-6 col-md-3"><input class="form-control form-control-sm" name="name" placeholder="or: table to attach" maxlength="63" aria-label="Table to attach"></div>
+            <div class="col-6 col-md-3"><select class="form-select form-select-sm" name="bound_kind" aria-label="Bound type"><option value="range">range (from / to)</option><option value="list">list (values)</option><option value="hash">hash (modulus / remainder)</option><option value="default">default partition</option></select></div>
+        </div>
+        <div class="row g-1 mb-1">
+            <div class="col-6 col-md-3"><input class="form-control form-control-sm" name="bound_from" placeholder="from (MINVALUE allowed)" aria-label="From"></div>
+            <div class="col-6 col-md-3"><input class="form-control form-control-sm" name="bound_to" placeholder="to, exclusive (MAXVALUE allowed)" aria-label="To"></div>
+            <div class="col-12 col-md-3"><input class="form-control form-control-sm" name="bound_values" placeholder="values, comma-separated" aria-label="Values"></div>
+            <div class="col-6 col-md-1"><input class="form-control form-control-sm" name="bound_modulus" placeholder="mod" aria-label="Modulus"></div>
+            <div class="col-6 col-md-2"><input class="form-control form-control-sm" name="bound_remainder" placeholder="remainder" aria-label="Remainder"></div>
+        </div>
+        <button class="btn btn-sm btn-primary mt-1">Add partition</button>
+    </form>
+</details>
+<?php endif; ?>
 <?php endif; ?>

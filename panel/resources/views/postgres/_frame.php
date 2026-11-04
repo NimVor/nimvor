@@ -8,7 +8,7 @@
  * @var string $schema     selected schema ('' when no table is selected)
  * @var string $table      selected table ('' when none)
  * @var array{schemas: list<string>, tables: list<array<string, mixed>>} $tables
- * @var string $tab        overview | objects | browse | structure | insert | sql
+ * @var string $tab        overview | objects | routines | sequences | browse | structure | insert | sql
  * @var string $inner      the pane's HTML, already built by the page
  */
 $id = (int) $db['id'];
@@ -18,7 +18,7 @@ $tabUrl = function (string $name) use ($id, $sel): string {
     if ($name === 'sql') {
         return $this->url('postgres.sql') . '?' . http_build_query(['db' => $id] + $sel);
     }
-    if ($name === 'overview' || $name === 'objects') {
+    if (in_array($name, ['overview', 'objects', 'routines', 'sequences'], true)) {
         return $this->url('postgres.browse') . '?' . http_build_query(['db' => $id, 'tab' => $name]);
     }
     return $this->url('postgres.browse') . '?' . http_build_query(['db' => $id] + $sel + ($name === 'browse' ? [] : ['tab' => $name]));
@@ -29,6 +29,8 @@ $tableUrl = function (string $sch, string $tbl) use ($id): string {
 $tabs = [
     ['overview', 'bi-speedometer2', 'Overview', false],
     ['objects', 'bi-list-ul', 'Objects', false],
+    ['routines', 'bi-braces', 'Routines', false],
+    ['sequences', 'bi-123', 'Sequences', false],
     ['browse', 'bi-grid-3x3', 'Browse', true],
     ['structure', 'bi-diagram-3', 'Structure', true],
     ['insert', 'bi-plus-lg', 'Insert', true],

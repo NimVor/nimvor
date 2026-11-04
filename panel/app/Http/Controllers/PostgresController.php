@@ -142,15 +142,15 @@ final class PostgresController extends Controller
         $per = in_array((int) $request->query('per', 50), [25, 50, 100, 250], true) ? (int) $request->query('per', 50) : 50;
         $page = max(1, (int) $request->query('page', 1));
         $tab = (string) $request->query('tab', 'browse');
-        if ($tab === 'overview' || $tab === 'objects' || ($table === '' && $request->query('tab') === null)) {
-            return $this->databaseSections($request, $db, $tab === 'objects' ? 'objects' : 'overview');
+        if (in_array($tab, ['overview', 'objects', 'routines', 'sequences'], true) || ($table === '' && $request->query('tab') === null)) {
+            return $this->databaseSections($request, $db, in_array($tab, ['objects', 'routines', 'sequences'], true) ? $tab : 'overview');
         }
         if ($table === '' || !in_array($tab, ['structure', 'insert'], true)) {
             $tab = 'browse';
         }
         $data = ['db' => $db, 'schema' => $schema, 'table' => $table, 'tab' => $tab, 'per' => $per, 'pageNo' => $page, 'q' => $request->query('q', ''),
             'fc' => (string) $request->query('fc', ''), 'fo' => (string) $request->query('fo', ''), 'fv' => (string) $request->query('fv', ''),
-            'sort' => (string) $request->query('sort', ''), 'dir' => (string) $request->query('dir', 'asc'), 'result' => null, 'structure' => null, 'details' => null, 'tables' => ['schemas' => [], 'tables' => []]];
+            'sort' => (string) $request->query('sort', ''), 'dir' => (string) $request->query('dir', 'asc'), 'result' => null, 'structure' => null, 'details' => null, 'partitions' => null, 'tables' => ['schemas' => [], 'tables' => []]];
         try {
             $data['tables'] = $this->pg->tables($db);
             if ($table !== '') {
@@ -158,6 +158,7 @@ final class PostgresController extends Controller
                 $data['structure'] = $this->pg->structure($db, $schema, $table);
                 if ($tab === 'structure') {
                     $data['details'] = $this->pg->details($db, $schema, $table);
+                    $data['partitions'] = $this->pg->partitions($db, $schema, $table);
                 }
             }
         } catch (UserFacingException $e) {
@@ -179,11 +180,16 @@ final class PostgresController extends Controller
         $per = in_array((int) $request->query('per', 50), [25, 50, 100, 200], true) ? (int) $request->query('per', 50) : 50;
         $page = max(1, (int) $request->query('page', 1));
         $data = ['db' => $db, 'schema' => '', 'table' => '', 'tab' => $tab, 'tables' => ['schemas' => [], 'tables' => []], 'overview' => null,
-            'objects' => null, 'error' => null, 'f' => $q, 'per' => $per, 'pageNo' => $page, 'canWrite' => $this->view->can(P::DATABASES_MANAGE)];
+            'objects' => null, 'routines' => null, 'definition' => null, 'sequences' => null, 'error' => null, 'f' => $q, 'per' => $per, 'pageNo' => $page, 'canWrite' => $this->view->can(P::DATABASES_MANAGE)];
         try {
             $data['tables'] = $this->pg->tables($db);
             if ($tab === 'overview') {
                 $data['overview'] = $this->pg->dbOverview($db);
+            } elseif ($tab === 'routines') {
+                $data['routines'] = $this->pg->routines($db, $q['schema'], $q['search']);
+                $data['definition'] = ctype_digit((string) $request->query('def', '')) ? $this->pg->routineDefinition($db, (int) $request->query('def')) : null;
+            } elseif ($tab === 'sequences') {
+                $data['sequences'] = $this->pg->sequences($db);
             } else {
                 $data['objects'] = $this->pg->objects($db, $q + ['offset' => ($page - 1) * $per, 'limit' => $per]);
             }
@@ -294,6 +300,17 @@ final class PostgresController extends Controller
                 $params['cascade'] = (string) $request->input('cascade', '') !== '';
                 $params['extra'] = ['concurrent' => (string) $request->input('concurrent', '') !== ''];
                 break;
+            case 'create_partition':
+            case 'attach_partition':
+            case 'detach_partition':
+                $params['new_name'] = trim((string) $request->input('new_name', ''));
+                $params['name'] = trim((string) $request->input('name', ''));
+                $params['extra'] = ['concurrent' => (string) $request->input('concurrent', '') !== '', 'bound' => [
+                    'kind' => (string) $request->input('bound_kind', ''), 'from' => $this->csv((string) $request->input('bound_from', '')), 'to' => $this->csv((string) $request->input('bound_to', '')),
+                    'values' => $this->csv((string) $request->input('bound_values', '')), 'modulus' => (int) $request->input('bound_modulus', 0), 'remainder' => (int) $request->input('bound_remainder', 0),
+                ]];
+                $params['schema'] = $schema;
+                break;
             case 'add_constraint':
                 $params['name'] = trim((string) $request->input('name', ''));
                 $params['extra'] = [
@@ -355,6 +372,56 @@ final class PostgresController extends Controller
         }
         $why = implode('; ', array_map(static fn ($r): string => (string) $r['schema'] . '.' . (string) $r['name'] . ' - ' . (string) ($r['error'] ?? 'failed'), array_slice($failed, 0, 5)));
         return $this->redirectWithError($back, PostgresService::BULK_OPS[$op] . ': ' . $ok . ' done, ' . count($failed) . ' failed. ' . $why . (count($failed) > 5 ? '; and ' . (count($failed) - 5) . ' more.' : ''));
+    }
+
+    /** Drop one routine, addressed by the OID the list showed. */
+    public function routineDrop(Request $request): Response
+    {
+        $db = $this->databaseOf($request, $request->input('db'));
+        if ($db === null) {
+            return $this->redirectWithError(self::BASE, 'Database not found.');
+        }
+        $back = self::BASE . '/browse?' . http_build_query(['db' => (int) $db['id'], 'tab' => 'routines']);
+        try {
+            $this->pg->routineDrop($db, (int) $request->input('oid', 0), (string) $request->input('label', ''), (string) $request->input('cascade', '') !== '', trim((string) $request->input('confirm', '')), $this->userId($request));
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure($back, $e);
+        }
+        return $this->redirectWithSuccess($back, 'Routine dropped.');
+    }
+
+    /** Create / change / set the value of / sync / drop a sequence. */
+    public function sequenceAlter(Request $request): Response
+    {
+        $db = $this->databaseOf($request, $request->input('db'));
+        if ($db === null) {
+            return $this->redirectWithError(self::BASE, 'Database not found.');
+        }
+        $back = self::BASE . '/browse?' . http_build_query(['db' => (int) $db['id'], 'tab' => 'sequences']);
+        $num = static function (mixed $v): ?int {
+            $v = trim((string) $v);
+            return $v !== '' && preg_match('/^-?\d{1,18}$/', $v) === 1 ? (int) $v : null;
+        };
+        $params = ['op' => (string) $request->input('op', ''), 'schema' => trim((string) $request->input('schema', '')), 'name' => trim((string) $request->input('name', '')), 'cascade' => (string) $request->input('cascade', '') !== ''];
+        foreach (['value', 'start', 'increment', 'min', 'max', 'cache'] as $f) {
+            $n = $num($request->input($f));
+            if ($n !== null) {
+                $params[$f] = $n;
+            }
+        }
+        $cycle = (string) $request->input('cycle', '');
+        if ($cycle !== '') {
+            $params['cycle'] = $cycle === 'yes';
+        }
+        if ($params['op'] === 'drop' && trim((string) $request->input('confirm', '')) !== $params['name']) {
+            return $this->redirectWithError($back, 'Type the sequence name to confirm dropping it. Nothing was changed.');
+        }
+        try {
+            $this->pg->sequenceAlter($db, $params, $this->userId($request));
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure($back, $e);
+        }
+        return $this->redirectWithSuccess($back, PostgresService::SEQ_OPS[$params['op']] . '.');
     }
 
     // ---- SQL editor -------------------------------------------------------------------------------
