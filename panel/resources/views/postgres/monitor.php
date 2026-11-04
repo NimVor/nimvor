@@ -28,7 +28,7 @@
         <div class="col-6 col-md-3"><div class="card"><div class="card-body py-2"><div class="small text-body-secondary">Version</div><div class="fw-medium small text-break"><?= e(preg_replace('/\s+on\s.*$/', '', (string) $m['version'])) ?></div></div></div></div>
         <div class="col-6 col-md-3"><div class="card"><div class="card-body py-2"><div class="small text-body-secondary">Running for</div><div class="fw-medium"><?= $up >= 86400 ? floor($up / 86400) . ' d ' : '' ?><?= floor(($up % 86400) / 3600) ?> h <?= floor(($up % 3600) / 60) ?> min</div></div></div></div>
         <div class="col-6 col-md-3"><div class="card"><div class="card-body py-2"><div class="small text-body-secondary">Connections</div><div class="fw-medium"><?= (int) $conn['total'] ?> of <?= $max ?></div>
-            <div class="progress" style="height:4px"><div class="progress-bar" style="width:<?= min(100, (int) round(((int) $conn['total']) * 100 / $max)) ?>%"></div></div></div></div></div>
+            <div class="progress nim-progress-thin"><div class="progress-bar" data-width="<?= min(100, (int) round(((int) $conn['total']) * 100 / $max)) ?>"></div></div></div></div></div>
         <div class="col-6 col-md-3"><div class="card"><div class="card-body py-2"><div class="small text-body-secondary">Waiting for a lock</div><div class="fw-medium<?= (int) $m['lock_waits'] > 0 ? ' text-warning' : '' ?>"><?= (int) $m['lock_waits'] ?></div></div></div></div>
     </div>
 

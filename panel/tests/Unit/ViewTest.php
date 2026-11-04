@@ -59,6 +59,38 @@ final class ViewTest extends TestCase
     }
 
     /**
+     * The panel's Content-Security-Policy has style-src 'self': a style="..." attribute in a template is dropped by the
+     * browser (the SQL editor's box lost its height that way, and the editor's own styles, which CodeMirror adds as a
+     * <style> element, were blocked too). The PostgreSQL pages are kept free of them: sizes go into nimvor.css, and a
+     * width that comes from data uses data-width.
+     */
+    public function testPostgresViewsUseNoInlineStyleAttributes(): void
+    {
+        $dir = dirname(__DIR__, 2) . '/resources/views/postgres';
+        $offenders = [];
+        foreach (glob($dir . '/*.php') ?: [] as $file) {
+            // Without the PHP blocks, so that the end of a PHP block inside a tag does not end the tag early.
+            $html = (string) preg_replace('/<\?.*?\?>/s', '', (string) file_get_contents($file));
+            if (preg_match('/<[a-z][^>]*\sstyle\s*=/i', $html)) {
+                $offenders[] = basename($file);
+            }
+        }
+        self::assertSame([], $offenders, 'inline style attributes are blocked by the Content-Security-Policy');
+    }
+
+    /**
+     * The SQL editor is mounted in a shadow root: there CodeMirror applies its styles as constructed stylesheets, which
+     * the Content-Security-Policy allows. Mounted in the page, it adds a <style> element, which is blocked, and the
+     * editor shows without its layout.
+     */
+    public function testSqlEditorIsMountedInAShadowRootBecauseOfTheStylePolicy(): void
+    {
+        $root = dirname(__DIR__, 2);
+        self::assertStringContainsString('attachShadow', (string) file_get_contents($root . '/assets-src/sql-editor/entry.js'));
+        self::assertStringContainsString('attachShadow', (string) file_get_contents($root . '/public/assets/vendor/codemirror/sql-editor.min.js'), 'rebuild the bundle: scripts/build-sql-editor.sh');
+    }
+
+    /**
      * The Content-Security-Policy forbids inline scripts (script-src 'self'),
      * so a template must never carry an inline <script> block; page behaviour
      * belongs in an external asset loaded from the panel. Only <script src=…>

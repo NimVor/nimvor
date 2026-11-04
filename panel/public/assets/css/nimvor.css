@@ -976,3 +976,8 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 [data-bs-theme="dark"] .nim-logo-light { display: none; }
 [data-bs-theme="dark"] .nim-logo-dark { display: inline-block; }
 .nim-ellipsis-cell { max-width: 28rem; }
+
+/* PostgreSQL pages: sizes that used to be inline style attributes (blocked by the Content-Security-Policy). */
+.nim-sql-editor { height: 14rem; resize: vertical; overflow: auto; }
+.nim-colmenu { min-width: 14rem; }
+.nim-keep-input { width: 6rem; }

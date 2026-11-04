@@ -5,12 +5,42 @@ import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLi
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { sql, PostgreSQL } from '@codemirror/lang-sql';
 import { autocompletion, completionKeymap, closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
-import { syntaxHighlighting, defaultHighlightStyle, bracketMatching, indentOnInput } from '@codemirror/language';
+import { syntaxHighlighting, HighlightStyle, bracketMatching, indentOnInput } from '@codemirror/language';
+import { tags as t } from '@lezer/highlight';
 import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
 import { format } from 'sql-formatter';
 
+// Colours come from the panel's own theme variables, so they stay readable in light and dark mode (CodeMirror's default
+// palette is made for a white background). Same mapping the panel's other SQL highlighting uses.
+var nimHighlight = HighlightStyle.define([
+  { tag: [t.keyword, t.operatorKeyword, t.modifier], color: 'var(--bs-primary-text-emphasis)', fontWeight: '600' },
+  { tag: [t.string, t.special(t.string)], color: 'var(--bs-success-text-emphasis)' },
+  { tag: [t.number, t.bool, t.null], color: 'var(--bs-warning-text-emphasis)' },
+  { tag: [t.typeName, t.standard(t.typeName), t.className], color: 'var(--bs-info-text-emphasis)' },
+  { tag: [t.lineComment, t.blockComment, t.comment], color: 'var(--bs-secondary-color)', fontStyle: 'italic' },
+  { tag: [t.operator, t.punctuation, t.paren, t.separator], color: 'var(--bs-secondary-color)' },
+  { tag: t.invalid, color: 'var(--bs-danger-text-emphasis)' }
+]);
+
+// The panel's Content-Security-Policy has style-src 'self': CodeMirror's usual <style> element in the page head is
+// blocked, which left the editor unstyled. Inside a shadow root CodeMirror applies its styles as constructed
+// stylesheets (adoptedStyleSheets), which the policy does not restrict, so the strict policy stays as it is. The panel's
+// CSS variables (--bs-*) still inherit into the shadow tree, so the editor follows light and dark mode.
+function mountPoint(host) {
+  if (!host.attachShadow || !window.CSSStyleSheet || !('adoptedStyleSheets' in document)) { return host; }
+  var root = host.shadowRoot || host.attachShadow({ mode: 'open' });
+  var sheet = new CSSStyleSheet();
+  sheet.replaceSync(':host{display:block}.nim-cm-mount{height:100%}');
+  root.adoptedStyleSheets = [sheet];
+  var mount = document.createElement('div');
+  mount.className = 'nim-cm-mount';
+  root.appendChild(mount);
+  return mount;
+}
+
 function create(parent, opts) {
   opts = opts || {};
+  parent = mountPoint(parent);
   var lang = new Compartment();
   var languageFor = function (schema) { return sql({ dialect: PostgreSQL, schema: schema || {}, upperCaseKeywords: false }); };
   var run = opts.onRun || function () {};
@@ -20,7 +50,7 @@ function create(parent, opts) {
       doc: opts.doc || '',
       extensions: [
         lineNumbers(), highlightActiveLineGutter(), history(), drawSelection(), indentOnInput(), bracketMatching(), closeBrackets(),
-        highlightActiveLine(), highlightSelectionMatches(), syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+        highlightActiveLine(), highlightSelectionMatches(), syntaxHighlighting(nimHighlight),
         autocompletion(), lang.of(languageFor(opts.schema)), placeholder(opts.placeholder || ''),
         keymap.of([
           { key: 'Mod-Enter', run: function () { run(); return true; } },

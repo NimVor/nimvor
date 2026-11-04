@@ -78,7 +78,7 @@ $id = (int) $db['id'];
             <div class="col-auto"><label class="form-label small mb-1" for="pgb-hour">At (UTC)</label>
                 <select class="form-select form-select-sm" id="pgb-hour" name="hour"><?php for ($h = 0; $h < 24; $h++): ?><option value="<?= $h ?>"<?= (int) ($schedule['hour'] ?? 3) === $h ? ' selected' : '' ?>><?= sprintf('%02d:00', $h) ?></option><?php endfor; ?></select></div>
             <div class="col-auto"><label class="form-label small mb-1" for="pgb-keep">Keep the newest</label>
-                <input type="number" class="form-control form-control-sm" id="pgb-keep" name="keep" min="1" max="90" value="<?= (int) ($schedule['keep'] ?? 7) ?>" style="width:6rem"></div>
+                <input type="number" class="form-control form-control-sm nim-keep-input" id="pgb-keep" name="keep" min="1" max="90" value="<?= (int) ($schedule['keep'] ?? 7) ?>"></div>
             <div class="col-auto"><button class="btn btn-sm btn-primary">Save</button></div>
         </form>
         <?php if ($schedule !== null): ?>
