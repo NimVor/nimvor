@@ -26,6 +26,12 @@ final class PostgresBrowserTest extends HttpTestCase
         $this->agent->succeed('pg.overview', ['databases' => [], 'roles' => [], 'version' => '16.4', 'max_connections' => 100, 'active_connections' => 1]);
         $this->agent->succeed('pg.objects_bulk', ['op' => 'vacuum', 'succeeded' => 2, 'failed' => 0, 'results' => [['schema' => 'public', 'name' => 'items', 'ok' => true]]]);
         $this->agent->succeed('pg.table_alter', ['sql' => 'ALTER TABLE ...']);
+        $this->agent->succeed('pg.table_details', ['kind' => 'table', 'indexes' => [
+            ['name' => 'items_pkey', 'definition' => 'CREATE UNIQUE INDEX ...', 'method' => 'btree', 'unique' => true, 'primary' => true, 'valid' => true, 'backs_constraint' => 'items_pkey', 'predicate' => '', 'bytes' => 16384, 'scans' => 40, 'columns' => 'id'],
+            ['name' => 'items_name', 'definition' => 'CREATE INDEX ...', 'method' => 'btree', 'unique' => false, 'primary' => false, 'valid' => false, 'backs_constraint' => '', 'predicate' => "(qty > 5)", 'bytes' => 8192, 'scans' => 0, 'columns' => 'name'],
+        ], 'constraints' => [
+            ['name' => 'ck_qty', 'type' => 'check', 'definition' => 'CHECK ((qty >= 0))', 'validated' => false, 'deferrable' => false],
+        ], 'triggers' => [['name' => 't_audit', 'enabled' => 'enabled', 'definition' => 'CREATE TRIGGER t_audit ...', 'function' => 'audit_fn']]]);
         foreach (['pg.role_create', 'pg.database_create', 'pg.row_insert', 'pg.row_update', 'pg.row_delete'] as $a) {
             $this->agent->succeed($a, ['ok' => true]);
         }
@@ -166,6 +172,38 @@ final class PostgresBrowserTest extends HttpTestCase
         self::assertSame('drop_column', $this->lastCall('pg.table_alter')['op']);
         $this->post('/postgres/alter', ['db' => (string) $this->aliceDb, 'op' => 'drop_database', 'schema' => 'public', 'table' => 'items']);
         self::assertSame($before + 1, $this->calls('pg.table_alter'), 'an unknown change never reaches the agent');
+    }
+
+    public function testStructureTabListsIndexesConstraintsAndTriggersWithEscaping(): void
+    {
+        $page = $this->request('GET', '/postgres/browse', [], [], '', ['db' => (string) $this->aliceDb, 'schema' => 'public', 'table' => 'items', 'tab' => 'structure'])->body();
+        foreach (['items_name', 'never used', 'invalid', 'where (qty &gt; 5)', 'ck_qty', 'not validated', 'Validate', 't_audit', 'Create an index', 'Add a constraint'] as $want) {
+            self::assertStringContainsString($want, $page, $want);
+        }
+        self::assertStringContainsString('backs constraint items_pkey', $page);
+        self::assertSame('alice_shop', $this->lastCall('pg.table_details')['database']);
+    }
+
+    public function testIndexAndConstraintFormsBecomeStructuredRequests(): void
+    {
+        $base = ['db' => (string) $this->aliceDb, 'schema' => 'public', 'table' => 'items'];
+        $this->post('/postgres/alter', $base + ['op' => 'create_index', 'name' => 'idx_q', 'method' => 'btree', 'unique' => '1', 'concurrent' => '1', 'include' => 'name, qty',
+            'icols' => [['name' => 'qty', 'order' => 'desc', 'nulls' => 'last'], ['name' => ''], ['name' => 'name']], 'pcol' => 'qty', 'pop' => 'gt', 'pval' => '5']);
+        $c = $this->lastCall('pg.table_alter');
+        self::assertSame('create_index', $c['op']);
+        self::assertSame([['name' => 'qty', 'order' => 'desc', 'nulls' => 'last'], ['name' => 'name', 'order' => '', 'nulls' => '']], $c['extra']['index_columns']);
+        self::assertSame(['name', 'qty'], $c['extra']['include']);
+        self::assertTrue($c['extra']['unique'] && $c['extra']['concurrent']);
+        self::assertSame(['column' => 'qty', 'op' => 'gt', 'value' => '5', 'value2' => ''], $c['extra']['predicate']);
+
+        $this->post('/postgres/alter', $base + ['op' => 'add_constraint', 'kind' => 'foreign', 'name' => 'fk_o', 'columns' => 'user_id', 'ref_table' => 'users', 'ref_columns' => 'id', 'on_delete' => 'cascade', 'not_valid' => '1']);
+        $c = $this->lastCall('pg.table_alter');
+        self::assertSame(['foreign', ['user_id'], 'public', 'users', ['id'], 'cascade', true], [$c['extra']['kind'], $c['extra']['columns'], $c['extra']['ref_schema'], $c['extra']['ref_table'], $c['extra']['ref_columns'], $c['extra']['on_delete'], $c['extra']['not_valid']]);
+        self::assertNull($c['extra']['predicate']);
+
+        $this->post('/postgres/alter', $base + ['op' => 'drop_trigger', 'name' => 't_audit']);
+        self::assertSame(['drop_trigger', 't_audit'], [$this->lastCall('pg.table_alter')['op'], $this->lastCall('pg.table_alter')['name']]);
+        self::assertSame(1, (int) $this->db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'postgres.drop_trigger'"));
     }
 
     public function testOwnerBrowsesRowsAndTables(): void

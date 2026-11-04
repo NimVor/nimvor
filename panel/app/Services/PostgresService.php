@@ -502,6 +502,9 @@ final class PostgresService
     public const ALTER_OPS = [
         'create_table' => 'Table created', 'rename_table' => 'Table renamed', 'comment_table' => 'Comment saved', 'duplicate_table' => 'Table duplicated',
         'set_schema' => 'Table moved', 'add_column' => 'Column added', 'alter_column' => 'Column changed', 'rename_column' => 'Column renamed', 'drop_column' => 'Column dropped',
+        'create_index' => 'Index created', 'drop_index' => 'Index dropped', 'rename_index' => 'Index renamed', 'reindex_index' => 'Index rebuilt',
+        'add_constraint' => 'Constraint added', 'drop_constraint' => 'Constraint dropped', 'validate_constraint' => 'Constraint validated', 'rename_constraint' => 'Constraint renamed',
+        'enable_trigger' => 'Trigger enabled', 'disable_trigger' => 'Trigger disabled', 'drop_trigger' => 'Trigger dropped',
     ];
 
     /**
@@ -570,6 +573,17 @@ final class PostgresService
             (int) ($out['failed'] ?? 0) === 0 ? AuditLogger::SUCCESS : AuditLogger::FAILURE,
             ['objects' => $names, 'count' => count($items), 'succeeded' => (int) ($out['succeeded'] ?? 0), 'failed' => (int) ($out['failed'] ?? 0)], $userId);
         return $out;
+    }
+
+    /**
+     * A table's indexes, constraints and triggers.
+     *
+     * @param array<string, mixed> $database
+     * @return array<string, mixed>
+     */
+    public function details(array $database, string $schema, string $table): array
+    {
+        return (array) $this->callOn((int) $database['pg_server_id'], 'pg.table_details', ['database' => (string) $database['name'], 'schema' => $schema, 'table' => $table], 60);
     }
 
     /**

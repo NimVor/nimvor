@@ -150,12 +150,15 @@ final class PostgresController extends Controller
         }
         $data = ['db' => $db, 'schema' => $schema, 'table' => $table, 'tab' => $tab, 'per' => $per, 'pageNo' => $page, 'q' => $request->query('q', ''),
             'fc' => (string) $request->query('fc', ''), 'fo' => (string) $request->query('fo', ''), 'fv' => (string) $request->query('fv', ''),
-            'sort' => (string) $request->query('sort', ''), 'dir' => (string) $request->query('dir', 'asc'), 'result' => null, 'structure' => null, 'tables' => ['schemas' => [], 'tables' => []]];
+            'sort' => (string) $request->query('sort', ''), 'dir' => (string) $request->query('dir', 'asc'), 'result' => null, 'structure' => null, 'details' => null, 'tables' => ['schemas' => [], 'tables' => []]];
         try {
             $data['tables'] = $this->pg->tables($db);
             if ($table !== '') {
                 $data['result'] = $this->pg->browse($db, $schema, $table, $this->criteria($request) + ['offset' => ($page - 1) * $per, 'limit' => $per]);
                 $data['structure'] = $this->pg->structure($db, $schema, $table);
+                if ($tab === 'structure') {
+                    $data['details'] = $this->pg->details($db, $schema, $table);
+                }
             }
         } catch (UserFacingException $e) {
             $this->session->flash('error', $e->getMessage() . ($e->reason() !== '' ? ' ' . $e->reason() : ''));
@@ -199,6 +202,23 @@ final class PostgresController extends Controller
             'primary' => !empty($f['primary']), 'identity' => !empty($f['identity']),
             'has_default' => $kind === 'literal' || $kind === 'function', 'default' => (string) ($f['default'] ?? ''), 'default_fn' => $kind === 'function',
         ];
+    }
+
+    /** @return list<string> */
+    private function csv(string $v): array
+    {
+        return array_values(array_filter(array_map('trim', explode(',', $v)), static fn (string $x): bool => $x !== ''));
+    }
+
+    /** @return array<string, string>|null a column / operator / value condition from the form, or null when empty */
+    private function predicateFrom(Request $request): ?array
+    {
+        $col = trim((string) $request->input('pcol', ''));
+        $op = (string) $request->input('pop', '');
+        if ($col === '' || $op === '') {
+            return null;
+        }
+        return ['column' => $col, 'op' => $op, 'value' => (string) $request->input('pval', ''), 'value2' => (string) $request->input('pval2', '')];
     }
 
     /** One structure change from a form: create / rename / duplicate / comment / move a table, or change a column. */
@@ -246,6 +266,42 @@ final class PostgresController extends Controller
                 $params['new_name'] = trim((string) $request->input('new_name', ''));
                 $params['cascade'] = (string) $request->input('cascade', '') !== '';
                 $params['extra'] = ['alter_what' => (string) $request->input('alter_what', ''), 'value' => (string) $request->input('value', ''), 'kind' => (string) $request->input('value_kind', '')];
+                break;
+            case 'create_index':
+                $icols = [];
+                foreach ((array) $request->input('icols', []) as $c) {
+                    if (is_array($c) && trim((string) ($c['name'] ?? '')) !== '') {
+                        $icols[] = ['name' => trim((string) $c['name']), 'order' => (string) ($c['order'] ?? ''), 'nulls' => (string) ($c['nulls'] ?? '')];
+                    }
+                }
+                $params['name'] = trim((string) $request->input('name', ''));
+                $params['extra'] = [
+                    'method' => (string) $request->input('method', 'btree'), 'unique' => (string) $request->input('unique', '') !== '', 'concurrent' => (string) $request->input('concurrent', '') !== '',
+                    'index_columns' => $icols, 'include' => $this->csv((string) $request->input('include', '')), 'predicate' => $this->predicateFrom($request),
+                ];
+                break;
+            case 'drop_index':
+            case 'rename_index':
+            case 'reindex_index':
+            case 'drop_constraint':
+            case 'validate_constraint':
+            case 'rename_constraint':
+            case 'enable_trigger':
+            case 'disable_trigger':
+            case 'drop_trigger':
+                $params['name'] = trim((string) $request->input('name', ''));
+                $params['new_name'] = trim((string) $request->input('new_name', ''));
+                $params['cascade'] = (string) $request->input('cascade', '') !== '';
+                $params['extra'] = ['concurrent' => (string) $request->input('concurrent', '') !== ''];
+                break;
+            case 'add_constraint':
+                $params['name'] = trim((string) $request->input('name', ''));
+                $params['extra'] = [
+                    'kind' => (string) $request->input('kind', ''), 'columns' => $this->csv((string) $request->input('columns', '')), 'predicate' => $this->predicateFrom($request),
+                    'ref_schema' => trim((string) $request->input('ref_schema', $schema)) ?: $schema, 'ref_table' => trim((string) $request->input('ref_table', '')), 'ref_columns' => $this->csv((string) $request->input('ref_columns', '')),
+                    'on_delete' => (string) $request->input('on_delete', ''), 'on_update' => (string) $request->input('on_update', ''),
+                    'not_valid' => (string) $request->input('not_valid', '') !== '', 'deferrable' => (string) $request->input('deferrable', '') !== '',
+                ];
                 break;
             default:
                 return $this->redirectWithError($this->browseUrl($db, $schema, $table), 'That change is not available.');
