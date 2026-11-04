@@ -227,6 +227,78 @@ final class MongoService
         return $o;
     }
 
+    /** The document / index / validation / view operations of the browser, each mapped to one agent action. */
+    private const DOC_OPS = [
+        'docs_delete_many' => ['mongo.documents_delete_many', true], 'doc_duplicate' => ['mongo.document_duplicate', true], 'docs_update_many' => ['mongo.documents_update_many', true],
+        'index_stats' => ['mongo.index_stats', false], 'index_hide' => ['mongo.index_hide', true], 'validation_set' => ['mongo.validation_set', true], 'view_create' => ['mongo.view_create', true],
+    ];
+
+    /** Whether the browser operation changes data (and so needs the manage permission). */
+    public static function docOpChanges(string $op): bool
+    {
+        return (self::DOC_OPS[$op][1] ?? true) === true;
+    }
+
+    /**
+     * @param array<string, mixed> $in the operation's own fields (ids, filter, ops, name, hidden, validator, level, action, pipeline, view_on, ...)
+     * @return array<string, mixed>
+     */
+    public function docOp(string $db, string $collection, string $op, array $in, ?int $userId): array
+    {
+        if (!isset(self::DOC_OPS[$op])) {
+            throw new \NimVor\Support\UserFacingException('That operation is not available.');
+        }
+        [$action, $changes] = self::DOC_OPS[$op];
+        $params = ['db' => $db, 'collection' => $collection];
+        switch ($op) {
+            case 'docs_delete_many':
+                $params['ids'] = array_values(array_filter(array_map(static fn ($i): string => is_scalar($i) ? (string) $i : '', (array) ($in['ids'] ?? [])), static fn (string $i): bool => $i !== ''));
+                break;
+            case 'doc_duplicate':
+                $params['id'] = (string) ($in['id'] ?? '');
+                break;
+            case 'docs_update_many':
+                $params['filter'] = (string) ($in['filter'] ?? '');
+                $params['all'] = !empty($in['all']);
+                $params['dry_run'] = !empty($in['dry_run']);
+                $params['ops'] = array_values(array_map(static fn ($o): array => ['op' => (string) ($o['op'] ?? ''), 'field' => trim((string) ($o['field'] ?? '')), 'value' => (string) ($o['value'] ?? '')], array_filter((array) ($in['ops'] ?? []), 'is_array')));
+                $changes = empty($params['dry_run']);
+                break;
+            case 'index_hide':
+                $params['name'] = (string) ($in['name'] ?? '');
+                $params['hidden'] = !empty($in['hidden']);
+                break;
+            case 'validation_set':
+                $params['validator'] = (string) ($in['validator'] ?? '');
+                $params['level'] = (string) ($in['level'] ?? '');
+                $params['action'] = (string) ($in['action'] ?? '');
+                break;
+            case 'view_create':
+                unset($params['collection']);
+                $params['name'] = $collection;
+                $params['view_on'] = trim((string) ($in['view_on'] ?? ''));
+                $params['pipeline'] = (string) ($in['pipeline'] ?? '');
+                break;
+        }
+        $out = (array) $this->agent->call($action, $params, 300);
+        if ($changes) {
+            $ctx = ['db' => $db, 'collection' => $collection];
+            if ($op === 'docs_delete_many') {
+                $ctx['count'] = count($params['ids']);
+            } elseif ($op === 'docs_update_many') {
+                $ctx += ['filter' => mb_substr((string) $params['filter'], 0, 500), 'fields' => array_slice(array_map(static fn (array $o): string => $o['op'] . ':' . $o['field'], $params['ops']), 0, 20), 'modified' => $out['modified'] ?? null];
+            } elseif ($op === 'index_hide') {
+                $ctx += ['name' => $params['name'], 'hidden' => $params['hidden']];
+            } elseif ($op === 'validation_set') {
+                $ctx += ['level' => $params['level'], 'action' => $params['action'], 'cleared' => trim($params['validator']) === ''];
+            } elseif ($op === 'view_create') {
+                $ctx += ['view_on' => $params['view_on']];
+            }
+            $this->audit->record('mongo.' . $op, 'server', (string) $this->server->id(), AuditLogger::SUCCESS, $ctx, $userId);
+        }
+        return $out;
+    }
+
     public function emptyCollection(string $db, string $collection, ?int $userId): int
     {
         $o = (array) $this->agent->call('mongo.collection_empty', ['db' => $db, 'collection' => $collection], 90);

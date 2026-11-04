@@ -209,6 +209,14 @@ final class SiteMongoController extends SiteController
                 case 'coll_copy':
                     $this->mongo->copyCollection($site, $db, trim((string) $request->input('collection')), trim((string) $request->input('name')), $this->userId($request));
                     return Response::json(['success' => true, 'data' => ['copied' => trim((string) $request->input('name'))]]);
+                case 'docs_delete_many':
+                case 'doc_duplicate':
+                case 'docs_update_many':
+                case 'index_stats':
+                case 'index_hide':
+                case 'validation_set':
+                case 'view_create':
+                    return Response::json(['success' => true, 'data' => $this->mongo->docOp($site, $db, trim((string) $request->input('collection')), $request->string('op'), $request->all(), $this->userId($request))]);
                 case 'colls_bulk':
                     return Response::json(['success' => true, 'data' => $this->mongo->collectionsBulk($site, $db, trim((string) $request->input('bulk_op')), (array) $request->input('collections', []), $this->userId($request))]);
                 case 'coll_empty':

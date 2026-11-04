@@ -526,6 +526,17 @@ final class MongoController extends Controller
                     }
                     $this->mongo->copyCollection($db, trim((string) $request->input('collection')), trim((string) $request->input('name')), $this->userId($request));
                     return Response::json(['success' => true, 'data' => ['copied' => trim((string) $request->input('name'))]]);
+                case 'docs_delete_many':
+                case 'doc_duplicate':
+                case 'docs_update_many':
+                case 'index_stats':
+                case 'index_hide':
+                case 'validation_set':
+                case 'view_create':
+                    if (\NimVor\Services\MongoService::docOpChanges($request->string('op')) && !$this->view->can(P::MONGO_MANAGE)) {
+                        return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);
+                    }
+                    return Response::json(['success' => true, 'data' => $this->mongo->docOp($db, trim((string) $request->input('collection')), $request->string('op'), $request->all(), $this->userId($request))]);
                 case 'colls_bulk':
                     $bulkOp = trim((string) $request->input('bulk_op'));
                     if ($bulkOp !== 'validate' && !$this->view->can(P::MONGO_MANAGE)) {
