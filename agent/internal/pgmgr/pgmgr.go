@@ -197,6 +197,7 @@ func withSession(ctx context.Context, env *host.Env, t *Target, db string, fn fu
 func Register(r *actions.Registry, env *host.Env) {
 	registerBrowser(r, env)
 	registerQuery(r, env)
+	registerObjects(r, env)
 	registerBackup(r, env)
 	registerMonitor(r, env)
 	r.Register(actions.Action{Name: "pg.status", Description: "PostgreSQL on this server: installed, running, version, and whether NimVor holds credentials for it.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
