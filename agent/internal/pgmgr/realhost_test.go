@@ -30,7 +30,10 @@ func TestRealHostPostgres(t *testing.T) {
 	root := filesystem.Host()
 	cfg := config.Default()
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	jm, _ := jobs.NewManager(t.TempDir(), 1, time.Minute, log)
+	// Installing PostgreSQL goes through the package manager as a job; on a slow mirror that takes more than the
+	// minute the other tests allow ("stopped waiting ... context deadline exceeded"). The agent itself allows
+	// two hours.
+	jm, _ := jobs.NewManager(t.TempDir(), 1, 30*time.Minute, log)
 	env := host.New(cfg, root, platform.Detect(root), execx.NewSystemRunner(120*time.Second), jm, log)
 	r := actions.NewRegistry(true)
 	Register(r, env)
