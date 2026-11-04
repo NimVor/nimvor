@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **`curl -fsSL https://nimvor.com/install | sudo bash` had nothing to answer it.** The website advertised the one-line installer but had no `/install` address, so the command failed on a fresh server. `https://nimvor.com/install` now redirects (302) to `installer/bootstrap.sh` in the repository, which fetches the newest release and runs the installer; `--version`, `--commit` and the other options work as documented. Deploy the website (`website/`) for it to take effect.
+
 ## [1.3.1] — 2026-11-03
 
 Hotfix for the page cache.
