@@ -27,6 +27,7 @@ final class DbBrowserController extends Controller
     /** operation => [agent action, changes data] */
     private const OPS = [
         'tables' => ['db.browse_tables', false],
+        'overview' => ['db.browse_overview', false],
         'structure' => ['db.browse_structure', false],
         'rows' => ['db.browse_rows', false],
         'row' => ['db.browse_row', false],

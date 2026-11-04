@@ -25,6 +25,7 @@ final class DbBrowserTest extends HttpTestCase
         $this->db->run("INSERT INTO databases (server_id, name, owner_id, created_at) VALUES (?, 'admin_crm', NULL, '2026-01-01')", [$server]);
         $this->otherDb = $this->db->lastInsertId();
         $this->agent->succeed('db.browse_tables', ['database' => 'x', 'tables' => [['name' => 'orders']], 'server' => '10.11']);
+        $this->agent->succeed('db.browse_overview', ['database' => 'x', 'server' => '10.11.14-MariaDB', 'family' => 'mariadb', 'tables' => 1, 'views' => 0, 'rows' => 5, 'data_bytes' => 16384, 'index_bytes' => 0, 'free_bytes' => 0, 'engines' => ['InnoDB' => 1], 'routines' => 0, 'triggers' => 0, 'events' => 0, 'sequences' => 0]);
         $this->agent->succeed('db.query', ['results' => [['affected_rows' => 1, 'insert_id' => 0, 'info' => '']], 'ms' => 3]);
         $this->agent->succeed('db.browse_save', ['affected_rows' => 1, 'insert_id' => 0]);
     }
@@ -59,6 +60,17 @@ final class DbBrowserTest extends HttpTestCase
         self::assertSame(404, $this->request('GET', '/databases/browse', query: ['name' => 'admin_crm'])->status());
         self::assertSame(404, $this->api('/databases/browse/api?name=admin_crm', ['op' => 'tables'])->status());
         self::assertSame(1, $this->calls('db.browse_tables'));
+    }
+
+    public function testOverviewComesFromTheRoutedDatabaseAndIsForbiddenForOthers(): void
+    {
+        $this->login('cust');
+        $res = $this->api('/databases/' . $this->shopDb . '/browse/api', ['op' => 'overview', 'database' => 'admin_crm']);
+        self::assertSame(200, $res->status());
+        self::assertSame('cust_shop', $this->lastCall('db.browse_overview')['database']);
+        self::assertStringContainsString('mariadb', $res->body());
+        self::assertSame(404, $this->api('/databases/' . $this->otherDb . '/browse/api', ['op' => 'overview'])->status());
+        self::assertSame(1, $this->calls('db.browse_overview'));
     }
 
     public function testOperationsMapToAgentActionsAndAreAudited(): void

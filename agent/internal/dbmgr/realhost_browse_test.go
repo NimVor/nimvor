@@ -108,6 +108,16 @@ func TestRealHostDatabaseBrowser(t *testing.T) {
 	if ts := tb["tables"].([]any); len(ts) != 1 || ts[0].(map[string]any)["name"] != "items" {
 		t.Fatalf("tables = %+v", tb)
 	}
+	if t0 := tb["tables"].([]any)[0].(map[string]any); t0["columns"].(float64) < 2 || t0["indexes"].(float64) < 1 || t0["data_bytes"].(float64) <= 0 || t0["engine"] == "" {
+		t.Fatalf("table statistics = %+v", t0)
+	}
+	ovw := do("db.browse_overview", `{"database":"nimvor_br"}`)
+	if ovw["tables"].(float64) != 1 || ovw["views"].(float64) != 0 || ovw["rows"].(float64) < 0 || ovw["server"] == "" || (ovw["family"] != "mysql" && ovw["family"] != "mariadb") || ovw["data_bytes"].(float64) <= 0 {
+		t.Fatalf("overview = %+v", ovw)
+	}
+	if _, err := call("db.browse_overview", `{"database":"nimvor_br_other_not_mine; DROP"}`); err == nil {
+		t.Fatal("overview accepted an invalid database name")
+	}
 	st := do("db.browse_structure", `{"database":"nimvor_br","table":"items"}`)
 	if k := st["key"].([]any); len(k) != 1 || k[0] != "id" || !strings.Contains(st["create"].(string), "CREATE TABLE `items`") {
 		t.Fatalf("structure = %+v", st)

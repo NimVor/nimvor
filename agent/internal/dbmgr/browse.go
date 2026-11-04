@@ -363,15 +363,19 @@ func registerBrowse(r *actions.Registry, c Client) {
 		}
 		var out map[string]any
 		err = c.withBrowser(ctx, in.Database, func(conn *mysqlwire.Conn) error {
-			r, err := one(conn, "SELECT TABLE_NAME, TABLE_TYPE, ENGINE, TABLE_ROWS, COALESCE(DATA_LENGTH,0) + COALESCE(INDEX_LENGTH,0), TABLE_COLLATION, TABLE_COMMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME")
+			r, err := one(conn, "SELECT TABLE_NAME, TABLE_TYPE, ENGINE, TABLE_ROWS, COALESCE(DATA_LENGTH,0) + COALESCE(INDEX_LENGTH,0), TABLE_COLLATION, TABLE_COMMENT, COALESCE(DATA_LENGTH,0), COALESCE(INDEX_LENGTH,0), COALESCE(DATA_FREE,0), AUTO_INCREMENT, ROW_FORMAT, CREATE_TIME, UPDATE_TIME, (SELECT COUNT(*) FROM information_schema.COLUMNS c WHERE c.TABLE_SCHEMA = t.TABLE_SCHEMA AND c.TABLE_NAME = t.TABLE_NAME), (SELECT COUNT(DISTINCT s.INDEX_NAME) FROM information_schema.STATISTICS s WHERE s.TABLE_SCHEMA = t.TABLE_SCHEMA AND s.TABLE_NAME = t.TABLE_NAME) FROM information_schema.TABLES t WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME")
 			if err != nil {
 				return sqlFailed(err)
 			}
 			tables := []map[string]any{}
 			for _, row := range r.Rows {
-				rows, _ := strconv.ParseInt(str(row[3]), 10, 64)
-				size, _ := strconv.ParseInt(str(row[4]), 10, 64)
-				tables = append(tables, map[string]any{"name": str(row[0]), "view": str(row[1]) == "VIEW", "engine": str(row[2]), "rows": rows, "bytes": size, "collation": str(row[5]), "comment": str(row[6])})
+				i := func(n int) int64 { v, _ := strconv.ParseInt(str(row[n]), 10, 64); return v }
+				t := map[string]any{"name": str(row[0]), "view": str(row[1]) == "VIEW", "engine": str(row[2]), "rows": i(3), "bytes": i(4), "collation": str(row[5]), "comment": str(row[6]),
+					"data_bytes": i(7), "index_bytes": i(8), "free_bytes": i(9), "row_format": str(row[11]), "created": str(row[12]), "updated": str(row[13]), "columns": i(14), "indexes": i(15)}
+				if row[10] != nil {
+					t["auto_increment"] = i(10)
+				}
+				tables = append(tables, t)
 			}
 			v, _ := one(conn, "SELECT VERSION(), @@character_set_database, @@collation_database")
 			out = map[string]any{"database": in.Database, "tables": tables, "server": str(v.Rows[0][0]), "charset": str(v.Rows[0][1]), "collation": str(v.Rows[0][2])}

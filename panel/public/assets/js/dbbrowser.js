@@ -9,7 +9,7 @@
     var api = root.dataset.api;
     var $ = function (s) { return root.querySelector(s); };
     var pane = $('[data-db-pane]'), tableList = $('[data-db-tables]'), current = $('[data-db-current]');
-    var state = { tables: [], table: null, tab: 'sql', structure: {}, page: { offset: 0, limit: 50, order: '', desc: false, filter: null, search: '' }, sql: '', rows: null, selected: new Set() };
+    var state = { tables: [], table: null, tab: 'overview', structure: {}, page: { offset: 0, limit: 50, order: '', desc: false, filter: null, search: '' }, sql: '', rows: null, selected: new Set() };
 
     function el(tag, cls, text) { var e = document.createElement(tag); if (cls) { e.className = cls; } if (text !== undefined && text !== null) { e.textContent = text; } return e; }
     function btn(label, icon, cls, fn) { var b = el('button', 'btn btn-sm ' + cls); b.type = 'button'; if (icon) { b.appendChild(el('i', 'bi ' + icon + (label ? ' me-1' : ''))); } if (label) { b.appendChild(document.createTextNode(label)); } if (fn) { b.addEventListener('click', fn); } return b; }
@@ -95,9 +95,9 @@
         state.page = { offset: 0, limit: state.page.limit, order: '', desc: false, filter: null, search: '' };
         state.selected = new Set();
         current.textContent = name || '';
-        root.querySelectorAll('[data-db-tab]').forEach(function (b) { if (b.dataset.dbTab !== 'sql') { b.disabled = !name; } });
+        root.querySelectorAll('[data-db-tab]').forEach(function (b) { if (['browse', 'structure', 'insert'].indexOf(b.dataset.dbTab) >= 0) { b.disabled = !name; } });
         renderTables();
-        if (name) { state.sql = 'SELECT * FROM ' + ident(name) + ' LIMIT 50'; switchTab('browse'); } else { switchTab('sql'); }
+        if (name) { state.sql = 'SELECT * FROM ' + ident(name) + ' LIMIT 50'; switchTab('browse'); } else { switchTab('overview'); }
     }
 
     function structure(name) {
@@ -109,9 +109,92 @@
     function switchTab(tab) {
         state.tab = tab;
         root.querySelectorAll('[data-db-tab]').forEach(function (b) { var on = b.dataset.dbTab === tab; b.classList.toggle('btn-primary', on); b.classList.toggle('btn-outline-secondary', !on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
-        if (tab === 'browse') { browse(); } else if (tab === 'structure') { showStructure(); } else if (tab === 'insert') { editRow(null); } else { showSql(); }
+        if (tab === 'overview') { showOverview(); } else if (tab === 'objects') { showObjects(); } else if (tab === 'browse') { browse(); } else if (tab === 'structure') { showStructure(); } else if (tab === 'insert') { editRow(null); } else { showSql(); }
     }
     root.querySelectorAll('[data-db-tab]').forEach(function (b) { b.addEventListener('click', function () { if (!b.disabled) { switchTab(b.dataset.dbTab); } }); });
+
+    // ---- overview and objects --------------------------------------------
+    function stat(label, value, hint) {
+        var col = el('div', 'col-6 col-md-4 col-xl-3'), box = el('div', 'border rounded p-3 h-100');
+        box.appendChild(el('div', 'small text-body-secondary', label)); box.appendChild(el('div', 'fs-5 fw-semibold', value));
+        if (hint) { box.appendChild(el('div', 'small text-body-secondary', hint)); }
+        col.appendChild(box); return col;
+    }
+    function showOverview() {
+        loading(pane);
+        call('overview').then(function (o) {
+            if (state.tab !== 'overview') { return; }
+            var n = function (v) { return Number(v || 0).toLocaleString(); };
+            var wrap = el('div', 'p-3'), grid = el('div', 'row g-3 mb-4');
+            grid.appendChild(stat('Size on disk', fmtBytes((o.data_bytes || 0) + (o.index_bytes || 0)), 'indexes ' + fmtBytes(o.index_bytes || 0)));
+            grid.appendChild(stat('Tables', n(o.tables), n(o.views) + ' views'));
+            grid.appendChild(stat('Rows (estimate)', n(o.rows), 'from the engine statistics'));
+            grid.appendChild(stat('Routines', n(o.routines), n(o.triggers) + ' triggers · ' + n(o.events) + ' events'));
+            if (o.family === 'mariadb') { grid.appendChild(stat('Sequences', n(o.sequences))); }
+            grid.appendChild(stat('Reclaimable space', fmtBytes(o.free_bytes || 0), 'free space inside table files'));
+            wrap.appendChild(grid);
+            var dl = el('dl', 'row small mb-3');
+            [['Server', o.server], ['Engine family', o.family === 'mariadb' ? 'MariaDB' : 'MySQL'], ['Character set', o.charset], ['Collation', o.collation],
+                ['Storage engines', Object.keys(o.engines || {}).map(function (k) { return k + ' (' + o.engines[k] + ')'; }).join(', ') || '—']].forEach(function (kv) {
+                dl.appendChild(el('dt', 'col-sm-3', kv[0])); dl.appendChild(el('dd', 'col-sm-9', kv[1] || '—'));
+            });
+            wrap.appendChild(dl);
+            wrap.appendChild(btn('Browse all objects', 'bi-list-ul', 'btn-primary', function () { switchTab('objects'); }));
+            pane.replaceChildren(wrap);
+        }).catch(function (e) { pane.replaceChildren(el('div', 'alert alert-danger m-3', (e.details && e.details.details) || e.message)); });
+    }
+    var objSort = { key: 'name', desc: false }, objKind = '', objSearch = '';
+    function showObjects() {
+        loading(pane);
+        loadTables().then(function () {
+            if (state.tab !== 'objects') { return; }
+            var wrap = el('div', 'd-flex flex-column h-100'), bar = el('div', 'd-flex flex-wrap gap-2 align-items-center p-2 border-bottom');
+            var search = el('input', 'form-control form-control-sm w-auto'); search.type = 'search'; search.placeholder = 'Search by name'; search.value = objSearch; search.setAttribute('aria-label', 'Search by name');
+            var kind = el('select', 'form-select form-select-sm w-auto'); kind.setAttribute('aria-label', 'Type');
+            [['', 'All types'], ['table', 'Tables'], ['view', 'Views']].forEach(function (o) { var op = el('option', '', o[1]); op.value = o[0]; kind.appendChild(op); }); kind.value = objKind;
+            bar.appendChild(search); bar.appendChild(kind);
+            bar.appendChild(btn('Refresh', 'bi-arrow-clockwise', 'btn-outline-secondary ms-auto', function () { showObjects(); }));
+            var holder = el('div', 'table-responsive'); wrap.appendChild(bar); wrap.appendChild(holder);
+            function draw() {
+                objSearch = search.value; objKind = kind.value;
+                var list = state.tables.filter(function (t) {
+                    return (!objSearch || t.name.toLowerCase().indexOf(objSearch.toLowerCase()) >= 0) && (!objKind || (objKind === 'view') === !!t.view);
+                });
+                var key = objSort.key, dir = objSort.desc ? -1 : 1;
+                list.sort(function (a, b) { var x = a[key], y = b[key]; if (typeof x === 'string') { return dir * x.localeCompare(y); } return dir * ((x || 0) - (y || 0)); });
+                var table = el('table', 'table table-sm table-hover align-middle mb-0'), head = el('tr');
+                [['name', 'Name'], ['engine', 'Engine'], ['rows', 'Rows (est.)'], ['bytes', 'Size'], ['index_bytes', 'Indexes size'], ['columns', 'Columns'], ['indexes', 'Indexes'], ['auto_increment', 'Auto-inc.'], ['collation', 'Collation'], ['updated', 'Updated']].forEach(function (c) {
+                    var th = el('th', c[0] === 'name' || c[0] === 'engine' || c[0] === 'collation' || c[0] === 'updated' ? '' : 'text-end'); th.scope = 'col';
+                    var a = el('a', 'text-reset text-decoration-none', c[1] + (objSort.key === c[0] ? (objSort.desc ? ' ▾' : ' ▴') : '')); a.href = '#';
+                    a.addEventListener('click', function (e) { e.preventDefault(); objSort = { key: c[0], desc: objSort.key === c[0] ? !objSort.desc : false }; draw(); });
+                    th.appendChild(a); head.appendChild(th);
+                });
+                var thead = el('thead'); thead.appendChild(head); table.appendChild(thead);
+                var tb = el('tbody');
+                list.forEach(function (t) {
+                    var tr = el('tr'), nm = el('td'), link = el('a', 'font-monospace', t.name); link.href = '#';
+                    link.addEventListener('click', function (e) { e.preventDefault(); selectTable(t.name); });
+                    nm.appendChild(el('i', 'bi ' + (t.view ? 'bi-eye' : 'bi-table') + ' me-1')); nm.appendChild(link);
+                    if (t.comment) { nm.appendChild(el('div', 'small text-body-secondary', t.comment)); }
+                    tr.appendChild(nm);
+                    tr.appendChild(el('td', 'small', t.view ? 'view' : (t.engine || '')));
+                    tr.appendChild(el('td', 'text-end', t.view ? '' : Number(t.rows || 0).toLocaleString()));
+                    tr.appendChild(el('td', 'text-end', t.view ? '' : fmtBytes(t.bytes || 0)));
+                    tr.appendChild(el('td', 'text-end', t.view ? '' : fmtBytes(t.index_bytes || 0)));
+                    tr.appendChild(el('td', 'text-end', String(t.columns || 0)));
+                    tr.appendChild(el('td', 'text-end', t.view ? '' : String(t.indexes || 0)));
+                    tr.appendChild(el('td', 'text-end', t.auto_increment !== undefined ? Number(t.auto_increment).toLocaleString() : ''));
+                    tr.appendChild(el('td', 'small', t.view ? '' : (t.collation || '')));
+                    tr.appendChild(el('td', 'small text-body-secondary', t.updated || ''));
+                    tb.appendChild(tr);
+                });
+                table.appendChild(tb);
+                holder.replaceChildren(list.length ? table : el('div', 'p-4 text-body-secondary', state.tables.length ? 'No object matches this filter.' : 'This database has no tables yet. Create one with the + button, the SQL tab or your application.'));
+            }
+            search.addEventListener('input', draw); kind.addEventListener('change', draw);
+            pane.replaceChildren(wrap); draw();
+        });
+    }
 
     // ---- browse ---------------------------------------------------------
     function browse() {
@@ -755,5 +838,5 @@
     }
 
     loadTables();
-    switchTab('sql');
+    switchTab('overview');
 })();
