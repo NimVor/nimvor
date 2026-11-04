@@ -54,8 +54,37 @@ final class PostgresSqlTest extends HttpTestCase
         $page = $this->request('GET', '/postgres/sql', [], [], '', ['db' => (string) $this->aliceDb])->body();
         self::assertStringContainsString('id="pgsql"', $page);
         self::assertStringContainsString('items', $page);
+        // The completion map is {table: [columns]}: the editor crashes (and stays blank) when a column list is
+        // encoded as an object, as JSON_FORCE_OBJECT did.
+        self::assertStringContainsString('data-schema="{&quot;items&quot;:[&quot;id&quot;,&quot;name&quot;]}"', $page);
         self::assertStringNotContainsString('<script>', $page);
         self::assertSame('alice_shop', $this->lastCall('pg.schema_map')['database']);
+    }
+
+    public function testTheEditorIsATabOfTheSameFrameAsTheBrowser(): void
+    {
+        $this->agent->succeed('pg.tables', ['schemas' => ['public'], 'tables' => [
+            ['schema' => 'public', 'name' => 'items', 'kind' => 'table', 'rows_estimate' => 2, 'size_bytes' => 8192, 'editable' => true],
+        ]]);
+        $page = $this->request('GET', '/postgres/sql', [], [], '', ['db' => (string) $this->aliceDb, 'schema' => 'public', 'table' => 'items'])->body();
+        foreach (['class="nim-tool"', 'class="nim-db"', 'nim-db-side', 'nim-db-tabs', 'nim-db-pane', 'Filter tables', 'data-pgf-name="public.items"'] as $needle) {
+            self::assertStringContainsString($needle, $page, $needle);
+        }
+        // SQL is the current tab; the editor, its settings and its scripts are all still there.
+        self::assertMatchesRegularExpression('~btn-primary"[^>]*aria-current="page"[^>]*><i class="bi bi-terminal"~', $page);
+        self::assertStringContainsString('id="pgsql-editor"', $page);
+        self::assertStringContainsString('sql-editor.min.js', $page);
+        self::assertStringContainsString('postgres-sql.js', $page);
+        // The tabs lead back to the table that was open.
+        self::assertStringContainsString('/postgres/browse?db=' . $this->aliceDb . '&amp;schema=public&amp;table=items&amp;tab=structure', $page);
+    }
+
+    public function testTheEditorStillWorksWhenTheTableListCannotBeRead(): void
+    {
+        $this->agent->fail('pg.tables', 502, 'unavailable', 'PostgreSQL could not be reached.');
+        $page = $this->request('GET', '/postgres/sql', [], [], '', ['db' => (string) $this->aliceDb])->body();
+        self::assertStringContainsString('id="pgsql"', $page);
+        self::assertStringContainsString('No tables yet', $page);
     }
 
     public function testOtherCustomerCannotUseTheEditor(): void

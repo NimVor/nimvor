@@ -711,9 +711,11 @@ database ends the connections to it first; deleting twice is not an error.
 | `pg.browse` | One page of rows with sorting, search and filters (read-only) |
 | `pg.row_insert`, `pg.row_update`, `pg.row_delete` | Add, change or delete one row |
 
-**Table browser.** The table icon on a database opens its tables and rows: pages of
+**Table browser.** The table icon on a database opens it in the same layout as the
+MySQL database browser: the table list on the left (with a filter) and four tabs,
+**Browse**, **Structure**, **Insert** and **SQL**. Browse shows the rows: pages of
 25 to 250 rows, sorting by any column, a search across all columns, a filter on
-one column, column visibility, the table's structure, and **Export CSV** (up to
+one column, column visibility and **Export CSV** (up to
 50,000 rows, NULL as an empty cell). Rows are added, edited and deleted in place
 where the table has a primary key (or a unique key of non-null columns); tables
 without one, views and materialized views are browse-only, because a row of such
@@ -729,7 +731,7 @@ the catalog before use and quoted, values are always parameters. Audit entries
 
 ### SQL editor
 
-The terminal icon next to a database opens a SQL editor: syntax highlighting,
+The terminal icon next to a database (or the **SQL** tab of its browser) opens a SQL editor: syntax highlighting,
 completion from the database's table and column names, **Format**, Ctrl+Enter to
 run the selection (or everything), **Explain** (the plan, nothing is run) and
 **Explain analyze** (really runs the statement, so it asks first), **Cancel**,

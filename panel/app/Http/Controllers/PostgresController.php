@@ -103,6 +103,12 @@ final class PostgresController extends Controller
         return $this->repo->database($this->pg->serverIds(), (int) $id, $this->user($request));
     }
 
+    /** A page in the full-height tool layout, like the MySQL database browser. */
+    private function tool(string $template, array $data): Response
+    {
+        return Response::html($this->view->render($template, $data, 'layouts/tool'));
+    }
+
     private function browseUrl(array $db, string $schema, string $table, array $extra = []): string
     {
         return self::BASE . '/browse?' . http_build_query(['db' => (int) $db['id'], 'schema' => $schema, 'table' => $table] + $extra);
@@ -135,7 +141,11 @@ final class PostgresController extends Controller
         $table = (string) $request->query('table', '');
         $per = in_array((int) $request->query('per', 50), [25, 50, 100, 250], true) ? (int) $request->query('per', 50) : 50;
         $page = max(1, (int) $request->query('page', 1));
-        $data = ['db' => $db, 'schema' => $schema, 'table' => $table, 'per' => $per, 'pageNo' => $page, 'q' => $request->query('q', ''),
+        $tab = (string) $request->query('tab', 'browse');
+        if ($table === '' || !in_array($tab, ['structure', 'insert'], true)) {
+            $tab = 'browse';
+        }
+        $data = ['db' => $db, 'schema' => $schema, 'table' => $table, 'tab' => $tab, 'per' => $per, 'pageNo' => $page, 'q' => $request->query('q', ''),
             'fc' => (string) $request->query('fc', ''), 'fo' => (string) $request->query('fo', ''), 'fv' => (string) $request->query('fv', ''),
             'sort' => (string) $request->query('sort', ''), 'dir' => (string) $request->query('dir', 'asc'), 'result' => null, 'structure' => null, 'tables' => ['schemas' => [], 'tables' => []]];
         try {
@@ -149,7 +159,7 @@ final class PostgresController extends Controller
             return Response::redirect($table !== '' ? $this->browseUrl($db, '', '') : self::BASE);
         }
         $data['canWrite'] = $this->view->can(P::DATABASES_MANAGE);
-        return $this->render('postgres/browser', $data);
+        return $this->tool('postgres/browser', $data);
     }
 
     // ---- SQL editor -------------------------------------------------------------------------------
@@ -167,9 +177,16 @@ final class PostgresController extends Controller
         } catch (UserFacingException $e) {
             $error = $e;
         }
-        return $this->render('postgres/sql', [
+        $tables = ['schemas' => [], 'tables' => []];
+        try {
+            $tables = $this->pg->tables($db);
+        } catch (UserFacingException) {
+            // The table list on the left stays empty; the editor itself does not need it.
+        }
+        return $this->tool('postgres/sql', [
             'db' => $db, 'schema' => $schema, 'schemaError' => $error, 'history' => $this->pg->history($db, $this->userId($request)),
-            'canWrite' => $this->view->can(P::DATABASES_MANAGE),
+            'canWrite' => $this->view->can(P::DATABASES_MANAGE), 'tables' => $tables,
+            'selSchema' => (string) $request->query('schema', ''), 'selTable' => (string) $request->query('table', ''),
         ]);
     }
 
