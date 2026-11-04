@@ -25,6 +25,7 @@ final class PostgresBrowserTest extends HttpTestCase
         $this->agent->succeed('pg.status', ['installed' => true, 'running' => true, 'managed' => true, 'version' => '16.4', 'port' => 5432]);
         $this->agent->succeed('pg.overview', ['databases' => [], 'roles' => [], 'version' => '16.4', 'max_connections' => 100, 'active_connections' => 1]);
         $this->agent->succeed('pg.objects_bulk', ['op' => 'vacuum', 'succeeded' => 2, 'failed' => 0, 'results' => [['schema' => 'public', 'name' => 'items', 'ok' => true]]]);
+        $this->agent->succeed('pg.table_alter', ['sql' => 'ALTER TABLE ...']);
         foreach (['pg.role_create', 'pg.database_create', 'pg.row_insert', 'pg.row_update', 'pg.row_delete'] as $a) {
             $this->agent->succeed($a, ['ok' => true]);
         }
@@ -135,6 +136,36 @@ final class PostgresBrowserTest extends HttpTestCase
         $page = $this->request('GET', '/postgres/browse', [], [], '', ['db' => (string) $this->aliceDb, 'tab' => 'objects'])->body();
         self::assertStringContainsString('data-pgo-all', $page);
         self::assertStringContainsString('Type alice_shop to confirm', $page);
+    }
+
+    public function testCreateTableSendsStructuredColumnsOnly(): void
+    {
+        $res = $this->post('/postgres/alter', ['db' => (string) $this->aliceDb, 'op' => 'create_table', 'schema' => 'public', 'table' => 'posts', 'cols' => [
+            ['name' => 'id', 'type' => 'integer', 'identity' => '1', 'primary' => '1', 'not_null' => '1', 'default_kind' => 'none'],
+            ['name' => '', 'type' => 'text'],
+            ['name' => 'created', 'type' => 'timestamptz', 'default_kind' => 'function', 'default' => 'now'],
+        ]]);
+        self::assertSame(303, $res->status());
+        $call = $this->lastCall('pg.table_alter');
+        self::assertSame('create_table', $call['op']);
+        self::assertCount(2, $call['columns'], 'rows without a name are ignored');
+        self::assertTrue($call['columns'][0]['identity'] && $call['columns'][0]['primary'] && $call['columns'][0]['not_null']);
+        self::assertTrue($call['columns'][1]['has_default'] && $call['columns'][1]['default_fn']);
+        self::assertSame(1, (int) $this->db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'postgres.create_table'"));
+    }
+
+    public function testStructureFormsAreOfferedToWritersAndDropColumnNeedsItsName(): void
+    {
+        $page = $this->request('GET', '/postgres/browse', [], [], '', ['db' => (string) $this->aliceDb, 'schema' => 'public', 'table' => 'items', 'tab' => 'structure'])->body();
+        self::assertStringContainsString('Add a column', $page);
+        self::assertStringContainsString('name="op" value="drop_column"', $page);
+        $before = $this->calls('pg.table_alter');
+        $this->post('/postgres/alter', ['db' => (string) $this->aliceDb, 'op' => 'drop_column', 'schema' => 'public', 'table' => 'items', 'name' => 'name', 'confirm' => 'nope']);
+        self::assertSame($before, $this->calls('pg.table_alter'));
+        $this->post('/postgres/alter', ['db' => (string) $this->aliceDb, 'op' => 'drop_column', 'schema' => 'public', 'table' => 'items', 'name' => 'name', 'confirm' => 'name']);
+        self::assertSame('drop_column', $this->lastCall('pg.table_alter')['op']);
+        $this->post('/postgres/alter', ['db' => (string) $this->aliceDb, 'op' => 'drop_database', 'schema' => 'public', 'table' => 'items']);
+        self::assertSame($before + 1, $this->calls('pg.table_alter'), 'an unknown change never reaches the agent');
     }
 
     public function testOwnerBrowsesRowsAndTables(): void

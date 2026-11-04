@@ -498,6 +498,41 @@ final class PostgresService
         return (array) $this->callOn((int) $database['pg_server_id'], 'pg.objects', ['database' => (string) $database['name']] + $q, 60);
     }
 
+    /** Structure changes the panel offers, with the label the audit log and messages use. */
+    public const ALTER_OPS = [
+        'create_table' => 'Table created', 'rename_table' => 'Table renamed', 'comment_table' => 'Comment saved', 'duplicate_table' => 'Table duplicated',
+        'set_schema' => 'Table moved', 'add_column' => 'Column added', 'alter_column' => 'Column changed', 'rename_column' => 'Column renamed', 'drop_column' => 'Column dropped',
+    ];
+
+    /**
+     * One structure change (see pg.table_alter). dry_run returns the SQL only and is not audited.
+     *
+     * @param array<string, mixed> $database
+     * @param array<string, mixed> $params op, schema, table and the operation's own fields
+     * @return array<string, mixed>
+     */
+    public function alter(array $database, array $params, ?int $userId): array
+    {
+        $op = (string) ($params['op'] ?? '');
+        if (!isset(self::ALTER_OPS[$op])) {
+            throw new UserFacingException('That change is not available.');
+        }
+        $params['database'] = (string) $database['name'];
+        try {
+            $out = (array) $this->callOn((int) $database['pg_server_id'], 'pg.table_alter', $params, 300);
+        } catch (UserFacingException $e) {
+            if (empty($params['dry_run'])) {
+                $this->audit->record('postgres.' . $op, 'pg_database', (string) $database['name'], AuditLogger::FAILURE, ['table' => (string) ($params['table'] ?? ''), 'error' => mb_substr($e->getMessage(), 0, 200)], $userId);
+            }
+            throw $e;
+        }
+        if (empty($params['dry_run'])) {
+            $this->audit->record('postgres.' . $op, 'pg_database', (string) $database['name'], AuditLogger::SUCCESS,
+                ['schema' => (string) ($params['schema'] ?? ''), 'table' => (string) ($params['table'] ?? ''), 'sql' => mb_substr((string) ($out['sql'] ?? ''), 0, 1000)], $userId);
+        }
+        return $out;
+    }
+
     public const BULK_OPS = [
         'vacuum' => 'Vacuum', 'vacuum_analyze' => 'Vacuum and analyze', 'analyze' => 'Analyze', 'reindex' => 'Rebuild indexes',
         'refresh' => 'Refresh materialized views', 'truncate' => 'Empty (truncate)', 'drop' => 'Drop',

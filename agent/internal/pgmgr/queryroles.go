@@ -174,6 +174,10 @@ func openQuery(ctx context.Context, env *host.Env, t *Target, database string, r
 			return nil, err
 		}
 	}
+	if err := s.QueryRow(ctx, `SELECT current_setting('server_version_num')::int`).Scan(&s.version); err != nil {
+		s.Close(ctx)
+		return nil, actions.Failed("PostgreSQL did not answer.", friendly(err))
+	}
 	if !readOnly {
 		if err := s.execf(ctx, "SET ROLE %I", owner); err != nil {
 			s.Close(ctx)

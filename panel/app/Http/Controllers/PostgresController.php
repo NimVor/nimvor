@@ -190,6 +190,85 @@ final class PostgresController extends Controller
         return $this->tool('postgres/' . $tab, $data);
     }
 
+    /** @return array<string, mixed> a column description from a form's fields */
+    private function columnFrom(array $f): array
+    {
+        $kind = (string) ($f['default_kind'] ?? 'none');
+        return [
+            'name' => trim((string) ($f['name'] ?? '')), 'type' => trim((string) ($f['type'] ?? '')), 'not_null' => !empty($f['not_null']),
+            'primary' => !empty($f['primary']), 'identity' => !empty($f['identity']),
+            'has_default' => $kind === 'literal' || $kind === 'function', 'default' => (string) ($f['default'] ?? ''), 'default_fn' => $kind === 'function',
+        ];
+    }
+
+    /** One structure change from a form: create / rename / duplicate / comment / move a table, or change a column. */
+    public function alter(Request $request): Response
+    {
+        $db = $this->databaseOf($request, $request->input('db'));
+        if ($db === null) {
+            return $this->redirectWithError(self::BASE, 'Database not found.');
+        }
+        $op = (string) $request->input('op', '');
+        $schema = trim((string) $request->input('schema', ''));
+        $table = trim((string) $request->input('table', ''));
+        $params = ['op' => $op, 'schema' => $schema, 'table' => $table];
+        $tab = 'structure';
+        switch ($op) {
+            case 'create_table':
+                $cols = [];
+                foreach ((array) $request->input('cols', []) as $c) {
+                    if (is_array($c) && trim((string) ($c['name'] ?? '')) !== '') {
+                        $cols[] = $this->columnFrom($c);
+                    }
+                }
+                $params['columns'] = $cols;
+                $params['if_not_exists'] = false;
+                $tab = 'browse';
+                break;
+            case 'rename_table':
+            case 'duplicate_table':
+                $params['new_name'] = trim((string) $request->input('new_name', ''));
+                $params['with_data'] = $op === 'duplicate_table' && (string) $request->input('with_data', '') !== '';
+                break;
+            case 'set_schema':
+                $params['new_schema'] = trim((string) $request->input('new_schema', ''));
+                break;
+            case 'comment_table':
+                $params['comment'] = (string) $request->input('comment', '');
+                break;
+            case 'add_column':
+                $params['column'] = $this->columnFrom((array) $request->input('col', []));
+                break;
+            case 'drop_column':
+            case 'rename_column':
+            case 'alter_column':
+                $params['name'] = trim((string) $request->input('name', ''));
+                $params['new_name'] = trim((string) $request->input('new_name', ''));
+                $params['cascade'] = (string) $request->input('cascade', '') !== '';
+                $params['extra'] = ['alter_what' => (string) $request->input('alter_what', ''), 'value' => (string) $request->input('value', ''), 'kind' => (string) $request->input('value_kind', '')];
+                break;
+            default:
+                return $this->redirectWithError($this->browseUrl($db, $schema, $table), 'That change is not available.');
+        }
+        if ($op === 'drop_column' && trim((string) $request->input('confirm', '')) !== $params['name']) {
+            return $this->redirectWithError($this->browseUrl($db, $schema, $table, ['tab' => 'structure']), 'Type the column name to confirm dropping it. Nothing was changed.');
+        }
+        // After a rename or a move the table has a new address.
+        $target = $params['new_name'] ?? '';
+        try {
+            $this->pg->alter($db, $params, $this->userId($request));
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure($this->browseUrl($db, $schema, $table, $table === '' ? [] : ['tab' => $tab]), $e);
+        }
+        if ($op === 'rename_table' && $target !== '') {
+            $table = $target;
+        } elseif ($op === 'set_schema') {
+            $schema = (string) ($params['new_schema'] ?? $schema);
+        }
+        $extra = $op === 'create_table' || $table === '' ? [] : ['tab' => $tab];
+        return $this->redirectWithSuccess($this->browseUrl($db, $schema, $table, $extra), PostgresService::ALTER_OPS[$op] . '.');
+    }
+
     /** Several tables / views at once (maintenance, empty, drop) from the Objects list. */
     public function objectsBulk(Request $request): Response
     {
