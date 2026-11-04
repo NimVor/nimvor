@@ -35,7 +35,7 @@ labelled for what it is:
 |---|---|---|
 | PostgreSQL | Yes: real-host job and the seven-system VM matrix (each system's own PostgreSQL version, so several majors) | PostgreSQL 16 |
 | MySQL/MariaDB | Yes: MariaDB in the real-host job and the VMs (`TestRealHostDatabaseBrowser`) | MariaDB |
-| **MongoDB** | **No.** No test installs or starts `mongod`; `mongomgr` tests use a fake `mongosh` runner | **No `mongod`/`mongosh`** |
+| MongoDB | Yes, for the browser: the `mongo-live` job installs MongoDB 8.0 and runs `TestMongoLiveBrowser` (standalone, no authentication); other `mongomgr` tests use a fake `mongosh` runner | MongoDB 8.0 in CI only (not installable in the development sandbox) |
 
 **Consequence for MongoDB:** every MongoDB statement below stays *Script-tested* until a real `mongod` is part of the
 real-host tests. The agent already has `mongo.install`, so the real-host test can install MongoDB through it (as the
