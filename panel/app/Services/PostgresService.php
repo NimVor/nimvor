@@ -476,6 +476,29 @@ final class PostgresService
     }
 
     /**
+     * The database overview (version, size, object counts, connection details).
+     *
+     * @param array<string, mixed> $database
+     * @return array<string, mixed>
+     */
+    public function dbOverview(array $database): array
+    {
+        return (array) $this->callOn((int) $database['pg_server_id'], 'pg.db_overview', ['database' => (string) $database['name']], 60);
+    }
+
+    /**
+     * Tables, views, materialized views and foreign tables with their statistics. $q: schema, kind, search, sort, dir, offset, limit.
+     *
+     * @param array<string, mixed> $database
+     * @param array<string, mixed> $q
+     * @return array<string, mixed>
+     */
+    public function objects(array $database, array $q): array
+    {
+        return (array) $this->callOn((int) $database['pg_server_id'], 'pg.objects', ['database' => (string) $database['name']] + $q, 60);
+    }
+
+    /**
      * @param array<string, mixed> $database
      * @return array<string, mixed>
      */

@@ -142,6 +142,9 @@ final class PostgresController extends Controller
         $per = in_array((int) $request->query('per', 50), [25, 50, 100, 250], true) ? (int) $request->query('per', 50) : 50;
         $page = max(1, (int) $request->query('page', 1));
         $tab = (string) $request->query('tab', 'browse');
+        if ($tab === 'overview' || $tab === 'objects' || ($table === '' && $request->query('tab') === null)) {
+            return $this->databaseSections($request, $db, $tab === 'objects' ? 'objects' : 'overview');
+        }
         if ($table === '' || !in_array($tab, ['structure', 'insert'], true)) {
             $tab = 'browse';
         }
@@ -160,6 +163,31 @@ final class PostgresController extends Controller
         }
         $data['canWrite'] = $this->view->can(P::DATABASES_MANAGE);
         return $this->tool('postgres/browser', $data);
+    }
+
+    /** The database-level sections: the overview and the list of objects (tables, views, ...) with their statistics. */
+    private function databaseSections(Request $request, array $db, string $tab): Response
+    {
+        $q = [
+            'schema' => mb_substr((string) $request->query('schema', ''), 0, 63), 'kind' => (string) $request->query('kind', ''),
+            'search' => mb_substr(trim((string) $request->query('q', '')), 0, 100), 'sort' => (string) $request->query('sort', 'name'),
+            'dir' => (string) $request->query('dir', 'asc') === 'desc' ? 'desc' : 'asc',
+        ];
+        $per = in_array((int) $request->query('per', 50), [25, 50, 100, 200], true) ? (int) $request->query('per', 50) : 50;
+        $page = max(1, (int) $request->query('page', 1));
+        $data = ['db' => $db, 'schema' => '', 'table' => '', 'tab' => $tab, 'tables' => ['schemas' => [], 'tables' => []], 'overview' => null,
+            'objects' => null, 'error' => null, 'f' => $q, 'per' => $per, 'pageNo' => $page, 'canWrite' => $this->view->can(P::DATABASES_MANAGE)];
+        try {
+            $data['tables'] = $this->pg->tables($db);
+            if ($tab === 'overview') {
+                $data['overview'] = $this->pg->dbOverview($db);
+            } else {
+                $data['objects'] = $this->pg->objects($db, $q + ['offset' => ($page - 1) * $per, 'limit' => $per]);
+            }
+        } catch (UserFacingException $e) {
+            $data['error'] = $e;
+        }
+        return $this->tool('postgres/' . $tab, $data);
     }
 
     // ---- SQL editor -------------------------------------------------------------------------------

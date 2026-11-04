@@ -975,3 +975,4 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 .nim-logo-dark { display: none; }
 [data-bs-theme="dark"] .nim-logo-light { display: none; }
 [data-bs-theme="dark"] .nim-logo-dark { display: inline-block; }
+.nim-ellipsis-cell { max-width: 28rem; }

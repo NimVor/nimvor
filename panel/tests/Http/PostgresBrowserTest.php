@@ -39,6 +39,15 @@ final class PostgresBrowserTest extends HttpTestCase
             'columns' => $cols, 'rows' => [['1', 'Ana, "the" first'], ['2', null]], 'truncated' => [], 'total' => 2, 'total_capped' => false,
             'offset' => 0, 'limit' => 50, 'key' => ['id'], 'editable' => true, 'kind' => 'r',
         ]);
+        $this->agent->succeed('pg.db_overview', ['database' => 'alice_shop', 'server_version' => '16.4', 'owner' => 'alice_u', 'encoding' => 'UTF8', 'collation' => 'C.UTF-8', 'ctype' => 'C.UTF-8',
+            'size_bytes' => 8388608, 'index_bytes' => 16384, 'rows_estimate' => 1234, 'tables' => 3, 'partitioned_tables' => 1, 'views' => 1, 'materialized_views' => 0, 'foreign_tables' => 0,
+            'sequences' => 2, 'indexes' => 4, 'functions' => 1, 'triggers' => 0, 'schemas' => 1, 'extensions' => ['plpgsql'], 'capabilities' => ['partitioning' => true],
+            'connection' => ['host' => '127.0.0.1', 'port' => 5432, 'database' => 'alice_shop', 'role' => 'alice_u', 'tls' => '', 'remote' => false]]);
+        $this->agent->succeed('pg.objects', ['total' => 2, 'offset' => 0, 'limit' => 50, 'kinds' => ['table' => 1, 'view' => 1], 'schemas' => ['public'], 'items' => [
+            ['schema' => 'public', 'name' => 'items', 'kind' => 'table', 'rows_estimate' => 300, 'rows_from_statistics' => true, 'total_bytes' => 65536, 'data_bytes' => 40960, 'index_bytes' => 24576,
+                'indexes' => 2, 'columns' => 3, 'constraints' => 2, 'triggers' => 0, 'partitions' => 0, 'last_analyze' => '2026-05-01T10:00:00Z', 'comment' => '<b>note</b>', 'has_primary_key' => true],
+            ['schema' => 'public', 'name' => 'v_items', 'kind' => 'view', 'rows_estimate' => 0, 'total_bytes' => 0, 'data_bytes' => 0, 'index_bytes' => 0, 'indexes' => 0, 'columns' => 2, 'constraints' => 0, 'triggers' => 0, 'partitions' => 0],
+        ]]);
         $this->agent->succeed('pg.table_structure', ['columns' => $cols, 'key' => ['id'], 'indexes' => [['name' => 'items_pkey', 'definition' => 'CREATE UNIQUE INDEX items_pkey ON public.items USING btree (id)', 'unique' => true, 'primary' => true]], 'editable' => true, 'reason' => '', 'kind' => 'r']);
         $this->login('alice');
         $this->post('/postgres/databases', ['name' => 'shop']);
@@ -50,6 +59,39 @@ final class PostgresBrowserTest extends HttpTestCase
         $this->session = new ArraySession();
         $this->app = $this->makeApp();
         $this->login($who);
+    }
+
+    public function testOverviewIsTheDefaultPageAndShowsNoPassword(): void
+    {
+        $page = $this->request('GET', '/postgres/browse', [], [], '', ['db' => (string) $this->aliceDb])->body();
+        self::assertStringContainsString('Size on disk', $page);
+        self::assertStringContainsString('8 MB', $page);
+        self::assertStringContainsString('1,234', $page);
+        self::assertStringContainsString('127.0.0.1', $page);
+        self::assertStringContainsString('not shown here', $page);
+        self::assertStringNotContainsString('admin-secret', $page);
+        self::assertSame('alice_shop', $this->lastCall('pg.db_overview')['database']);
+    }
+
+    public function testObjectsListFiltersAndEscapes(): void
+    {
+        $page = $this->request('GET', '/postgres/browse', [], [], '', ['db' => (string) $this->aliceDb, 'tab' => 'objects', 'kind' => 'view', 'q' => '100%_', 'sort' => 'size', 'dir' => 'desc'])->body();
+        self::assertStringContainsString('v_items', $page);
+        self::assertStringContainsString('&lt;b&gt;note&lt;/b&gt;', $page, 'comments are escaped');
+        self::assertStringNotContainsString('<b>note</b>', $page);
+        $call = $this->lastCall('pg.objects');
+        self::assertSame('view', $call['kind']);
+        self::assertSame('100%_', $call['search']);
+        self::assertSame('size', $call['sort']);
+        self::assertSame('desc', $call['dir']);
+        self::assertSame(50, $call['limit']);
+    }
+
+    public function testOverviewOfSomeoneElsesDatabaseIsRefused(): void
+    {
+        $this->switchTo('bob');
+        $res = $this->request('GET', '/postgres/browse', [], [], '', ['db' => (string) $this->aliceDb, 'tab' => 'objects']);
+        self::assertNotSame(200, $res->status());
     }
 
     public function testOwnerBrowsesRowsAndTables(): void
