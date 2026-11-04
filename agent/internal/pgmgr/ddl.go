@@ -136,22 +136,23 @@ type AlterIn struct {
 
 // alterExtra holds the operation-specific inputs added by later slices (indexes, constraints, sequences, partitions).
 type alterExtra struct {
-	Method     string   `json:"method"` // index access method
-	Unique     bool     `json:"unique"`
-	Concurrent bool     `json:"concurrent"`
-	IndexCols  []string `json:"index_columns"`
-	Include    []string `json:"include"`
-	Where      string   `json:"where"` // partial index predicate / check expression (validated by PostgreSQL, run in a read-only parse)
-	Kind       string   `json:"kind"`  // constraint kind: unique | check | foreign | primary
-	RefSchema  string   `json:"ref_schema"`
-	RefTable   string   `json:"ref_table"`
-	RefColumns []string `json:"ref_columns"`
-	OnDelete   string   `json:"on_delete"`
-	OnUpdate   string   `json:"on_update"`
-	NotValid   bool     `json:"not_valid"`
-	Deferrable bool     `json:"deferrable"`
-	AlterWhat  string   `json:"alter_what"` // alter_column: type | not_null | default | comment | rename
-	Value      string   `json:"value"`
+	Method     string     `json:"method"` // index access method
+	Unique     bool       `json:"unique"`
+	Concurrent bool       `json:"concurrent"`
+	IndexCols  []IndexCol `json:"index_columns"`
+	Include    []string   `json:"include"`
+	Predicate  *Predicate `json:"predicate"` // partial index / CHECK condition: column, operator, value
+	Columns    []string   `json:"columns"`   // constraint columns
+	Kind       string     `json:"kind"`      // constraint kind: unique | check | foreign | primary
+	RefSchema  string     `json:"ref_schema"`
+	RefTable   string     `json:"ref_table"`
+	RefColumns []string   `json:"ref_columns"`
+	OnDelete   string     `json:"on_delete"`
+	OnUpdate   string     `json:"on_update"`
+	NotValid   bool       `json:"not_valid"`
+	Deferrable bool       `json:"deferrable"`
+	AlterWhat  string     `json:"alter_what"` // alter_column: type | not_null | default | comment | rename
+	Value      string     `json:"value"`
 }
 
 // stmtSep separates the statements of an operation that needs more than one (a NUL cannot occur in any quoted
@@ -345,11 +346,6 @@ func (s *session) columnSQL(ctx context.Context, in AlterIn, t *tableInfo, tbl, 
 	return "", actions.InvalidParams("op: unknown operation.")
 }
 
-// structureSQL is filled in by the index, constraint, trigger, sequence and partition slices.
-func (s *session) structureSQL(ctx context.Context, in AlterIn, t *tableInfo, tbl, word string, isTable bool) (string, error) {
-	return "", actions.InvalidParams("op: unknown operation.")
-}
-
 func registerDDL(r *actions.Registry, env *host.Env) {
 	r.Register(actions.Action{Name: "pg.table_alter", Mutating: true, Description: "Change a database's structure from structured input: create, rename, duplicate, comment or move a table; add, change, rename or drop a column. dry_run returns the SQL only.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in AlterIn
@@ -367,6 +363,13 @@ func registerDDL(r *actions.Registry, env *host.Env) {
 			}
 			out = map[string]any{"sql": strings.ReplaceAll(sql, stmtSep, ";\n")}
 			if in.DryRun {
+				return nil
+			}
+			// CREATE / DROP INDEX CONCURRENTLY and REINDEX CONCURRENTLY cannot run inside a transaction block.
+			if in.Extra.Concurrent && (in.Op == "create_index" || in.Op == "drop_index" || in.Op == "reindex_index") {
+				if _, err := s.Exec(ctx, sql); err != nil {
+					return userError(err)
+				}
 				return nil
 			}
 			// A duplicate with data is two statements; both run in one transaction so a failure leaves nothing behind.

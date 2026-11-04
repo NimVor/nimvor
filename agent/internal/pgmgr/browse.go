@@ -42,6 +42,7 @@ type ColumnInfo struct {
 
 type tableInfo struct {
 	oid     uint32
+	nspname string
 	kind    string
 	quoted  string
 	columns []ColumnInfo
@@ -128,6 +129,7 @@ func (s *session) resolve(ctx context.Context, schema, table string) (*tableInfo
 		return nil, err
 	}
 	t.quoted = pgx.Identifier{schema, table}.Sanitize()
+	t.nspname = schema
 	rows, err := s.Query(ctx, `
 		SELECT a.attname, format_type(a.atttypid, a.atttypmod), a.attnotnull, coalesce(pg_get_expr(d.adbin, d.adrelid), ''),
 		       a.attgenerated <> '', a.attidentity <> ''

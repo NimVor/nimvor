@@ -200,6 +200,7 @@ func Register(r *actions.Registry, env *host.Env) {
 	registerObjects(r, env)
 	registerMaintenance(r, env)
 	registerDDL(r, env)
+	registerDetails(r, env)
 	registerBackup(r, env)
 	registerMonitor(r, env)
 	r.Register(actions.Action{Name: "pg.status", Description: "PostgreSQL on this server: installed, running, version, and whether NimVor holds credentials for it.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
