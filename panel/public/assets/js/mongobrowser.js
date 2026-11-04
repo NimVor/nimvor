@@ -111,6 +111,65 @@
         call('collections').then(function (d) {
             renderCollections((d && d.collections) || []);
         }).catch(function (e) { collList.replaceChildren(); collCount.textContent = ''; fail(e); });
+        showDbOverview();
+    }
+
+    // The database overview shown while no collection is open: size and counts, the deployment role and every
+    // collection with its statistics (click one to open it).
+    function overviewStat(label, value, hint) {
+        var col = el('div', 'col-6 col-md-4 col-xl-3'), box = el('div', 'border rounded p-3 h-100');
+        box.appendChild(el('div', 'small text-body-secondary', label));
+        box.appendChild(el('div', 'fs-5 fw-semibold', value));
+        if (hint) { box.appendChild(el('div', 'small text-body-secondary', hint)); }
+        col.appendChild(box);
+        return col;
+    }
+    function showDbOverview() {
+        var db = state.db;
+        placeholder(pane, 'Loading…');
+        Promise.all([call('db_overview'), call('collections_detail')]).then(function (res) {
+            if (state.db !== db || state.collection) { return; }
+            var o = res[0] || {}, cols = (res[1] && res[1].collections) || [];
+            var wrap = el('div', 'p-3'), grid = el('div', 'row g-3 mb-4');
+            grid.appendChild(overviewStat('Data size', fmtBytes(o.dataSize || 0), 'storage ' + fmtBytes(o.storageSize || 0)));
+            grid.appendChild(overviewStat('Documents', fmtInt(o.objects || 0), 'average ' + fmtBytes(o.avgObjSize || 0)));
+            grid.appendChild(overviewStat('Collections', fmtInt(o.collections || 0), fmtInt(o.views || 0) + ' views' + (o.timeseries ? ' · ' + fmtInt(o.timeseries) + ' time-series' : '')));
+            grid.appendChild(overviewStat('Indexes', fmtInt(o.indexes || 0), fmtBytes(o.indexSize || 0)));
+            wrap.appendChild(grid);
+            var dl = el('dl', 'row small mb-3');
+            var role = o.sharded ? 'Sharded cluster router' : (o.replicaSet ? 'Replica set ' + o.replicaSet + (o.primary ? ' (primary)' : o.secondary ? ' (secondary)' : '') : 'Standalone server');
+            [['MongoDB', o.version || '—'], ['Deployment', role]].forEach(function (kv) { dl.appendChild(el('dt', 'col-sm-3', kv[0])); dl.appendChild(el('dd', 'col-sm-9', kv[1])); });
+            wrap.appendChild(dl);
+            if (!cols.length) {
+                wrap.appendChild(el('div', 'text-body-secondary', 'This database has no collections yet.'));
+            } else {
+                var table = el('table', 'table table-sm table-hover align-middle mb-0'), head = el('tr');
+                ['Name', 'Type', 'Documents', 'Data size', 'Storage', 'Indexes', 'Index size', 'Validation'].forEach(function (h, i) { var th = el('th', i > 1 && i < 7 ? 'text-end' : '', h); th.scope = 'col'; head.appendChild(th); });
+                var thead = el('thead'); thead.appendChild(head); table.appendChild(thead);
+                var tb = el('tbody');
+                cols.forEach(function (c) {
+                    var tr = el('tr'), td = el('td'), a = el('a', 'font-monospace', c.name); a.href = '#';
+                    a.addEventListener('click', function (e) { e.preventDefault(); openCollection(c.name); });
+                    td.appendChild(a); tr.appendChild(td);
+                    var kind = c.type === 'view' ? 'view on ' + (c.viewOn || '?') : c.type === 'timeseries' ? 'time-series' : (c.capped ? 'capped' : 'collection');
+                    tr.appendChild(el('td', 'small', kind));
+                    var isView = c.type === 'view';
+                    tr.appendChild(el('td', 'text-end', isView ? '' : fmtInt(c.count)));
+                    tr.appendChild(el('td', 'text-end', isView ? '' : fmtBytes(c.size || 0)));
+                    tr.appendChild(el('td', 'text-end', isView ? '' : fmtBytes(c.storageSize || 0)));
+                    tr.appendChild(el('td', 'text-end', isView ? '' : fmtInt(c.nindexes)));
+                    tr.appendChild(el('td', 'text-end', isView ? '' : fmtBytes(c.totalIndexSize || 0)));
+                    tr.appendChild(el('td', 'small', c.validated ? 'rules set' : ''));
+                    tb.appendChild(tr);
+                });
+                table.appendChild(tb);
+                var holder = el('div', 'table-responsive'); holder.appendChild(table); wrap.appendChild(holder);
+            }
+            pane.replaceChildren(wrap);
+        }).catch(function (e) {
+            if (state.db === db && !state.collection) { emptyState(pane, 'collection', 'Choose a collection', 'Pick a collection on the left to browse its documents.'); }
+            fail(e);
+        });
     }
 
     function renderCollections(cols) {

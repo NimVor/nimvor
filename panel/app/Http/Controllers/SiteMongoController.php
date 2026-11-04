@@ -193,6 +193,10 @@ final class SiteMongoController extends SiteController
             switch ($request->string('op')) {
                 case 'collections':
                     return Response::json(['success' => true, 'data' => ['collections' => $this->mongo->collections($site, $db)]]);
+                case 'db_overview':
+                    return Response::json(['success' => true, 'data' => $this->mongo->dbOverview($site, $db)]);
+                case 'collections_detail':
+                    return Response::json(['success' => true, 'data' => ['collections' => $this->mongo->collectionsDetail($site, $db)]]);
                 case 'coll_create':
                     $this->mongo->createCollection($site, $db, trim((string) $request->input('collection')), $this->userId($request));
                     return Response::json(['success' => true, 'data' => ['created' => trim((string) $request->input('collection'))]]);

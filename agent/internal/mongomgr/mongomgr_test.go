@@ -640,3 +640,45 @@ func TestActionsNeedMongoInstalled(t *testing.T) {
 		}
 	}
 }
+
+func TestCollectionsDetailAndDbOverview(t *testing.T) {
+	h, r := setup(t)
+	var seen string
+	h.Runner.Handler = func(id string, o execx.Opts, args []string) (string, error) {
+		if id != "mongosh" {
+			return "", nil
+		}
+		script := strings.Join(args, " ")
+		if n := len(h.Runner.Stdins); n > 0 {
+			script += " " + h.Runner.Stdins[n-1]
+		}
+		seen = script
+		switch {
+		case strings.Contains(script, "dbStats"):
+			return `{"version":"7.0.5","dataSize":1000,"storageSize":4096,"indexSize":2048,"objects":10,"collections":2,"views":1,"timeseries":0,"indexes":3,"avgObjSize":100,"replicaSet":"rs0","primary":true,"secondary":false,"sharded":false,"hosts":["a:27017"]}`, nil
+		case strings.Contains(script, "getCollectionInfos"):
+			return `[{"name":"users","type":"collection","capped":false,"viewOn":null,"count":10,"size":1000,"storageSize":4096,"avgObjSize":100,"nindexes":2,"totalIndexSize":2048,"validated":true},` +
+				`{"name":"active","type":"view","capped":false,"viewOn":"users","count":0,"size":0,"storageSize":0,"avgObjSize":0,"nindexes":0,"totalIndexSize":0,"validated":false}]`, nil
+		}
+		return "", nil
+	}
+	cols := mustCall(t, r, "mongo.collections_detail", `{"db":"shop"}`)["collections"].([]map[string]any)
+	if len(cols) != 2 || cols[1]["type"] != "view" || cols[0]["validated"] != true {
+		t.Errorf("collections: %v", cols)
+	}
+	if !strings.Contains(seen, "'shop'") || !strings.Contains(seen, "system.") {
+		t.Errorf("script must select the database and skip system collections: %s", seen)
+	}
+	ov := mustCall(t, r, "mongo.db_overview", `{"db":"shop"}`)
+	if ov["replicaSet"] != "rs0" || ov["database"] != "shop" || ov["objects"].(float64) != 10 {
+		t.Errorf("overview: %v", ov)
+	}
+	for _, bad := range []string{`{"db":"bad space"}`, `{"db":"x\"; db.dropDatabase(); \""}`} {
+		if _, err := call(t, r, "mongo.db_overview", bad); err == nil {
+			t.Errorf("%s must be refused", bad)
+		}
+		if _, err := call(t, r, "mongo.collections_detail", bad); err == nil {
+			t.Errorf("%s must be refused", bad)
+		}
+	}
+}

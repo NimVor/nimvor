@@ -147,6 +147,19 @@ final class MongoService
         return array_map(static fn ($c): array => ['name' => (string) ($c['name'] ?? ''), 'count' => (int) ($c['count'] ?? 0)], (array) ($o['collections'] ?? []));
     }
 
+    /** @return array<string, mixed> */
+    public function dbOverview(string $db): array
+    {
+        return (array) $this->agent->call('mongo.db_overview', ['db' => $db]);
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function collectionsDetail(string $db): array
+    {
+        $o = (array) $this->agent->call('mongo.collections_detail', ['db' => $db]);
+        return array_map(static fn ($c): array => (array) $c, (array) ($o['collections'] ?? []));
+    }
+
     public function createCollection(string $db, string $collection, ?int $userId): void
     {
         $this->agent->call('mongo.collection_create', ['db' => $db, 'collection' => $collection]);

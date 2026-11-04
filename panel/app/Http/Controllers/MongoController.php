@@ -498,6 +498,10 @@ final class MongoController extends Controller
             switch ($op) {
                 case 'collections':
                     return Response::json(['success' => true, 'data' => ['collections' => $this->mongo->collections($db)]]);
+                case 'db_overview':
+                    return Response::json(['success' => true, 'data' => $this->mongo->dbOverview($db)]);
+                case 'collections_detail':
+                    return Response::json(['success' => true, 'data' => ['collections' => $this->mongo->collectionsDetail($db)]]);
                 case 'coll_create':
                     if (!$this->view->can(P::MONGO_MANAGE)) {
                         return Response::json(['success' => false, 'error' => ['message' => 'You may not do this.']], 403);

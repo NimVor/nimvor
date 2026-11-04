@@ -260,6 +260,14 @@ final class MongoTest extends HttpTestCase
         self::assertSame('orders', $body['data']['collections'][0]['name']);
         self::assertSame(['db' => 'shop'], $this->lastCall('mongo.collections'));
 
+        $this->agent->succeed('mongo.db_overview', ['database' => 'shop', 'version' => '7.0.5', 'dataSize' => 1000, 'objects' => 3, 'collections' => 1]);
+        $this->agent->succeed('mongo.collections_detail', ['collections' => [['name' => 'orders', 'type' => 'collection', 'count' => 3, 'size' => 300]]]);
+        $ov = (array) json_decode($this->post('/mongo/browse', ['op' => 'db_overview', 'db' => 'shop'])->body(), true);
+        self::assertSame('7.0.5', $ov['data']['version']);
+        self::assertSame(['db' => 'shop'], $this->lastCall('mongo.db_overview'));
+        $det = (array) json_decode($this->post('/mongo/browse', ['op' => 'collections_detail', 'db' => 'shop'])->body(), true);
+        self::assertSame(300, $det['data']['collections'][0]['size']);
+
         $this->agent->succeed('mongo.documents', ['documents' => [['_id' => 'a1', 'name' => 'x']], 'total' => 1, 'skip' => 0, 'limit' => 50]);
         $res = $this->post('/mongo/browse', ['op' => 'documents', 'db' => 'shop', 'collection' => 'orders', 'filter' => '{"name":"x"}', 'skip' => '0', 'limit' => '50']);
         $body = (array) json_decode($res->body(), true);

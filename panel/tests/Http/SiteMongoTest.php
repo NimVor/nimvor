@@ -87,6 +87,14 @@ final class SiteMongoTest extends HttpTestCase
         self::assertSame(200, $res->status());
         self::assertSame('orders', ((array) json_decode($res->body(), true))['data']['collections'][0]['name']);
 
+        $this->agent->succeed('mongo.db_overview', ['database' => $this->prefix . 'shop', 'version' => '7.0.5']);
+        $this->agent->succeed('mongo.collections_detail', ['collections' => []]);
+        self::assertSame(200, $this->post($base . '/browse', ['op' => 'db_overview', 'db' => $this->prefix . 'shop'])->status());
+        self::assertSame(200, $this->post($base . '/browse', ['op' => 'collections_detail', 'db' => $this->prefix . 'shop'])->status());
+        $before = $this->calls('mongo.db_overview');
+        $this->post($base . '/browse', ['op' => 'db_overview', 'db' => 'otheracct_secret']);
+        self::assertSame($before, $this->calls('mongo.db_overview'), "another account's database never reaches the agent");
+
         $this->agent->succeed('mongo.documents', ['documents' => [['_id' => 'a1']], 'total' => 1, 'skip' => 0, 'limit' => 50]);
         self::assertSame(200, $this->post($base . '/browse', ['op' => 'documents', 'db' => $this->prefix . 'shop', 'collection' => 'orders'])->status());
 

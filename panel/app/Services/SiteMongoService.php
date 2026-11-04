@@ -192,6 +192,21 @@ final class SiteMongoService
         return array_map(static fn ($c): array => ['name' => (string) ($c['name'] ?? ''), 'count' => (int) ($c['count'] ?? 0)], (array) ($o['collections'] ?? []));
     }
 
+    /** @return array<string, mixed> */
+    public function dbOverview(array $site, string $db): array
+    {
+        $this->assertOwned($site, $db);
+        return (array) $this->agent->call('mongo.db_overview', ['db' => $db]);
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function collectionsDetail(array $site, string $db): array
+    {
+        $this->assertOwned($site, $db);
+        $o = (array) $this->agent->call('mongo.collections_detail', ['db' => $db]);
+        return array_map(static fn ($c): array => (array) $c, (array) ($o['collections'] ?? []));
+    }
+
     public function createCollection(array $site, string $db, string $collection, ?int $userId): void
     {
         $this->assertOwned($site, $db);
