@@ -343,6 +343,50 @@ func (s *session) structureSQL(ctx context.Context, in AlterIn, t *tableInfo, tb
 			}
 			return "ALTER TABLE " + tbl + " RENAME CONSTRAINT " + con + " TO " + qident(in.NewName), nil
 		}
+	case "create_partition", "attach_partition", "detach_partition":
+		if t.kind != "p" {
+			return "", actions.InvalidParams("This table is not partitioned.")
+		}
+		switch in.Op {
+		case "create_partition":
+			if err := checkName("partition name", in.NewName); err != nil {
+				return "", host.Invalid(err)
+			}
+			b, err := boundSQL(in.Extra.Bound)
+			if err != nil {
+				return "", err
+			}
+			return "CREATE TABLE " + qident(t.schema(), in.NewName) + " PARTITION OF " + tbl + " " + b, nil
+		case "attach_partition":
+			child, err := s.resolve(ctx, in.Schema, in.Name)
+			if err != nil {
+				return "", err
+			}
+			if child.kind != "r" && child.kind != "p" {
+				return "", actions.InvalidParams("Only a table can be attached as a partition.")
+			}
+			b, err := boundSQL(in.Extra.Bound)
+			if err != nil {
+				return "", err
+			}
+			return "ALTER TABLE " + tbl + " ATTACH PARTITION " + child.quoted + " " + b, nil
+		default:
+			var ok bool
+			if err := s.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_inherits i JOIN pg_class c ON c.oid = i.inhrelid JOIN pg_namespace n ON n.oid = c.relnamespace WHERE i.inhparent = $1 AND n.nspname = $2 AND c.relname = $3)`, t.oid, in.Schema, in.Name).Scan(&ok); err != nil {
+				return "", err
+			}
+			if !ok {
+				return "", actions.NotFound("There is no partition " + in.Name + " on this table.")
+			}
+			c := ""
+			if in.Extra.Concurrent {
+				if s.version < 140000 {
+					return "", actions.InvalidParams("DETACH PARTITION CONCURRENTLY needs PostgreSQL 14 or newer.")
+				}
+				c = " CONCURRENTLY"
+			}
+			return "ALTER TABLE " + tbl + " DETACH PARTITION " + qident(in.Schema, in.Name) + c, nil
+		}
 	case "enable_trigger", "disable_trigger", "drop_trigger":
 		if !isTable {
 			return "", actions.InvalidParams("Triggers on views are managed from the SQL tab.")

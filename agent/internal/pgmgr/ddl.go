@@ -143,6 +143,7 @@ type alterExtra struct {
 	Include    []string   `json:"include"`
 	Predicate  *Predicate `json:"predicate"` // partial index / CHECK condition: column, operator, value
 	Columns    []string   `json:"columns"`   // constraint columns
+	Bound      BoundIn    `json:"bound"`     // partition bound
 	Kind       string     `json:"kind"`      // constraint kind: unique | check | foreign | primary
 	RefSchema  string     `json:"ref_schema"`
 	RefTable   string     `json:"ref_table"`
@@ -366,7 +367,7 @@ func registerDDL(r *actions.Registry, env *host.Env) {
 				return nil
 			}
 			// CREATE / DROP INDEX CONCURRENTLY and REINDEX CONCURRENTLY cannot run inside a transaction block.
-			if in.Extra.Concurrent && (in.Op == "create_index" || in.Op == "drop_index" || in.Op == "reindex_index") {
+			if in.Extra.Concurrent && (in.Op == "create_index" || in.Op == "drop_index" || in.Op == "reindex_index" || in.Op == "detach_partition") {
 				if _, err := s.Exec(ctx, sql); err != nil {
 					return userError(err)
 				}
