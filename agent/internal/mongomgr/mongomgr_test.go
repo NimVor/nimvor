@@ -902,3 +902,16 @@ func TestIndexStatsHideValidationAndViews(t *testing.T) {
 		t.Errorf("a refused request reached mongosh: %s", *seen)
 	}
 }
+
+func TestTrimToJSONIgnoresTerminalNoiseAroundTheValue(t *testing.T) {
+	noisy := "\x1b[1G\x1b[0J \x1b[1Gtest> {\"matched\":3,\"list\":[1,2]}\n\x1b[1G\x1b[0J test> \x1b[7G"
+	if got := string(trimToJSON([]byte(noisy))); got != `{"matched":3,"list":[1,2]}` {
+		t.Errorf("got %q", got)
+	}
+	if got := string(trimToJSON([]byte("banner\n[{\"a\":1}]\n"))); got != `[{"a":1}]` {
+		t.Errorf("array: %q", got)
+	}
+	if got := string(trimToJSON([]byte("no json here"))); got != "no json here" {
+		t.Errorf("plain text must come back unchanged: %q", got)
+	}
+}

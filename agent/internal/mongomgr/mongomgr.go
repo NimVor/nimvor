@@ -1501,10 +1501,14 @@ func (c Client) logTail(path string, n int64) ([]byte, error) {
 	return b, nil
 }
 
-// trimToJSON returns the first JSON array/object in mongosh's output, so any
-// stray banner line is ignored.
+// ansiRe matches the terminal control sequences mongosh adds when its script comes in on stdin (cursor moves, line
+// erase) around the echoed prompt.
+var ansiRe = regexp.MustCompile("\x1b\\[[0-9;?]*[A-Za-z]")
+
+// trimToJSON returns the first complete JSON array/object in mongosh's output, so a banner line, terminal control
+// sequences, the echoed "test>" prompt and anything after the value are ignored.
 func trimToJSON(b []byte) []byte {
-	s := strings.TrimSpace(string(b))
+	s := strings.TrimSpace(ansiRe.ReplaceAllString(string(b), ""))
 	// Start at the earliest opening bracket, whether the value is an object or
 	// an array — picking '[' unconditionally would cut into an object whose
 	// first field is an array.
@@ -1514,8 +1518,12 @@ func trimToJSON(b []byte) []byte {
 			best = i
 		}
 	}
-	if best >= 0 {
-		return []byte(s[best:])
+	if best < 0 {
+		return b
 	}
-	return b
+	var raw json.RawMessage
+	if err := json.NewDecoder(strings.NewReader(s[best:])).Decode(&raw); err == nil {
+		return raw
+	}
+	return []byte(s[best:])
 }
