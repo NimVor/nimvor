@@ -193,6 +193,18 @@ final class PostgresBrowserTest extends HttpTestCase
         self::assertSame('alice_shop', $this->lastCall('pg.table_details')['database']);
     }
 
+    /** The agent leaves out empty optional fields (omitempty), so the page must cope with them missing. */
+    public function testStructureTabWorksWhenTheAgentOmitsEmptyOptionalFields(): void
+    {
+        $this->agent->succeed('pg.table_details', ['kind' => 'table', 'indexes' => [
+            ['name' => 'departments_pkey', 'definition' => 'CREATE UNIQUE INDEX ...', 'method' => 'btree', 'unique' => true, 'primary' => true, 'valid' => true, 'backs_constraint' => 'departments_pkey', 'bytes' => 16384, 'scans' => 3, 'columns' => 'id'],
+            ['name' => 'departments_name', 'definition' => 'CREATE INDEX ...', 'method' => 'btree', 'unique' => false, 'primary' => false, 'valid' => true, 'bytes' => 8192, 'scans' => 0, 'columns' => 'name'],
+        ], 'constraints' => [['name' => 'departments_pkey', 'type' => 'primary key', 'definition' => 'PRIMARY KEY (id)', 'validated' => true, 'deferrable' => false]], 'triggers' => []]);
+        $res = $this->request('GET', '/postgres/browse', [], [], '', ['db' => (string) $this->aliceDb, 'schema' => 'public', 'table' => 'items', 'tab' => 'structure']);
+        self::assertSame(200, $res->status());
+        self::assertStringContainsString('departments_name', $res->body());
+    }
+
     public function testIndexAndConstraintFormsBecomeStructuredRequests(): void
     {
         $base = ['db' => (string) $this->aliceDb, 'schema' => 'public', 'table' => 'items'];
