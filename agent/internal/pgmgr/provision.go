@@ -3,6 +3,7 @@ package pgmgr
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -145,6 +146,9 @@ func (s *session) createDatabase(ctx context.Context, env *host.Env, t *Target, 
 		return err
 	}
 	// The public schema of the new database: only the owner uses it.
+	if s.version < 150000 {
+		return s.securePublicSchemaOld(ctx, env, name, owner)
+	}
 	d, err := open(ctx, env, t, name)
 	if err != nil {
 		return err
@@ -154,6 +158,27 @@ func (s *session) createDatabase(ctx context.Context, env *host.Env, t *Target, 
 		return err
 	}
 	return d.execf(ctx, "ALTER SCHEMA public OWNER TO %I", owner)
+}
+
+// securePublicSchemaOld does the same on PostgreSQL 14 and older, where the public schema of a new database belongs
+// to the server's bootstrap superuser (from 15 it belongs to the database's owner), so the provisioning role, which
+// is not a superuser, may not change it. On the local server the postgres account does it through its own socket
+// access, as the set-up does; a remote server's superuser is out of reach by design.
+func (s *session) securePublicSchemaOld(ctx context.Context, env *host.Env, name, owner string) error {
+	if s.target.remote() {
+		_ = s.dropDatabase(ctx, name)
+		return actions.Failed("This server runs PostgreSQL "+strconv.Itoa(s.version/10000)+", too old to create databases that only their owner can use.",
+			"Before PostgreSQL 15 the public schema belongs to a superuser, which NimVor does not have on a registered server. Use PostgreSQL 15 or newer.")
+	}
+	var stmt string
+	if err := s.QueryRow(ctx, `SELECT format('REVOKE ALL ON SCHEMA public FROM PUBLIC; ALTER SCHEMA public OWNER TO %I;', $1::text)`, owner).Scan(&stmt); err != nil {
+		return err
+	}
+	if _, err := psqlAsPostgres(ctx, env, name, stmt); err != nil {
+		_ = s.dropDatabase(ctx, name)
+		return actions.Failed("The new database could not be secured.", err.Error())
+	}
+	return nil
 }
 
 func (s *session) dropDatabase(ctx context.Context, name string) error {
