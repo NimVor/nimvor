@@ -37,7 +37,7 @@ ob_start();
             </div>
             <button type="button" class="btn btn-sm btn-outline-secondary" data-pgsql="format">Format</button>
             <span class="me-auto"></span>
-            <label class="form-check form-check-inline small mb-0" title="Several statements; otherwise exactly one is run"><input class="form-check-input" type="checkbox" id="pgsql-script"> <span class="form-check-label">Script</span></label>
+            <label class="form-check form-check-inline small mb-0" title="Run every statement in the editor, one after the other, with a result for each. Turn it off to run exactly one statement. Explain always runs one."><input class="form-check-input" type="checkbox" id="pgsql-script" checked> <span class="form-check-label">Run all statements</span></label>
             <select class="form-select form-select-sm w-auto" id="pgsql-limit" aria-label="Rows to keep"><option value="100">100 rows</option><option value="500" selected>500 rows</option><option value="1000">1,000 rows</option></select>
             <select class="form-select form-select-sm w-auto" id="pgsql-timeout" aria-label="Time limit"><option value="5">5 s</option><option value="15" selected>15 s</option><option value="30">30 s</option><option value="60">60 s</option></select>
         </div>

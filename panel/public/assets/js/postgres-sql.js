@@ -152,7 +152,7 @@
         busy(true); showError(null);
         setStatus('Running…');
         NimVor.fetchJson(cfg.run, { method: 'POST', body: JSON.stringify({
-            db: cfg.db, query: sql, mode: m, explain: explain, script: $('pgsql-script').checked,
+            db: cfg.db, query: sql, mode: m, explain: explain, script: !explain && $('pgsql-script').checked,
             limit: parseInt($('pgsql-limit').value, 10), timeout: parseInt($('pgsql-timeout').value, 10), query_id: id
         }) }).then(function (res) {
             var d = res.data, r = d.result || {};

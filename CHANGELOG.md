@@ -6,6 +6,17 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.4.2] — 2026-11-04
+
+The PostgreSQL browser now uses dialogs, like the MySQL and MongoDB browsers, and its SQL editor runs every statement you write.
+
+### Changed
+- **PostgreSQL browser: every create and change form is now a dialog instead of a block that expands in the page.** Adding, changing and dropping columns; creating, renaming and rebuilding indexes; constraints; partitions; renaming, moving, commenting and duplicating a table; new tables; and sequences and routines all open a dialog with their fields filled in. Every dialog has *Show SQL*, which shows the exact statements that would run without running or auditing anything. Dropping something asks for its name (or the database name for a routine) to be typed back before the button works. Changing a column is now one dialog (name, type, nullability, default, comment) that runs only what you actually changed, with the rename last.
+- **PostgreSQL SQL editor: all statements run by default.** The *Run all statements* box is ticked, so a script of several statements runs as written; untick it to run only the statement under the cursor. Explain still explains a single statement.
+
+### Added
+- Two preview endpoints back *Show SQL* (`/postgres/alter/preview`, `/postgres/sequences/preview`); they use the agent's existing dry-run support and write nothing.
+
 ## [1.4.1] — 2026-11-04
 
 A fix for the PostgreSQL Structure tab in 1.4.0.

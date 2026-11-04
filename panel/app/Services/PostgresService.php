@@ -591,8 +591,13 @@ final class PostgresService
         try {
             $out = (array) $this->callOn((int) $database['pg_server_id'], 'pg.sequence_alter', $params, 120);
         } catch (UserFacingException $e) {
-            $this->audit->record('postgres.sequence_' . $op, 'pg_database', (string) $database['name'], AuditLogger::FAILURE, ['sequence' => (string) ($params['name'] ?? ''), 'error' => mb_substr($e->getMessage(), 0, 200)], $userId);
+            if (empty($params['dry_run'])) {
+                $this->audit->record('postgres.sequence_' . $op, 'pg_database', (string) $database['name'], AuditLogger::FAILURE, ['sequence' => (string) ($params['name'] ?? ''), 'error' => mb_substr($e->getMessage(), 0, 200)], $userId);
+            }
             throw $e;
+        }
+        if (!empty($params['dry_run'])) {
+            return $out;
         }
         $this->audit->record('postgres.sequence_' . $op, 'pg_database', (string) $database['name'], AuditLogger::SUCCESS, ['schema' => (string) ($params['schema'] ?? ''), 'sequence' => (string) ($params['name'] ?? ''), 'sql' => mb_substr((string) ($out['sql'] ?? ''), 0, 500)], $userId);
         return $out;

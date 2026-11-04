@@ -172,8 +172,9 @@ final class PostgresBrowserTest extends HttpTestCase
     public function testStructureFormsAreOfferedToWritersAndDropColumnNeedsItsName(): void
     {
         $page = $this->request('GET', '/postgres/browse', [], [], '', ['db' => (string) $this->aliceDb, 'schema' => 'public', 'table' => 'items', 'tab' => 'structure'])->body();
-        self::assertStringContainsString('Add a column', $page);
-        self::assertStringContainsString('name="op" value="drop_column"', $page);
+        self::assertStringContainsString('data-pgd-open="add_column"', $page);
+        self::assertStringContainsString('data-pgd-tpl="drop_column"', $page);
+        self::assertStringNotContainsString('<details', $page, 'create and change forms open in the dialog, not in collapsible blocks');
         $before = $this->calls('pg.table_alter');
         $this->post('/postgres/alter', ['db' => (string) $this->aliceDb, 'op' => 'drop_column', 'schema' => 'public', 'table' => 'items', 'name' => 'name', 'confirm' => 'nope']);
         self::assertSame($before, $this->calls('pg.table_alter'));
@@ -186,7 +187,7 @@ final class PostgresBrowserTest extends HttpTestCase
     public function testStructureTabListsIndexesConstraintsAndTriggersWithEscaping(): void
     {
         $page = $this->request('GET', '/postgres/browse', [], [], '', ['db' => (string) $this->aliceDb, 'schema' => 'public', 'table' => 'items', 'tab' => 'structure'])->body();
-        foreach (['items_name', 'never used', 'invalid', 'where (qty &gt; 5)', 'ck_qty', 'not validated', 'Validate', 't_audit', 'Create an index', 'Add a constraint'] as $want) {
+        foreach (['items_name', 'never used', 'invalid', 'where (qty &gt; 5)', 'ck_qty', 'not validated', 'Validate', 't_audit', 'data-pgd-open="create_index"', 'data-pgd-open="add_constraint"'] as $want) {
             self::assertStringContainsString($want, $page, $want);
         }
         self::assertStringContainsString('backs constraint items_pkey', $page);
@@ -268,10 +269,62 @@ final class PostgresBrowserTest extends HttpTestCase
         $page = $this->request('GET', '/postgres/browse', [], [], '', ['db' => (string) $this->aliceDb, 'schema' => 'public', 'table' => 'items', 'tab' => 'structure'])->body();
         self::assertStringContainsString('RANGE (at)', $page);
         self::assertStringContainsString('ev_2026', $page);
-        self::assertStringContainsString('Add a partition', $page);
+        self::assertStringContainsString('data-pgd-open="add_partition"', $page);
         $this->post('/postgres/alter', ['db' => (string) $this->aliceDb, 'schema' => 'public', 'table' => 'items', 'op' => 'create_partition', 'new_name' => 'ev_2027', 'bound_kind' => 'range', 'bound_from' => '2027-01-01', 'bound_to' => '2028-01-01']);
         $c = $this->lastCall('pg.table_alter');
         self::assertSame(['range', ['2027-01-01'], ['2028-01-01']], [$c['extra']['bound']['kind'], $c['extra']['bound']['from'], $c['extra']['bound']['to']]);
+    }
+
+    public function testChangingAColumnRunsOnlyWhatChangedWithTheRenameLast(): void
+    {
+        $base = ['db' => (string) $this->aliceDb, 'schema' => 'public', 'table' => 'items', 'op' => 'edit_column', 'name' => 'name', 'cur_type' => 'text', 'cur_not_null' => ''];
+        $before = $this->calls('pg.table_alter');
+        $this->post('/postgres/alter', $base + ['new_name' => 'title', 'type' => 'varchar(80)', 'not_null' => '1', 'default_mode' => 'literal', 'default' => 'x', 'comment' => 'the title']);
+        self::assertSame($before + 5, $this->calls('pg.table_alter'));
+        $last = $this->lastCall('pg.table_alter');
+        self::assertSame(['rename_column', 'name', 'title'], [$last['op'], $last['name'], $last['new_name']], 'the rename runs last so earlier steps still find the column');
+        // Nothing changed: nothing is sent.
+        $this->post('/postgres/alter', $base + ['new_name' => 'name', 'type' => 'TEXT', 'default_mode' => 'keep', 'comment' => '']);
+        self::assertSame($before + 5, $this->calls('pg.table_alter'));
+    }
+
+    public function testShowSqlPreviewsEveryStatementWithoutRunningOrAuditing(): void
+    {
+        $this->agent->succeed('pg.table_alter', ['sql' => 'ALTER TABLE "public"."items" ALTER COLUMN "name" TYPE varchar(80)']);
+        $audits = (int) $this->db->scalar('SELECT COUNT(*) FROM audit_logs');
+        $res = $this->post('/postgres/alter/preview', ['db' => (string) $this->aliceDb, 'schema' => 'public', 'table' => 'items', 'op' => 'edit_column', 'name' => 'name', 'cur_type' => 'text', 'type' => 'varchar(80)', 'not_null' => '', 'cur_not_null' => '', 'default_mode' => 'keep']);
+        $body = (array) json_decode($res->body(), true);
+        self::assertTrue($body['success']);
+        self::assertStringContainsString('varchar(80)', $body['data']['sql']);
+        self::assertTrue($this->lastCall('pg.table_alter')['dry_run']);
+        self::assertSame($audits, (int) $this->db->scalar('SELECT COUNT(*) FROM audit_logs'), 'a preview changes and records nothing');
+        $this->agent->succeed('pg.sequence_alter', ['sql' => 'ALTER SEQUENCE ...']);
+        $seq = (array) json_decode($this->post('/postgres/sequences/preview', ['db' => (string) $this->aliceDb, 'op' => 'restart', 'schema' => 'public', 'name' => 'ticket_seq', 'value' => '500'])->body(), true);
+        self::assertTrue($seq['success']);
+        self::assertTrue($this->lastCall('pg.sequence_alter')['dry_run']);
+        self::assertSame(0, (int) $this->db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action LIKE 'postgres.sequence_%'"));
+    }
+
+    public function testPreviewOfSomeoneElsesDatabaseOrAnUnknownChangeIsRefused(): void
+    {
+        $this->switchTo('bob');
+        $before = $this->calls('pg.table_alter');
+        self::assertSame(404, $this->post('/postgres/alter/preview', ['db' => (string) $this->aliceDb, 'op' => 'rename_table', 'schema' => 'public', 'table' => 'items', 'new_name' => 'x'])->status());
+        $this->switchTo('alice');
+        self::assertSame(400, $this->post('/postgres/alter/preview', ['db' => (string) $this->aliceDb, 'op' => 'drop_database', 'schema' => 'public', 'table' => 'items'])->status());
+        self::assertSame($before, $this->calls('pg.table_alter'));
+    }
+
+    public function testObjectsSequencesAndRoutinesOpenTheirFormsInTheDialog(): void
+    {
+        $q = ['db' => (string) $this->aliceDb];
+        foreach ([['objects', 'data-pgd-open="new_table"', 'data-pgd-tpl="new_table"'], ['sequences', 'data-pgd-open="seq_create"', 'data-pgd-tpl="seq_drop"'], ['routines', 'data-pgd-open="routine_drop"', 'data-pgd-tpl="routine_drop"']] as [$tab, $a, $b]) {
+            $page = $this->request('GET', '/postgres/browse', [], [], '', $q + ['tab' => $tab])->body();
+            self::assertStringContainsString($a, $page, $tab);
+            self::assertStringContainsString($b, $page, $tab);
+            self::assertStringContainsString('postgres-dialogs.js', $page, $tab);
+            self::assertStringNotContainsString('<details', $page, $tab);
+        }
     }
 
     public function testOwnerBrowsesRowsAndTables(): void

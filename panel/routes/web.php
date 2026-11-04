@@ -426,6 +426,8 @@ return static function (Router $r): void {
     $r->post('/postgres/rows', [\NimVor\Http\Controllers\PostgresController::class, 'rowInsert'], ['name' => 'postgres.row_insert', 'permission' => P::DATABASES_MANAGE]);
     $r->post('/postgres/rows/update', [\NimVor\Http\Controllers\PostgresController::class, 'rowUpdate'], ['name' => 'postgres.row_update', 'permission' => P::DATABASES_MANAGE]);
     $r->post('/postgres/rows/delete', [\NimVor\Http\Controllers\PostgresController::class, 'rowDelete'], ['name' => 'postgres.row_delete', 'permission' => P::DATABASES_MANAGE]);
+    $r->post('/postgres/alter/preview', [\NimVor\Http\Controllers\PostgresController::class, 'alterPreview'], ['name' => 'postgres.alter_preview', 'permission' => P::DATABASES_MANAGE]);
+    $r->post('/postgres/sequences/preview', [\NimVor\Http\Controllers\PostgresController::class, 'sequencePreview'], ['name' => 'postgres.sequence_preview', 'permission' => P::DATABASES_MANAGE]);
     $r->post('/postgres/alter', [\NimVor\Http\Controllers\PostgresController::class, 'alter'], ['name' => 'postgres.alter', 'permission' => P::DATABASES_MANAGE]);
     $r->post('/postgres/routines/drop', [\NimVor\Http\Controllers\PostgresController::class, 'routineDrop'], ['name' => 'postgres.routine_drop', 'permission' => P::DATABASES_MANAGE]);
     $r->post('/postgres/sequences', [\NimVor\Http\Controllers\PostgresController::class, 'sequenceAlter'], ['name' => 'postgres.sequence_alter', 'permission' => P::DATABASES_MANAGE]);

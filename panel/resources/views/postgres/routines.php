@@ -39,13 +39,7 @@ if ($error !== null): ?>
                 <td class="text-end text-nowrap">
                     <a class="btn btn-sm btn-outline-secondary" href="<?= e($base . '?' . http_build_query(['db' => $id, 'tab' => 'routines', 'def' => (int) $r['oid']])) ?>">Definition</a>
                     <?php if ($canWrite): ?>
-                    <details class="d-inline-block"><summary class="btn btn-sm btn-outline-danger">Drop</summary>
-                        <form class="d-flex flex-wrap gap-1 mt-1 text-start" method="post" action="<?= e($this->url('postgres.routine_drop')) ?>"><?= $this->csrfField() ?>
-                            <input type="hidden" name="db" value="<?= $id ?>"><input type="hidden" name="oid" value="<?= (int) $r['oid'] ?>"><input type="hidden" name="label" value="<?= e($label) ?>">
-                            <input class="form-control form-control-sm w-auto" name="confirm" placeholder="type <?= e((string) $db['name']) ?>" autocomplete="off" aria-label="Type the database name to confirm">
-                            <label class="form-check mb-0 small"><input class="form-check-input" type="checkbox" name="cascade" value="1"> also dependent objects</label>
-                            <button class="btn btn-sm btn-danger">Drop</button>
-                        </form></details>
+                    <button type="button" class="btn btn-sm btn-outline-danger" data-pgd-open="routine_drop" data-pgd-set="<?= e((string) json_encode(['oid' => (int) $r['oid'], 'label' => $label, 'word' => (string) $db['name']])) ?>">Drop</button>
                     <?php endif; ?>
                 </td>
             </tr>
@@ -61,5 +55,6 @@ $inner = (string) ob_get_clean();
 <?php $this->start(); ?><i class="bi bi-table me-1"></i>Database <span class="font-monospace"><?= e((string) $db['name']) ?></span><?php $this->end('title'); ?>
 <?php $this->start(); ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('postgres.backups') . '?db=' . $id) ?>"><i class="bi bi-cloud-arrow-down"></i> Backups</a><?php $this->end('actions'); ?>
 
+<?php if ($canWrite): ?><?= $this->partial('postgres/_dialogs_routines', ['db' => $db]) ?><?php endif; ?>
 <?= $this->partial('postgres/_frame', ['db' => $db, 'schema' => '', 'table' => '', 'tables' => $tables, 'tab' => 'routines', 'inner' => $inner]) ?>
-<?php $this->start(); ?><script src="<?= e($this->asset('assets/js/postgres-frame.js')) ?>" defer></script><?php $this->end('scripts'); ?>
+<?php $this->start(); ?><script src="<?= e($this->asset('assets/js/postgres-frame.js')) ?>" defer></script><?php if ($canWrite): ?><script src="<?= e($this->asset('assets/js/postgres-dialogs.js')) ?>" defer></script><?php endif; ?><?php $this->end('scripts'); ?>
