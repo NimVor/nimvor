@@ -61,7 +61,7 @@ func (linuxAdapter) Discover(ctx context.Context, t Transport, info ServerInfo, 
 			roots[p] = n
 		}
 	}
-	acct := Account{ID: "server", Name: "server", Home: "/", Domains: []Domain{}, Databases: []Database{}, Email: []EmailAccount{}, Cron: []CronJob{}}
+	acct := Account{ID: "server", Name: "server", Home: "/", Domains: []Domain{}, Databases: []Database{}, Email: []EmailAccount{}, Forwarders: []Forwarder{}, Cron: []CronJob{}}
 	for _, s := range sites {
 		s.SizeKB = roots[s.DocRoot]
 		acct.Domains = append(acct.Domains, s)

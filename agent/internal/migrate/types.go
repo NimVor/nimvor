@@ -139,6 +139,13 @@ type EmailAccount struct {
 	SizeKB  int64  `json:"size_kb"` // -1 when it could not be measured
 }
 
+// Forwarder is an address of the source that delivers to other addresses (an alias or forwarder).
+// Only plain address-to-address forwarding is read; pipes, :fail: and :blackhole: rules are not.
+type Forwarder struct {
+	Source       string   `json:"source"` // local@domain, or *@domain for "all other addresses"
+	Destinations []string `json:"destinations"`
+}
+
 // CronJob is a scheduled command of the source (discovered; not moved by this version).
 type CronJob struct {
 	Schedule string `json:"schedule"`
@@ -147,14 +154,15 @@ type CronJob struct {
 
 // Account is one hosting account of the source.
 type Account struct {
-	ID        string         `json:"id"`
-	Name      string         `json:"name"`
-	Home      string         `json:"home"`
-	PHP       string         `json:"php,omitempty"`
-	Domains   []Domain       `json:"domains"`
-	Databases []Database     `json:"databases"`
-	Email     []EmailAccount `json:"email"`
-	Cron      []CronJob      `json:"cron"`
+	ID         string         `json:"id"`
+	Name       string         `json:"name"`
+	Home       string         `json:"home"`
+	PHP        string         `json:"php,omitempty"`
+	Domains    []Domain       `json:"domains"`
+	Databases  []Database     `json:"databases"`
+	Email      []EmailAccount `json:"email"`
+	Forwarders []Forwarder    `json:"forwarders"`
+	Cron       []CronJob      `json:"cron"`
 }
 
 // Discovery is everything found on a source.

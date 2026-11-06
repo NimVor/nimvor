@@ -187,3 +187,17 @@ func TestAssessmentBlocksMailThatDoesNotFitAndSaysWhatIsNotMoved(t *testing.T) {
 		t.Error("not blocking")
 	}
 }
+
+func TestCpanelForwardersAreReadAndOnlyPlainOnesKept(t *testing.T) {
+	a := Account{Home: "/home/alice"}
+	parseCpanelAccount(&a, "\n##home\n/home/alice\n##mail\n##fwd\n##vdom example.com\n# comment\nsales: Boss@Gmail.com, ops@example.org\n*: :fail: No Such User Here\nhelp: |/usr/bin/script\nlocal: bob\nbad name: x@y.com\n*: all@example.org\n##cron\n")
+	if len(a.Forwarders) != 2 {
+		t.Fatalf("forwarders = %+v", a.Forwarders)
+	}
+	if f := a.Forwarders[0]; f.Source != "sales@example.com" || strings.Join(f.Destinations, ",") != "boss@gmail.com,ops@example.org" {
+		t.Errorf("first = %+v", f)
+	}
+	if a.Forwarders[1].Source != "*@example.com" {
+		t.Errorf("catch-all = %+v", a.Forwarders[1])
+	}
+}

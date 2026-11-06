@@ -176,6 +176,30 @@ $running = in_array($m['status'], ['running', 'discovering'], true);
     </div></div>
     <button class="btn btn-primary btn-sm">Save and check compatibility</button>
 </form>
+<?php $fwd = []; foreach ((array) ($disc['accounts'] ?? []) as $a) { foreach ((array) ($a['forwarders'] ?? []) as $f) { $fwd[] = [$a['id'] . '|' . $f['source'], $f]; } } ?>
+<?php if ($fwd !== []): ?>
+<form method="post" action="<?= e($this->url('migrations.forwarders', ['id' => $id])) ?>" class="mt-4" data-nim-confirm="Create the ticked forwarders as NimVor aliases now? Existing aliases and mailboxes are left alone.">
+    <?= $this->csrfField() ?>
+    <div class="nim-panel mb-3" data-nim-dt>
+        <div class="nim-actionbar"><div class="fw-semibold">Forwarders to create <span class="badge rounded-pill text-bg-light border fw-normal">as NimVor aliases, right away</span></div></div>
+        <?= $err('forwarders') !== '' ? $fb('forwarders') : '' ?>
+        <div class="nim-dtable table-responsive"><table class="table align-middle">
+            <thead><tr><th class="nim-check"><input class="form-check-input" type="checkbox" data-nim-select-all="forwarders[]" aria-label="Select all forwarders"></th><th>Address</th><th>Forwards to</th></tr></thead>
+            <tbody>
+            <?php foreach ($fwd as [$key, $f]): ?>
+                <tr data-nim-row>
+                    <td><input class="form-check-input" type="checkbox" name="forwarders[]" value="<?= e($key) ?>" aria-label="Select <?= e((string) $f['source']) ?>"></td>
+                    <td class="fw-semibold"><?= e((string) $f['source']) ?></td>
+                    <td class="small text-break"><?= e(implode(', ', (array) $f['destinations'])) ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table></div>
+        <div class="px-3 pb-3 small nim-muted">Only plain forwarding to email addresses is listed (pipes, bounce and discard rules are not). The domain must already be set up for email in NimVor. This does not depend on the migration run.</div>
+    </div>
+    <button class="btn btn-outline-primary btn-sm">Create the selected forwarders</button>
+</form>
+<?php endif; ?>
 <?php elseif ($step === 'assess'): ?>
 <?php if ($asm === []): ?>
 <div class="card mb-3"><div class="card-body">

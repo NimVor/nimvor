@@ -209,6 +209,26 @@ final class MigrationsController extends Controller
         return $this->act($request, $id, fn (int $i) => $this->service->forgetLogin($i), 'The stored login was erased.');
     }
 
+    public function forwarders(Request $request, string $id): Response
+    {
+        $to = '/migrations/' . (int) $id;
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        try {
+            $res = $this->service->importForwarders((int) $id, array_values(array_map('strval', (array) $request->input('forwarders', []))));
+        } catch (ValidationException $e) {
+            return $this->backWithErrors($to, $e, $request->all());
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure($to, $e);
+        }
+        $msg = $res['created'] . ' forwarder(s) created as NimVor aliases.';
+        if ($res['skipped'] !== []) {
+            $msg .= ' Left alone: ' . implode('; ', $res['skipped']) . '.';
+        }
+        return $this->redirectWithSuccess($to, $msg);
+    }
+
     public function delete(Request $request, string $id): Response
     {
         return $this->act($request, $id, fn (int $i) => $this->service->delete($i), 'The migration record was removed.', '/migrations');

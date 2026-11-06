@@ -45,7 +45,7 @@ final class MigrationsTest extends HttpTestCase
             'server' => ['os' => 'Ubuntu 22.04', 'root' => true, 'rsync' => true, 'mysqldump' => true, 'php' => ['8.1'], 'engine' => 'mysql', 'mysql' => '8.0.33'],
             'accounts' => [['id' => 'alice', 'name' => 'alice', 'home' => '/home/alice',
                 'domains' => [['name' => 'shop.example.org', 'kind' => 'main', 'doc_root' => '/home/alice/public_html', 'size_kb' => 2048]],
-                'databases' => [['name' => 'alice_wp', 'engine' => 'mysql', 'size_kb' => 512]], 'email' => [['address' => 'info@shop.example.org', 'maildir' => '/home/alice/mail/x']], 'cron' => []]],
+                'databases' => [['name' => 'alice_wp', 'engine' => 'mysql', 'size_kb' => 512]], 'email' => [['address' => 'info@shop.example.org', 'maildir' => '/home/alice/mail/x']], 'forwarders' => [['source' => 'sales@shop.example.org', 'destinations' => ['boss@gmail.com', 'ops@example.org']], ['source' => 'old@other.example', 'destinations' => ['x@y.com']]], 'cron' => []]],
             'warnings' => [],
             'not_migrated' => ['DNS zones and records', 'SSL certificates'],
         ];
@@ -745,5 +745,28 @@ final class MigrationsTest extends HttpTestCase
         $this->post("/migrations/{$id}/select", ['mail' => ['alice|ghost@shop.example.org']]);
         self::assertStringContainsString('not in the discovery', (string) ((array) $this->flash('errors'))['mail']);
         self::assertSame('discovered', $this->db->scalar('SELECT status FROM site_migrations WHERE id = ?', [$id]));
+    }
+
+    public function testForwardersBecomeNimVorAliasesAndExistingOrUnknownDomainsAreLeftAlone(): void
+    {
+        $this->makeMailbox('info', 'shop.example.org');
+        $domainId = (int) $this->db->scalar("SELECT id FROM mail_domains WHERE domain = 'shop.example.org'");
+        $id = $this->reach('discovered');
+        self::assertStringContainsString('Forwarders to create', $this->request('GET', "/migrations/{$id}")->body());
+        $this->agent->succeed('mail.alias_save', []);
+        $this->post("/migrations/{$id}/forwarders", ['forwarders' => ['alice|sales@shop.example.org', 'alice|old@other.example', 'alice|ghost@shop.example.org']]);
+        self::assertSame('boss@gmail.com, ops@example.org', $this->db->scalar('SELECT destinations FROM mail_aliases WHERE domain_id = ? AND local = ?', [$domainId, 'sales']));
+        self::assertSame(1, $this->calls('mail.alias_save'));
+        $msg = (string) $this->flash('success');
+        self::assertStringContainsString('1 forwarder(s) created', $msg);
+        self::assertStringContainsString('not set up for email', $msg);
+        self::assertStringContainsString('not in the discovery', $msg);
+        // Run again: the alias exists now, so it is not overwritten.
+        $this->db->run('UPDATE mail_aliases SET destinations = ? WHERE domain_id = ?', ['mine@example.org', $domainId]);
+        $this->post("/migrations/{$id}/forwarders", ['forwarders' => ['alice|sales@shop.example.org']]);
+        self::assertSame('mine@example.org', $this->db->scalar('SELECT destinations FROM mail_aliases WHERE domain_id = ?', [$domainId]));
+        self::assertSame(1, $this->calls('mail.alias_save'));
+        $this->post("/migrations/{$id}/forwarders", []);
+        self::assertArrayHasKey('forwarders', (array) $this->flash('errors'));
     }
 }
