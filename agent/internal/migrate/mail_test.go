@@ -161,3 +161,29 @@ func TestValidationFindsMissingAndChangedMessages(t *testing.T) {
 		t.Errorf("checks = %s", txt.String())
 	}
 }
+
+func TestCpanelMailboxSizesAreRead(t *testing.T) {
+	a := Account{Home: "/home/alice"}
+	parseCpanelAccount(&a, "\n##home\n/home/alice\n##mail\n##dom example.com\ninfo\nsales\n##msize\n120\t/home/alice/mail/example.com/info/\n##cron\n")
+	if len(a.Email) != 2 || a.Email[0].SizeKB != 120 || a.Email[1].SizeKB != -1 {
+		t.Errorf("email = %+v", a.Email)
+	}
+}
+
+func TestAssessmentBlocksMailThatDoesNotFitAndSaysWhatIsNotMoved(t *testing.T) {
+	p := &Plan{Mail: []MailTask{{Address: "a@example.com", SourceMaildir: "/h/a/mail/example.com/a", SizeKB: 500000}}}
+	d := &Discovery{}
+	d.Server.Rsync = true
+	f := Assess(d, p, DestInfo{MailKB: 1000, FreeKB: 1 << 30, Reserve: 1})
+	var space, scope bool
+	for _, x := range f {
+		space = space || x.Code == "mail_space" && x.Severity == Critical
+		scope = scope || x.Code == "mail_scope"
+	}
+	if !space || !scope {
+		t.Errorf("findings = %+v", f)
+	}
+	if !Blocking(f) {
+		t.Error("not blocking")
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -71,6 +72,7 @@ func (cpanelAdapter) Discover(ctx context.Context, t Transport, info ServerInfo,
 		script := fmt.Sprintf(`for f in /var/cpanel/userdata/%[1]s/*; do case "$f" in *.cache|*.stor|*_SSL|*.json|*.yaml) continue;; esac; [ -f "$f" ] && { echo "##file $f"; cat "$f"; }; done
 echo '##home'; getent passwd %[1]s | cut -d: -f6
 echo '##mail'; for d in /home/%[1]s/etc/*/; do dom=$(basename "$d"); [ -f "$d/passwd" ] && { echo "##dom $dom"; cut -d: -f1 "$d/passwd"; }; done
+echo '##msize'; du -sk /home/%[1]s/mail/*/*/ 2>/dev/null
 echo '##cron'; cat /var/spool/cron/%[1]s 2>/dev/null; true`, u)
 		res, err := t.Exec(ctx, "sh -c "+Shq(script), nil)
 		if err != nil {
@@ -175,6 +177,7 @@ func parseCpanelAccount(a *Account, out string) {
 	})
 	section := ""
 	dom := ""
+	sizes := map[string]int64{}
 	for _, l := range strings.Split(rest, "\n") {
 		l = strings.TrimRight(l, "\r")
 		switch {
@@ -182,8 +185,16 @@ func parseCpanelAccount(a *Account, out string) {
 			section = "home"
 		case strings.HasPrefix(l, "##mail"):
 			section = "mail"
+		case strings.HasPrefix(l, "##msize"):
+			section = "msize"
 		case strings.HasPrefix(l, "##cron"):
 			section = "cron"
+		case section == "msize":
+			if f := strings.SplitN(l, "\t", 2); len(f) == 2 {
+				if n, err := strconv.ParseInt(strings.TrimSpace(f[0]), 10, 64); err == nil {
+					sizes[strings.TrimRight(strings.TrimSpace(f[1]), "/")] = n
+				}
+			}
 		case section == "home" && strings.HasPrefix(l, "/"):
 			if ValidRemotePath(l) {
 				a.Home = l
@@ -191,11 +202,16 @@ func parseCpanelAccount(a *Account, out string) {
 		case section == "mail" && strings.HasPrefix(l, "##dom "):
 			dom = strings.TrimSpace(strings.TrimPrefix(l, "##dom "))
 		case section == "mail" && dom != "" && domainName.MatchString(dom) && regexp.MustCompile(`^[A-Za-z0-9._+-]+$`).MatchString(l):
-			a.Email = append(a.Email, EmailAccount{Address: l + "@" + dom, Maildir: a.Home + "/mail/" + dom + "/" + l})
+			a.Email = append(a.Email, EmailAccount{Address: l + "@" + dom, Maildir: a.Home + "/mail/" + dom + "/" + l, SizeKB: -1})
 		case section == "cron":
 			if j, ok := parseCron(l); ok {
 				a.Cron = append(a.Cron, j)
 			}
+		}
+	}
+	for i := range a.Email {
+		if n, ok := sizes[a.Email[i].Maildir]; ok {
+			a.Email[i].SizeKB = n
 		}
 	}
 }

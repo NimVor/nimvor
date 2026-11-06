@@ -132,10 +132,11 @@ type Database struct {
 	SizeKB int64  `json:"size_kb"`
 }
 
-// EmailAccount is a mailbox of the source (discovered; mail is not moved by this version).
+// EmailAccount is a mailbox of the source. Its messages can be moved into an existing NimVor mailbox.
 type EmailAccount struct {
 	Address string `json:"address"`
 	Maildir string `json:"maildir"`
+	SizeKB  int64  `json:"size_kb"` // -1 when it could not be measured
 }
 
 // CronJob is a scheduled command of the source (discovered; not moved by this version).

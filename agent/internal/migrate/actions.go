@@ -132,6 +132,7 @@ func Register(r *actions.Registry, env *host.Env) {
 			temp = env.Cfg.StateDir
 		}
 		dest.TempKB = freeKB(temp) - reserveKB
+		dest.MailKB = freeKB(env.M.VmailDir) - reserveKB
 		f := Assess(&in.Discovery, &in.Plan, dest)
 		return map[string]any{"findings": f, "blocked": Blocking(f), "dest": dest}, nil
 	}})

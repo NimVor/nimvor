@@ -219,7 +219,7 @@ func DiscoverAll(ctx context.Context, t Transport, want string, progress func(st
 
 // notMigrated is what this version of the agent does not move, whatever the source.
 var notMigrated = []string{
-	"Email messages, mailboxes, aliases and forwarders (mailbox names are listed)",
+	"Mailbox passwords, quotas, aliases and forwarders (messages are copied into mailboxes you already made in NimVor)",
 	"DNS zones and records",
 	"SSL certificates",
 	"FTP accounts",

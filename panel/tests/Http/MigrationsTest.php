@@ -665,7 +665,7 @@ final class MigrationsTest extends HttpTestCase
     {
         $id = $this->started();
         $this->agentState('running');
-        self::assertStringNotContainsString('Synchronise the files', $this->request('GET', "/migrations/{$id}")->body(), 'offered while it runs');
+        self::assertStringNotContainsString('Synchronise files and mail', $this->request('GET', "/migrations/{$id}")->body(), 'offered while it runs');
         $this->post("/migrations/{$id}/sync", ['password' => self::PW]);
         self::assertSame(0, $this->calls('migrate.sync'));
         self::assertStringContainsString('cannot be synchronised now', (string) $this->flash('error'));
@@ -673,7 +673,7 @@ final class MigrationsTest extends HttpTestCase
         $this->agentState('completed');
         $page = $this->request('GET', "/migrations/{$id}")->body();
         self::assertSame('', $this->db->scalar('SELECT sealed FROM site_migrations WHERE id = ?', [$id]), 'the login was erased at completion');
-        foreach (['Synchronise before switching DNS', 'only the website files that changed on the source', 'newer here', 'Databases are not synchronised', 'Synchronise the files', 'stays pinned'] as $needle) {
+        foreach (['Synchronise before switching DNS', 'only the website files and mail messages that changed on the source', 'newer here', 'Databases are not synchronised', 'Synchronise files and mail', 'stays pinned'] as $needle) {
             self::assertStringContainsString($needle, $page, $needle);
         }
         // No login: refused before the agent is asked.
@@ -708,9 +708,42 @@ final class MigrationsTest extends HttpTestCase
         $id = $this->started();
         $this->agentState('completed');
         $this->db->run('UPDATE site_migrations SET plan = ? WHERE id = ?', [json_encode(['files' => [], 'databases' => [['source' => 'a', 'dest' => 'b']], 'config' => []]), $id]);
-        self::assertStringNotContainsString('Synchronise the files', $this->request('GET', "/migrations/{$id}")->body());
+        self::assertStringNotContainsString('Synchronise files and mail', $this->request('GET', "/migrations/{$id}")->body());
         $this->post("/migrations/{$id}/sync", ['password' => 'x']);
         self::assertSame(0, $this->calls('migrate.sync'));
         self::assertStringContainsString('no website files', (string) $this->flash('error'));
+    }
+
+    private function makeMailbox(string $local, string $domain): void
+    {
+        $now = gmdate('c');
+        $d = $this->db->fetch('SELECT id FROM mail_domains WHERE domain = ?', [$domain]);
+        if ($d === null) {
+            $this->db->run('INSERT INTO mail_domains (server_id, domain, created_at) VALUES (1, ?, ?)', [$domain, $now]);
+            $d = ['id' => $this->db->lastInsertId()];
+        }
+        $this->db->run('INSERT INTO mail_mailboxes (domain_id, local, quota_mb, created_at) VALUES (?, ?, 0, ?)', [$d['id'], $local, $now]);
+    }
+
+    public function testAMailboxIsCopiedIntoTheNimVorMailboxWithTheSameAddress(): void
+    {
+        $this->makeMailbox('info', 'shop.example.org');
+        $id = $this->reach('discovered');
+        self::assertStringContainsString('Mailboxes to copy', $this->request('GET', "/migrations/{$id}")->body());
+        $this->post("/migrations/{$id}/select", ['mail' => ['alice|info@shop.example.org'], 'workers' => '2']);
+        $plan = json_decode((string) $this->db->scalar('SELECT plan FROM site_migrations WHERE id = ?', [$id]), true);
+        self::assertSame([['address' => 'info@shop.example.org', 'source_maildir' => '/home/alice/mail/x', 'size_kb' => -1]], $plan['mail']);
+        self::assertSame([], $plan['files']);
+    }
+
+    public function testAMailboxThatDoesNotExistInNimVorOrInTheDiscoveryIsRefused(): void
+    {
+        $id = $this->reach('discovered');
+        $this->post("/migrations/{$id}/select", ['mail' => ['alice|info@shop.example.org']]);
+        self::assertStringContainsString('does not exist in NimVor yet', (string) ((array) $this->flash('errors'))['mail']);
+        $this->makeMailbox('info', 'shop.example.org');
+        $this->post("/migrations/{$id}/select", ['mail' => ['alice|ghost@shop.example.org']]);
+        self::assertStringContainsString('not in the discovery', (string) ((array) $this->flash('errors'))['mail']);
+        self::assertSame('discovered', $this->db->scalar('SELECT status FROM site_migrations WHERE id = ?', [$id]));
     }
 }

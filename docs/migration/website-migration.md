@@ -30,7 +30,8 @@ against real servers; today nothing is.
 | Pause, cancel, continue after a failure or an agent restart | ✅ |
 | Synchronise before the switch: copy again only files changed on the source, keeping files that are newer here (files only) | ✅ |
 | Synchronising databases | ❌ by design (see "Before you switch DNS") |
-| Email accounts, messages, aliases, forwarders | ❌ (mailbox names are *listed* from cPanel) |
+| Email messages (Maildir: every folder, flags kept) into mailboxes you already made in NimVor, with the same address | ✅ (rsync, no delete, never into a mailbox that has messages unless overwriting is allowed, checksum-verified, included in sync, rollback and validation) |
+| Mailbox passwords, quotas, aliases, forwarders | ❌ (set them on the NimVor mailboxes) |
 | DNS zones and records | ❌ |
 | DNS cut-over **check** (read only): where each migrated name points now, as seen by four resolvers, and whether that is this server | ✅ |
 | Changing DNS records or nameservers, TTL changes, DNS provider integration | ❌ by design: NimVor never changes DNS for a migration |
@@ -197,9 +198,20 @@ login and never touches the source.
   rolled back migration cannot be continued, but its destinations are free for a
   new migration.
 
-Not available: restoring overwritten files, rolling back email/DNS/SSL (they are
+Not available: restoring overwritten files, rolling back DNS/SSL (they are
 not moved), and snapshots taken before the migration. Nothing on the source is
 ever changed, so there is nothing to roll back there.
+
+## Email
+
+Create each mailbox under **Email** first, then tick it in the wizard: its messages are
+copied into the NimVor mailbox with the same address. The copy is a pull with `rsync`
+(never deletes), owned by the `vmail` account, leaves out Dovecot's own caches (they are
+rebuilt) and is checked afterwards. A mailbox that already has messages is refused
+unless overwriting is allowed. Reading or flagging a message in Maildir renames it, so a
+rollback keeps messages that were read since and any that arrived later; validation
+reports them as changed, not lost. Passwords, quotas, aliases and forwarders are not
+copied. Do not move MX records before the mail has been moved and synchronised.
 
 ## Known limitations
 

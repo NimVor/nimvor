@@ -147,6 +147,24 @@ $running = in_array($m['status'], ['running', 'discovering'], true);
         </table></div>
         <div class="nim-pager" data-nim-dt-pager></div>
     </div>
+    <div class="nim-panel mb-3" data-nim-dt>
+        <div class="nim-actionbar"><div class="fw-semibold">Mailboxes to copy <span class="badge rounded-pill text-bg-light border fw-normal">messages go into the NimVor mailbox with the same address</span></div></div>
+        <?= $err('mail') !== '' ? $fb('mail') : '' ?>
+        <div class="nim-dtable table-responsive"><table class="table align-middle">
+            <thead><tr><th class="nim-check"><input class="form-check-input" type="checkbox" data-nim-select-all="mail[]" aria-label="Select all mailboxes"></th><th>Account</th><th>Mailbox</th><th class="text-end">Size</th></tr></thead>
+            <tbody>
+            <?php $msel = array_flip((array) ($m['selection']['mail'] ?? [])); foreach ((array) ($disc['accounts'] ?? []) as $a): foreach ((array) ($a['email'] ?? []) as $x): $key = $a['id'] . '|' . $x['address']; ?>
+                <tr data-nim-row>
+                    <td><input class="form-check-input" type="checkbox" name="mail[]" value="<?= e($key) ?>"<?= isset($msel[$key]) ? ' checked' : '' ?> aria-label="Select <?= e((string) $x['address']) ?>"></td>
+                    <td class="small"><?= e((string) $a['name']) ?></td>
+                    <td class="fw-semibold"><?= e((string) $x['address']) ?></td>
+                    <td class="small text-end text-nowrap"><?= e($fmt((int) ($x['size_kb'] ?? -1))) ?></td>
+                </tr>
+            <?php endforeach; endforeach; ?>
+            </tbody>
+        </table></div>
+        <div class="px-3 pb-3 small nim-muted">Create each mailbox under <strong>Email</strong> first. Messages and folders are copied; passwords, quotas, aliases and forwarders are not.</div>
+    </div>
     <?php if (($sites ?? []) === []): ?><div class="alert alert-info small">There is no NimVor website yet. Create the websites that will receive the files under <strong>Websites</strong> (and the databases under <strong>Databases</strong>) first, then come back: a migration fills existing, empty ones.</div><?php endif; ?>
     <div class="card mb-3"><div class="card-header"><i class="bi bi-sliders me-1"></i>How to copy</div><div class="card-body row g-3">
         <div class="col-md-3"><label class="form-label" for="mg-workers">Websites at the same time</label><input class="form-control<?= $err('workers') ?>" id="mg-workers" name="workers" type="number" min="1" max="8" value="<?= e((string) ($old['workers'] ?? $plan['config']['workers'] ?? 2)) ?>"><?= $fb('workers') ?></div>
@@ -161,7 +179,7 @@ $running = in_array($m['status'], ['running', 'discovering'], true);
 <?php elseif ($step === 'assess'): ?>
 <?php if ($asm === []): ?>
 <div class="card mb-3"><div class="card-body">
-    <p class="mb-2"><strong><?= count((array) ($plan['files'] ?? [])) ?></strong> website(s) and <strong><?= count((array) ($plan['databases'] ?? [])) ?></strong> database(s) will be copied. The check compares them with this server: disk space, temporary space, PHP versions, the database engine and the tools needed on the source.</p>
+    <p class="mb-2"><strong><?= count((array) ($plan['files'] ?? [])) ?></strong> website(s) and <strong><?= count((array) ($plan['databases'] ?? [])) ?></strong> database(s) and <strong><?= count((array) ($plan['mail'] ?? [])) ?></strong> mailbox(es) will be copied. The check compares them with this server: disk space, temporary space, PHP versions, the database engine and the tools needed on the source.</p>
     <form method="post" action="<?= e($this->url('migrations.assess', ['id' => $id])) ?>" data-nim-busy><?= $this->csrfField() ?><button class="btn btn-primary btn-sm"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Run the compatibility check</button></form>
 </div></div>
 <?php else: $findings = (array) ($asm['findings'] ?? []); ?>
@@ -226,14 +244,14 @@ $running = in_array($m['status'], ['running', 'discovering'], true);
     <?php endif; ?>
 </div>
 <?php endif; ?>
-<?php if ($canValidate && !empty((array) ($plan['files'] ?? [])) && !empty($m['pending_key']['host_key'])): ?>
+<?php if ($canValidate && (!empty((array) ($plan['files'] ?? [])) || !empty((array) ($plan['mail'] ?? []))) && !empty($m['pending_key']['host_key'])): ?>
 <div class="card mb-3"><div class="card-header"><i class="bi bi-arrow-repeat me-1"></i>Synchronise before switching DNS</div><div class="card-body small">
-    <p>Copies again <strong>only the website files that changed on the source</strong> since the last copy, so the new server is current at the moment you switch. A file that is <strong>newer here</strong> (edited since the migration) is kept, and nothing is deleted. <strong>Databases are not synchronised</strong>: a dump can only be imported into an empty database, so a second import would drop what was written here since. For a site whose database changes, plan a short freeze, or move the database again by hand.</p>
+    <p>Copies again <strong>only the website files and mail messages that changed on the source</strong> since the last copy, so the new server is current at the moment you switch. A file that is <strong>newer here</strong> (edited since the migration) is kept, and nothing is deleted. <strong>Databases are not synchronised</strong>: a dump can only be imported into an empty database, so a second import would drop what was written here since. For a site whose database changes, plan a short freeze, or move the database again by hand.</p>
     <form method="post" action="<?= e($this->url('migrations.sync', ['id' => $id])) ?>" autocomplete="off" data-nim-busy class="row g-2">
         <?= $this->csrfField() ?>
         <div class="col-md-4"><label class="form-label" for="mg-sync-pw">Password for <?= e($m['source_user'] . '@' . $m['source_host']) ?></label><input class="form-control<?= $err('password') ?>" id="mg-sync-pw" name="password" type="password" autocomplete="new-password" maxlength="500"><?= $fb('password') ?></div>
         <div class="col-md-8"><label class="form-label" for="mg-sync-key">Or a private key</label><textarea class="form-control font-monospace small<?= $err('private_key') ?>" id="mg-sync-key" name="private_key" rows="2" autocomplete="off" spellcheck="false" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"></textarea><?= $fb('private_key') ?></div>
-        <div class="col-12"><button class="btn btn-sm btn-outline-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Synchronise the files</button> <span class="text-body-secondary">The SSH key you confirmed earlier stays pinned. The login is erased again when it finishes.</span></div>
+        <div class="col-12"><button class="btn btn-sm btn-outline-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Synchronise files and mail</button> <span class="text-body-secondary">The SSH key you confirmed earlier stays pinned. The login is erased again when it finishes.</span></div>
     </form>
 </div></div>
 <?php endif; ?>
@@ -280,7 +298,7 @@ $running = in_array($m['status'], ['running', 'discovering'], true);
     <ul class="mb-0">
         <li>Open each migrated website and check pages, forms and logins. <code>.htaccess</code> rules are not translated to Nginx.</li>
         <li>Nothing was deleted on the source. Keep it until you have checked the new site, then change the DNS records yourself: this version does not change DNS.</li>
-        <li>Not moved by this version: email, DNS zones and records, SSL certificates, FTP accounts and cron jobs. The report lists what was found.</li>
+        <li>Not moved by this version: mailbox passwords, quotas, aliases and forwarders, DNS zones and records, SSL certificates, FTP accounts and cron jobs. The report lists what was found.</li>
         <li>Files were compared by checksum after the copy and databases by table count.</li>
     </ul>
 </div></div>
