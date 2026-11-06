@@ -93,7 +93,7 @@ final class MigrationsTest extends HttpTestCase
     {
         $this->seedUser('alice', 'customer');
         $this->login('alice');
-        foreach (['/migrations', '/migrations/new', '/migrations/1', '/migrations/1/report'] as $path) {
+        foreach (['/migrations', '/migrations/new', '/migrations/1', '/migrations/1/report', '/migrations/1/report/print'] as $path) {
             // The route needs the server.manage permission, so a customer never reaches the controller.
             self::assertSame(403, $this->request('GET', $path)->status(), $path);
         }
@@ -445,6 +445,15 @@ final class MigrationsTest extends HttpTestCase
         self::assertStringNotContainsString(self::PW, $res->body());
         self::assertStringNotContainsString('host_key', $res->body());
         self::assertStringNotContainsString(self::KEY, $res->body());
+        $print = $this->request('GET', "/migrations/{$id}/report/print");
+        self::assertSame(200, $print->status());
+        self::assertStringContainsString('Migration report #' . $id, $print->body());
+        self::assertStringContainsString('Files of new.example.com', $print->body());
+        self::assertStringContainsString('Not moved by this version', $print->body());
+        self::assertStringNotContainsString('<style', $print->body());
+        self::assertStringNotContainsString('onclick=', $print->body());
+        self::assertStringNotContainsString(self::PW, $print->body());
+        self::assertStringNotContainsString(self::KEY, $print->body());
         // It cannot be continued without connecting again.
         $this->post("/migrations/{$id}/resume");
         self::assertStringContainsString('cannot be continued', (string) $this->flash('error'));
