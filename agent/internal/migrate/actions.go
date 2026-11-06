@@ -201,6 +201,25 @@ func Register(r *actions.Registry, env *host.Env) {
 	stop("migrate.pause", Paused, "Ask a running migration to pause at the next safe point; continue it later.")
 	stop("migrate.cancel", Cancelled, "Cancel a migration. Copied files and imported databases stay; nothing is removed from the source or the destination.")
 
+	r.Register(actions.Action{Name: "migrate.rollback", Mutating: true, Timeout: 10 * time.Minute, Description: "Undo a migration's changes in this server: remove the files it created while they are unchanged, empty the databases it filled only when told to and only if nothing was written to them since. Newer data is never removed; nothing on the source is touched.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			ID             string `json:"id"`
+			Confirm        bool   `json:"confirm"`
+			EmptyDatabases bool   `json:"empty_databases"`
+		}
+		if err := dec(p, &in); err != nil {
+			return nil, err
+		}
+		if !in.Confirm {
+			return nil, actions.InvalidParams("confirm: a rollback removes files from this server and must be confirmed")
+		}
+		var log strings.Builder
+		rep, err := e.Rollback(ctx, in.ID, in.EmptyDatabases, &log)
+		if err != nil {
+			return nil, actions.InvalidParams(err.Error())
+		}
+		return rep, nil
+	}})
 	r.Register(actions.Action{Name: "migrate.get", Description: "The state of one migration: its tasks, their status, and what remains to be done by hand.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			ID string `json:"id"`

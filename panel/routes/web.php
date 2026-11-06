@@ -168,6 +168,7 @@ return static function (Router $r): void {
     $r->post('/migrations/{id}/resume', [\NimVor\Http\Controllers\MigrationsController::class, 'resume'], ['name' => 'migrations.resume', 'permission' => P::SERVER_MANAGE]);
     $r->post('/migrations/{id}/pause', [\NimVor\Http\Controllers\MigrationsController::class, 'pause'], ['name' => 'migrations.pause', 'permission' => P::SERVER_MANAGE]);
     $r->post('/migrations/{id}/cancel', [\NimVor\Http\Controllers\MigrationsController::class, 'cancel'], ['name' => 'migrations.cancel', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/migrations/{id}/rollback', [\NimVor\Http\Controllers\MigrationsController::class, 'rollback'], ['name' => 'migrations.rollback', 'permission' => P::SERVER_MANAGE]);
     $r->post('/migrations/{id}/forget', [\NimVor\Http\Controllers\MigrationsController::class, 'forget'], ['name' => 'migrations.forget', 'permission' => P::SERVER_MANAGE]);
     $r->post('/migrations/{id}/delete', [\NimVor\Http\Controllers\MigrationsController::class, 'delete'], ['name' => 'migrations.delete', 'permission' => P::SERVER_MANAGE]);
     $r->get('/migrations/{id}/report', [\NimVor\Http\Controllers\MigrationsController::class, 'report'], ['name' => 'migrations.report', 'permission' => P::SERVER_MANAGE]);

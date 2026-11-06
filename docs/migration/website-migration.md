@@ -10,7 +10,7 @@ more than that.
 ## Status: Phase 1 (read this first)
 
 The full specification is a large product (many panels, email, DNS, SSL,
-cut-over, rollback). It is being built in phases and **this release is the
+cut-over). It is being built in phases and **this release is the
 first**. A panel is labelled *Fully supported* only after it has been proven
 against real servers; today nothing is.
 
@@ -37,7 +37,7 @@ against real servers; today nothing is.
 | Database users and grants | ❌ (NimVor creates the database user for the NimVor database) |
 | Creating the destination website/account for you | ❌ (create the NimVor website and database first) |
 | Validation: HTTP, PHP, SSL, DNS checks | ❌ (files by checksum, databases by table count only) |
-| Rollback of destination changes | ❌ (see "Rollback") |
+| Rollback of destination changes | ✅ files and (on confirmation) databases, never newer data (see "Rollback") |
 | Final report as PDF | ❌ (JSON only) |
 | API connections (WHM API, Plesk REST…) | ❌ (SSH only) |
 
@@ -138,11 +138,30 @@ lists what remains ("What is left to do").
 
 ## Rollback
 
-**There is no automatic rollback in this version.** Because a migration only
-fills empty destinations, undoing it means deleting the NimVor website's files
-or database (or the website itself) and starting again. Cancelling stops the
-migration and keeps what was copied; it removes nothing. Nothing on the source
-is ever changed. Rollback with snapshots and restoration metadata is planned.
+*Roll back* (on a completed, failed, cancelled, paused or interrupted migration)
+undoes what the migration did **in this server**, and nothing else. It needs no
+login and never touches the source.
+
+* **Files.** For every copy the agent records the files and folders it created,
+  with the size and modification time the copy left. A rollback removes a file
+  only if it is **still exactly that**. A file you edited, replaced (even with a
+  link) or that is gone is left alone and listed under "Kept". Files you added
+  are never in the record. A created folder is removed only when it is empty.
+* **Databases** are left as they are unless you tick *Also empty the databases it
+  filled*. Even then a database is emptied only if it had **no table before the
+  import** (otherwise your tables cannot be told from the imported ones) and **no
+  table was written to after the import**; otherwise it is kept and reported.
+  Emptying drops and recreates the database with the same character set and
+  collation; its grants stay.
+* **Overwritten files cannot be restored.** They exist only when *Allow
+  overwriting* was ticked; no copy of them was kept, and the report says how many.
+* A rollback asks for confirmation, is recorded in the audit log and is final: a
+  rolled back migration cannot be continued, but its destinations are free for a
+  new migration.
+
+Not available: restoring overwritten files, rolling back email/DNS/SSL (they are
+not moved), and snapshots taken before the migration. Nothing on the source is
+ever changed, so there is nothing to roll back there.
 
 ## Known limitations
 
@@ -178,7 +197,7 @@ and truncated dumps and table-count mismatches. **Real-host tests** (CI's
 login through askpass, key login, a wrong password, a wrong pinned key, an rsync
 pull with exclusions and a symlink that must not be followed, ownership,
 continuing after a change, and a database with utf8mb4 data, a view and a
-stored procedure. The panel's HTTP tests check access control, key
+stored procedure; and rolling back a real copy and a real database (a changed file and a table written to later are kept). The panel's HTTP tests check access control, key
 confirmation, that the login is encrypted and erased, and the plan the agent
 receives. **Not tested:** a real cPanel (or any other panel) server, large
 sites and databases, and a browser walkthrough of the wizard against a live
@@ -199,6 +218,7 @@ behind the write gate):
 | `migrate.create` | Store a validated plan |
 | `migrate.start` / `migrate.resume` | Run / continue (job); the login is given for that run |
 | `migrate.pause` / `migrate.cancel` | Stop at the next safe point / cancel |
+| `migrate.rollback` | Remove what the migration created (confirmation required); databases only when asked |
 | `migrate.get` / `migrate.list` | State of one / all migrations |
 
 Panel routes are under `/migrations` (see `routes/web.php`).

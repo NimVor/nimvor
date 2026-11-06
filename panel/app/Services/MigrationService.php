@@ -383,6 +383,7 @@ final class MigrationService
 
     public function resume(int $id): string
     {
+        $this->refresh($id);
         $m = $this->mustFind($id);
         if ($m['agent_id'] === '' || !in_array($m['status'], ['paused', 'failed', 'interrupted'], true)) {
             throw new UserFacingException('This migration cannot be continued.');
@@ -408,6 +409,36 @@ final class MigrationService
         }
         $this->repo->update($id, ['status' => 'cancelled', 'sealed' => '', 'finished_at' => gmdate('c')]);
         $this->audit->record('migration.cancel', 'migration', (string) $id);
+    }
+
+    /**
+     * Undo the migration's changes in this server: remove the files it created while they are
+     * unchanged, and (only when asked) empty the databases it filled. Newer data is kept.
+     *
+     * @return array<string, mixed> what was removed and what was kept
+     */
+    public function rollback(int $id, bool $confirm, bool $emptyDatabases): array
+    {
+        $this->refresh($id); // judge it by what the agent says now, not by an old page
+        $m = $this->mustFind($id);
+        if (!$confirm) {
+            throw new UserFacingException('Confirm the rollback: it removes files from this server.');
+        }
+        if ($m['agent_id'] === '' || !in_array($m['status'], ['completed', 'failed', 'cancelled', 'paused', 'interrupted'], true)) {
+            throw new UserFacingException('This migration cannot be rolled back (it never started, is still running, or was rolled back already).');
+        }
+        try {
+            $rep = (array) $this->agent->call('migrate.rollback', ['id' => $m['agent_id'], 'confirm' => true, 'empty_databases' => $emptyDatabases], 660);
+        } catch (AgentException $e) {
+            $this->audit->record('migration.rollback', 'migration', (string) $id, AuditLogger::FAILURE, ['empty_databases' => $emptyDatabases]);
+            throw $e;
+        }
+        $this->repo->update($id, ['status' => 'rolled_back', 'sealed' => '', 'finished_at' => gmdate('c'), 'error' => '']);
+        $this->audit->record('migration.rollback', 'migration', (string) $id, AuditLogger::SUCCESS, [
+            'empty_databases' => $emptyDatabases, 'files_removed' => (int) ($rep['files_removed'] ?? 0),
+            'kept' => count((array) ($rep['kept'] ?? [])), 'databases_emptied' => count((array) ($rep['databases_emptied'] ?? [])),
+        ]);
+        return $rep;
     }
 
     /** Erase the stored login (a migration that needs it cannot continue until connected again). */
@@ -453,8 +484,10 @@ final class MigrationService
             'failed' => array_values(array_filter($tasks, static fn (array $t): bool => ($t['status'] ?? '') === 'failed')),
             'differences' => array_values(array_filter($tasks, static fn (array $t): bool => (int) ($t['differences'] ?? 0) > 0)),
             'remaining' => (array) ($state['remaining'] ?? []),
+            'rollback' => $state['rollback'] ?? null,
             'not_migrated' => (array) ($disc['not_migrated'] ?? []),
             'recommendations' => [
+                'A rollback is available while the migration has not been rolled back: it removes only files the migration created and that are unchanged, and empties databases only when you confirm and nothing was written to them since.',
                 'Open each migrated website and check pages, forms, redirects and logins: .htaccess rules are not translated to Nginx.',
                 'Files that differ from the source (see "differences") changed while they were copied: run the migration again to synchronise them before switching DNS.',
                 'Nothing was deleted on the source. Keep it until you have checked the new site, and change DNS yourself when you are ready.',

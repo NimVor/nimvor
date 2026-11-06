@@ -59,6 +59,8 @@ type fakeDB struct {
 	srcTabs int
 	imports []string
 	failImp int
+	newer   bool
+	resets  []string
 }
 
 func (d *fakeDB) Exists(ctx context.Context, name string) (bool, error) { return d.exists, nil }
@@ -67,6 +69,17 @@ func (d *fakeDB) Tables(ctx context.Context, name string) (int, error) {
 	defer d.mu.Unlock()
 	return d.tables, nil
 }
+func (d *fakeDB) Reset(ctx context.Context, name string, since time.Time) (bool, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.newer {
+		return true, nil
+	}
+	d.resets = append(d.resets, name)
+	d.tables = 0
+	return false, nil
+}
+
 func (d *fakeDB) Import(ctx context.Context, name string, r io.Reader, log io.Writer) error {
 	b, err := io.ReadAll(r)
 	d.mu.Lock()
@@ -131,8 +144,10 @@ func newRig(t *testing.T) *rig {
 				return nil
 			}
 		}
+		os.MkdirAll(filepath.Join(local, "sub dir"), 0o755)
 		os.WriteFile(filepath.Join(local, "index.php"), []byte("<?php echo 1;"), 0o644)
-		io.WriteString(out, "Number of regular files transferred: 1\nTotal transferred file size: 13 bytes\n")
+		os.WriteFile(filepath.Join(local, "sub dir", "a b.txt"), []byte("data"), 0o644)
+		io.WriteString(out, "cd+++++++++ sub dir/\n>f+++++++++ index.php\n>f+++++++++ sub dir/a b.txt\nNumber of regular files transferred: 2\nTotal transferred file size: 17 bytes\n")
 		return nil
 	}
 	db := &fakeDB{exists: true, srcTabs: 1}
@@ -192,7 +207,7 @@ func TestAMigrationCopiesFilesAndDatabaseAndIsVerified(t *testing.T) {
 		t.Errorf("file not copied: %q", b)
 	}
 	ft, dt := s.Tasks[0], s.Tasks[1]
-	if ft.Files != 1 || ft.Bytes != 13 || ft.Checkpoint != "copied" || ft.Differences != 0 {
+	if ft.Files != 2 || ft.Bytes != 17 || ft.Checkpoint != "copied" || ft.Differences != 0 {
 		t.Errorf("files task = %+v", ft)
 	}
 	if dt.Checkpoint != "imported" || len(dt.SHA256) != 64 || !strings.Contains(dt.Detail, "1 tables imported") {

@@ -4,7 +4,7 @@
  * @var list<array<string, mixed>> $migrations
  */
 $label = ['draft' => 'Connecting', 'connected' => 'Connected', 'discovering' => 'Discovering…', 'discovered' => 'Discovered', 'selected' => 'Planned', 'assessed' => 'Checked',
-    'running' => 'Running…', 'paused' => 'Paused', 'failed' => 'Failed', 'interrupted' => 'Interrupted', 'completed' => 'Completed', 'cancelled' => 'Cancelled'];
+    'running' => 'Running…', 'paused' => 'Paused', 'failed' => 'Failed', 'interrupted' => 'Interrupted', 'completed' => 'Completed', 'cancelled' => 'Cancelled', 'rolled_back' => 'Rolled back'];
 $state = ['completed' => 'is-ok', 'running' => 'is-warn', 'discovering' => 'is-warn', 'failed' => 'is-error', 'interrupted' => 'is-error', 'cancelled' => '', 'paused' => 'is-warn'];
 ?>
 <?php $this->start(); ?>Migrations<?php $this->end('title'); ?>
@@ -27,7 +27,7 @@ $state = ['completed' => 'is-ok', 'running' => 'is-warn', 'discovering' => 'is-w
                     <td class="small"><span class="nim-state <?= e($state[$m['status']] ?? '') ?>"><?= e($label[$m['status']] ?? (string) $m['status']) ?></span><?php if ($m['error'] !== ''): ?><div class="text-danger-emphasis text-break"><?= e((string) $m['error']) ?></div><?php endif; ?></td>
                     <td class="small text-nowrap"><?= e(str_replace('T', ' ', substr((string) $m['created_at'], 0, 16))) ?></td>
                     <td class="text-end text-nowrap">
-                        <a class="btn btn-sm btn-outline-primary" href="<?= e($this->url('migrations.show', ['id' => (int) $m['id']])) ?>"><?= in_array($m['status'], ['completed', 'cancelled'], true) ? 'Open' : 'Continue' ?></a>
+                        <a class="btn btn-sm btn-outline-primary" href="<?= e($this->url('migrations.show', ['id' => (int) $m['id']])) ?>"><?= in_array($m['status'], ['completed', 'cancelled', 'rolled_back'], true) ? 'Open' : 'Continue' ?></a>
                         <?php if ($m['status'] !== 'running'): ?><form class="d-inline" method="post" action="<?= e($this->url('migrations.delete', ['id' => (int) $m['id']])) ?>" data-nim-confirm="Remove the record of migration <?= (int) $m['id'] ?>? Files and databases already copied stay where they are."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger" aria-label="Remove migration <?= (int) $m['id'] ?>"><i class="bi bi-trash"></i></button></form><?php endif; ?>
                     </td>
                 </tr>

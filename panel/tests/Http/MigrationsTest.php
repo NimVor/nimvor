@@ -500,4 +500,65 @@ final class MigrationsTest extends HttpTestCase
         self::assertStringContainsString('Migrations', $this->request('GET', '/')->body(), 'the menu has an entry');
         self::assertGreaterThan(0, $id);
     }
+
+    public function testRollbackNeedsConfirmationAndNeverRunsWhileTheMigrationRuns(): void
+    {
+        $id = $this->started();
+        $this->agentState('running');
+        $page = $this->request('GET', "/migrations/{$id}")->body();
+        self::assertStringNotContainsString('Roll back this migration', $page, 'offered while it runs');
+        $this->post("/migrations/{$id}/rollback", ['confirm' => '1']);
+        self::assertSame(0, $this->calls('migrate.rollback'));
+        self::assertStringContainsString('cannot be rolled back', (string) $this->flash('error'));
+
+        $this->agentState('failed', [['id' => 'files:/x', 'kind' => 'files', 'label' => 'Files', 'status' => 'failed', 'attempts' => 3, 'error' => 'x']]);
+        $page = $this->request('GET', "/migrations/{$id}")->body();
+        foreach (['Roll back this migration', 'data-nim-confirm="Roll back this migration?', 'Also empty the databases it filled', 'name="empty_databases"', 'cannot be restored'] as $needle) {
+            self::assertStringContainsString($needle, $page, $needle);
+        }
+        // Posting without the confirmation does nothing.
+        $this->post("/migrations/{$id}/rollback", []);
+        self::assertSame(0, $this->calls('migrate.rollback'));
+        self::assertStringContainsString('Confirm the rollback', (string) $this->flash('error'));
+        self::assertSame('failed', $this->db->scalar('SELECT status FROM site_migrations WHERE id = ?', [$id]));
+    }
+
+    public function testARollbackIsSentToTheAgentRecordedAndShown(): void
+    {
+        $id = $this->started();
+        $this->agentState('failed');
+        $this->agent->succeed('migrate.rollback', ['at' => gmdate('c'), 'files_removed' => 12, 'files_gone' => 0, 'dirs_removed' => 2, 'databases_emptied' => ['newsite_wp'], 'kept' => ['/home/nimvor/new.example.com/public_html/index.php (changed since the migration: newer data is never removed)'], 'notes' => ['x: 1 existing file(s) were overwritten by the copy and cannot be restored (no copy of them was kept).']]);
+        $res = $this->post("/migrations/{$id}/rollback", ['confirm' => '1', 'empty_databases' => '1']);
+        self::assertSame("/migrations/{$id}", $res->header('Location'), (string) $this->flash('error'));
+        $call = $this->lastCall('migrate.rollback');
+        self::assertSame(['0123456789abcdef', true, true], [$call['id'], $call['confirm'], $call['empty_databases']]);
+        self::assertStringNotContainsString(self::PW, (string) json_encode($call), 'a rollback needs no login');
+        $m = $this->db->fetch('SELECT * FROM site_migrations WHERE id = ?', [$id]);
+        self::assertSame(['rolled_back', ''], [$m['status'], $m['sealed']]);
+        $audit = $this->db->fetch("SELECT * FROM audit_logs WHERE action = 'migration.rollback'");
+        self::assertSame('success', $audit['result']);
+        self::assertStringContainsString('"files_removed":12', (string) $audit['details']);
+
+        $this->agentState('rolled_back', [], ['rollback' => json_decode('{"files_removed":12,"dirs_removed":2,"databases_emptied":["newsite_wp"],"kept":["/home/nimvor/new.example.com/public_html/index.php (changed since the migration: newer data is never removed)"],"notes":["cannot be restored"]}', true)]);
+        $page = $this->request('GET', "/migrations/{$id}")->body();
+        foreach (['Rollback', '12 file(s) and 2 folder(s)', 'newsite_wp', 'Kept, because removing it could lose newer data', 'newer data is never removed', 'Nothing on the source was touched'] as $needle) {
+            self::assertStringContainsString($needle, $page, $needle);
+        }
+        self::assertStringNotContainsString('Roll back this migration', $page, 'offered again after a rollback');
+        // It cannot be continued or rolled back again, but its record can be removed.
+        $this->post("/migrations/{$id}/rollback", ['confirm' => '1']);
+        self::assertSame(1, $this->calls('migrate.rollback'));
+        $this->post("/migrations/{$id}/delete");
+        self::assertSame(0, (int) $this->db->scalar('SELECT COUNT(*) FROM site_migrations WHERE id = ?', [$id]));
+    }
+
+    public function testARefusedRollbackKeepsTheMigrationAsItWasAndIsAudited(): void
+    {
+        $id = $this->started();
+        $this->agentState('completed');
+        $this->agent->fail('migrate.rollback', 422, 'invalid_params', 'the migration is running: pause or cancel it first');
+        $this->post("/migrations/{$id}/rollback", ['confirm' => '1']);
+        self::assertSame('completed', $this->db->scalar('SELECT status FROM site_migrations WHERE id = ?', [$id]), 'the agent refused, so the migration must not be recorded as rolled back');
+        self::assertSame('failure', $this->db->scalar("SELECT result FROM audit_logs WHERE action = 'migration.rollback'"));
+    }
 }

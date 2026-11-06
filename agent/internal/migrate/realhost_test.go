@@ -171,6 +171,27 @@ func TestRealHostMigrateFilesOverSSH(t *testing.T) {
 		t.Error("the changed source was not synchronised")
 	}
 
+	// Rollback: what the migration created goes, what the owner changed or added stays.
+	os.WriteFile(filepath.Join(site, "index.php"), []byte("<?php echo 'edited by the owner';"), 0o644)
+	os.WriteFile(filepath.Join(site, "mine.txt"), []byte("mine"), 0o644)
+	rep, err := e.Rollback(context.Background(), m.ID, false, io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.FilesRemoved < 2 || len(rep.Kept) != 1 || !strings.Contains(rep.Kept[0], "index.php") {
+		t.Errorf("rollback report = %+v", rep)
+	}
+	for _, gone := range []string{"new.txt", "sub dir"} {
+		if _, err := os.Stat(filepath.Join(site, gone)); err == nil {
+			t.Errorf("%s was not rolled back", gone)
+		}
+	}
+	for _, kept := range []string{"index.php", "mine.txt"} {
+		if _, err := os.Stat(filepath.Join(site, kept)); err != nil {
+			t.Errorf("%s was removed by the rollback", kept)
+		}
+	}
+
 	// A key login works too.
 	dir := t.TempDir()
 	exec.Command("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", filepath.Join(dir, "k")).Run()
@@ -275,6 +296,38 @@ func TestRealHostMigrateDatabaseOverSSH(t *testing.T) {
 	// The temporary dump is gone.
 	if left, _ := filepath.Glob(filepath.Join(env.Cfg.StateDir, "tmp", "migrate-*", "*")); len(left) != 0 {
 		t.Errorf("dump files left: %v", left)
+	}
+	// Rollback: written to after the import, the database is kept; untouched, it is emptied and keeps its character set.
+	time.Sleep(7 * time.Second)
+	mysqlRun(t, "INSERT INTO t VALUES (3,'written later');", "migdst")
+	rep, err := e.Rollback(context.Background(), m.ID, true, io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rep.DatabasesEmptied) != 0 || len(rep.Kept) != 1 || !strings.Contains(rep.Kept[0], "newer data is never removed") {
+		t.Errorf("rollback with newer data = %+v", rep)
+	}
+	if got := mysqlRun(t, "SELECT COUNT(*) FROM t;", "migdst"); got != "3" {
+		t.Errorf("newer data was removed: %s rows", got)
+	}
+	mq, err := e.Create(Plan{Databases: []DBTask{{Source: "migsrc", Dest: "migdst2"}}}, "linux", "ssh://root@127.0.0.1:22")
+	_ = mq
+	if err == nil {
+		mysqlRun(t, "DROP DATABASE IF EXISTS migdst2; CREATE DATABASE migdst2 CHARACTER SET utf8mb4;", "")
+		t.Cleanup(func() { mysqlRun(t, "DROP DATABASE IF EXISTS migdst2;", "") })
+		if err := e.Run(context.Background(), mq.ID, src, &bytes.Buffer{}); err != nil {
+			t.Fatalf("second import: %v", err)
+		}
+		rep, err := e.Rollback(context.Background(), mq.ID, true, io.Discard)
+		if err != nil || len(rep.DatabasesEmptied) != 1 {
+			t.Fatalf("rollback = %+v, %v", rep, err)
+		}
+		if got := mysqlRun(t, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='migdst2';", ""); got != "0" {
+			t.Errorf("tables left after the rollback: %s", got)
+		}
+		if got := mysqlRun(t, "SELECT default_character_set_name FROM information_schema.schemata WHERE schema_name='migdst2';", ""); got != "utf8mb4" {
+			t.Errorf("charset after the rollback = %s", got)
+		}
 	}
 	// A database that already has tables is refused and left as it was.
 	m2, err := e.Create(Plan{Databases: []DBTask{{Source: "migsrc", Dest: "migfull"}}}, "linux", "ssh://root@127.0.0.1:22")

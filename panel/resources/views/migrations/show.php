@@ -210,6 +210,23 @@ $running = in_array($m['status'], ['running', 'discovering'], true);
         </tbody>
     </table></div>
 </div>
+<?php $rb = (array) ($state['rollback'] ?? []); if ($m['status'] === 'rolled_back' && $rb !== []): ?>
+<div class="card mb-3"><div class="card-header"><i class="bi bi-arrow-counterclockwise me-1"></i>Rollback</div><div class="card-body small">
+    <p class="mb-1"><?= (int) ($rb['files_removed'] ?? 0) ?> file(s) and <?= (int) ($rb['dirs_removed'] ?? 0) ?> folder(s) the migration created were removed<?= ($rb['databases_emptied'] ?? []) !== [] ? '; databases emptied: ' . e(implode(', ', (array) $rb['databases_emptied'])) : '' ?>. Nothing on the source was touched.</p>
+    <?php if (($rb['kept'] ?? []) !== []): ?><div class="fw-semibold mt-2">Kept, because removing it could lose newer data</div><ul class="mb-1"><?php foreach ((array) $rb['kept'] as $k): ?><li class="text-break"><?= e((string) $k) ?></li><?php endforeach; ?></ul><?php endif; ?>
+    <?php foreach ((array) ($rb['notes'] ?? []) as $n): ?><div class="text-body-secondary"><?= e((string) $n) ?></div><?php endforeach; ?>
+</div></div>
+<?php endif; ?>
+<?php if (in_array($m['status'], ['completed', 'failed', 'cancelled', 'paused', 'interrupted'], true) && $m['agent_id'] !== ''): ?>
+<div class="card mb-3"><div class="card-header"><i class="bi bi-arrow-counterclockwise me-1"></i>Roll back this migration</div><div class="card-body small">
+    <p>Removes from this server the files and folders the migration <strong>created</strong>, but only files that are still exactly as the copy left them: a file you changed, or one you added, stays. Files the copy overwrote (only possible when overwriting was allowed) cannot be restored. Nothing on the source is touched.</p>
+    <form method="post" action="<?= e($this->url('migrations.rollback', ['id' => $id])) ?>" data-nim-confirm="Roll back this migration? Files it created are removed from this server (changed files are kept). This cannot be undone.">
+        <?= $this->csrfField() ?><input type="hidden" name="confirm" value="1">
+        <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="empty_databases" value="1" id="mg-rb-db"><label class="form-check-label" for="mg-rb-db">Also empty the databases it filled. A database is emptied only if it was empty before the migration and nothing was written to it since; otherwise it is kept.</label></div>
+        <button class="btn btn-sm btn-outline-danger">Roll back</button>
+    </form>
+</div></div>
+<?php endif; ?>
 <?php if (!empty($state['remaining'])): ?><div class="alert alert-warning small"><div class="fw-semibold mb-1">What is left to do</div><ul class="mb-0"><?php foreach ((array) $state['remaining'] as $r): ?><li><?= e((string) $r) ?></li><?php endforeach; ?></ul></div><?php endif; ?>
 <?php if ($m['status'] === 'completed'): ?>
 <div class="card"><div class="card-header">After the migration</div><div class="card-body small">

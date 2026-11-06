@@ -27,6 +27,9 @@ type DB interface {
 	Exists(ctx context.Context, name string) (bool, error)
 	Tables(ctx context.Context, name string) (int, error)
 	Import(ctx context.Context, name string, r io.Reader, log io.Writer) error
+	// Reset empties a database the migration filled, unless a table was written to after
+	// since (newer=true: nothing is dropped).
+	Reset(ctx context.Context, name string, since time.Time) (newer bool, err error)
 }
 
 type realDB struct{ c dbmgr.Client }
@@ -42,6 +45,29 @@ func (d realDB) Tables(ctx context.Context, name string) (int, error) {
 		return 0, fmt.Errorf("the tables of %s could not be counted", name)
 	}
 	return strconv.Atoi(rows[0][0])
+}
+
+func (d realDB) Reset(ctx context.Context, name string, since time.Time) (bool, error) {
+	if !dbNameRe.MatchString(name) {
+		return false, fmt.Errorf("invalid database name")
+	}
+	rows, err := d.c.Query(ctx, fmt.Sprintf("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = %s AND update_time > FROM_UNIXTIME(%d);", dbmgr.Quote(name), since.Add(5*time.Second).Unix()))
+	if err != nil || len(rows) != 1 {
+		return false, fmt.Errorf("the tables of %s could not be checked", name)
+	}
+	if rows[0][0] != "0" {
+		return true, nil
+	}
+	cs, err := d.c.Query(ctx, "SELECT default_character_set_name, default_collation_name FROM information_schema.schemata WHERE schema_name = "+dbmgr.Quote(name)+";")
+	if err != nil || len(cs) != 1 || len(cs[0]) < 2 {
+		return false, fmt.Errorf("the character set of %s could not be read", name)
+	}
+	if !regexp.MustCompile(`^[a-z0-9_]+$`).MatchString(cs[0][0]) || !regexp.MustCompile(`^[a-z0-9_]+$`).MatchString(cs[0][1]) {
+		return false, fmt.Errorf("unexpected character set")
+	}
+	// Dropping and creating again with the same character set empties it; the grants on it stay.
+	sql := fmt.Sprintf("DROP DATABASE `%[1]s`; CREATE DATABASE `%[1]s` CHARACTER SET %[2]s COLLATE %[3]s;", name, cs[0][0], cs[0][1])
+	return false, d.c.Exec(ctx, "empty "+name, sql)
 }
 
 func (d realDB) Import(ctx context.Context, name string, r io.Reader, log io.Writer) error {
@@ -192,7 +218,7 @@ func (e *Engine) Run(ctx context.Context, id string, src Source, log io.Writer) 
 	if err != nil {
 		return err
 	}
-	if m.Status == Completed || m.Status == Cancelled {
+	if m.Status == Completed || m.Status == Cancelled || m.Status == RolledBack {
 		return fmt.Errorf("this migration is %s", m.Status)
 	}
 	if err := src.Validate(true); err != nil {
@@ -418,7 +444,7 @@ func (e *Engine) runFiles(ctx context.Context, m *Migration, t Puller, i int, up
 		return fatal{fmt.Errorf("the disk of %s has only %s free; NimVor keeps %s free, so nothing was copied", f.DestRoot, kb(free), kb(reserveKB))}
 	}
 	update(i, func(t *Task) { t.Checkpoint = "copying" })
-	args := []string{"-a", "--partial", "--safe-links", "--stats", "--no-specials", "--no-devices",
+	args := []string{"-a", "-i", "-8", "--partial", "--safe-links", "--stats", "--no-specials", "--no-devices",
 		fmt.Sprintf("--chown=%d:%d", u.UID, gid)}
 	if m.Plan.Config.Compress {
 		args = append(args, "-z")
@@ -436,6 +462,9 @@ func (e *Engine) runFiles(ctx context.Context, m *Migration, t Puller, i int, up
 	}
 	if mm := rsyncBytes.FindStringSubmatch(out.String()); mm != nil {
 		bytes = num(mm[1])
+	}
+	if err := e.recordCreated(m.ID, m.Tasks[i].ID, real, out.String()); err != nil {
+		return fmt.Errorf("what was copied could not be recorded: %v", err)
 	}
 	// Verification: a second pass that compares by checksum and lists what differs.
 	vargs := []string{"-a", "-n", "-c", "--safe-links", "--itemize-changes", "--no-specials", "--no-devices", "--no-owner", "--no-group"}
@@ -528,7 +557,12 @@ func (e *Engine) runDB(ctx context.Context, m *Migration, t Puller, i int, updat
 	if err != nil {
 		return fmt.Errorf("the tables of %s could not be counted on the source: %v", d.Source, err)
 	}
-	update(i, func(t *Task) { t.Checkpoint = "importing" })
+	update(i, func(t *Task) {
+		t.Checkpoint = "importing"
+		if cp == "" {
+			t.StartedEmpty = n == 0
+		}
+	})
 	f, err := os.Open(final)
 	if err != nil {
 		return err

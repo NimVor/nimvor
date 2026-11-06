@@ -182,6 +182,11 @@ final class MigrationsController extends Controller
         return $this->act($request, $id, fn (int $i) => $this->service->cancel($i), 'The migration was cancelled. What was copied stays; nothing was removed from the source.');
     }
 
+    public function rollback(Request $request, string $id): Response
+    {
+        return $this->act($request, $id, fn (int $i) => $this->service->rollback($i, $request->input('confirm') === '1', $request->input('empty_databases') === '1'), 'The rollback is done. What was kept is listed below.');
+    }
+
     public function forget(Request $request, string $id): Response
     {
         return $this->act($request, $id, fn (int $i) => $this->service->forgetLogin($i), 'The stored login was erased.');
