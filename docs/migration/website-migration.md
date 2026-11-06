@@ -45,7 +45,7 @@ against real servers; today nothing is.
 | Validation pass: document root, created files present and owned by the account, database reachable and table count, HTTP request to the site by name | ✅ |
 | Validation of PHP execution and extensions, application configuration, SSL, DNS | ❌ |
 | Rollback of destination changes | ✅ files and (on confirmation) databases, never newer data (see "Rollback") |
-| Final report as PDF | ❌ (JSON only) |
+| Final report | ✅ JSON download and a printable page (print or save as PDF from the browser); no server-generated PDF |
 | API connections (WHM API, Plesk REST…) | ❌ (SSH only) |
 
 ## Before you start
