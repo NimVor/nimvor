@@ -11,6 +11,8 @@ All notable changes to NimVor are documented here. The format follows
 Website migration now also copies email messages and can create cPanel forwarders. The agent changes (new mail tasks in the migration engine), so upgrade the panel and the agent together (`installer/upgrade.sh` does both).
 
 ### Added
+- Website migration: a **printable report** page (print or save as PDF from the browser) next to the JSON report, with the plan, results, compatibility check, validation, rollback and what was not moved. The report's recommendations no longer say email and DNS are never moved.
+- Website migration: **Plesk (Linux) as a source (experimental).** Subscriptions, domains, subdomains, databases and mailboxes are read from Plesk's own database with read-only queries over SSH and migrated like any other source. Written from the documented schema and tested on synthetic data only.
 - Website migration: DNS records of a cPanel source's zones can be added to the NimVor zones of the same names from the selection step (new read-only agent action `migrate.dns_zone`). MX, TXT, CNAME, SRV and CAA records are added; address records (A, AAAA) are left out because they point at the old server; existing records are not duplicated. NimVor never changes DNS at a registrar or nameservers.
 
 ### Added

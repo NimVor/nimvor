@@ -29,7 +29,7 @@ final class MigrationService
 {
     /** Panels that are not supported yet: listed so nobody assumes they are. */
     public const PLANNED = [
-        'Plesk', 'CyberPanel', 'DirectAdmin', 'Virtualmin / Webmin', 'HestiaCP', 'aaPanel', 'ISPConfig',
+        'CyberPanel', 'DirectAdmin', 'Virtualmin / Webmin', 'HestiaCP', 'aaPanel', 'ISPConfig',
         'Enhance', 'InterWorx', 'CloudPanel', 'VestaCP', 'Froxlor',
     ];
 
@@ -609,13 +609,12 @@ final class MigrationService
                 'Open each migrated website and check pages, forms, redirects and logins: .htaccess rules are not translated to Nginx.',
                 'Files that differ from the source (see "differences") changed while they were copied: run the migration again to synchronise them before switching DNS.',
                 'Nothing was deleted on the source. Keep it until you have checked the new site, and change DNS yourself when you are ready.',
-                'Email, DNS records, SSL certificates, FTP accounts and cron jobs are not moved by this version.',
+                'Mailbox passwords and quotas, address (A/AAAA) records, SSL certificates, FTP accounts and cron jobs are not moved by this version; email messages, forwarders and other DNS records are only moved for the items you selected.',
             ],
             'validation_note' => 'Files were compared by checksum after the copy; databases were compared by table count. The validation pass (Validate) adds document root, created files, ownership, database and HTTP checks; PHP, SSL and DNS checks are not run by this version.',
         ];
     }
 
-    /** @return array<string, mixed> */
     /**
      * Create NimVor aliases for the forwarders the user ticked. An address that already has an
      * alias or a mailbox is left alone, and so is one whose domain is not set up for mail here.
@@ -724,6 +723,7 @@ final class MigrationService
         return ['added' => $added, 'notes' => $notes];
     }
 
+    /** @return array<string, mixed> */
     private function mustFind(int $id): array
     {
         return $this->find($id) ?? throw new UserFacingException('Migration not found.');

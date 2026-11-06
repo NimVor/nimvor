@@ -254,6 +254,7 @@ $running = in_array($m['status'], ['running', 'discovering'], true);
         <form method="post" action="<?= e($this->url('migrations.cancel', ['id' => $id])) ?>" data-nim-confirm="Cancel this migration? What was copied stays where it is; nothing is removed from the source or the destination. A cancelled migration cannot be continued."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger">Cancel</button></form>
     <?php endif; ?>
     <a class="btn btn-sm btn-outline-secondary ms-auto" href="<?= e($this->url('migrations.report', ['id' => $id])) ?>"><i class="bi bi-download me-1"></i>Report (JSON)</a>
+    <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('migrations.report_print', ['id' => $id])) ?>" target="_blank" rel="noopener"><i class="bi bi-printer me-1"></i>Printable report</a>
 </div>
 <?php if ($m['error'] !== ''): ?><div class="alert alert-<?= $m['status'] === 'cancelled' ? 'secondary' : 'danger' ?> small"><?= e((string) $m['error']) ?></div><?php endif; ?>
 <div class="nim-panel mb-3" data-fetched-running="<?= $running ? 1 : 0 ?>">

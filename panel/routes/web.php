@@ -176,6 +176,7 @@ return static function (Router $r): void {
     $r->post('/migrations/{id}/forwarders', [\NimVor\Http\Controllers\MigrationsController::class, 'forwarders'], ['name' => 'migrations.forwarders', 'permission' => P::SERVER_MANAGE]);
     $r->post('/migrations/{id}/forget', [\NimVor\Http\Controllers\MigrationsController::class, 'forget'], ['name' => 'migrations.forget', 'permission' => P::SERVER_MANAGE]);
     $r->post('/migrations/{id}/delete', [\NimVor\Http\Controllers\MigrationsController::class, 'delete'], ['name' => 'migrations.delete', 'permission' => P::SERVER_MANAGE]);
+    $r->get('/migrations/{id}/report/print', [\NimVor\Http\Controllers\MigrationsController::class, 'printReport'], ['name' => 'migrations.report_print', 'permission' => P::SERVER_MANAGE]);
     $r->get('/migrations/{id}/report', [\NimVor\Http\Controllers\MigrationsController::class, 'report'], ['name' => 'migrations.report', 'permission' => P::SERVER_MANAGE]);
     $r->post('/backups/key/download', [BackupsController::class, 'downloadKey'], ['name' => 'backups.key.download', 'permission' => P::BACKUPS_MANAGE]);
     $r->post('/backups/key/import', [BackupsController::class, 'importKey'], ['name' => 'backups.key.import', 'permission' => P::BACKUPS_MANAGE]);

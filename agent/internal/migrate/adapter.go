@@ -30,7 +30,7 @@ type Adapter interface {
 }
 
 // adapters in detection order: a specific panel before the generic server.
-func adapters() []Adapter { return []Adapter{cpanelAdapter{}, linuxAdapter{}} }
+func adapters() []Adapter { return []Adapter{cpanelAdapter{}, pleskAdapter{}, linuxAdapter{}} }
 
 // Lookup returns an adapter by id.
 func Lookup(id string) (Adapter, error) {

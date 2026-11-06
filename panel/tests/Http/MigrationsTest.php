@@ -34,6 +34,7 @@ final class MigrationsTest extends HttpTestCase
         $this->dbId = $this->db->lastInsertId();
         $this->agent->succeed('migrate.panels', ['panels' => [
             ['panel' => 'cpanel', 'name' => 'cPanel / WHM', 'support' => 'experimental'],
+            ['panel' => 'plesk', 'name' => 'Plesk (Linux)', 'support' => 'experimental'],
             ['panel' => 'linux', 'name' => 'Custom Linux server (no panel)', 'support' => 'experimental'],
         ]]);
     }
@@ -92,7 +93,7 @@ final class MigrationsTest extends HttpTestCase
     {
         $this->seedUser('alice', 'customer');
         $this->login('alice');
-        foreach (['/migrations', '/migrations/new', '/migrations/1', '/migrations/1/report'] as $path) {
+        foreach (['/migrations', '/migrations/new', '/migrations/1', '/migrations/1/report', '/migrations/1/report/print'] as $path) {
             // The route needs the server.manage permission, so a customer never reaches the controller.
             self::assertSame(403, $this->request('GET', $path)->status(), $path);
         }
@@ -113,14 +114,14 @@ final class MigrationsTest extends HttpTestCase
         $page = $this->request('GET', '/migrations/new')->body();
         self::assertStringContainsString('cPanel / WHM', $page);
         self::assertStringContainsString('Custom Linux server', $page);
-        self::assertSame(2, substr_count($page, 'Experimental</span>'));
+        self::assertSame(3, substr_count($page, 'Experimental</span>'));
         self::assertStringNotContainsString('Fully supported</span>', $page);
         foreach (['Plesk', 'CyberPanel', 'DirectAdmin', 'HestiaCP', 'aaPanel', 'ISPConfig'] as $p) {
             self::assertStringContainsString($p, $page);
         }
         self::assertStringContainsString('Not available yet', $page);
         // A panel that is only planned cannot be started.
-        $this->post('/migrations', ['panel' => 'plesk']);
+        $this->post('/migrations', ['panel' => 'directadmin']);
         self::assertSame(0, (int) $this->db->scalar('SELECT COUNT(*) FROM site_migrations'));
         self::assertStringContainsString('not supported yet', (string) $this->flash('error'));
         $res = $this->post('/migrations', ['panel' => 'cpanel']);
@@ -444,6 +445,15 @@ final class MigrationsTest extends HttpTestCase
         self::assertStringNotContainsString(self::PW, $res->body());
         self::assertStringNotContainsString('host_key', $res->body());
         self::assertStringNotContainsString(self::KEY, $res->body());
+        $print = $this->request('GET', "/migrations/{$id}/report/print");
+        self::assertSame(200, $print->status());
+        self::assertStringContainsString('Migration report #' . $id, $print->body());
+        self::assertStringContainsString('Files of new.example.com', $print->body());
+        self::assertStringContainsString('Not moved by this version', $print->body());
+        self::assertStringNotContainsString('<style', $print->body());
+        self::assertStringNotContainsString('onclick=', $print->body());
+        self::assertStringNotContainsString(self::PW, $print->body());
+        self::assertStringNotContainsString(self::KEY, $print->body());
         // It cannot be continued without connecting again.
         $this->post("/migrations/{$id}/resume");
         self::assertStringContainsString('cannot be continued', (string) $this->flash('error'));

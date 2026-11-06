@@ -1,0 +1,16 @@
+/* Printable migration report. Kept in a file: the panel's CSP allows no inline styles. */
+body { background: #fff; color: #111; }
+.mr-wrap { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; }
+.mr-wrap h1 { font-size: 1.6rem; }
+.mr-wrap h2 { font-size: 1.1rem; margin-top: 1.6rem; border-bottom: 1px solid #ccc; padding-bottom: .25rem; }
+.mr-wrap table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.mr-wrap th, .mr-wrap td { border-bottom: 1px solid #ddd; padding: .3rem .4rem; text-align: left; vertical-align: top; word-break: break-word; }
+.mr-ok { color: #146c43; font-weight: 600; }
+.mr-bad { color: #b02a37; font-weight: 600; }
+.mr-warn { color: #8a5a00; font-weight: 600; }
+@media print {
+  .mr-noprint { display: none !important; }
+  .mr-wrap { padding: 0; max-width: none; }
+  h2 { break-after: avoid; }
+  tr { break-inside: avoid; }
+}

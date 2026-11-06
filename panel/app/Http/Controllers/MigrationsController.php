@@ -250,6 +250,20 @@ final class MigrationsController extends Controller
         return $this->act($request, $id, fn (int $i) => $this->service->delete($i), 'The migration record was removed.', '/migrations');
     }
 
+    /** The report as a page to print or save as PDF from the browser. */
+    public function printReport(Request $request, string $id): Response
+    {
+        if ($this->denied($request)) {
+            return $this->redirectWithError('/', 'Only administrators can read migration reports.');
+        }
+        try {
+            $report = $this->service->report((int) $id);
+        } catch (UserFacingException) {
+            return $this->redirectWithError('/migrations', 'Migration not found.');
+        }
+        return new Response($this->view->render('migrations/print', ['r' => $report, 'id' => (int) $id], null), 200, ['Content-Type' => 'text/html; charset=utf-8', 'Cache-Control' => 'no-store']);
+    }
+
     public function report(Request $request, string $id): Response
     {
         if ($this->denied($request)) {

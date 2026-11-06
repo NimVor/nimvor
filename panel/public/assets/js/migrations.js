@@ -7,3 +7,9 @@
         if (!document.querySelector('.modal.show') && !document.activeElement.matches('input, textarea, select')) { location.reload(); }
     }, 5000);
 })();
+
+// The printable report: the button opens the browser's print dialog (save as PDF from there).
+document.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('[data-nim-print]') : null;
+    if (b) { e.preventDefault(); window.print(); }
+});
