@@ -246,6 +246,22 @@ paths:
               - memcached.configure
               - memcached.flush
               - memcached.status
+              - migrate.assess
+              - migrate.cancel
+              - migrate.create
+              - migrate.cutover_check
+              - migrate.discover
+              - migrate.get
+              - migrate.host_key
+              - migrate.list
+              - migrate.panels
+              - migrate.pause
+              - migrate.resume
+              - migrate.rollback
+              - migrate.start
+              - migrate.sync
+              - migrate.test
+              - migrate.validate
               - modsec.configure
               - modsec.crs_install
               - modsec.custom_get
@@ -794,6 +810,22 @@ x-nimvor-actions:
   memcached.configure: { mutating: true, description: "Set Memcached's memory, connection limit and (loopback) listen addresses in its package configuration file after explicit confirmation; restarts and verifies, rolls back on failure." }
   memcached.flush: { mutating: true, description: "Remove every item from Memcached (requires confirm)." }
   memcached.status: { mutating: false, description: "Whether Memcached is installed and running, its settings and statistics." }
+  migrate.assess: { mutating: false, description: "Check a migration plan against this server (disk, temporary space, PHP, database engine) and the discovery. Reads only; contacts no server." }
+  migrate.cancel: { mutating: true, description: "Cancel a migration. Copied files and imported databases stay; nothing is removed from the source or the destination." }
+  migrate.create: { mutating: true, description: "Store a migration plan whose destinations are existing NimVor websites and databases. Starts nothing." }
+  migrate.cutover_check: { mutating: false, description: "Read where each migrated website's name points now (this server's resolver and three public ones) and whether that is one of this server's addresses. Reads DNS only: it never changes a record or a nameserver." }
+  migrate.discover: { mutating: false, description: "Discover the accounts, domains, databases, mailboxes and cron jobs of a source server (job; reads only). The result is the job's result." }
+  migrate.get: { mutating: false, description: "The state of one migration: its tasks, their status, and what remains to be done by hand." }
+  migrate.host_key: { mutating: false, description: "Ask a source server for its SSH host key so the person can confirm it. No login is sent." }
+  migrate.list: { mutating: false, description: "Every migration on this server, newest first." }
+  migrate.panels: { mutating: false, description: "The source panels the migration wizard can read, and how far each is proven." }
+  migrate.pause: { mutating: true, description: "Ask a running migration to pause at the next safe point; continue it later." }
+  migrate.resume: { mutating: true, description: "Continue a paused, failed or interrupted migration (job): tasks that are done are not repeated. The login is given again and not stored." }
+  migrate.rollback: { mutating: true, description: "Undo a migration's changes in this server: remove the files it created while they are unchanged, empty the databases it filled only when told to and only if nothing was written to them since. Newer data is never removed; nothing on the source is touched." }
+  migrate.start: { mutating: true, description: "Run a stored migration (job). The login is used for this run only and is not stored." }
+  migrate.sync: { mutating: true, description: "Copy again only the website files that changed on the source since the last copy (job), for use right before switching DNS. Databases are not synchronised. The login is given for this run and not stored." }
+  migrate.test: { mutating: false, description: "Connect to a source server over SSH (host key pinned), identify its system, panel, PHP, database engine and disk. Reads only." }
+  migrate.validate: { mutating: false, description: "Check what a migration left in this server: document roots, created files present and owned by the website's account, databases reachable with their table counts, and an HTTP request to the site by name. Reads only; contacts no source." }
   modsec.configure: { mutating: true, description: "Turn ModSecurity on or off server-wide and set the rule vendors (OWASP CRS paranoia level and anomaly thresholds, custom rules). Checked with nginx -t, rolled back on failure." }
   modsec.crs_install: { mutating: true, description: "Install the OWASP Core Rule Set (background job, one transaction): the distribution's package when there is one, otherwise the pinned, checksum-verified CRS release unpacked by the agent (rule and data files only). It is turned on in detection only: websites set to block only log until blocking is allowed. Rolled back on failure." }
   modsec.custom_get: { mutating: false, description: "The administrator's custom ModSecurity rules." }

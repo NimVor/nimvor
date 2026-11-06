@@ -64,6 +64,7 @@ final class Navigation
             ],
             'Operations' => [
                 ['Backups', 'archive', 'backups', P::BACKUPS_VIEW, '/backups', 'Backups, schedules and destinations'],
+                ['Migrations', 'box-arrow-in-down', 'migrations', P::SERVER_MANAGE, '/migrations', 'Move websites from another server'],
                 ['Monitoring', 'activity', 'monitoring', P::MONITORING_VIEW, '/monitoring', 'Metrics history, live statistics and processes', [
                     ['History and alerts', 'monitoring', P::MONITORING_VIEW],
                     ['Live', 'monitoring.live', P::MONITORING_VIEW],
