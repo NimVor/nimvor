@@ -18,7 +18,7 @@ against real servers; today nothing is.
 |---|---|---|
 | Custom Linux server (no panel) | **Experimental** | Discovery of Nginx/Apache sites and MySQL/MariaDB databases on synthetic data. File copy and database import proven against a real `sshd` and MariaDB (see "How it was tested"). |
 | cPanel / WHM | **Experimental** | Discovery written from cPanel's documented file layout and tested on **synthetic data only**. Not tried on a real cPanel server, and the layout differs between versions. Treat the discovery as a starting point and check it. |
-| Plesk, CyberPanel, DirectAdmin, Virtualmin/Webmin, HestiaCP, aaPanel, ISPConfig, Enhance, InterWorx, CloudPanel, VestaCP, Froxlor | **Not available** | Listed in the wizard so nobody assumes they work. They cannot be chosen. |
+| CyberPanel, DirectAdmin, Virtualmin/Webmin, HestiaCP, aaPanel, ISPConfig, Enhance, InterWorx, CloudPanel, VestaCP, Froxlor | **Not available** | Listed in the wizard so nobody assumes they work. They cannot be chosen. |
 
 ### What it moves
 
@@ -215,6 +215,16 @@ reports them as changed, not lost. Passwords and quotas are not
 copied. Forwarders (cPanel `/etc/valiases`) are listed under the selection step and, when you
 tick them, created straight away as NimVor aliases; rules that pipe to a program, bounce or
 discard are not read. Do not move MX records before the mail has been moved and synchronised.
+
+## Plesk (Linux, experimental)
+
+Choose **Plesk (Linux)** as the source and log in as root. NimVor reads Plesk's own database (`plesk db`
+with read-only SELECT queries) for subscriptions and their domains, document roots, subdomains, MySQL/MariaDB
+databases and mailboxes, then continues exactly as for any source: files, databases and mail are copied
+into the NimVor websites, databases and mailboxes you chose. A Plesk subscription is one account. Not
+read from Plesk: PHP versions per domain, forwarders, DNS zones, FTP and cron. This adapter was written from
+Plesk's documented database layout and has only run on synthetic data, so test it on a non-critical
+subscription first.
 
 ## Known limitations
 
