@@ -201,3 +201,38 @@ func TestCpanelForwardersAreReadAndOnlyPlainOnesKept(t *testing.T) {
 		t.Errorf("catch-all = %+v", a.Forwarders[1])
 	}
 }
+
+func TestReadingAZoneIsReadOnlyConfinedToTheZoneFileAndLimited(t *testing.T) {
+	src := &fakeSrc{}
+	src.execFn = func(cmd string, stdout io.Writer) (string, error) {
+		io.WriteString(stdout, "$TTL 14400\r\n@ IN MX 10 mail.example.com.\r\n")
+		return "", nil
+	}
+	text, err := ReadZone(context.Background(), src, "cpanel", "example.com")
+	if err != nil || strings.Contains(text, "\r") || !strings.Contains(text, "MX 10") {
+		t.Fatalf("text = %q, %v", text, err)
+	}
+	cmd := src.execs[0]
+	if !strings.Contains(cmd, "/var/named/example.com.db") || strings.Contains(cmd, "rm ") || strings.Contains(cmd, ">") {
+		t.Errorf("command = %s", cmd)
+	}
+	for _, d := range []string{"../etc/passwd", "a b", "x;rm -rf /", ""} {
+		if _, err := ReadZone(context.Background(), src, "cpanel", d); err == nil {
+			t.Errorf("%q was accepted", d)
+		}
+	}
+	if _, err := ReadZone(context.Background(), src, "linux", "example.com"); err == nil {
+		t.Error("a non-cPanel source was read")
+	}
+	src.execFn = func(cmd string, stdout io.Writer) (string, error) { return "", nil }
+	if _, err := ReadZone(context.Background(), src, "cpanel", "example.com"); err == nil {
+		t.Error("an empty result was accepted")
+	}
+	src.execFn = func(cmd string, stdout io.Writer) (string, error) {
+		stdout.Write(make([]byte, maxZoneBytes+1))
+		return "", nil
+	}
+	if _, err := ReadZone(context.Background(), src, "cpanel", "example.com"); err == nil {
+		t.Error("an oversized zone was accepted")
+	}
+}

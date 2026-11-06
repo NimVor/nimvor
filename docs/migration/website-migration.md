@@ -33,7 +33,7 @@ against real servers; today nothing is.
 | Email messages (Maildir: every folder, flags kept) into mailboxes you already made in NimVor, with the same address | ✅ (rsync, no delete, never into a mailbox that has messages unless overwriting is allowed, checksum-verified, included in sync, rollback and validation) |
 | Email forwarders (cPanel: plain address-to-address rules) | ✅ created as NimVor aliases on request; existing aliases and mailboxes are never overwritten |
 | Mailbox passwords and quotas | ❌ (set them on the NimVor mailboxes) |
-| DNS zones and records | ❌ |
+| DNS records of a cPanel source's zones (MX, TXT, CNAME, SRV, CAA) added to the NimVor zones of the same names | ✅ on request; address records (A, AAAA) are never copied; only NimVor's own zones change |
 | DNS cut-over **check** (read only): where each migrated name points now, as seen by four resolvers, and whether that is this server | ✅ |
 | Changing DNS records or nameservers, TTL changes, DNS provider integration | ❌ by design: NimVor never changes DNS for a migration |
 | SSL certificates | ❌ |
