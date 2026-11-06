@@ -135,6 +135,13 @@ func (e *Engine) Create(p Plan, panel, source string) (*Migration, error) {
 				}
 			}
 		}
+		for _, mt := range p.Mail {
+			for _, om := range o.Plan.Mail {
+				if mt.Address == om.Address {
+					return nil, fmt.Errorf("the mailbox %s is already the destination of an unfinished migration (%s)", mt.Address, o.ID)
+				}
+			}
+		}
 		for _, d := range p.Databases {
 			for _, od := range o.Plan.Databases {
 				if d.Dest == od.Dest {
@@ -146,6 +153,9 @@ func (e *Engine) Create(p Plan, panel, source string) (*Migration, error) {
 	m := &Migration{ID: newID(), Status: Created, Panel: panel, Source: source, Plan: p, Created: time.Now().UTC()}
 	for _, f := range p.Files {
 		m.Tasks = append(m.Tasks, Task{ID: "files:" + f.DestRoot, Kind: "files", Label: "Files of " + f.Domain, Status: Pending})
+	}
+	for _, mt := range p.Mail {
+		m.Tasks = append(m.Tasks, Task{ID: "mail:" + mt.Address, Kind: "mail", Label: "Mailbox " + mt.Address, Status: Pending})
 	}
 	for _, d := range p.Databases {
 		m.Tasks = append(m.Tasks, Task{ID: "db:" + d.Dest, Kind: "db", Label: "Database " + d.Source + " → " + d.Dest, Status: Pending})
@@ -281,6 +291,8 @@ func (e *Engine) Run(ctx context.Context, id string, src Source, log io.Writer) 
 			switch task.Kind {
 			case "files":
 				err = e.runFiles(ctx, m, t, i, update, log)
+			case "mail":
+				err = e.runMail(ctx, m, t, i, update, log)
 			case "db":
 				err = e.runDB(ctx, m, t, i, update, log)
 			}
@@ -307,7 +319,7 @@ func (e *Engine) Run(ctx context.Context, id string, src Source, log io.Writer) 
 	sem := make(chan struct{}, m.Plan.Config.Workers)
 	var wg sync.WaitGroup
 	for i := range m.Tasks {
-		if m.Tasks[i].Kind != "files" {
+		if m.Tasks[i].Kind != "files" && m.Tasks[i].Kind != "mail" {
 			continue
 		}
 		wg.Add(1)
@@ -367,6 +379,8 @@ func (e *Engine) finish(m *Migration, status, msg string) error {
 			switch {
 			case t.Kind == "files" && t.Status != Done:
 				m.Remaining = append(m.Remaining, "Files of "+strings.TrimPrefix(t.ID, "files:")+" are not complete (copied so far stay in place; continuing copies the rest).")
+			case t.Kind == "mail" && t.Status != Done:
+				m.Remaining = append(m.Remaining, "The mailbox "+strings.TrimPrefix(t.ID, "mail:")+" is not complete (messages copied so far stay in place; continuing copies the rest).")
 			case t.Kind == "db" && t.Status != Done && t.Checkpoint == "importing":
 				m.Remaining = append(m.Remaining, "The database "+strings.TrimPrefix(t.ID, "db:")+" was being imported and may be incomplete: continuing imports it again over its own tables.")
 			case t.Kind == "db" && t.Status != Done:

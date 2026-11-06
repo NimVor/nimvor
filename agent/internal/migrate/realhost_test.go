@@ -10,8 +10,11 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -417,5 +420,102 @@ func TestRealHostMigrateDatabaseOverSSH(t *testing.T) {
 	s2, _ := e.Store.Load(m2.ID)
 	if !strings.Contains(s2.Tasks[0].Error, "already has") {
 		t.Errorf("error = %q", s2.Tasks[0].Error)
+	}
+}
+
+// Messages pulled with the real rsync over the real sshd into a mailbox owned by the vmail account:
+// Dovecot's caches stay behind, flags in file names survive, a mailbox with messages is refused.
+func TestRealHostMigrateMailOverSSH(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("needs root")
+	}
+	if c, err := net.DialTimeout("tcp", "127.0.0.1:22", 2*time.Second); err != nil {
+		t.Skip("needs sshd on port 22")
+	} else {
+		c.Close()
+	}
+	for _, bin := range []string{"rsync", "ssh"} {
+		if _, err := exec.LookPath(bin); err != nil {
+			t.Skip("needs " + bin)
+		}
+	}
+	const pw = "Mig-Src-Pa55word-2"
+	exec.Command("useradd", "-m", "-s", "/bin/sh", "nimvormail").Run()
+	t.Cleanup(func() { exec.Command("userdel", "-r", "nimvormail").Run() })
+	exec.Command("sh", "-c", "echo 'nimvormail:"+pw+"' | chpasswd").Run()
+	box := "/home/nimvormail/mail/example.test/info"
+	for _, d := range []string{"cur", "new", "tmp", ".Sent/cur"} {
+		os.MkdirAll(filepath.Join(box, d), 0o755)
+	}
+	os.WriteFile(filepath.Join(box, "cur", "1700000000.M1.src:2,S"), []byte("Subject: one\n\nbody"), 0o600)
+	os.WriteFile(filepath.Join(box, "new", "1700000001.M2.src"), []byte("Subject: two\n\nbody"), 0o600)
+	os.WriteFile(filepath.Join(box, ".Sent", "cur", "1700000002.M3.src:2,S"), []byte("Subject: sent\n\nbody"), 0o600)
+	os.WriteFile(filepath.Join(box, "dovecot.index.cache"), []byte("cache"), 0o600)
+	os.WriteFile(filepath.Join(box, "maildirsize"), []byte("0S"), 0o600)
+	exec.Command("chown", "-R", "nimvormail:nimvormail", "/home/nimvormail").Run()
+
+	if _, err := user.Lookup("vmail"); err != nil {
+		exec.Command("useradd", "-r", "-s", "/usr/sbin/nologin", "vmail").Run()
+		t.Cleanup(func() { exec.Command("userdel", "vmail").Run() })
+	}
+	env := realEnv(t)
+	vm, err := env.LookupUser("vmail")
+	if err != nil {
+		t.Skip("cannot make a vmail account here")
+	}
+	env.M.VmailDir, _ = os.MkdirTemp("/tmp", "nimvor-vmail-")
+	t.Cleanup(func() { os.RemoveAll(env.M.VmailDir) })
+	os.Chmod(env.M.VmailDir, 0o755)
+	dest := filepath.Join(env.M.VmailDir, "example.test", "info", "Maildir")
+	for _, d := range []string{"cur", "new", "tmp"} {
+		os.MkdirAll(filepath.Join(dest, d), 0o700)
+	}
+	exec.Command("chown", "-R", strconv.Itoa(vm.UID)+":"+strconv.Itoa(vm.GID), env.M.VmailDir).Run()
+
+	keys, err := backup.ScanHostKeys(context.Background(), env, backup.Remote{Type: "sftp", Host: "127.0.0.1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := Source{Host: "127.0.0.1", User: "nimvormail", Password: pw, HostKey: keys[0]}
+	tr, err := NewSSH(env, src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := NewEngine(env)
+	e.Sleep = func(time.Duration) {}
+	plan := Plan{Mail: []MailTask{{Address: "info@example.test", SourceMaildir: box, SizeKB: 20}}, Config: Config{Workers: 1}}
+	m, err := e.Create(plan, "cpanel", tr.Describe())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var log bytes.Buffer
+	if err := e.Run(context.Background(), m.ID, src, &log); err != nil {
+		t.Fatalf("run: %v\n%s", err, log.String())
+	}
+	s, _ := e.Store.Load(m.ID)
+	if s.Status != Completed || s.Tasks[0].Differences != 0 || s.Tasks[0].Files != 3 {
+		t.Fatalf("state = %+v\n%s", s, log.String())
+	}
+	for _, p := range []string{"cur/1700000000.M1.src:2,S", "new/1700000001.M2.src", ".Sent/cur/1700000002.M3.src:2,S"} {
+		info, err := os.Stat(filepath.Join(dest, p))
+		if err != nil {
+			t.Errorf("%s not copied: %v", p, err)
+			continue
+		}
+		if st, ok := info.Sys().(*syscall.Stat_t); !ok || int(st.Uid) != vm.UID {
+			t.Errorf("%s is not owned by vmail", p)
+		}
+	}
+	for _, p := range []string{"dovecot.index.cache", "maildirsize"} {
+		if _, err := os.Stat(filepath.Join(dest, p)); err == nil {
+			t.Errorf("%s was copied", p)
+		}
+	}
+	// The mailbox now has messages: a second migration into it is refused.
+	m2, err := e.Create(plan, "cpanel", tr.Describe())
+	if err == nil {
+		if err := e.Run(context.Background(), m2.ID, src, io.Discard); err == nil {
+			t.Error("a mailbox with messages was filled again")
+		}
 	}
 }

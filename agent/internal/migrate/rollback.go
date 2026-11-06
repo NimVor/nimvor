@@ -134,8 +134,7 @@ func (e *Engine) Rollback(ctx context.Context, id string, emptyDatabases bool, l
 	rep := &RollbackReport{At: time.Now().UTC(), DatabasesEmptied: []string{}, Kept: []string{}, Notes: []string{}}
 	man := e.Store.LoadManifest(id)
 	for _, f := range m.Plan.Files {
-		taskID := "files:" + f.DestRoot
-		fm := man[taskID]
+		fm := man["files:"+f.DestRoot]
 		if fm == nil {
 			continue
 		}
@@ -144,40 +143,19 @@ func (e *Engine) Rollback(ctx context.Context, id string, emptyDatabases bool, l
 			continue
 		}
 		real, _ := e.Env.Root.Path(f.DestRoot)
-		root, err := os.OpenRoot(real)
-		if err != nil {
-			rep.Notes = append(rep.Notes, fmt.Sprintf("%s could not be opened: %v", f.DestRoot, err))
+		rollbackTree(rep, f.DestRoot, real, fm)
+	}
+	for _, mt := range m.Plan.Mail {
+		fm := man["mail:"+mt.Address]
+		if fm == nil {
 			continue
 		}
-		for i := len(fm.Created) - 1; i >= 0; i-- {
-			c := fm.Created[i]
-			info, err := root.Lstat(c.Path)
-			switch {
-			case os.IsNotExist(err):
-				rep.FilesGone++
-			case err != nil:
-				rep.Kept = append(rep.Kept, f.DestRoot+"/"+c.Path+" (could not be read)")
-			case !info.Mode().IsRegular() || info.Size() != c.Size || info.ModTime().UnixNano() != c.MTime:
-				rep.Kept = append(rep.Kept, f.DestRoot+"/"+c.Path+" (changed since the migration: newer data is never removed)")
-			default:
-				if err := root.Remove(c.Path); err != nil {
-					rep.Kept = append(rep.Kept, f.DestRoot+"/"+c.Path+" ("+err.Error()+")")
-				} else {
-					rep.FilesRemoved++
-				}
-			}
+		real, _, _, err := mailDest(e.Env, mt.Address)
+		if err != nil {
+			rep.Notes = append(rep.Notes, fmt.Sprintf("The mailbox %s was not touched: %v", mt.Address, err))
+			continue
 		}
-		dirs := append([]string{}, fm.Dirs...)
-		sort.Slice(dirs, func(a, b int) bool { return strings.Count(dirs[a], "/") > strings.Count(dirs[b], "/") })
-		for _, d := range dirs {
-			if err := root.Remove(path.Clean(d)); err == nil {
-				rep.DirsRemoved++
-			}
-		}
-		root.Close()
-		if fm.Overwritten > 0 {
-			rep.Notes = append(rep.Notes, fmt.Sprintf("%s: %d existing file(s) were overwritten by the copy and cannot be restored (no copy of them was kept).", f.DestRoot, fm.Overwritten))
-		}
+		rollbackTree(rep, "mailbox "+mt.Address, real, fm)
 	}
 	for i, t := range m.Tasks {
 		if t.Kind != "db" || (t.Checkpoint != "importing" && t.Checkpoint != "imported") {
@@ -231,8 +209,8 @@ func (e *Engine) Sync(ctx context.Context, id string, src Source, log io.Writer)
 	default:
 		return fmt.Errorf("a migration that is %s cannot be synchronised", m.Status)
 	}
-	if len(m.Plan.Files) == 0 {
-		return fmt.Errorf("this migration has no website files to synchronise")
+	if len(m.Plan.Files)+len(m.Plan.Mail) == 0 {
+		return fmt.Errorf("this migration has no website files or mailboxes to synchronise")
 	}
 	e.mu.Lock()
 	_, busy := e.running[id]
@@ -241,7 +219,7 @@ func (e *Engine) Sync(ctx context.Context, id string, src Source, log io.Writer)
 		return fmt.Errorf("this migration is already running")
 	}
 	for i := range m.Tasks {
-		if m.Tasks[i].Kind == "files" {
+		if m.Tasks[i].Kind == "files" || m.Tasks[i].Kind == "mail" {
 			m.Tasks[i].Status = Pending
 			m.Tasks[i].Checkpoint = "resync"
 			m.Tasks[i].Error = ""
@@ -254,4 +232,45 @@ func (e *Engine) Sync(ctx context.Context, id string, src Source, log io.Writer)
 	}
 	fmt.Fprintln(log, "Synchronising the files with the source (only changed files are copied)…")
 	return e.Run(ctx, id, src, log)
+}
+
+// rollbackTree removes what one copy created in a folder, as far as it is safe: a file only while it is
+// exactly as the copy left it, a folder only when empty. label names the destination in the report.
+func rollbackTree(rep *RollbackReport, label, real string, fm *FileManifest) {
+	root, err := os.OpenRoot(real)
+	if err != nil {
+		rep.Notes = append(rep.Notes, fmt.Sprintf("%s could not be opened: %v", label, err))
+		return
+	}
+	defer root.Close()
+	for i := len(fm.Created) - 1; i >= 0; i-- {
+		c := fm.Created[i]
+		info, err := root.Lstat(c.Path)
+		switch {
+		case os.IsNotExist(err) && renamedSibling(root, c.Path):
+			rep.Kept = append(rep.Kept, label+"/"+c.Path+" (renamed since the migration, its flags changed: it was read or flagged, so it is kept)")
+		case os.IsNotExist(err):
+			rep.FilesGone++
+		case err != nil:
+			rep.Kept = append(rep.Kept, label+"/"+c.Path+" (could not be read)")
+		case !info.Mode().IsRegular() || info.Size() != c.Size || info.ModTime().UnixNano() != c.MTime:
+			rep.Kept = append(rep.Kept, label+"/"+c.Path+" (changed since the migration: newer data is never removed)")
+		default:
+			if err := root.Remove(c.Path); err != nil {
+				rep.Kept = append(rep.Kept, label+"/"+c.Path+" ("+err.Error()+")")
+			} else {
+				rep.FilesRemoved++
+			}
+		}
+	}
+	dirs := append([]string{}, fm.Dirs...)
+	sort.Slice(dirs, func(a, b int) bool { return strings.Count(dirs[a], "/") > strings.Count(dirs[b], "/") })
+	for _, d := range dirs {
+		if err := root.Remove(path.Clean(d)); err == nil {
+			rep.DirsRemoved++
+		}
+	}
+	if fm.Overwritten > 0 {
+		rep.Notes = append(rep.Notes, fmt.Sprintf("%s: %d existing file(s) were overwritten by the copy and cannot be restored (no copy of them was kept).", label, fm.Overwritten))
+	}
 }

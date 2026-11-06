@@ -6,6 +6,7 @@ namespace NimVor\Services;
 
 use NimVor\Agent\AgentClient;
 use NimVor\Agent\AgentException;
+use NimVor\Database\Connection;
 use NimVor\Repositories\DatabaseRepository;
 use NimVor\Repositories\MigrationRepository;
 use NimVor\Repositories\WebsiteRepository;
@@ -45,6 +46,7 @@ final class MigrationService
         private readonly WebsiteRepository $sites,
         private readonly DatabaseRepository $dbs,
         private readonly IpService $ips,
+        private readonly Connection $db,
     ) {
     }
 
@@ -268,7 +270,7 @@ final class MigrationService
         $errors = [];
         $files = [];
         $databases = [];
-        $selection = ['domains' => [], 'databases' => []];
+        $selection = ['domains' => [], 'databases' => [], 'mail' => []];
         $siteRows = [];
         foreach ($this->sites->all($this->server->id(), ['role_scope' => 'all', 'id' => 0]) as $s) {
             $siteRows[(int) $s['id']] = $s;
@@ -334,8 +336,31 @@ final class MigrationService
             $databases[] = ['source' => (string) $found['name'], 'dest' => (string) $dbRows[$did]['name'], 'size_kb' => (int) ($found['size_kb'] ?? 0)];
             $selection['databases'][] = ['key' => (string) $key, 'db_id' => $did];
         }
-        if ($files === [] && $databases === [] && $errors === []) {
-            $errors['domains'] = 'Select at least one website or database.';
+        // A mailbox is copied into the NimVor mailbox with the same address, which must exist already.
+        $mail = [];
+        $have = [];
+        foreach ($this->db->fetchAll('SELECT m.local, d.domain FROM mail_mailboxes m JOIN mail_domains d ON d.id = m.domain_id WHERE d.server_id = ?', [$this->server->id()]) as $r) {
+            $have[strtolower($r['local'] . '@' . $r['domain'])] = true;
+        }
+        foreach ((array) ($in['mail'] ?? []) as $key) {
+            [$acct, $addr] = array_pad(explode('|', (string) $key, 2), 2, '');
+            $found = null;
+            foreach ((array) ($accounts[$acct]['email'] ?? []) as $e) {
+                if (($e['address'] ?? '') === $addr) {
+                    $found = (array) $e;
+                }
+            }
+            if ($found === null) {
+                $errors['mail'] = 'A mailbox you selected is not in the discovery. Discover again.';
+            } elseif (!isset($have[strtolower($addr)])) {
+                $errors['mail'] = $addr . ' does not exist in NimVor yet. Create the mailbox under Email first, then select it again.';
+            } else {
+                $mail[] = ['address' => $addr, 'source_maildir' => (string) $found['maildir'], 'size_kb' => (int) ($found['size_kb'] ?? -1)];
+                $selection['mail'][] = (string) $key;
+            }
+        }
+        if ($files === [] && $databases === [] && $mail === [] && $errors === []) {
+            $errors['domains'] = 'Select at least one website, database or mailbox.';
         }
         $workers = (int) ($in['workers'] ?? 2);
         if ($workers < 1 || $workers > 8) {
@@ -353,6 +378,7 @@ final class MigrationService
         $plan = [
             'files' => $files,
             'databases' => $databases,
+            'mail' => $mail,
             'config' => ['compress' => !empty($in['compress']), 'workers' => $workers, 'excludes' => $excludes, 'allow_overwrite' => !empty($in['allow_overwrite'])],
         ];
         $selection['config'] = $plan['config'];
@@ -390,7 +416,7 @@ final class MigrationService
         $this->repo->update($id, ['agent_id' => $agentId, 'job_id' => $job, 'status' => 'running', 'error' => '']);
         $this->jobs->track($job, 'Migration from ' . $m['source_host'], 'migration', (string) $id, null);
         $this->audit->record('migration.start', 'migration', (string) $id, AuditLogger::SUCCESS, [
-            'host' => $m['source_host'], 'websites' => count((array) ($m['plan']['files'] ?? [])), 'databases' => count((array) ($m['plan']['databases'] ?? [])),
+            'host' => $m['source_host'], 'websites' => count((array) ($m['plan']['files'] ?? [])), 'databases' => count((array) ($m['plan']['databases'] ?? [])), 'mailboxes' => count((array) ($m['plan']['mail'] ?? [])),
             'allow_overwrite' => !empty($m['plan']['config']['allow_overwrite']),
         ]);
         return $job;
@@ -459,8 +485,8 @@ final class MigrationService
         if ($m['agent_id'] === '' || !in_array($m['status'], ['completed', 'failed', 'paused', 'interrupted'], true)) {
             throw new UserFacingException('This migration cannot be synchronised now (it never started, is running, or was cancelled or rolled back).');
         }
-        if (empty((array) ($m['plan']['files'] ?? []))) {
-            throw new UserFacingException('This migration has no website files to synchronise.');
+        if (empty((array) ($m['plan']['files'] ?? [])) && empty((array) ($m['plan']['mail'] ?? []))) {
+            throw new UserFacingException('This migration has no website files or mailboxes to synchronise.');
         }
         $pending = (array) $m['pending_key'];
         if (empty($pending['host_key'])) {
@@ -472,7 +498,7 @@ final class MigrationService
         $job = (string) ($res['job_id'] ?? '');
         $this->repo->update($id, ['sealed' => $this->crypto->encrypt((string) json_encode($login, JSON_UNESCAPED_SLASHES)), 'job_id' => $job, 'status' => 'running', 'error' => '', 'finished_at' => null]);
         $this->jobs->track($job, 'Synchronise ' . $m['source_host'], 'migration', (string) $id, null);
-        $this->audit->record('migration.sync', 'migration', (string) $id, AuditLogger::SUCCESS, ['host' => $m['source_host'], 'websites' => count((array) $m['plan']['files'])]);
+        $this->audit->record('migration.sync', 'migration', (string) $id, AuditLogger::SUCCESS, ['host' => $m['source_host'], 'websites' => count((array) ($m['plan']['files'] ?? [])), 'mailboxes' => count((array) ($m['plan']['mail'] ?? []))]);
         return $job;
     }
 

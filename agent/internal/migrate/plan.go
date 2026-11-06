@@ -45,6 +45,7 @@ type Config struct {
 type Plan struct {
 	Files     []FileTask `json:"files"`
 	Databases []DBTask   `json:"databases"`
+	Mail      []MailTask `json:"mail"`
 	Config    Config     `json:"config"`
 }
 
@@ -58,11 +59,11 @@ var (
 // (so a migration can only fill websites NimVor made), and nothing may name
 // a path outside what the agent allows.
 func (p *Plan) Validate(env *host.Env) error {
-	if len(p.Files)+len(p.Databases) == 0 {
+	if len(p.Files)+len(p.Databases)+len(p.Mail) == 0 {
 		return fmt.Errorf("nothing was selected to migrate")
 	}
-	if len(p.Files) > 500 || len(p.Databases) > 500 {
-		return fmt.Errorf("too many items in one migration (500 at most of each kind)")
+	if len(p.Files) > 500 || len(p.Databases) > 500 || len(p.Mail) > 2000 {
+		return fmt.Errorf("too many items in one migration (500 websites or databases, 2000 mailboxes at most)")
 	}
 	if p.Config.Workers == 0 {
 		p.Config.Workers = 2
@@ -91,6 +92,19 @@ func (p *Plan) Validate(env *host.Env) error {
 			return fmt.Errorf("files[%d]: %s is the destination of two items", i, f.DestRoot)
 		}
 		seen[f.DestRoot] = true
+	}
+	mseen := map[string]bool{}
+	for i, mt := range p.Mail {
+		if !ValidRemotePath(mt.SourceMaildir) || strings.Count(strings.Trim(mt.SourceMaildir, "/"), "/") < 2 {
+			return fmt.Errorf("mail[%d].source_maildir: give the mailbox's Maildir on the source, not %q", i, mt.SourceMaildir)
+		}
+		if _, _, _, err := mailDest(env, mt.Address); err != nil {
+			return fmt.Errorf("mail[%d]: %w", i, err)
+		}
+		if mseen[mt.Address] {
+			return fmt.Errorf("mail[%d]: %s is the destination of two items", i, mt.Address)
+		}
+		mseen[mt.Address] = true
 	}
 	dseen := map[string]bool{}
 	for i, d := range p.Databases {

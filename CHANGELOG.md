@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Website migration: email messages. Mailboxes of a cPanel or Linux source are copied (Maildir, rsync, checksum-verified) into the existing NimVor mailbox with the same address, with disk-space assessment, synchronisation, rollback (messages read or delivered since are kept) and validation. Passwords, quotas, aliases and forwarders are not copied.
+
 ## [1.5.0] — 2026-11-06
 
 Website migration from another server (experimental), with rollback, validation, a DNS check and file synchronisation. The agent gains new actions and the command allowlist gains `ssh` and `rsync`, so upgrade the panel and the agent together (`installer/upgrade.sh` does both), and install `ssh` and `rsync` on the server if they are missing.

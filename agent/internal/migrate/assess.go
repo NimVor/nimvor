@@ -30,6 +30,7 @@ type DestInfo struct {
 	FreeKB  int64    `json:"free_kb"` // free space where the files go, after the reserve
 	TempKB  int64    `json:"temp_kb"` // free space where dumps are kept
 	Reserve int64    `json:"reserve_kb"`
+	MailKB  int64    `json:"mail_free_kb"` // free space where mailboxes are stored, after the reserve
 }
 
 func majorMinor(v string) (int, int) {
@@ -79,6 +80,18 @@ func Assess(d *Discovery, p *Plan, dest DestInfo) []Finding {
 	needFiles := filesKB + filesKB/10
 	if needFiles > dest.FreeKB {
 		add(Critical, "disk_space", fmt.Sprintf("The websites need about %s but only %s is free here (after the %s NimVor keeps free).", kb(needFiles), kb(dest.FreeKB), kb(dest.Reserve)), "Free disk space or migrate fewer websites at a time.")
+	}
+	if len(p.Mail) > 0 {
+		var mailKB int64
+		for _, mt := range p.Mail {
+			if mt.SizeKB > 0 {
+				mailKB += mt.SizeKB
+			}
+		}
+		if mailKB+mailKB/10 > dest.MailKB {
+			add(Critical, "mail_space", fmt.Sprintf("The mailboxes need about %s but only %s is free where mail is stored.", kb(mailKB+mailKB/10), kb(dest.MailKB)), "Free disk space or migrate fewer mailboxes at a time.")
+		}
+		add(Info, "mail_scope", "Messages and folders are copied. Passwords, quotas, aliases and forwarders are not: set them up on the NimVor mailboxes. Dovecot rebuilds its indexes, so a mailbox may take a moment to open the first time.", "")
 	}
 	// A dump is kept compressed while it moves: assume a third of the data, with a floor.
 	needTemp := dbKB/3 + 64*1024
