@@ -182,6 +182,11 @@ final class MigrationsController extends Controller
         return $this->act($request, $id, fn (int $i) => $this->service->cancel($i), 'The migration was cancelled. What was copied stays; nothing was removed from the source.');
     }
 
+    public function dns(Request $request, string $id): Response
+    {
+        return $this->act($request, $id, fn (int $i) => $this->service->cutoverCheck($i), 'DNS was read. NimVor changed nothing.');
+    }
+
     public function validate(Request $request, string $id): Response
     {
         return $this->act($request, $id, fn (int $i) => $this->service->validate($i), 'The validation is done. The results are below.');

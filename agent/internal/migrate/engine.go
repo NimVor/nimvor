@@ -82,6 +82,8 @@ type Engine struct {
 	Open  func(src Source) (Puller, error)
 	DB    DB
 	Sleep func(time.Duration)
+	// Resolver answers DNS questions for the cut-over check; tests replace it.
+	Resolver Resolver
 
 	mu      sync.Mutex
 	running map[string]context.CancelFunc

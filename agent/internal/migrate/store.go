@@ -72,6 +72,8 @@ type Migration struct {
 	Rollback *RollbackReport `json:"rollback,omitempty"`
 	// Validation is the result of the last validation pass.
 	Validation *ValidationReport `json:"validation,omitempty"`
+	// Cutover is the last DNS check. NimVor never changes DNS: it only reads it.
+	Cutover *CutoverReport `json:"cutover,omitempty"`
 }
 
 // Store keeps migrations as files in the agent's state folder.

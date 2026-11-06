@@ -29,7 +29,9 @@ against real servers; today nothing is.
 | Several websites at once, excludes, compression | ✅ |
 | Pause, cancel, continue after a failure or an agent restart | ✅ |
 | Email accounts, messages, aliases, forwarders | ❌ (mailbox names are *listed* from cPanel) |
-| DNS zones and records, DNS cut-over assistant | ❌ |
+| DNS zones and records | ❌ |
+| DNS cut-over **check** (read only): where each migrated name points now, as seen by four resolvers, and whether that is this server | ✅ |
+| Changing DNS records or nameservers, TTL changes, DNS provider integration | ❌ by design: NimVor never changes DNS for a migration |
 | SSL certificates | ❌ |
 | FTP accounts, cron jobs (cron jobs are *listed*) | ❌ |
 | PHP settings per domain, rewrite rules, application configuration | ❌ (Apache `.htaccess` is not translated to Nginx) |
@@ -84,7 +86,17 @@ against real servers; today nothing is.
    warning, for example the site answers HTTP 500, or is not enabled yet) or
    *Fail*. The report lists what this pass does **not** check (PHP execution and
    extensions, application configuration, SSL, DNS).
-8. **Report.** *Report (JSON)* lists what was copied, what failed, what differs
+8. **DNS cut-over.** *Check DNS* reads where each migrated website's name points
+   now, as seen by this server's own resolver and by Cloudflare, Google and
+   Quad9, and compares it with this server's **public** addresses. A name is
+   *Points to this server* only when every resolver that answered returns only
+   this server's addresses; *Still spreading* when some do and some do not;
+   *Points elsewhere* when none does. It lists advice for each case and reminds
+   you to lower the TTL a day before switching (the TTL cannot be read from here).
+   **NimVor never changes DNS records or nameservers**: you change them at your DNS
+   provider and check again. There is no button and no route that does. Mail (MX)
+   is not compared; do not move MX before your mail has been moved.
+9. **Report.** *Report (JSON)* lists what was copied, what failed, what differs
    from the source, what is left to do and what was not moved.
 
 ### Before you switch DNS
@@ -228,6 +240,7 @@ behind the write gate):
 | `migrate.create` | Store a validated plan |
 | `migrate.start` / `migrate.resume` | Run / continue (job); the login is given for that run |
 | `migrate.pause` / `migrate.cancel` | Stop at the next safe point / cancel |
+| `migrate.cutover_check` | Read DNS for the migrated names (this server's resolver, Cloudflare, Google, Quad9); changes nothing |
 | `migrate.validate` | Check what the migration left here (reads only; contacts no source) |
 | `migrate.rollback` | Remove what the migration created (confirmation required); databases only when asked |
 | `migrate.get` / `migrate.list` | State of one / all migrations |

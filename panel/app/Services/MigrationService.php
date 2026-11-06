@@ -44,6 +44,7 @@ final class MigrationService
         private readonly JobTracker $jobs,
         private readonly WebsiteRepository $sites,
         private readonly DatabaseRepository $dbs,
+        private readonly IpService $ips,
     ) {
     }
 
@@ -431,6 +432,29 @@ final class MigrationService
     }
 
     /**
+     * Read where each migrated website's name points now and whether that is this server. It reads
+     * DNS only: it never changes a record or a nameserver.
+     *
+     * @return array<string, mixed>
+     */
+    public function cutoverCheck(int $id): array
+    {
+        $this->refresh($id);
+        $m = $this->mustFind($id);
+        if ($m['agent_id'] === '' || in_array($m['status'], ['rolled_back', 'running', 'discovering'], true) || in_array($m['status'], ['draft', 'connected', 'discovered', 'selected', 'assessed'], true)) {
+            throw new UserFacingException('There is nothing to switch yet: check DNS for a migration that has run and is not running or rolled back.');
+        }
+        // Only public addresses can be what a name on the internet points to (not 10.x, 192.168.x, fc00::/7…).
+        $addresses = array_values(array_filter($this->ips->onServer(), static fn (string $ip): bool => filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false));
+        if ($addresses === []) {
+            throw new UserFacingException('This server\'s public addresses are not known (a server behind NAT only sees its private address), so DNS cannot be compared.');
+        }
+        $rep = (array) $this->agent->call('migrate.cutover_check', ['id' => $m['agent_id'], 'server_ips' => array_values($addresses)], 150);
+        $this->audit->record('migration.dns_check', 'migration', (string) $id, AuditLogger::SUCCESS, ['domains' => count((array) ($rep['domains'] ?? []))]);
+        return $rep;
+    }
+
+    /**
      * Undo the migration's changes in this server: remove the files it created while they are
      * unchanged, and (only when asked) empty the databases it filled. Newer data is kept.
      *
@@ -505,6 +529,7 @@ final class MigrationService
             'remaining' => (array) ($state['remaining'] ?? []),
             'rollback' => $state['rollback'] ?? null,
             'validation' => $state['validation'] ?? null,
+            'dns' => $state['cutover'] ?? null,
             'not_migrated' => (array) ($disc['not_migrated'] ?? []),
             'recommendations' => [
                 'A rollback is available while the migration has not been rolled back: it removes only files the migration created and that are unchanged, and empties databases only when you confirm and nothing was written to them since.',

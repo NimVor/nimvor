@@ -233,6 +233,20 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		return rep, nil
 	}})
+	r.Register(actions.Action{Name: "migrate.cutover_check", Timeout: 2 * time.Minute, Description: "Read where each migrated website's name points now (this server's resolver and three public ones) and whether that is one of this server's addresses. Reads DNS only: it never changes a record or a nameserver.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			ID        string   `json:"id"`
+			ServerIPs []string `json:"server_ips"`
+		}
+		if err := dec(p, &in); err != nil {
+			return nil, err
+		}
+		rep, err := e.CutoverCheck(ctx, in.ID, in.ServerIPs)
+		if err != nil {
+			return nil, actions.InvalidParams(err.Error())
+		}
+		return rep, nil
+	}})
 	r.Register(actions.Action{Name: "migrate.get", Description: "The state of one migration: its tasks, their status, and what remains to be done by hand.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			ID string `json:"id"`

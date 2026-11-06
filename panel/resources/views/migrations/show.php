@@ -226,6 +226,26 @@ $running = in_array($m['status'], ['running', 'discovering'], true);
     <?php endif; ?>
 </div>
 <?php endif; ?>
+<?php $dns = (array) ($state['cutover'] ?? []); if ($canValidate || $dns !== []): ?>
+<div class="card mb-3"><div class="card-header d-flex align-items-center"><span><i class="bi bi-globe2 me-1"></i>DNS cut-over</span>
+    <?php if ($canValidate): ?><form class="ms-auto" method="post" action="<?= e($this->url('migrations.dns', ['id' => $id])) ?>" data-nim-busy><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><?= $dns === [] ? 'Check DNS' : 'Check again' ?></button></form><?php endif; ?></div>
+    <div class="card-body small">
+        <p class="mb-2"><strong>NimVor never changes DNS records or nameservers.</strong> When the site works here (see Validation), update its records at your DNS provider yourself, then check again. Checking only reads DNS.</p>
+        <?php if ($dns === []): ?><p class="mb-0 text-body-secondary">Shows where each migrated website's name points now, as seen by this server's resolver and by Cloudflare, Google and Quad9, and whether that is this server.</p>
+        <?php else: ?>
+        <div class="text-body-secondary mb-2">This server's addresses: <code><?= e(implode(', ', (array) ($dns['server_ips'] ?? []))) ?></code> · checked <?= e(str_replace('T', ' ', substr((string) ($dns['at'] ?? ''), 0, 16))) ?> UTC</div>
+        <?php foreach ((array) ($dns['domains'] ?? []) as $d): $st = (string) $d['status']; $cls = ['here' => 'is-ok', 'mixed' => 'is-warn', 'elsewhere' => 'is-error', 'no_answer' => 'is-error'][$st] ?? ''; ?>
+        <div class="border rounded p-2 mb-2">
+            <div class="d-flex align-items-center gap-2"><span class="fw-semibold"><?= e((string) $d['domain']) ?></span><span class="nim-state <?= e($cls) ?>"><?= e(['here' => 'Points to this server', 'mixed' => 'Still spreading', 'elsewhere' => 'Points elsewhere', 'no_answer' => 'No answer'][$st] ?? $st) ?></span></div>
+            <ul class="list-unstyled mb-1 mt-1"><?php foreach ((array) $d['resolvers'] as $r): ?><li><span class="text-body-secondary"><?= e((string) $r['name']) ?>:</span> <?= $r['addrs'] === [] ? '<span class="text-body-secondary">' . e((string) ($r['error'] ?: 'no address')) . '</span>' : '<code>' . e(implode(', ', (array) $r['addrs'])) . '</code>' . (!empty($r['points_here']) ? ' <i class="bi bi-check2 text-success" aria-label="this server"></i>' : '') ?></li><?php endforeach; ?></ul>
+            <div class="text-body-secondary"><?= e((string) $d['advice']) ?></div>
+        </div>
+        <?php endforeach; ?>
+        <ul class="mb-0 text-body-secondary"><?php foreach ((array) ($dns['notes'] ?? []) as $n): ?><li><?= e((string) $n) ?></li><?php endforeach; ?></ul>
+        <?php endif; ?>
+    </div>
+</div>
+<?php endif; ?>
 <?php $rb = (array) ($state['rollback'] ?? []); if ($m['status'] === 'rolled_back' && $rb !== []): ?>
 <div class="card mb-3"><div class="card-header"><i class="bi bi-arrow-counterclockwise me-1"></i>Rollback</div><div class="card-body small">
     <p class="mb-1"><?= (int) ($rb['files_removed'] ?? 0) ?> file(s) and <?= (int) ($rb['dirs_removed'] ?? 0) ?> folder(s) the migration created were removed<?= ($rb['databases_emptied'] ?? []) !== [] ? '; databases emptied: ' . e(implode(', ', (array) $rb['databases_emptied'])) : '' ?>. Nothing on the source was touched.</p>

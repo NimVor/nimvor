@@ -607,4 +607,57 @@ final class MigrationsTest extends HttpTestCase
         $this->post("/migrations/{$id}/validate");
         self::assertSame(0, $this->calls('migrate.validate'));
     }
+
+    private function dnsReport(string $status = 'mixed'): array
+    {
+        return ['at' => gmdate('c'), 'server_ips' => ['203.0.113.10'], 'notes' => ['The TTL cannot be read here: look at it at your DNS provider.'], 'domains' => [[
+            'domain' => 'new.example.com', 'status' => $status, 'advice' => 'The change has reached some resolvers and not others.',
+            'resolvers' => [['name' => "This server's resolver", 'addrs' => ['203.0.113.10'], 'points_here' => true], ['name' => 'Google (8.8.8.8)', 'addrs' => ['198.51.100.7'], 'points_here' => false], ['name' => 'Quad9 (9.9.9.9)', 'addrs' => [], 'points_here' => false, 'error' => 'no answer']],
+        ]]];
+    }
+
+    public function testTheDnsCheckReadsOnlyAndSaysThatNimVorNeverChangesDns(): void
+    {
+        $id = $this->started();
+        $this->agentState('running');
+        $this->post("/migrations/{$id}/dns");
+        self::assertSame(0, $this->calls('migrate.cutover_check'), 'checked while it runs');
+
+        $this->agentState('completed');
+        $page = $this->request('GET', "/migrations/{$id}")->body();
+        foreach (['DNS cut-over', 'NimVor never changes DNS records or nameservers', 'Check DNS', 'Cloudflare, Google and Quad9'] as $needle) {
+            self::assertStringContainsString($needle, $page, $needle);
+        }
+        $this->agent->succeed('net.addresses', ['addresses' => [['address' => '203.0.113.10', 'scope' => 'global'], ['address' => '10.0.0.5', 'scope' => 'global'], ['address' => 'fe80::1', 'scope' => 'link']]]);
+        $this->agent->succeed('migrate.cutover_check', $this->dnsReport());
+        $res = $this->post("/migrations/{$id}/dns");
+        self::assertSame("/migrations/{$id}", $res->header('Location'), (string) $this->flash('error'));
+        $call = $this->lastCall('migrate.cutover_check');
+        self::assertSame('0123456789abcdef', $call['id']);
+        self::assertSame(['203.0.113.10'], $call['server_ips'], 'only this server\'s public addresses are compared');
+        self::assertStringContainsString('NimVor changed nothing', (string) $this->flash('success'));
+        self::assertSame('success', $this->db->scalar("SELECT result FROM audit_logs WHERE action = 'migration.dns_check'"));
+        // The panel has no route that changes DNS for a migration.
+        foreach (['/dns/update', '/migrations/' . $id . '/cutover', '/migrations/' . $id . '/nameservers'] as $path) {
+            self::assertSame(404, $this->post($path)->status(), $path);
+        }
+
+        $this->agentState('completed', [], ['cutover' => $this->dnsReport()]);
+        $page = $this->request('GET', "/migrations/{$id}")->body();
+        foreach (['Still spreading', 'new.example.com', '198.51.100.7', 'no answer', 'This server\'s addresses', '203.0.113.10', 'The TTL cannot be read here', 'Check again'] as $needle) {
+            self::assertStringContainsString($needle, $page, $needle);
+        }
+        $this->agentState('completed', [], ['cutover' => $this->dnsReport('here')]);
+        self::assertStringContainsString('Points to this server', $this->request('GET', "/migrations/{$id}")->body());
+    }
+
+    public function testTheDnsCheckNeedsTheServersPublicAddresses(): void
+    {
+        $id = $this->started();
+        $this->agentState('completed');
+        $this->agent->succeed('net.addresses', ['addresses' => [['address' => '10.0.0.5', 'scope' => 'global']]]); // private only
+        $this->post("/migrations/{$id}/dns");
+        self::assertSame(0, $this->calls('migrate.cutover_check'));
+        self::assertStringContainsString('public addresses are not known', (string) $this->flash('error'));
+    }
 }

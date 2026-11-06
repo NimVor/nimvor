@@ -168,6 +168,7 @@ return static function (Router $r): void {
     $r->post('/migrations/{id}/resume', [\NimVor\Http\Controllers\MigrationsController::class, 'resume'], ['name' => 'migrations.resume', 'permission' => P::SERVER_MANAGE]);
     $r->post('/migrations/{id}/pause', [\NimVor\Http\Controllers\MigrationsController::class, 'pause'], ['name' => 'migrations.pause', 'permission' => P::SERVER_MANAGE]);
     $r->post('/migrations/{id}/cancel', [\NimVor\Http\Controllers\MigrationsController::class, 'cancel'], ['name' => 'migrations.cancel', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/migrations/{id}/dns', [\NimVor\Http\Controllers\MigrationsController::class, 'dns'], ['name' => 'migrations.dns', 'permission' => P::SERVER_MANAGE]);
     $r->post('/migrations/{id}/validate', [\NimVor\Http\Controllers\MigrationsController::class, 'validate'], ['name' => 'migrations.validate', 'permission' => P::SERVER_MANAGE]);
     $r->post('/migrations/{id}/rollback', [\NimVor\Http\Controllers\MigrationsController::class, 'rollback'], ['name' => 'migrations.rollback', 'permission' => P::SERVER_MANAGE]);
     $r->post('/migrations/{id}/forget', [\NimVor\Http\Controllers\MigrationsController::class, 'forget'], ['name' => 'migrations.forget', 'permission' => P::SERVER_MANAGE]);
