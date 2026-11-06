@@ -125,19 +125,13 @@ final class MigrationService
     }
 
     /**
-     * Log in with the confirmed host key and read the source's facts. The login
-     * is encrypted and kept for this migration only.
+     * The login typed in a form, checked: a password or an unencrypted private key.
      *
      * @param array<string, mixed> $in
-     * @return array<string, mixed>
+     * @return array{password: string, private_key: string}
      */
-    public function connect(int $id, array $in): array
+    private function loginFrom(array $in): array
     {
-        $m = $this->mustFind($id);
-        $pending = (array) $m['pending_key'];
-        if (empty($pending['host_key'])) {
-            throw new ValidationException(['host' => 'Check the server and confirm its SSH key first.'], 'The source server\'s key has not been confirmed.');
-        }
         $password = is_scalar($in['password'] ?? null) ? (string) $in['password'] : '';
         $key = is_scalar($in['private_key'] ?? null) ? trim((string) $in['private_key']) : '';
         $errors = [];
@@ -153,7 +147,27 @@ final class MigrationService
         if ($errors !== []) {
             throw new ValidationException($errors);
         }
-        $login = ['password' => $key !== '' ? '' : $password, 'private_key' => $key, 'host_key' => (string) $pending['host_key']];
+        return ['password' => $key !== '' ? '' : $password, 'private_key' => $key];
+    }
+
+    /**
+     * Log in with the confirmed host key and read the source's facts. The login
+     * is encrypted and kept for this migration only.
+     *
+     * @param array<string, mixed> $in
+     * @return array<string, mixed>
+     */
+    public function connect(int $id, array $in): array
+    {
+        $m = $this->mustFind($id);
+        $pending = (array) $m['pending_key'];
+        if (empty($pending['host_key'])) {
+            throw new ValidationException(['host' => 'Check the server and confirm its SSH key first.'], 'The source server\'s key has not been confirmed.');
+        }
+        $parsed = $this->loginFrom($in);
+        $password = $parsed['password'];
+        $key = $parsed['private_key'];
+        $login = $parsed + ['host_key' => (string) $pending['host_key']];
         $source = ['panel' => '', 'host' => $pending['host'], 'port' => $pending['port'], 'user' => $pending['user']] + $login;
         $details = ['panel' => $m['panel'], 'host' => $pending['host'], 'port' => $pending['port'], 'user' => $pending['user'], 'auth' => $key !== '' ? 'key' : 'password'];
         try {
@@ -429,6 +443,37 @@ final class MigrationService
             'passed' => (int) ($rep['passed'] ?? 0), 'warned' => (int) ($rep['warned'] ?? 0), 'failed' => (int) ($rep['failed'] ?? 0),
         ]);
         return $rep;
+    }
+
+    /**
+     * Copy again only the website files that changed on the source (for use right before switching DNS).
+     * A finished migration no longer holds the login, so it is given again; the SSH key that was confirmed
+     * stays pinned. Databases are not synchronised.
+     *
+     * @param array<string, mixed> $in
+     */
+    public function sync(int $id, array $in): string
+    {
+        $this->refresh($id);
+        $m = $this->mustFind($id);
+        if ($m['agent_id'] === '' || !in_array($m['status'], ['completed', 'failed', 'paused', 'interrupted'], true)) {
+            throw new UserFacingException('This migration cannot be synchronised now (it never started, is running, or was cancelled or rolled back).');
+        }
+        if (empty((array) ($m['plan']['files'] ?? []))) {
+            throw new UserFacingException('This migration has no website files to synchronise.');
+        }
+        $pending = (array) $m['pending_key'];
+        if (empty($pending['host_key'])) {
+            throw new UserFacingException('The source server\'s SSH key is not on record. Start a new migration.');
+        }
+        $login = $this->loginFrom($in) + ['host_key' => (string) $pending['host_key']];
+        $source = ['panel' => (string) $m['panel'], 'host' => $m['source_host'], 'port' => $m['source_port'], 'user' => $m['source_user']] + $login;
+        $res = (array) $this->agent->call('migrate.sync', ['id' => $m['agent_id'], 'source' => $source]);
+        $job = (string) ($res['job_id'] ?? '');
+        $this->repo->update($id, ['sealed' => $this->crypto->encrypt((string) json_encode($login, JSON_UNESCAPED_SLASHES)), 'job_id' => $job, 'status' => 'running', 'error' => '', 'finished_at' => null]);
+        $this->jobs->track($job, 'Synchronise ' . $m['source_host'], 'migration', (string) $id, null);
+        $this->audit->record('migration.sync', 'migration', (string) $id, AuditLogger::SUCCESS, ['host' => $m['source_host'], 'websites' => count((array) $m['plan']['files'])]);
+        return $job;
     }
 
     /**

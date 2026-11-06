@@ -660,4 +660,57 @@ final class MigrationsTest extends HttpTestCase
         self::assertSame(0, $this->calls('migrate.cutover_check'));
         self::assertStringContainsString('public addresses are not known', (string) $this->flash('error'));
     }
+
+    public function testSyncAsksForTheLoginAgainKeepsThePinnedKeyAndSaysDatabasesAreNotIncluded(): void
+    {
+        $id = $this->started();
+        $this->agentState('running');
+        self::assertStringNotContainsString('Synchronise the files', $this->request('GET', "/migrations/{$id}")->body(), 'offered while it runs');
+        $this->post("/migrations/{$id}/sync", ['password' => self::PW]);
+        self::assertSame(0, $this->calls('migrate.sync'));
+        self::assertStringContainsString('cannot be synchronised now', (string) $this->flash('error'));
+
+        $this->agentState('completed');
+        $page = $this->request('GET', "/migrations/{$id}")->body();
+        self::assertSame('', $this->db->scalar('SELECT sealed FROM site_migrations WHERE id = ?', [$id]), 'the login was erased at completion');
+        foreach (['Synchronise before switching DNS', 'only the website files that changed on the source', 'newer here', 'Databases are not synchronised', 'Synchronise the files', 'stays pinned'] as $needle) {
+            self::assertStringContainsString($needle, $page, $needle);
+        }
+        // No login: refused before the agent is asked.
+        $this->post("/migrations/{$id}/sync", []);
+        self::assertArrayHasKey('password', (array) $this->flash('errors'));
+        $this->post("/migrations/{$id}/sync", ['private_key' => 'not a key']);
+        self::assertArrayHasKey('private_key', (array) $this->flash('errors'));
+        self::assertSame(0, $this->calls('migrate.sync'));
+
+        $this->agent->succeed('migrate.sync', ['job_id' => 'eeeeeeeeeeeeeeee', 'id' => '0123456789abcdef']);
+        $res = $this->post("/migrations/{$id}/sync", ['password' => 'Another-Pa55word']);
+        self::assertSame("/migrations/{$id}", $res->header('Location'), (string) $this->flash('error'));
+        self::assertSame('eeeeeeeeeeeeeeee', $this->flash('job'));
+        $call = $this->lastCall('migrate.sync');
+        self::assertSame('0123456789abcdef', $call['id']);
+        self::assertSame(['Another-Pa55word', self::KEY, 'old.example.com', 'root'], [$call['source']['password'], $call['source']['host_key'], $call['source']['host'], $call['source']['user']], 'the new login and the pinned key');
+        $m = $this->db->fetch('SELECT * FROM site_migrations WHERE id = ?', [$id]);
+        self::assertSame('running', $m['status']);
+        self::assertStringStartsWith('v1:', $m['sealed']);
+        foreach (['site_migrations', 'audit_logs'] as $table) {
+            self::assertStringNotContainsString('Another-Pa55word', (string) json_encode(array_map(static fn (array $r): array => array_diff_key($r, ['sealed' => 1]), $this->db->fetchAll("SELECT * FROM {$table}"))), $table);
+        }
+        self::assertSame('success', $this->db->scalar("SELECT result FROM audit_logs WHERE action = 'migration.sync'"));
+        // When the agent says it is completed again, the login is erased again.
+        $this->agentState('completed');
+        $this->request('GET', "/migrations/{$id}");
+        self::assertSame('', $this->db->scalar('SELECT sealed FROM site_migrations WHERE id = ?', [$id]));
+    }
+
+    public function testSyncIsNotOfferedForARolledBackOrDatabaseOnlyMigration(): void
+    {
+        $id = $this->started();
+        $this->agentState('completed');
+        $this->db->run('UPDATE site_migrations SET plan = ? WHERE id = ?', [json_encode(['files' => [], 'databases' => [['source' => 'a', 'dest' => 'b']], 'config' => []]), $id]);
+        self::assertStringNotContainsString('Synchronise the files', $this->request('GET', "/migrations/{$id}")->body());
+        $this->post("/migrations/{$id}/sync", ['password' => 'x']);
+        self::assertSame(0, $this->calls('migrate.sync'));
+        self::assertStringContainsString('no website files', (string) $this->flash('error'));
+    }
 }

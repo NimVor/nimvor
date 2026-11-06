@@ -215,3 +215,43 @@ func (e *Engine) Rollback(ctx context.Context, id string, emptyDatabases bool, l
 	e.cleanTemp(id)
 	return rep, e.Store.Save(m)
 }
+
+// Sync brings the files of a finished (or stopped) migration up to date with the source: only
+// files that changed since the last copy are transferred, nothing is deleted, and files the
+// owner changed in this server are overwritten only if the copy overwrites (as any later copy).
+// Databases are not synchronised: a dump can only be imported into an empty database, so a
+// second import would drop what was written since. Use it right before switching DNS.
+func (e *Engine) Sync(ctx context.Context, id string, src Source, log io.Writer) error {
+	m, err := e.Store.Load(id)
+	if err != nil {
+		return err
+	}
+	switch m.Status {
+	case Completed, Failed, Paused, Interrupted:
+	default:
+		return fmt.Errorf("a migration that is %s cannot be synchronised", m.Status)
+	}
+	if len(m.Plan.Files) == 0 {
+		return fmt.Errorf("this migration has no website files to synchronise")
+	}
+	e.mu.Lock()
+	_, busy := e.running[id]
+	e.mu.Unlock()
+	if busy {
+		return fmt.Errorf("this migration is already running")
+	}
+	for i := range m.Tasks {
+		if m.Tasks[i].Kind == "files" {
+			m.Tasks[i].Status = Pending
+			m.Tasks[i].Checkpoint = "resync"
+			m.Tasks[i].Error = ""
+			m.Tasks[i].Finished = nil
+		}
+	}
+	m.Status, m.Error, m.Finished, m.Validation, m.Cutover = Paused, "", nil, nil, nil
+	if err := e.Store.Save(m); err != nil {
+		return err
+	}
+	fmt.Fprintln(log, "Synchronising the files with the source (only changed files are copied)…")
+	return e.Run(ctx, id, src, log)
+}

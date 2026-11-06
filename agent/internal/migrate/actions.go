@@ -184,6 +184,34 @@ func Register(r *actions.Registry, env *host.Env) {
 	start("migrate.start", "Run a stored migration (job). The login is used for this run only and is not stored.")
 	start("migrate.resume", "Continue a paused, failed or interrupted migration (job): tasks that are done are not repeated. The login is given again and not stored.")
 
+	r.Register(actions.Action{Name: "migrate.sync", Mutating: true, Description: "Copy again only the website files that changed on the source since the last copy (job), for use right before switching DNS. Databases are not synchronised. The login is given for this run and not stored.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			ID     string `json:"id"`
+			Source Source `json:"source"`
+		}
+		if err := dec(p, &in); err != nil {
+			return nil, err
+		}
+		m, err := e.Store.Load(in.ID)
+		if err != nil {
+			return nil, actions.NotFound(err.Error())
+		}
+		if m.Status != Completed && m.Status != Failed && m.Status != Paused && m.Status != Interrupted {
+			return nil, actions.InvalidParams("a migration that is " + m.Status + " cannot be synchronised")
+		}
+		if err := in.Source.Validate(true); err != nil {
+			return nil, invalid(err)
+		}
+		src := in.Source
+		j := env.Jobs.Start("migrate.sync", "migrate:"+in.ID, func(ctx context.Context, log io.Writer) (any, error) {
+			if err := e.Sync(ctx, in.ID, src, log); err != nil {
+				return nil, fmt.Errorf("%s", redact(err.Error(), src))
+			}
+			return e.Store.Load(in.ID)
+		})
+		return map[string]any{"job_id": j.ID, "id": in.ID}, nil
+	}})
+
 	stop := func(name, why, what string) {
 		r.Register(actions.Action{Name: name, Mutating: true, Description: what, Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 			var in struct {

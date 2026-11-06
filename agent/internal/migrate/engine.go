@@ -432,6 +432,9 @@ func (e *Engine) runFiles(ctx context.Context, m *Migration, t Puller, i int, up
 	// The first copy only fills an empty website: files already there are never
 	// overwritten unless the person said so. A copy that was started by this
 	// migration is continued.
+	// A synchronisation (a later copy of a finished migration) never replaces a file that is newer here:
+	// the site's owner may have edited it since the migration.
+	resync := m.Tasks[i].Checkpoint == "resync"
 	first := m.Tasks[i].Attempts <= 1 && m.Tasks[i].Bytes == 0 && m.Tasks[i].Checkpoint == ""
 	if first && !m.Plan.Config.AllowOverwrite {
 		empty, err := destEmpty(real, f.Domain)
@@ -450,6 +453,9 @@ func (e *Engine) runFiles(ctx context.Context, m *Migration, t Puller, i int, up
 		fmt.Sprintf("--chown=%d:%d", u.UID, gid)}
 	if m.Plan.Config.Compress {
 		args = append(args, "-z")
+	}
+	if resync {
+		args = append(args, "--update")
 	}
 	for _, x := range m.Plan.Config.Excludes {
 		args = append(args, "--exclude="+x)

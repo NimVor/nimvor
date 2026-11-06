@@ -171,6 +171,28 @@ func TestRealHostMigrateFilesOverSSH(t *testing.T) {
 		t.Error("the changed source was not synchronised")
 	}
 
+	// Synchronise: the site's owner edited index.php here after the migration (newer than the source's copy),
+	// and the source gained a file. The sync brings the new file and keeps the edit.
+	time.Sleep(1100 * time.Millisecond)
+	os.WriteFile(filepath.Join(site, "index.php"), []byte("<?php echo 'edited here, newer';"), 0o644)
+	os.WriteFile("/home/nimvormsrc/www/later.txt", []byte("later"), 0o644)
+	exec.Command("chown", "nimvormsrc:nimvormsrc", "/home/nimvormsrc/www/later.txt").Run()
+	if err := e.Sync(context.Background(), m.ID, src, &log); err != nil {
+		t.Fatalf("sync: %v\n%s", err, log.String())
+	}
+	if b, _ := os.ReadFile(filepath.Join(site, "later.txt")); string(b) != "later" {
+		t.Error("the sync did not bring the new source file")
+	}
+	if b, _ := os.ReadFile(filepath.Join(site, "index.php")); !strings.Contains(string(b), "edited here, newer") {
+		t.Errorf("the sync replaced a file that is newer here: %q", b)
+	}
+	if s2, _ := e.Store.Load(m.ID); s2.Status != Completed {
+		t.Errorf("status after the sync = %s", s2.Status)
+	}
+	// Put the file back as the rest of this test expects it.
+	os.WriteFile(filepath.Join(site, "index.php"), []byte("<?php echo 'migrated';"), 0o644)
+	exec.Command("chown", "nimvormdst:nimvormdst", filepath.Join(site, "index.php")).Run()
+
 	// Validation: the real ownership from rsync --chown, and the document root, are checked; there is
 	// no web server serving this folder here, so the HTTP request is only a warning.
 	vrep, err := e.Validate(context.Background(), m.ID)
@@ -181,7 +203,11 @@ func TestRealHostMigrateFilesOverSSH(t *testing.T) {
 	for _, c := range vrep.Checks {
 		vc[c.Name] = c.Status
 	}
-	for _, n := range []string{"Document root", "Created files present", "File ownership", "Files match the source"} {
+	// (After the sync the edited file differs from the source on purpose: that is a warning, not a failure.)
+	if vc["Files match the source"] == Fail {
+		t.Errorf("files match the source = %q", vc["Files match the source"])
+	}
+	for _, n := range []string{"Document root", "Created files present", "File ownership"} {
 		if vc[n] != Pass {
 			t.Errorf("validation %q = %q (%+v)", n, vc[n], vrep.Checks)
 		}

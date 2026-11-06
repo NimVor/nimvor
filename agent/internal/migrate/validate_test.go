@@ -99,7 +99,7 @@ func TestValidationFlagsAFileOwnedBySomeoneElseAndDifferencesFromTheSource(t *te
 	s := r.state(m.ID)
 	s.Tasks[0].Differences = 3
 	r.e.Store.Save(s)
-	if c := byName(mustValidate(t, r, m.ID))["example.com/Files match the source"]; c.Status != Warn || !strings.Contains(c.Detail, "3 file(s) differed") {
+	if c := byName(mustValidate(t, r, m.ID))["example.com/Files match the source"]; c.Status != Warn || !strings.Contains(c.Detail, "3 file(s) differ from the source") {
 		t.Errorf("differences = %+v", c)
 	}
 	// A file edited since the copy is only a note: sites are used.

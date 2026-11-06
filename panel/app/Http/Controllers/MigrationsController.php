@@ -182,6 +182,13 @@ final class MigrationsController extends Controller
         return $this->act($request, $id, fn (int $i) => $this->service->cancel($i), 'The migration was cancelled. What was copied stays; nothing was removed from the source.');
     }
 
+    public function sync(Request $request, string $id): Response
+    {
+        return $this->act($request, $id, function (int $i) use ($request): void {
+            $this->flashJob($this->service->sync($i, $request->all()));
+        }, 'Synchronising: only files that changed on the source are copied, and files that are newer here are kept.');
+    }
+
     public function dns(Request $request, string $id): Response
     {
         return $this->act($request, $id, fn (int $i) => $this->service->cutoverCheck($i), 'DNS was read. NimVor changed nothing.');

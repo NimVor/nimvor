@@ -226,6 +226,17 @@ $running = in_array($m['status'], ['running', 'discovering'], true);
     <?php endif; ?>
 </div>
 <?php endif; ?>
+<?php if ($canValidate && !empty((array) ($plan['files'] ?? [])) && !empty($m['pending_key']['host_key'])): ?>
+<div class="card mb-3"><div class="card-header"><i class="bi bi-arrow-repeat me-1"></i>Synchronise before switching DNS</div><div class="card-body small">
+    <p>Copies again <strong>only the website files that changed on the source</strong> since the last copy, so the new server is current at the moment you switch. A file that is <strong>newer here</strong> (edited since the migration) is kept, and nothing is deleted. <strong>Databases are not synchronised</strong>: a dump can only be imported into an empty database, so a second import would drop what was written here since. For a site whose database changes, plan a short freeze, or move the database again by hand.</p>
+    <form method="post" action="<?= e($this->url('migrations.sync', ['id' => $id])) ?>" autocomplete="off" data-nim-busy class="row g-2">
+        <?= $this->csrfField() ?>
+        <div class="col-md-4"><label class="form-label" for="mg-sync-pw">Password for <?= e($m['source_user'] . '@' . $m['source_host']) ?></label><input class="form-control<?= $err('password') ?>" id="mg-sync-pw" name="password" type="password" autocomplete="new-password" maxlength="500"><?= $fb('password') ?></div>
+        <div class="col-md-8"><label class="form-label" for="mg-sync-key">Or a private key</label><textarea class="form-control font-monospace small<?= $err('private_key') ?>" id="mg-sync-key" name="private_key" rows="2" autocomplete="off" spellcheck="false" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"></textarea><?= $fb('private_key') ?></div>
+        <div class="col-12"><button class="btn btn-sm btn-outline-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Synchronise the files</button> <span class="text-body-secondary">The SSH key you confirmed earlier stays pinned. The login is erased again when it finishes.</span></div>
+    </form>
+</div></div>
+<?php endif; ?>
 <?php $dns = (array) ($state['cutover'] ?? []); if ($canValidate || $dns !== []): ?>
 <div class="card mb-3"><div class="card-header d-flex align-items-center"><span><i class="bi bi-globe2 me-1"></i>DNS cut-over</span>
     <?php if ($canValidate): ?><form class="ms-auto" method="post" action="<?= e($this->url('migrations.dns', ['id' => $id])) ?>" data-nim-busy><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><?= $dns === [] ? 'Check DNS' : 'Check again' ?></button></form><?php endif; ?></div>

@@ -28,6 +28,8 @@ against real servers; today nothing is.
 | MySQL / MariaDB databases: schema, data, character set, views, triggers, stored procedures, functions, events | ✅ (dump and import; table counts compared) |
 | Several websites at once, excludes, compression | ✅ |
 | Pause, cancel, continue after a failure or an agent restart | ✅ |
+| Synchronise before the switch: copy again only files changed on the source, keeping files that are newer here (files only) | ✅ |
+| Synchronising databases | ❌ by design (see "Before you switch DNS") |
 | Email accounts, messages, aliases, forwarders | ❌ (mailbox names are *listed* from cPanel) |
 | DNS zones and records | ❌ |
 | DNS cut-over **check** (read only): where each migrated name points now, as seen by four resolvers, and whether that is this server | ✅ |
@@ -102,9 +104,23 @@ against real servers; today nothing is.
 ### Before you switch DNS
 
 This version does not touch DNS. After the copy: open the site on NimVor (for
-example with a hosts-file entry), check pages, forms and logins, and run the
-migration again to bring over files that changed on the source meanwhile (only
-changed files are copied). Then change DNS yourself.
+example with a hosts-file entry) and check it, then use **Synchronise before
+switching DNS** right before the switch.
+
+*Synchronise* asks for the login again (a finished migration no longer holds it;
+the SSH key you confirmed stays pinned) and copies again **only the files that
+changed on the source**. A file that is **newer on NimVor** (edited since the
+migration) is **kept**, not replaced (`rsync --update`), and nothing is deleted.
+Files it adds are recorded, so a rollback still removes them.
+
+**Databases are not synchronised.** A dump can only be imported into an empty
+database, so a second import would drop what was written on NimVor since. If a
+site's database changes between the copy and the switch, plan a short freeze:
+stop writes on the source, move the database again into a new empty database by
+a new migration, and switch. This limit is deliberate: a "sync" that silently
+replaced newer data would break the rule that data is never overwritten.
+
+Then change DNS yourself (see *DNS cut-over* below).
 
 ## Permissions and what runs where
 
@@ -242,6 +258,7 @@ behind the write gate):
 | `migrate.pause` / `migrate.cancel` | Stop at the next safe point / cancel |
 | `migrate.cutover_check` | Read DNS for the migrated names (this server's resolver, Cloudflare, Google, Quad9); changes nothing |
 | `migrate.validate` | Check what the migration left here (reads only; contacts no source) |
+| `migrate.sync` | Copy again only changed files (job); keeps files newer here; databases excluded |
 | `migrate.rollback` | Remove what the migration created (confirmation required); databases only when asked |
 | `migrate.get` / `migrate.list` | State of one / all migrations |
 

@@ -259,6 +259,7 @@ paths:
               - migrate.resume
               - migrate.rollback
               - migrate.start
+              - migrate.sync
               - migrate.test
               - migrate.validate
               - modsec.configure
@@ -822,6 +823,7 @@ x-nimvor-actions:
   migrate.resume: { mutating: true, description: "Continue a paused, failed or interrupted migration (job): tasks that are done are not repeated. The login is given again and not stored." }
   migrate.rollback: { mutating: true, description: "Undo a migration's changes in this server: remove the files it created while they are unchanged, empty the databases it filled only when told to and only if nothing was written to them since. Newer data is never removed; nothing on the source is touched." }
   migrate.start: { mutating: true, description: "Run a stored migration (job). The login is used for this run only and is not stored." }
+  migrate.sync: { mutating: true, description: "Copy again only the website files that changed on the source since the last copy (job), for use right before switching DNS. Databases are not synchronised. The login is given for this run and not stored." }
   migrate.test: { mutating: false, description: "Connect to a source server over SSH (host key pinned), identify its system, panel, PHP, database engine and disk. Reads only." }
   migrate.validate: { mutating: false, description: "Check what a migration left in this server: document roots, created files present and owned by the website's account, databases reachable with their table counts, and an HTTP request to the site by name. Reads only; contacts no source." }
   modsec.configure: { mutating: true, description: "Turn ModSecurity on or off server-wide and set the rule vendors (OWASP CRS paranoia level and anomaly thresholds, custom rules). Checked with nginx -t, rolled back on failure." }

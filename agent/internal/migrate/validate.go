@@ -89,7 +89,7 @@ func (e *Engine) Validate(ctx context.Context, id string) (*ValidationReport, er
 		}
 		add(item, "Document root", Pass, f.DestRoot+" exists")
 		if t.Differences > 0 {
-			add(item, "Files match the source", Warn, fmt.Sprintf("%d file(s) differed from the source after the copy (the site changed while it was copied); run the migration again to bring them over", t.Differences))
+			add(item, "Files match the source", Warn, fmt.Sprintf("%d file(s) differ from the source after the last copy: they changed on the source while it was copied (run Synchronise to bring them over), or were edited here since (a synchronisation never replaces a file that is newer here)", t.Differences))
 		} else {
 			add(item, "Files match the source", Pass, "a checksum comparison with the source found no difference")
 		}
