@@ -29,7 +29,7 @@ final class MigrationService
 {
     /** Panels that are not supported yet: listed so nobody assumes they are. */
     public const PLANNED = [
-        'Plesk', 'CyberPanel', 'DirectAdmin', 'Virtualmin / Webmin', 'HestiaCP', 'aaPanel', 'ISPConfig',
+        'CyberPanel', 'DirectAdmin', 'Virtualmin / Webmin', 'HestiaCP', 'aaPanel', 'ISPConfig',
         'Enhance', 'InterWorx', 'CloudPanel', 'VestaCP', 'Froxlor',
     ];
 

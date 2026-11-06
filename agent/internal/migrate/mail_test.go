@@ -236,3 +236,62 @@ func TestReadingAZoneIsReadOnlyConfinedToTheZoneFileAndLimited(t *testing.T) {
 		t.Error("an oversized zone was accepted")
 	}
 }
+
+const pleskOut = "##dom\n" +
+	"1\texample.com\t0\t/var/www/vhosts/example.com/httpdocs\texample_user\t/var/www/vhosts/example.com\n" +
+	"2\tblog.example.net\t1\t/var/www/vhosts/example.com/blog.example.net\texample_user\t/var/www/vhosts/example.com\n" +
+	"3\tother.org\t0\t/var/www/vhosts/other.org/httpdocs\tother_user\t/var/www/vhosts/other.org\n" +
+	"4\tparked.org\t0\t\t\t\n" +
+	"5\tbad..name\t0\t/var/www/x\tx\t/var/www\n" +
+	"ERROR: something odd\n" +
+	"##sub\nshop\texample.com\t1\t/var/www/vhosts/example.com/shop.example.com\nbad label\texample.com\t1\t/x/y\n" +
+	"##db\nexample_wp\t1\nother_db\t3\nbad name\t1\nsqlite\tx\n" +
+	"##mail\ninfo\texample.com\t1\nSales\tother.org\t3\n$(x)\texample.com\t1\n" +
+	"##end\n"
+
+func TestPleskIsReadIntoAccountsOfSubscriptions(t *testing.T) {
+	accts, warns := parsePlesk(pleskOut, map[string]int64{"example_wp": 900})
+	if len(accts) != 3 {
+		t.Fatalf("accounts = %d", len(accts))
+	}
+	a := accts[0]
+	var names []string
+	for _, d := range a.Domains {
+		names = append(names, d.Name+":"+d.Kind)
+	}
+	if a.ID != "example.com" || a.Home != "/var/www/vhosts/example.com" || strings.Join(names, ",") != "example.com:main,blog.example.net:addon,shop.example.com:sub" {
+		t.Errorf("account = %+v %v", a, names)
+	}
+	if len(a.Databases) != 1 || a.Databases[0].SizeKB != 900 || a.Databases[0].Name != "example_wp" {
+		t.Errorf("databases = %+v", a.Databases)
+	}
+	if len(a.Email) != 1 || a.Email[0].Address != "info@example.com" || a.Email[0].Maildir != "/var/qmail/mailnames/example.com/info/Maildir" {
+		t.Errorf("mail = %+v", a.Email)
+	}
+	b := accts[1]
+	if b.ID != "other.org" || len(b.Databases) != 1 || b.Databases[0].SizeKB != -1 || b.Email[0].Address != "sales@other.org" {
+		t.Errorf("other = %+v", b)
+	}
+	if len(accts[2].Domains) != 0 { // a domain without web hosting has no files to move
+		t.Errorf("parked = %+v", accts[2])
+	}
+	if len(warns) != 1 || !strings.Contains(warns[0], "not understood") {
+		t.Errorf("warnings = %v", warns)
+	}
+}
+
+func TestPleskIsDetectedByItsVersionFile(t *testing.T) {
+	src := &fakeSrc{}
+	src.execFn = func(cmd string, stdout io.Writer) (string, error) { return "18.0.57 Ubuntu 22.04\n", nil }
+	det, ok, err := pleskAdapter{}.Detect(context.Background(), src)
+	if err != nil || !ok || det.Version != "18.0.57" || det.Support != Experimental {
+		t.Errorf("det = %+v %v %v", det, ok, err)
+	}
+	src.execFn = func(cmd string, stdout io.Writer) (string, error) { return "", nil }
+	if _, ok, _ := (pleskAdapter{}).Detect(context.Background(), src); ok {
+		t.Error("detected without a version file")
+	}
+	if _, err := Lookup("plesk"); err != nil {
+		t.Error(err)
+	}
+}

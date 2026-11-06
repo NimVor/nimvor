@@ -206,8 +206,11 @@ func TestADifferentPanelIsNotTakenForCpanel(t *testing.T) {
 	if _, _, err := DetectPanel(context.Background(), f, "cpanel"); err == nil {
 		t.Error("cPanel was assumed on a server without it")
 	}
-	if _, _, err := DetectPanel(context.Background(), f, "plesk"); err == nil || !strings.Contains(err.Error(), "not supported") {
+	if _, _, err := DetectPanel(context.Background(), f, "plesk"); err == nil || !strings.Contains(err.Error(), "does not look like Plesk") {
 		t.Errorf("plesk = %v", err)
+	}
+	if _, _, err := DetectPanel(context.Background(), f, "directadmin"); err == nil || !strings.Contains(err.Error(), "not supported") {
+		t.Errorf("directadmin = %v", err)
 	}
 }
 
