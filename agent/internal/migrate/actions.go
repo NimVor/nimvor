@@ -118,7 +118,6 @@ func Register(r *actions.Registry, env *host.Env) {
 		var in struct {
 			Discovery Discovery `json:"discovery"`
 			Plan      Plan      `json:"plan"`
-			Dest      DestInfo  `json:"dest"`
 		}
 		if err := dec(p, &in); err != nil {
 			return nil, err
@@ -126,15 +125,15 @@ func Register(r *actions.Registry, env *host.Env) {
 		if err := in.Plan.Validate(env); err != nil {
 			return nil, invalid(err)
 		}
-		in.Dest.Reserve = reserveKB
-		in.Dest.FreeKB = freeKB(env.Cfg.SitesRoot) - reserveKB
+		dest := destInfo(ctx, env)
+		dest.FreeKB = freeKB(env.Cfg.SitesRoot) - reserveKB
 		temp := in.Plan.Config.TempDir
 		if temp == "" {
 			temp = env.Cfg.StateDir
 		}
-		in.Dest.TempKB = freeKB(temp) - reserveKB
-		f := Assess(&in.Discovery, &in.Plan, in.Dest)
-		return map[string]any{"findings": f, "blocked": Blocking(f), "dest": in.Dest}, nil
+		dest.TempKB = freeKB(temp) - reserveKB
+		f := Assess(&in.Discovery, &in.Plan, dest)
+		return map[string]any{"findings": f, "blocked": Blocking(f), "dest": dest}, nil
 	}})
 
 	r.Register(actions.Action{Name: "migrate.create", Mutating: true, Description: "Store a migration plan whose destinations are existing NimVor websites and databases. Starts nothing.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
@@ -226,4 +225,27 @@ func redact(s string, src Source) string {
 		s = strings.ReplaceAll(s, src.Password, "***")
 	}
 	return s
+}
+
+// destInfo reads this server's own facts: the PHP versions installed and the database server.
+func destInfo(ctx context.Context, env *host.Env) DestInfo {
+	d := DestInfo{Reserve: reserveKB}
+	for _, v := range []string{"7.4", "8.0", "8.1", "8.2", "8.3", "8.4", "8.5"} {
+		if env.Runner.Available("php" + v) {
+			d.PHP = append(d.PHP, v)
+		}
+	}
+	for _, c := range []string{"mariadb", "mysql"} {
+		if !env.Runner.Available(c) {
+			continue
+		}
+		if out, err := env.Runner.Run(ctx, c, "--version"); err == nil {
+			i := parseInfo("##mysql\n" + strings.TrimSpace(string(out)) + "\n")
+			if i.Engine != "" {
+				d.Engine, d.MySQL = i.Engine, i.MySQL
+				break
+			}
+		}
+	}
+	return d
 }
