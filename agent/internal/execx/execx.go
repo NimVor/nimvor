@@ -197,6 +197,8 @@ var defaultCandidates = map[string][]string{
 	"sievec":                 {"/usr/bin/sievec"},
 	"rspamadm":               {"/usr/bin/rspamadm"},
 	"curl":                   {"/usr/bin/curl"},
+	"ssh":                    {"/usr/bin/ssh"},
+	"rsync":                  {"/usr/bin/rsync"},
 	"apt-get":                {"/usr/bin/apt-get"},
 	"debconf-set-selections": {"/usr/bin/debconf-set-selections"},
 	"dnf":                    {"/usr/bin/dnf"},

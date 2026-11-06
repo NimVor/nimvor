@@ -19,6 +19,7 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/logs"
 	"github.com/NimVor/nimvor/agent/internal/mailmgr"
 	"github.com/NimVor/nimvor/agent/internal/mcmgr"
+	"github.com/NimVor/nimvor/agent/internal/migrate"
 	"github.com/NimVor/nimvor/agent/internal/modsec"
 	"github.com/NimVor/nimvor/agent/internal/mongomgr"
 	"github.com/NimVor/nimvor/agent/internal/netmgr"
@@ -78,6 +79,7 @@ func All() []Module {
 		apps.Register,
 		wordpress.Register,
 		adopt.Register,
+		migrate.Register,
 		phpmgr.Register,
 		services.Register,
 		procmgr.Register,
