@@ -35,6 +35,7 @@ final class BackupsController extends SiteController
         private readonly \NimVor\Services\AuditLogger $audit,
         private readonly \NimVor\Services\AccountBackupService $accountBackups,
         private readonly \NimVor\Services\FeatureService $features,
+        private readonly \NimVor\Services\FetchedFileService $fetched,
     ) {
         parent::__construct($view, $session, $sites, $server);
     }
@@ -188,6 +189,12 @@ final class BackupsController extends SiteController
         $user = $this->user($request);
         $this->refresh();
         $admin = Scope::isAll($user);
+        if ($admin) {
+            try {
+                $this->fetched->refresh();
+            } catch (AgentException) {
+            }
+        }
         $customerBackups = $this->backups->listForUser($user);
         if ($this->hidesAutoBackups($user)) {
             $customerBackups = $this->withoutAuto($customerBackups);
@@ -201,6 +208,7 @@ final class BackupsController extends SiteController
             'keyInfo' => $admin ? $this->backups->keyInfo() : null,
             'panelUrl' => $this->settings->string('panel_url'),
             'accountFiles' => $admin ? $this->accountBackups->files() : [],
+            'fetched' => $admin ? $this->fetched->list() : [],
             'accounts' => $admin ? $this->accountBackups->accounts() : [],
             'isAdminRole' => ($user['role_name'] ?? '') === 'admin',
         ]);

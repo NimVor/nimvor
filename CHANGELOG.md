@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Backups: a "Remote fetched files" tab.** *Fetch a remote file* opens a window for an SFTP or FTPS server (host, port, user name, password or SFTP private key, and the file's path or its full `sftp://`, `ftp://` or `ftps://` address). The server's SSH host key or FTPS certificate key is asked for and shown first; only after you confirm it is the login sent, and the agent connects only to a server with exactly that key. The file is fetched by a job into the agent's own folder of fetched files (`<backup folder>/fetched`, root-only, one flat folder, never overwriting), stopping before the disk falls below the free-space reserve; the list shows *Fetching…*, *Completed* (size, SHA-256) or *Failed* (reason). Every row has a delete button, and rows can be ticked for **Delete selected**; both ask for confirmation, then remove the file and its record. The login is used for that one transfer and is not stored, logged or audited; plain FTP is not offered. Administrators only. New agent actions `backup.fetch_probe`, `backup.fetch_remote` (job) and `backup.fetched_delete`, so upgrade the panel and the agent together.
+
 ## [1.4.2] — 2026-11-04
 
 The PostgreSQL browser now uses dialogs, like the MySQL and MongoDB browsers, and its SQL editor runs every statement you write.

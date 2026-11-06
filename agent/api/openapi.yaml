@@ -87,6 +87,9 @@ paths:
               - backup.create
               - backup.delete
               - backup.download
+              - backup.fetch_probe
+              - backup.fetch_remote
+              - backup.fetched_delete
               - backup.inspect
               - backup.key_export
               - backup.key_import
@@ -635,6 +638,9 @@ x-nimvor-actions:
   backup.create: { mutating: true, description: "Back up website files and databases (job)." }
   backup.delete: { mutating: true, description: "Delete a backup (and its remote copy when remote is given)." }
   backup.download: { mutating: false, description: "Read a chunk of a stored backup file (base64)." }
+  backup.fetch_probe: { mutating: false, description: "Ask an SFTP server for its SSH host key, or an FTPS server for its certificate key, so the user can confirm it before a file is fetched. Sends no credentials." }
+  backup.fetch_remote: { mutating: true, description: "Download one file from a remote SFTP or FTPS server into the folder of fetched files (job). The credentials are used for this transfer only and are not stored; the server's key must be pinned." }
+  backup.fetched_delete: { mutating: true, description: "Delete fetched files by name (several at once). A file already gone counts as deleted." }
   backup.inspect: { mutating: false, description: "The manifest of one backup." }
   backup.key_export: { mutating: true, description: "The backup key encrypted with a passphrase (a key file to keep safe; the key itself never leaves the agent unencrypted)." }
   backup.key_import: { mutating: true, description: "Install a backup key from a key file and its passphrase, when this server has no backup key yet (to restore backups made on another server)." }

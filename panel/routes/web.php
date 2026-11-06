@@ -155,6 +155,9 @@ return static function (Router $r): void {
     $r->post('/backups/storages/{storage}/test', [BackupsController::class, 'testStorage'], ['name' => 'backups.storages.test', 'permission' => P::BACKUPS_MANAGE]);
     $r->post('/backups/storages/{storage}/active', [BackupsController::class, 'activateStorage'], ['name' => 'backups.storages.active', 'permission' => P::BACKUPS_MANAGE]);
     $r->post('/backups/storages/{storage}', [BackupsController::class, 'updateStorage'], ['name' => 'backups.storages.update', 'permission' => P::BACKUPS_MANAGE]);
+    $r->post('/backups/fetched/probe', [\NimVor\Http\Controllers\FetchedFilesController::class, 'probe'], ['name' => 'backups.fetched.probe', 'permission' => P::BACKUPS_MANAGE]);
+    $r->post('/backups/fetched', [\NimVor\Http\Controllers\FetchedFilesController::class, 'fetch'], ['name' => 'backups.fetched.fetch', 'permission' => P::BACKUPS_MANAGE]);
+    $r->post('/backups/fetched/delete', [\NimVor\Http\Controllers\FetchedFilesController::class, 'delete'], ['name' => 'backups.fetched.delete', 'permission' => P::BACKUPS_MANAGE]);
     $r->post('/backups/key/download', [BackupsController::class, 'downloadKey'], ['name' => 'backups.key.download', 'permission' => P::BACKUPS_MANAGE]);
     $r->post('/backups/key/import', [BackupsController::class, 'importKey'], ['name' => 'backups.key.import', 'permission' => P::BACKUPS_MANAGE]);
     $r->post('/backups/accounts', [\NimVor\Http\Controllers\AccountBackupsController::class, 'create'], ['name' => 'backups.accounts.create', 'permission' => P::BACKUPS_MANAGE]);

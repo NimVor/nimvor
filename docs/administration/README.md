@@ -1945,11 +1945,12 @@ loopback addresses are accepted: Memcached has no authentication.
 
 ## Backup destinations
 
-*Backups* has four tabs for administrators: **Website backups**, **Server
-configuration**, **Remote storage** and **Account backups**. Forms open in
-windows: back up the server configuration, the server backup schedule,
-add or edit a storage, back up an account, upload an account file, and
-download or import the backup key.
+*Backups* has five tabs for administrators: **Website backups**, **Server
+configuration**, **Remote storage**, **Account backups** and **Remote
+fetched files**. Forms open in windows: back up the server configuration,
+the server backup schedule, add or edit a storage, back up an account,
+upload an account file, fetch a remote file, and download or import the
+backup key.
 
 The **Backup schedule** window backs up either the server configuration or
 **every website**. A schedule for every website gives each website its own
@@ -2033,6 +2034,45 @@ Still, anyone who controls an administrator session and knows the panel
 password can download the key file with a passphrase of their choosing.
 Treat the panel password accordingly, and use two-factor sign-in for
 administrators.
+
+### Remote fetched files
+
+*Backups → Remote fetched files → Fetch a remote file* copies one file from
+an SFTP or FTPS server onto this server, for example a backup made
+elsewhere. The window asks for the protocol, host, port, user name and
+password (for SFTP a private key can be used instead), and the file: its
+path on the remote server (absolute, or relative to the login folder) or
+its full address (`sftp://user@host:22/path/file`, `ftp://` or `ftps://`;
+the address decides protocol, host, port and path, and a password in it is
+ignored). *Save as* is optional.
+
+The transfer is made safe in these ways:
+
+- **The server's key is confirmed first.** *Check the server* asks it for its
+  SSH host key (SFTP) or certificate key (FTPS) and shows it; only after you
+  confirm it does *Fetch file* send the login, and the agent connects only to
+  a server with exactly that key. Changing the host, port or encryption throws
+  the confirmation away.
+- **The login is used once and never kept.** It goes to the agent for that
+  transfer, over the agent's own channel, and is not stored, logged or put in
+  the audit log (which records the server, user name and path only).
+- **FTPS only, no plain FTP.** Explicit or implicit TLS is required, because
+  plain FTP would send the login and the file unprotected.
+- **The file lands in one folder.** Fetched files are written to
+  `<backup folder>/fetched` (`/var/backups/nimvor/fetched` by default), as
+  root-only files, under a name made of letters, digits and `. _ -`. A name
+  already taken gets a number added, so a file is never overwritten. The
+  remote side only chooses which file is read, never where it is written.
+- **Disk space is protected.** A fetch stops, and removes the partial file,
+  before the disk falls below the 512 MiB the agent keeps free. An empty or
+  missing remote file is an error.
+
+The fetch is a job: the list shows *Fetching…*, then *Completed* with the
+size and SHA-256, or *Failed* with the reason. Each row has a **delete**
+button, and ticking rows enables **Delete selected**; both ask for
+confirmation first, then delete the file and its record (a fetch that is
+still running is left alone, and a file the agent cannot delete keeps its
+record). Administrators only.
 
 ### Account backups
 

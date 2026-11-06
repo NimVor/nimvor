@@ -8,6 +8,7 @@
  * @var list<array<string, mixed>> $storages
  * @var array<string, mixed>|null $keyInfo
  * @var list<array<string, mixed>> $accountFiles
+ * @var list<array<string, mixed>> $fetched
  * @var list<array<string, mixed>> $accounts
  * @var bool $isAdminRole
  */
@@ -19,6 +20,7 @@ $old ??= [];
 // A refused storage form reopens its window: an edit (storage_id) or a new one.
 $editFailed = isset($old['storage_id']) ? (int) $old['storage_id'] : 0;
 $addFailed = $old !== [] && isset($old['type']) && $editFailed === 0;
+$fetchFailed = $old !== [] && isset($old['fetch_form']);
 $activeCount = count(array_filter($storages, static fn (array $s): bool => $s['active']));
 $whereLabel = ['backups' => 'Made here', 'uploaded' => 'Uploaded', 'folder' => 'Server folder'];
 ?>
@@ -37,6 +39,7 @@ $whereLabel = ['backups' => 'Made here', 'uploaded' => 'Uploaded', 'folder' => '
     <button type="button" role="tab" data-bs-toggle="tab" data-bs-target="#server" aria-controls="server" aria-selected="false"><i class="bi bi-hdd-rack me-1"></i>Server configuration <span class="badge text-bg-light border"><?= count($serverBackups) ?></span></button>
     <button type="button" role="tab" data-bs-toggle="tab" data-bs-target="#storages" aria-controls="storages" aria-selected="false"><i class="bi bi-cloud me-1"></i>Remote storage <span class="badge text-bg-light border"><?= $activeCount ?>/<?= count($storages) ?></span></button>
     <button type="button" role="tab" data-bs-toggle="tab" data-bs-target="#accounts" aria-controls="accounts" aria-selected="false"><i class="bi bi-person-vcard me-1"></i>Account backups <span class="badge text-bg-light border"><?= count($accountFiles) ?></span></button>
+    <button type="button" role="tab" data-bs-toggle="tab" data-bs-target="#fetched" aria-controls="fetched" aria-selected="false"><i class="bi bi-cloud-download me-1"></i>Remote fetched files <span class="badge text-bg-light border"><?= count($fetched) ?></span></button>
 </div>
 <div class="tab-content">
 
@@ -179,9 +182,16 @@ $whereLabel = ['backups' => 'Made here', 'uploaded' => 'Uploaded', 'folder' => '
     <p class="small text-body-secondary mt-2 mb-0">Files are listed from this server's account backups, uploads, and from <code>/backup</code>, <code>/backups</code>, <code>/srv/backup(s)</code>, <code>/mnt</code> and <code>/media</code> (two folder levels). A file can be restored when it was made with this server's backup key: on another server, import that key first (Server configuration → Encryption key). Not included: email, SSL certificates (issued again by AutoSSL) and FTP accounts.</p>
 </div>
 
+<div class="tab-pane fade" id="fetched" role="tabpanel">
+    <?= $this->partial('backups/_fetched', ['fetched' => $fetched, 'canManage' => $canManage]) ?>
+</div>
+
 </div>
 
 <?php if ($canManage): ?>
+<?= $this->modalStart('fetch-remote', 'Fetch a remote file', $fetchFailed) ?>
+    <?= $this->partial('backups/_fetch_form', ['values' => $fetchFailed ? $old : [], 'errors' => $fetchFailed ? $errorsAll : []]) ?>
+<?= $this->modalEnd() ?>
 <?= $this->modalStart('server-backup', 'Back up the server configuration', false, '') ?>
     <form method="post" action="<?= e($this->url('backups.server')) ?>" data-nim-busy>
         <?= $this->csrfField() ?>
@@ -253,3 +263,4 @@ $whereLabel = ['backups' => 'Made here', 'uploaded' => 'Uploaded', 'folder' => '
 <?= $this->modalEnd() ?>
 <?php endif; ?>
 <?php endif; ?>
+<?php if ($admin && $canManage): ?><?php $this->start(); ?><script src="<?= e($this->asset('assets/js/backups-fetch.js')) ?>" defer></script><?php $this->end('scripts'); ?><?php endif; ?>

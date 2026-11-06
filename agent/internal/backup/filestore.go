@@ -71,12 +71,17 @@ func quote(s string) string {
 // run executes curl for one operation. extra are the operation's own
 // arguments; the URL and credentials are passed on stdin.
 func (f *fileRemote) run(ctx context.Context, key string, stdout io.Writer, extra ...string) ([]byte, error) {
+	return f.runURL(ctx, f.url(key), stdout, extra...)
+}
+
+// runURL is run for an already built URL.
+func (f *fileRemote) runURL(ctx context.Context, u string, stdout io.Writer, extra ...string) ([]byte, error) {
 	tmp, err := os.MkdirTemp(f.tmpBase(), "curl-")
 	if err != nil {
 		return nil, err
 	}
 	defer os.RemoveAll(tmp)
-	cfg := "url = " + quote(f.url(key)) + "\n"
+	cfg := "url = " + quote(u) + "\n"
 	if f.R.Password != "" || f.R.Type == "ftp" {
 		cfg += "user = " + quote(f.R.Username+":"+f.R.Password) + "\n"
 	} else {

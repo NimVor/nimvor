@@ -232,3 +232,177 @@ CertFile %s/ftp.pem
 		t.Error("connected to a self-signed server without a pin")
 	}
 }
+
+// fetchViaActions runs the three fetch actions the way the panel does: the
+// server's key is asked for first, then the file is fetched in a job with
+// that key pinned, and finally deleted.
+func fetchViaActions(t *testing.T, env *host.Env, r *actions.Registry, remote Remote, probe map[string]any, remotePath, want string) {
+	t.Helper()
+	ctx := context.Background()
+	call := func(name string, params any) any {
+		t.Helper()
+		a, err := r.Lookup(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, _ := json.Marshal(params)
+		res, err := a.Handler(ctx, b)
+		if err != nil {
+			t.Fatalf("%s: %+v", name, err)
+		}
+		return res
+	}
+	pr := call("backup.fetch_probe", probe).(map[string]any)
+	if remote.Type == "sftp" {
+		if !strings.HasPrefix(pr["fingerprint"].(string), "SHA256:") {
+			t.Fatalf("probe = %v", pr)
+		}
+		remote.HostKey = pr["host_key"].(string)
+	} else {
+		if !strings.HasPrefix(pr["tls_pin"].(string), "sha256//") {
+			t.Fatalf("probe = %v", pr)
+		}
+		remote.TLSPin = pr["tls_pin"].(string)
+	}
+	started := call("backup.fetch_remote", map[string]any{"remote": remote, "path": remotePath}).(map[string]any)
+	job, err := env.Jobs.Wait(ctx, started["job_id"].(string))
+	if err != nil || job.Status != "succeeded" {
+		log, _, _ := env.Jobs.Log(started["job_id"].(string), 0)
+		t.Fatalf("job = %+v, err = %v\n%s", job, err, log)
+	}
+	res := job.Result.(map[string]any)
+	name := res["name"].(string)
+	got, err := os.ReadFile(filepath.Join(env.Cfg.BackupDir, "fetched", name))
+	if err != nil || string(got) != want {
+		t.Fatalf("fetched file = %q, %v", got, err)
+	}
+	if res["size"] != int64(len(want)) {
+		t.Errorf("size = %v", res["size"])
+	}
+	// A wrong pin is refused and leaves nothing behind.
+	bad := remote
+	if remote.Type == "sftp" {
+		bad.HostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl"
+	} else {
+		bad.TLSPin = "sha256//" + strings.Repeat("A", 43) + "="
+	}
+	s := Service{Env: env}
+	before, _ := os.ReadDir(filepath.Join(env.Cfg.BackupDir, "fetched"))
+	if _, err := s.FetchRemote(ctx, FetchRequest{Remote: bad, Path: remotePath}, io.Discard); err == nil {
+		t.Error("fetched from a server whose key does not match")
+	}
+	if after, _ := os.ReadDir(filepath.Join(env.Cfg.BackupDir, "fetched")); len(after) != len(before) {
+		t.Errorf("files left after a refused fetch: %v", after)
+	}
+	del := call("backup.fetched_delete", map[string]any{"names": []string{name}}).(map[string]any)
+	if rs := del["results"].([]map[string]any); len(rs) != 1 || rs[0]["deleted"] != true {
+		t.Fatalf("delete = %v", del)
+	}
+	if _, err := os.Stat(filepath.Join(env.Cfg.BackupDir, "fetched", name)); err == nil {
+		t.Error("file left after delete")
+	}
+}
+
+// Fetching a file over SFTP with key authentication: by absolute path and
+// by a path relative to the login folder.
+func TestRealHostFetchSFTP(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("needs root")
+	}
+	if c, err := net.DialTimeout("tcp", "127.0.0.1:22", 2*time.Second); err != nil {
+		t.Skip("needs sshd on port 22")
+	} else {
+		c.Close()
+	}
+	exec.Command("useradd", "-m", "-s", "/bin/sh", "nimvorfetch").Run()
+	t.Cleanup(func() { exec.Command("userdel", "-r", "nimvorfetch").Run() })
+	dir := t.TempDir()
+	if out, err := exec.Command("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", filepath.Join(dir, "k")).CombinedOutput(); err != nil {
+		t.Fatalf("%s", out)
+	}
+	pub, _ := os.ReadFile(filepath.Join(dir, "k.pub"))
+	priv, _ := os.ReadFile(filepath.Join(dir, "k"))
+	os.MkdirAll("/home/nimvorfetch/.ssh", 0o700)
+	os.WriteFile("/home/nimvorfetch/.ssh/authorized_keys", pub, 0o600)
+	os.MkdirAll("/home/nimvorfetch/out dir", 0o755)
+	body := strings.Repeat("fetched-data-", 5000)
+	os.WriteFile("/home/nimvorfetch/out dir/my backup.tar.gz", []byte(body), 0o644)
+	exec.Command("chown", "-R", "nimvorfetch:nimvorfetch", "/home/nimvorfetch").Run()
+
+	env, r, _ := remoteEnv(t)
+	remote := Remote{Type: "sftp", Host: "127.0.0.1", Username: "nimvorfetch", PrivateKey: string(priv)}
+	probe := map[string]any{"type": "sftp", "host": "127.0.0.1"}
+	fetchViaActions(t, env, r, remote, probe, "/home/nimvorfetch/out dir/my backup.tar.gz", body)
+	fetchViaActions(t, env, r, remote, probe, "out dir/my backup.tar.gz", body)
+	// A file that does not exist, or a folder, is an error and leaves nothing.
+	s := Service{Env: env}
+	remote.HostKey = func() string { k, _ := ScanHostKeys(context.Background(), env, remote); return k[0] }()
+	for _, p := range []string{"/home/nimvorfetch/missing.tar", "/home/nimvorfetch/out dir"} {
+		if _, err := s.FetchRemote(context.Background(), FetchRequest{Remote: remote, Path: p}, io.Discard); err == nil {
+			t.Errorf("%q fetched", p)
+		}
+	}
+	if left, _ := os.ReadDir(filepath.Join(env.Cfg.BackupDir, "fetched")); len(left) != 0 {
+		t.Errorf("left after failures: %v", left)
+	}
+}
+
+// Fetching over FTPS (explicit TLS, self-signed certificate that is pinned).
+func TestRealHostFetchFTPS(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("needs root")
+	}
+	if _, err := exec.LookPath("pure-ftpd"); err != nil {
+		t.Skip("needs pure-ftpd")
+	}
+	dir := t.TempDir()
+	os.Chmod(dir, 0o755)
+	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	tmpl := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "ftp.nimvor.test"}, NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour), IPAddresses: []net.IP{net.ParseIP("127.0.0.1")}}
+	der, _ := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	kder, _ := x509.MarshalECPrivateKey(key)
+	pemData := append(pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: kder}), pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})...)
+	os.WriteFile(filepath.Join(dir, "ftp.pem"), pemData, 0o600)
+
+	exec.Command("useradd", "-m", "-u", "2893", "-s", "/usr/sbin/nologin", "nimvorftpf").Run()
+	t.Cleanup(func() { exec.Command("userdel", "-r", "nimvorftpf").Run() })
+	line := fmt.Sprintf("nimvorftpf:%s:2893:2893::/home/nimvorftpf/./::::::::::::\n", shacrypt.HashPassword("Ftp-Pa55word-123"))
+	os.WriteFile(filepath.Join(dir, "users.passwd"), []byte(line), 0o600)
+	if out, err := exec.Command("pure-pw", "mkdb", filepath.Join(dir, "users.pdb"), "-f", filepath.Join(dir, "users.passwd")).CombinedOutput(); err != nil {
+		t.Fatalf("pure-pw: %s", out)
+	}
+	conf := fmt.Sprintf(`ChrootEveryone yes
+Daemonize no
+NoAnonymous yes
+DontResolve yes
+PureDB %s/users.pdb
+Bind 127.0.0.1,2122
+PassivePortRange 40160 40200
+MinUID 1000
+TLS 2
+CertFile %s/ftp.pem
+`, dir, dir)
+	os.WriteFile(filepath.Join(dir, "pure-ftpd.conf"), []byte(conf), 0o600)
+	srv := exec.Command("pure-ftpd", filepath.Join(dir, "pure-ftpd.conf"))
+	if err := srv.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { srv.Process.Kill(); srv.Wait() })
+	for i := 0; i < 50; i++ {
+		if c, err := net.Dial("tcp", "127.0.0.1:2122"); err == nil {
+			c.Close()
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	body := strings.Repeat("ftps-data-", 4000)
+	os.MkdirAll("/home/nimvorftpf/in", 0o755)
+	os.WriteFile("/home/nimvorftpf/in/site.tar", []byte(body), 0o644)
+	exec.Command("chown", "-R", "nimvorftpf:nimvorftpf", "/home/nimvorftpf").Run()
+
+	env, r, _ := remoteEnv(t)
+	remote := Remote{Type: "ftp", Host: "127.0.0.1", Port: 2122, Username: "nimvorftpf", Password: "Ftp-Pa55word-123"}
+	probe := map[string]any{"type": "ftp", "host": "127.0.0.1", "port": 2122, "tls": "explicit"}
+	fetchViaActions(t, env, r, remote, probe, "in/site.tar", body)
+	fetchViaActions(t, env, r, remote, probe, "/in/site.tar", body)
+}
