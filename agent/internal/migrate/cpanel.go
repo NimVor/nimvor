@@ -68,11 +68,12 @@ func (cpanelAdapter) Discover(ctx context.Context, t Transport, info ServerInfo,
 	allDBs := parseSchemas(schemas, info.Engine)
 	for _, u := range users {
 		progress("Reading the account " + u + "…")
-		a := Account{ID: u, Name: u, Home: "/home/" + u, Domains: []Domain{}, Databases: []Database{}, Email: []EmailAccount{}, Cron: []CronJob{}}
+		a := Account{ID: u, Name: u, Home: "/home/" + u, Domains: []Domain{}, Databases: []Database{}, Email: []EmailAccount{}, Forwarders: []Forwarder{}, Cron: []CronJob{}}
 		script := fmt.Sprintf(`for f in /var/cpanel/userdata/%[1]s/*; do case "$f" in *.cache|*.stor|*_SSL|*.json|*.yaml) continue;; esac; [ -f "$f" ] && { echo "##file $f"; cat "$f"; }; done
 echo '##home'; getent passwd %[1]s | cut -d: -f6
 echo '##mail'; for d in /home/%[1]s/etc/*/; do dom=$(basename "$d"); [ -f "$d/passwd" ] && { echo "##dom $dom"; cut -d: -f1 "$d/passwd"; }; done
 echo '##msize'; du -sk /home/%[1]s/mail/*/*/ 2>/dev/null
+echo '##fwd'; for f in $(find /etc/valiases -maxdepth 1 -type f -user %[1]s 2>/dev/null); do echo "##vdom $(basename "$f")"; cat "$f"; done
 echo '##cron'; cat /var/spool/cron/%[1]s 2>/dev/null; true`, u)
 		res, err := t.Exec(ctx, "sh -c "+Shq(script), nil)
 		if err != nil {
@@ -187,8 +188,16 @@ func parseCpanelAccount(a *Account, out string) {
 			section = "mail"
 		case strings.HasPrefix(l, "##msize"):
 			section = "msize"
+		case strings.HasPrefix(l, "##fwd"):
+			section = "fwd"
 		case strings.HasPrefix(l, "##cron"):
 			section = "cron"
+		case section == "fwd" && strings.HasPrefix(l, "##vdom "):
+			dom = strings.TrimSpace(strings.TrimPrefix(l, "##vdom "))
+		case section == "fwd":
+			if f, ok := parseValias(dom, l); ok {
+				a.Forwarders = append(a.Forwarders, f)
+			}
 		case section == "msize":
 			if f := strings.SplitN(l, "\t", 2); len(f) == 2 {
 				if n, err := strconv.ParseInt(strings.TrimSpace(f[0]), 10, 64); err == nil {
@@ -275,4 +284,35 @@ func parseCron(l string) (CronJob, bool) {
 		return CronJob{}, false
 	}
 	return CronJob{Schedule: m[1], Command: m[2]}, true
+}
+
+var (
+	valiasLocal = regexp.MustCompile(`^(\*|[A-Za-z0-9][A-Za-z0-9._+-]{0,63})$`)
+	valiasAddr  = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}@[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$`)
+)
+
+// parseValias reads one line of /etc/valiases/<domain>: "local: dest1, dest2". A line that does
+// anything but forward to plain addresses (a pipe, :fail:, :blackhole:, a local mailbox name) is skipped.
+func parseValias(dom, line string) (Forwarder, bool) {
+	line = strings.TrimSpace(line)
+	if line == "" || strings.HasPrefix(line, "#") || !domainName.MatchString(dom) {
+		return Forwarder{}, false
+	}
+	local, rest, ok := strings.Cut(line, ":")
+	local = strings.TrimSpace(local)
+	if !ok || !valiasLocal.MatchString(local) {
+		return Forwarder{}, false
+	}
+	var dests []string
+	for _, d := range strings.Split(rest, ",") {
+		d = strings.TrimSpace(d)
+		if !valiasAddr.MatchString(d) {
+			return Forwarder{}, false
+		}
+		dests = append(dests, strings.ToLower(d))
+	}
+	if len(dests) == 0 || len(dests) > 50 {
+		return Forwarder{}, false
+	}
+	return Forwarder{Source: strings.ToLower(local) + "@" + strings.ToLower(dom), Destinations: dests}, true
 }

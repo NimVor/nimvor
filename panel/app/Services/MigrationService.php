@@ -47,6 +47,7 @@ final class MigrationService
         private readonly DatabaseRepository $dbs,
         private readonly IpService $ips,
         private readonly Connection $db,
+        private readonly MailService $mail,
     ) {
     }
 
@@ -614,6 +615,56 @@ final class MigrationService
     }
 
     /** @return array<string, mixed> */
+    /**
+     * Create NimVor aliases for the forwarders the user ticked. An address that already has an
+     * alias or a mailbox is left alone, and so is one whose domain is not set up for mail here.
+     *
+     * @param list<string> $keys "account|source" from the discovery
+     * @return array{created: int, skipped: list<string>}
+     */
+    public function importForwarders(int $id, array $keys): array
+    {
+        $m = $this->mustFind($id);
+        if ($keys === []) {
+            throw new ValidationException(['forwarders' => 'Select at least one forwarder.']);
+        }
+        $found = [];
+        foreach ((array) (((array) $m['discovery'])['accounts'] ?? []) as $a) {
+            foreach ((array) ($a['forwarders'] ?? []) as $f) {
+                $found[$a['id'] . '|' . $f['source']] = (array) $f;
+            }
+        }
+        $created = 0;
+        $skipped = [];
+        foreach ($keys as $key) {
+            $f = $found[(string) $key] ?? null;
+            if ($f === null) {
+                $skipped[] = (string) $key . ' (not in the discovery)';
+                continue;
+            }
+            [$local, $domainName] = explode('@', (string) $f['source'], 2);
+            $domain = $this->db->fetch('SELECT * FROM mail_domains WHERE server_id = ? AND domain = ?', [$this->server->id(), $domainName]);
+            if ($domain === null) {
+                $skipped[] = $f['source'] . ' (' . $domainName . ' is not set up for email in NimVor yet)';
+                continue;
+            }
+            if ((int) $this->db->scalar('SELECT COUNT(*) FROM mail_aliases WHERE domain_id = ? AND local = ?', [$domain['id'], $local === '*' ? '' : $local]) > 0) {
+                $skipped[] = $f['source'] . ' (an alias with this address already exists)';
+                continue;
+            }
+            try {
+                $this->mail->saveAlias($domain, ['local' => $local, 'destinations' => implode(',', (array) $f['destinations'])]);
+                $created++;
+            } catch (ValidationException $e) {
+                $skipped[] = $f['source'] . ' (' . implode(' ', array_map('strval', $e->errors())) . ')';
+            } catch (AgentException $e) {
+                $skipped[] = $f['source'] . ' (the mail server refused it)';
+            }
+        }
+        $this->audit->record('migration.forwarders', 'migration', (string) $id, AuditLogger::SUCCESS, ['created' => $created, 'skipped' => count($skipped)]);
+        return ['created' => $created, 'skipped' => $skipped];
+    }
+
     private function mustFind(int $id): array
     {
         return $this->find($id) ?? throw new UserFacingException('Migration not found.');

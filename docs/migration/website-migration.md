@@ -31,7 +31,8 @@ against real servers; today nothing is.
 | Synchronise before the switch: copy again only files changed on the source, keeping files that are newer here (files only) | ✅ |
 | Synchronising databases | ❌ by design (see "Before you switch DNS") |
 | Email messages (Maildir: every folder, flags kept) into mailboxes you already made in NimVor, with the same address | ✅ (rsync, no delete, never into a mailbox that has messages unless overwriting is allowed, checksum-verified, included in sync, rollback and validation) |
-| Mailbox passwords, quotas, aliases, forwarders | ❌ (set them on the NimVor mailboxes) |
+| Email forwarders (cPanel: plain address-to-address rules) | ✅ created as NimVor aliases on request; existing aliases and mailboxes are never overwritten |
+| Mailbox passwords and quotas | ❌ (set them on the NimVor mailboxes) |
 | DNS zones and records | ❌ |
 | DNS cut-over **check** (read only): where each migrated name points now, as seen by four resolvers, and whether that is this server | ✅ |
 | Changing DNS records or nameservers, TTL changes, DNS provider integration | ❌ by design: NimVor never changes DNS for a migration |
@@ -210,8 +211,10 @@ copied into the NimVor mailbox with the same address. The copy is a pull with `r
 rebuilt) and is checked afterwards. A mailbox that already has messages is refused
 unless overwriting is allowed. Reading or flagging a message in Maildir renames it, so a
 rollback keeps messages that were read since and any that arrived later; validation
-reports them as changed, not lost. Passwords, quotas, aliases and forwarders are not
-copied. Do not move MX records before the mail has been moved and synchronised.
+reports them as changed, not lost. Passwords and quotas are not
+copied. Forwarders (cPanel `/etc/valiases`) are listed under the selection step and, when you
+tick them, created straight away as NimVor aliases; rules that pipe to a program, bounce or
+discard are not read. Do not move MX records before the mail has been moved and synchronised.
 
 ## Known limitations
 
