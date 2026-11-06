@@ -224,7 +224,7 @@ func TestAMigrationCopiesFilesAndDatabaseAndIsVerified(t *testing.T) {
 	}
 	// The copy is a pull that never deletes, keeps symlinks inside the site, and gives the files to the website's account.
 	args := strings.Join(r.src.rsyncs[0], " ")
-	for _, want := range []string{"-a", "--safe-links", "--chown=", "--partial", "/home/alice/public_html/"} {
+	for _, want := range []string{"-a", "-s", "--safe-links", "--chown=", "--partial", "/home/alice/public_html/"} {
 		if !strings.Contains(args, want) {
 			t.Errorf("rsync args lack %q: %s", want, args)
 		}

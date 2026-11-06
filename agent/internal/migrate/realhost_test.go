@@ -190,6 +190,24 @@ func TestRealHostMigrateFilesOverSSH(t *testing.T) {
 		t.Errorf("http check = %q", vc["HTTP answer"])
 	}
 
+	// A source folder whose name has a space (rsync splits a remote path on spaces unless told not to).
+	os.MkdirAll("/home/nimvormsrc/my site", 0o755)
+	os.WriteFile("/home/nimvormsrc/my site/page.html", []byte("<p>space</p>"), 0o644)
+	exec.Command("chown", "-R", "nimvormsrc:nimvormsrc", "/home/nimvormsrc/my site").Run()
+	site2 := filepath.Join(env.Cfg.SitesRoot, "spaced.test", "public_html")
+	os.MkdirAll(site2, 0o755)
+	exec.Command("chown", "nimvormdst:nimvormdst", site2).Run()
+	m3, err := e.Create(Plan{Files: []FileTask{{Domain: "spaced.test", SourceRoot: "/home/nimvormsrc/my site", DestRoot: site2, DestUser: "nimvormdst", SizeKB: 4}}}, "linux", tr.Describe())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.Run(context.Background(), m3.ID, src, &log); err != nil {
+		t.Fatalf("a source folder with a space: %v\n%s", err, log.String())
+	}
+	if b, _ := os.ReadFile(filepath.Join(site2, "page.html")); string(b) != "<p>space</p>" {
+		t.Errorf("a source folder with a space was not copied: %q", b)
+	}
+
 	// Rollback: what the migration created goes, what the owner changed or added stays.
 	os.WriteFile(filepath.Join(site, "index.php"), []byte("<?php echo 'edited by the owner';"), 0o644)
 	os.WriteFile(filepath.Join(site, "mine.txt"), []byte("mine"), 0o644)

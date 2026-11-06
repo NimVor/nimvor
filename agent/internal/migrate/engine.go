@@ -446,7 +446,7 @@ func (e *Engine) runFiles(ctx context.Context, m *Migration, t Puller, i int, up
 		return fatal{fmt.Errorf("the disk of %s has only %s free; NimVor keeps %s free, so nothing was copied", f.DestRoot, kb(free), kb(reserveKB))}
 	}
 	update(i, func(t *Task) { t.Checkpoint = "copying" })
-	args := []string{"-a", "-i", "-8", "--partial", "--safe-links", "--stats", "--no-specials", "--no-devices",
+	args := []string{"-a", "-s", "-i", "-8", "--partial", "--safe-links", "--stats", "--no-specials", "--no-devices",
 		fmt.Sprintf("--chown=%d:%d", u.UID, gid)}
 	if m.Plan.Config.Compress {
 		args = append(args, "-z")
@@ -469,7 +469,7 @@ func (e *Engine) runFiles(ctx context.Context, m *Migration, t Puller, i int, up
 		return fmt.Errorf("what was copied could not be recorded: %v", err)
 	}
 	// Verification: a second pass that compares by checksum and lists what differs.
-	vargs := []string{"-a", "-n", "-c", "--safe-links", "--itemize-changes", "--no-specials", "--no-devices", "--no-owner", "--no-group"}
+	vargs := []string{"-a", "-s", "-n", "-c", "--safe-links", "--itemize-changes", "--no-specials", "--no-devices", "--no-owner", "--no-group"}
 	for _, x := range m.Plan.Config.Excludes {
 		vargs = append(vargs, "--exclude="+x)
 	}

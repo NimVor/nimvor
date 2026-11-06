@@ -52,7 +52,7 @@ against real servers; today nothing is.
    or a database that already has tables, unless you tick *Allow overwriting*.
 2. On the source you need **SSH access as root**, or a user that can read every
    website folder and run `mysqldump`/`mysql` on every database you move.
-   `rsync` and (for databases) `mysqldump` must be installed on the source.
+   `rsync` (3.0 or newer, so that folder names with spaces work on old servers) and (for databases) `mysqldump` must be installed on the source.
 3. Check that this server has room: the check in step 4 does it, and NimVor
    always keeps 512 MiB free.
 
