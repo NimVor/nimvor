@@ -769,4 +769,34 @@ final class MigrationsTest extends HttpTestCase
         $this->post("/migrations/{$id}/forwarders", []);
         self::assertArrayHasKey('forwarders', (array) $this->flash('errors'));
     }
+
+    public function testDnsRecordsOfACpanelSourceGoIntoExistingNimVorZonesWithoutAddressRecords(): void
+    {
+        $now = gmdate('c');
+        $this->db->run("INSERT INTO dns_zones (server_id, name, primary_ns, hostmaster, serial, created_at, updated_at) VALUES (1, 'shop.example.org', 'ns1.nimvor.test.', 'hostmaster.shop.example.org.', 1, ?, ?)", [$now, $now]);
+        $zoneId = $this->db->lastInsertId();
+        $id = $this->reach('discovered');
+        $this->db->run("UPDATE site_migrations SET panel = 'cpanel' WHERE id = ?", [$id]);
+        $this->agent->succeedAny();
+        self::assertStringContainsString('DNS records to add', $this->request('GET', "/migrations/{$id}")->body());
+        $this->agent->succeed('migrate.dns_zone', ['domain' => 'shop.example.org', 'text' => "\$TTL 14400\n@ IN SOA ns1. h. ( 1 2 3 4 5 )\n@ IN A 192.0.2.10\nwww IN A 192.0.2.10\n@ IN MX 10 mail.shop.example.org.\n@ IN TXT \"v=spf1 a mx ~all\"\n"]);
+        $this->agent->succeed('dns.zone_parse', ['records' => [
+            ['name' => '@', 'type' => 'MX', 'ttl' => 0, 'value' => 'mail.shop.example.org.', 'priority' => 10, 'weight' => 0, 'port' => 0],
+            ['name' => '@', 'type' => 'TXT', 'ttl' => 0, 'value' => 'v=spf1 a mx ~all', 'priority' => 0, 'weight' => 0, 'port' => 0],
+        ], 'skipped' => []]);
+        $this->post("/migrations/{$id}/dns-import", ['dns' => ['shop.example.org', 'other.example', 'ghost.example.org']]);
+        // The agent reads the zone file with the stored login; the parsed text has no address records.
+        self::assertSame('shop.example.org', $this->lastCall('migrate.dns_zone')['domain']);
+        self::assertArrayHasKey('source', $this->lastCall('migrate.dns_zone'));
+        $sent = (string) $this->lastCall('dns.zone_parse')['text'];
+        self::assertStringNotContainsString('192.0.2.10', $sent);
+        self::assertStringContainsString('MX 10', $sent);
+        self::assertStringContainsString('v=spf1 a mx', $sent, 'a TXT record is kept even though it mentions "a"');
+        self::assertSame(2, (int) $this->db->scalar('SELECT COUNT(*) FROM dns_records WHERE zone_id = ? AND type IN (\'MX\', \'TXT\')', [$zoneId]));
+        $msg = (string) $this->flash('success');
+        self::assertStringContainsString('2 DNS record(s) added', $msg);
+        self::assertStringContainsString('other.example (not in the discovery)', $msg);
+        $this->post("/migrations/{$id}/dns-import", []);
+        self::assertArrayHasKey('dns', (array) $this->flash('errors'));
+    }
 }

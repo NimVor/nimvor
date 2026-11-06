@@ -229,6 +229,22 @@ final class MigrationsController extends Controller
         return $this->redirectWithSuccess($to, $msg);
     }
 
+    public function dnsImport(Request $request, string $id): Response
+    {
+        $to = '/migrations/' . (int) $id;
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        try {
+            $res = $this->service->importDns((int) $id, array_values(array_map('strval', (array) $request->input('dns', []))));
+        } catch (ValidationException $e) {
+            return $this->backWithErrors($to, $e, $request->all());
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure($to, $e);
+        }
+        return $this->redirectWithSuccess($to, $res['added'] . ' DNS record(s) added. ' . implode('; ', $res['notes']) . '.');
+    }
+
     public function delete(Request $request, string $id): Response
     {
         return $this->act($request, $id, fn (int $i) => $this->service->delete($i), 'The migration record was removed.', '/migrations');

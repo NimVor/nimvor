@@ -11,6 +11,9 @@ All notable changes to NimVor are documented here. The format follows
 Website migration now also copies email messages and can create cPanel forwarders. The agent changes (new mail tasks in the migration engine), so upgrade the panel and the agent together (`installer/upgrade.sh` does both).
 
 ### Added
+- Website migration: DNS records of a cPanel source's zones can be added to the NimVor zones of the same names from the selection step (new read-only agent action `migrate.dns_zone`). MX, TXT, CNAME, SRV and CAA records are added; address records (A, AAAA) are left out because they point at the old server; existing records are not duplicated. NimVor never changes DNS at a registrar or nameservers.
+
+### Added
 - Website migration: email messages. Mailboxes of a cPanel or Linux source are copied (Maildir, rsync, checksum-verified) into the existing NimVor mailbox with the same address, with disk-space assessment, synchronisation, rollback (messages read or delivered since are kept) and validation. Passwords and quotas are not copied.
 - Website migration: cPanel email forwarders can be created as NimVor aliases from the selection step (existing aliases and mailboxes are never overwritten).
 

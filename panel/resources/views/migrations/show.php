@@ -177,6 +177,26 @@ $running = in_array($m['status'], ['running', 'discovering'], true);
     <button class="btn btn-primary btn-sm">Save and check compatibility</button>
 </form>
 <?php $fwd = []; foreach ((array) ($disc['accounts'] ?? []) as $a) { foreach ((array) ($a['forwarders'] ?? []) as $f) { $fwd[] = [$a['id'] . '|' . $f['source'], $f]; } } ?>
+<?php $dnsDomains = []; if (($m['panel'] ?? '') === 'cpanel') { foreach ((array) ($disc['accounts'] ?? []) as $a) { foreach ((array) ($a['domains'] ?? []) as $d) { $dnsDomains[(string) $d['name']] = true; } } } ?>
+<?php if ($dnsDomains !== []): ?>
+<form method="post" action="<?= e($this->url('migrations.dns_import', ['id' => $id])) ?>" class="mt-4" data-nim-confirm="Add the source's DNS records for the ticked domains to the NimVor zones now? Existing records are kept. Nothing is changed at the source or at your registrar.">
+    <?= $this->csrfField() ?>
+    <div class="nim-panel mb-3" data-nim-dt>
+        <div class="nim-actionbar"><div class="fw-semibold">DNS records to add <span class="badge rounded-pill text-bg-light border fw-normal">into NimVor zones that already exist, right away</span></div></div>
+        <?= $err('dns') !== '' ? $fb('dns') : '' ?>
+        <div class="nim-dtable table-responsive"><table class="table align-middle">
+            <thead><tr><th class="nim-check"><input class="form-check-input" type="checkbox" data-nim-select-all="dns[]" aria-label="Select all domains"></th><th>Domain</th></tr></thead>
+            <tbody>
+            <?php foreach (array_keys($dnsDomains) as $dn): ?>
+                <tr data-nim-row><td><input class="form-check-input" type="checkbox" name="dns[]" value="<?= e($dn) ?>" aria-label="Select <?= e($dn) ?>"></td><td class="fw-semibold"><?= e($dn) ?></td></tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table></div>
+        <div class="px-3 pb-3 small nim-muted">Mail (MX), TXT, CNAME, SRV and CAA records are added. <strong>Address records (A, AAAA) are not</strong>: they point at the old server, and the NimVor zone already points at this one. SOA and name servers stay as NimVor has them. This changes only NimVor's own zones; it never changes your registrar or nameservers.</div>
+    </div>
+    <button class="btn btn-outline-primary btn-sm">Add the records</button>
+</form>
+<?php endif; ?>
 <?php if ($fwd !== []): ?>
 <form method="post" action="<?= e($this->url('migrations.forwarders', ['id' => $id])) ?>" class="mt-4" data-nim-confirm="Create the ticked forwarders as NimVor aliases now? Existing aliases and mailboxes are left alone.">
     <?= $this->csrfField() ?>

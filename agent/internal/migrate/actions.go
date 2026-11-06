@@ -99,6 +99,25 @@ func Register(r *actions.Registry, env *host.Env) {
 		return map[string]any{"server": info, "panel": det}, nil
 	}})
 
+	r.Register(actions.Action{Name: "migrate.dns_zone", Timeout: 60 * time.Second, Description: "Read a domain's DNS zone file from a cPanel source (reads only; changes nothing on the source and no DNS anywhere).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			Source Source `json:"source"`
+			Domain string `json:"domain"`
+		}
+		if err := dec(p, &in); err != nil {
+			return nil, err
+		}
+		t, err := e.Open(in.Source)
+		if err != nil {
+			return nil, invalid(err)
+		}
+		text, err := ReadZone(ctx, t, in.Source.Panel, strings.ToLower(in.Domain))
+		if err != nil {
+			return nil, actions.Failed("The zone file could not be read.", redact(err.Error(), in.Source))
+		}
+		return map[string]any{"domain": strings.ToLower(in.Domain), "text": text}, nil
+	}})
+
 	r.Register(actions.Action{Name: "migrate.discover", Description: "Discover the accounts, domains, databases, mailboxes and cron jobs of a source server (job; reads only). The result is the job's result.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		t, src, err := connect(p)
 		if err != nil {

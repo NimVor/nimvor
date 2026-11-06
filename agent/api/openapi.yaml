@@ -251,6 +251,7 @@ paths:
               - migrate.create
               - migrate.cutover_check
               - migrate.discover
+              - migrate.dns_zone
               - migrate.get
               - migrate.host_key
               - migrate.list
@@ -815,6 +816,7 @@ x-nimvor-actions:
   migrate.create: { mutating: true, description: "Store a migration plan whose destinations are existing NimVor websites and databases. Starts nothing." }
   migrate.cutover_check: { mutating: false, description: "Read where each migrated website's name points now (this server's resolver and three public ones) and whether that is one of this server's addresses. Reads DNS only: it never changes a record or a nameserver." }
   migrate.discover: { mutating: false, description: "Discover the accounts, domains, databases, mailboxes and cron jobs of a source server (job; reads only). The result is the job's result." }
+  migrate.dns_zone: { mutating: false, description: "Read a domain's DNS zone file from a cPanel source (reads only; changes nothing on the source and no DNS anywhere)." }
   migrate.get: { mutating: false, description: "The state of one migration: its tasks, their status, and what remains to be done by hand." }
   migrate.host_key: { mutating: false, description: "Ask a source server for its SSH host key so the person can confirm it. No login is sent." }
   migrate.list: { mutating: false, description: "Every migration on this server, newest first." }

@@ -48,6 +48,7 @@ final class MigrationService
         private readonly IpService $ips,
         private readonly Connection $db,
         private readonly MailService $mail,
+        private readonly DnsService $dns,
     ) {
     }
 
@@ -663,6 +664,64 @@ final class MigrationService
         }
         $this->audit->record('migration.forwarders', 'migration', (string) $id, AuditLogger::SUCCESS, ['created' => $created, 'skipped' => count($skipped)]);
         return ['created' => $created, 'skipped' => $skipped];
+    }
+
+    /**
+     * Add the DNS records of a cPanel source's zones to the NimVor zones of the same names. Address
+     * records (A, AAAA) are left out: they point at the old server and the NimVor zone has its own.
+     * SOA and the zone's own name servers are skipped, and records already there are not duplicated.
+     * Nothing is changed at the source or at any registrar.
+     *
+     * @param list<string> $domains
+     * @return array{added: int, notes: list<string>}
+     */
+    public function importDns(int $id, array $domains): array
+    {
+        $m = $this->mustFind($id);
+        if ($domains === []) {
+            throw new ValidationException(['dns' => 'Select at least one domain.']);
+        }
+        if ($m['panel'] !== 'cpanel') {
+            throw new UserFacingException('DNS zones can only be read from a cPanel source in this version.');
+        }
+        $known = [];
+        foreach ((array) (((array) $m['discovery'])['accounts'] ?? []) as $a) {
+            foreach ((array) ($a['domains'] ?? []) as $d) {
+                $known[strtolower((string) $d['name'])] = true;
+            }
+        }
+        $source = $this->source($m);
+        $added = 0;
+        $notes = [];
+        foreach ($domains as $name) {
+            $name = strtolower((string) $name);
+            if (!isset($known[$name])) {
+                $notes[] = $name . ' (not in the discovery)';
+                continue;
+            }
+            $zone = $this->db->fetch('SELECT * FROM dns_zones WHERE server_id = ? AND name = ?', [$this->server->id(), $name]);
+            if ($zone === null) {
+                $notes[] = $name . ' (there is no DNS zone for it in NimVor yet; create the zone first)';
+                continue;
+            }
+            try {
+                $res = (array) $this->agent->call('migrate.dns_zone', ['source' => $source, 'domain' => $name], 90);
+            } catch (AgentException $e) {
+                $notes[] = $name . ' (the zone file could not be read from the source)';
+                continue;
+            }
+            $text = implode("\n", array_filter(explode("\n", (string) ($res['text'] ?? '')), static fn (string $l): bool => preg_match('/\s(A|AAAA)\s+\S/i', $l) !== 1 || preg_match('/\s(MX|TXT|CNAME|SRV|CAA|NS|SOA)\s/i', $l) === 1));
+            try {
+                $r = $this->dns->import($zone, $text);
+            } catch (ValidationException|UserFacingException $e) {
+                $notes[] = $name . ' (' . $e->getMessage() . ')';
+                continue;
+            }
+            $added += $r['added'];
+            $notes[] = $name . ': ' . $r['added'] . ' added, ' . $r['duplicates'] . ' already there, ' . count($r['skipped']) . ' skipped';
+        }
+        $this->audit->record('migration.dns_import', 'migration', (string) $id, AuditLogger::SUCCESS, ['records' => $added, 'zones' => count($domains)]);
+        return ['added' => $added, 'notes' => $notes];
     }
 
     private function mustFind(int $id): array
