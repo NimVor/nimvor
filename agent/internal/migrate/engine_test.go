@@ -147,6 +147,12 @@ func newRig(t *testing.T) *rig {
 		os.MkdirAll(filepath.Join(local, "sub dir"), 0o755)
 		os.WriteFile(filepath.Join(local, "index.php"), []byte("<?php echo 1;"), 0o644)
 		os.WriteFile(filepath.Join(local, "sub dir", "a b.txt"), []byte("data"), 0o644)
+		// Real rsync gives the files to the website's account (--chown); so does this copy.
+		if u, err := h.Env.LookupUser("example"); err == nil && os.Geteuid() == 0 {
+			for _, p := range []string{"sub dir", "index.php", "sub dir/a b.txt"} {
+				os.Lchown(filepath.Join(local, p), u.UID, u.GID)
+			}
+		}
 		io.WriteString(out, "cd+++++++++ sub dir/\n>f+++++++++ index.php\n>f+++++++++ sub dir/a b.txt\nNumber of regular files transferred: 2\nTotal transferred file size: 17 bytes\n")
 		return nil
 	}

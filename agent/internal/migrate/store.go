@@ -45,6 +45,7 @@ type Task struct {
 	// StartedEmpty is true when the destination database had no table before the import, so
 	// everything in it came from this migration (only then can it be emptied again).
 	StartedEmpty bool       `json:"started_empty,omitempty"`
+	Tables       int        `json:"tables,omitempty"`      // tables the import produced
 	Differences  int        `json:"differences,omitempty"` // files that differed in the verification pass
 	Detail       string     `json:"detail,omitempty"`
 	Started      *time.Time `json:"started,omitempty"`
@@ -69,6 +70,8 @@ type Migration struct {
 	Remaining []string `json:"remaining,omitempty"`
 	// Rollback is what the last rollback did and left.
 	Rollback *RollbackReport `json:"rollback,omitempty"`
+	// Validation is the result of the last validation pass.
+	Validation *ValidationReport `json:"validation,omitempty"`
 }
 
 // Store keeps migrations as files in the agent's state folder.

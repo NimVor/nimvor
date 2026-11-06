@@ -259,6 +259,7 @@ paths:
               - migrate.rollback
               - migrate.start
               - migrate.test
+              - migrate.validate
               - modsec.configure
               - modsec.crs_install
               - modsec.custom_get
@@ -820,6 +821,7 @@ x-nimvor-actions:
   migrate.rollback: { mutating: true, description: "Undo a migration's changes in this server: remove the files it created while they are unchanged, empty the databases it filled only when told to and only if nothing was written to them since. Newer data is never removed; nothing on the source is touched." }
   migrate.start: { mutating: true, description: "Run a stored migration (job). The login is used for this run only and is not stored." }
   migrate.test: { mutating: false, description: "Connect to a source server over SSH (host key pinned), identify its system, panel, PHP, database engine and disk. Reads only." }
+  migrate.validate: { mutating: false, description: "Check what a migration left in this server: document roots, created files present and owned by the website's account, databases reachable with their table counts, and an HTTP request to the site by name. Reads only; contacts no source." }
   modsec.configure: { mutating: true, description: "Turn ModSecurity on or off server-wide and set the rule vendors (OWASP CRS paranoia level and anomaly thresholds, custom rules). Checked with nginx -t, rolled back on failure." }
   modsec.crs_install: { mutating: true, description: "Install the OWASP Core Rule Set (background job, one transaction): the distribution's package when there is one, otherwise the pinned, checksum-verified CRS release unpacked by the agent (rule and data files only). It is turned on in detection only: websites set to block only log until blocking is allowed. Rolled back on failure." }
   modsec.custom_get: { mutating: false, description: "The administrator's custom ModSecurity rules." }

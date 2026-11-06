@@ -36,7 +36,8 @@ against real servers; today nothing is.
 | PostgreSQL | ❌ |
 | Database users and grants | ❌ (NimVor creates the database user for the NimVor database) |
 | Creating the destination website/account for you | ❌ (create the NimVor website and database first) |
-| Validation: HTTP, PHP, SSL, DNS checks | ❌ (files by checksum, databases by table count only) |
+| Validation pass: document root, created files present and owned by the account, database reachable and table count, HTTP request to the site by name | ✅ |
+| Validation of PHP execution and extensions, application configuration, SSL, DNS | ❌ |
 | Rollback of destination changes | ✅ files and (on confirmation) databases, never newer data (see "Rollback") |
 | Final report as PDF | ❌ (JSON only) |
 | API connections (WHM API, Plesk REST…) | ❌ (SSH only) |
@@ -74,7 +75,16 @@ against real servers; today nothing is.
    like. Each website and database is a task with its own status, attempts and
    result. Files are copied first, several at a time, then databases one after
    the other.
-7. **Report.** *Report (JSON)* lists what was copied, what failed, what differs
+7. **Validate.** *Validate* (any time after a run) checks what is on this server:
+   the document root exists; every file the copy created is present, and owned by
+   the website's account; files that differed from the source when they were
+   copied are flagged; each database answers and has the number of tables that was
+   imported; and the site is requested **by name from this server's own web
+   server**, so it works before DNS is switched. Results are *Pass*, *Look* (a
+   warning, for example the site answers HTTP 500, or is not enabled yet) or
+   *Fail*. The report lists what this pass does **not** check (PHP execution and
+   extensions, application configuration, SSL, DNS).
+8. **Report.** *Report (JSON)* lists what was copied, what failed, what differs
    from the source, what is left to do and what was not moved.
 
 ### Before you switch DNS
@@ -218,6 +228,7 @@ behind the write gate):
 | `migrate.create` | Store a validated plan |
 | `migrate.start` / `migrate.resume` | Run / continue (job); the login is given for that run |
 | `migrate.pause` / `migrate.cancel` | Stop at the next safe point / cancel |
+| `migrate.validate` | Check what the migration left here (reads only; contacts no source) |
 | `migrate.rollback` | Remove what the migration created (confirmation required); databases only when asked |
 | `migrate.get` / `migrate.list` | State of one / all migrations |
 

@@ -210,6 +210,22 @@ $running = in_array($m['status'], ['running', 'discovering'], true);
         </tbody>
     </table></div>
 </div>
+<?php $val = (array) ($state['validation'] ?? []); $canValidate = in_array($m['status'], ['completed', 'failed', 'cancelled', 'paused', 'interrupted'], true) && $m['agent_id'] !== ''; ?>
+<?php if ($canValidate || $val !== []): ?>
+<div class="card mb-3"><div class="card-header d-flex align-items-center"><span><i class="bi bi-clipboard-check me-1"></i>Validation</span>
+    <?php if ($canValidate): ?><form class="ms-auto" method="post" action="<?= e($this->url('migrations.validate', ['id' => $id])) ?>" data-nim-busy><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><?= $val === [] ? 'Validate' : 'Validate again' ?></button></form><?php endif; ?></div>
+    <?php if ($val === []): ?><div class="card-body small text-body-secondary">Checks what the migration left on this server: document roots, the files it created, their ownership, databases and their table counts, and an HTTP request to each site. It reads only and can be run at any time.</div>
+    <?php else: ?>
+    <div class="card-body small pb-0"><strong><?= (int) ($val['passed'] ?? 0) ?></strong> passed · <strong><?= (int) ($val['warned'] ?? 0) ?></strong> to look at · <strong class="<?= (int) ($val['failed'] ?? 0) > 0 ? 'text-danger' : '' ?>"><?= (int) ($val['failed'] ?? 0) ?></strong> failed <span class="text-body-secondary">· <?= e(str_replace('T', ' ', substr((string) ($val['at'] ?? ''), 0, 16))) ?> UTC</span></div>
+    <div class="table-responsive"><table class="table table-sm align-middle mb-0"><tbody>
+        <?php foreach ((array) ($val['checks'] ?? []) as $c): $cls = ['pass' => 'is-ok', 'warn' => 'is-warn', 'fail' => 'is-error'][$c['status']] ?? ''; ?>
+        <tr><td class="small fw-semibold"><?= e((string) $c['item']) ?></td><td class="small"><?= e((string) $c['name']) ?></td><td><span class="nim-state <?= e($cls) ?>"><?= e(['pass' => 'Pass', 'warn' => 'Look', 'fail' => 'Fail'][$c['status']] ?? (string) $c['status']) ?></span></td><td class="small text-break"><?= e((string) $c['detail']) ?></td></tr>
+        <?php endforeach; ?>
+    </tbody></table></div>
+    <div class="card-footer small text-body-secondary"><div class="fw-semibold">What this does not check</div><ul class="mb-0"><?php foreach ((array) ($val['limits'] ?? []) as $l): ?><li><?= e((string) $l) ?></li><?php endforeach; ?></ul></div>
+    <?php endif; ?>
+</div>
+<?php endif; ?>
 <?php $rb = (array) ($state['rollback'] ?? []); if ($m['status'] === 'rolled_back' && $rb !== []): ?>
 <div class="card mb-3"><div class="card-header"><i class="bi bi-arrow-counterclockwise me-1"></i>Rollback</div><div class="card-body small">
     <p class="mb-1"><?= (int) ($rb['files_removed'] ?? 0) ?> file(s) and <?= (int) ($rb['dirs_removed'] ?? 0) ?> folder(s) the migration created were removed<?= ($rb['databases_emptied'] ?? []) !== [] ? '; databases emptied: ' . e(implode(', ', (array) $rb['databases_emptied'])) : '' ?>. Nothing on the source was touched.</p>

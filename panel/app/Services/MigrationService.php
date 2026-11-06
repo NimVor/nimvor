@@ -412,6 +412,25 @@ final class MigrationService
     }
 
     /**
+     * Check what the migration left in this server (reads only; the agent keeps the result).
+     *
+     * @return array<string, mixed>
+     */
+    public function validate(int $id): array
+    {
+        $this->refresh($id);
+        $m = $this->mustFind($id);
+        if ($m['agent_id'] === '' || in_array($m['status'], ['running', 'rolled_back', 'discovering'], true) || in_array($m['status'], ['draft', 'connected', 'discovered', 'selected', 'assessed'], true)) {
+            throw new UserFacingException('There is nothing to validate yet: validate a migration that has run and is not running or rolled back.');
+        }
+        $rep = (array) $this->agent->call('migrate.validate', ['id' => $m['agent_id']], 330);
+        $this->audit->record('migration.validate', 'migration', (string) $id, ((int) ($rep['failed'] ?? 0)) > 0 ? AuditLogger::FAILURE : AuditLogger::SUCCESS, [
+            'passed' => (int) ($rep['passed'] ?? 0), 'warned' => (int) ($rep['warned'] ?? 0), 'failed' => (int) ($rep['failed'] ?? 0),
+        ]);
+        return $rep;
+    }
+
+    /**
      * Undo the migration's changes in this server: remove the files it created while they are
      * unchanged, and (only when asked) empty the databases it filled. Newer data is kept.
      *
@@ -485,6 +504,7 @@ final class MigrationService
             'differences' => array_values(array_filter($tasks, static fn (array $t): bool => (int) ($t['differences'] ?? 0) > 0)),
             'remaining' => (array) ($state['remaining'] ?? []),
             'rollback' => $state['rollback'] ?? null,
+            'validation' => $state['validation'] ?? null,
             'not_migrated' => (array) ($disc['not_migrated'] ?? []),
             'recommendations' => [
                 'A rollback is available while the migration has not been rolled back: it removes only files the migration created and that are unchanged, and empties databases only when you confirm and nothing was written to them since.',
@@ -493,7 +513,7 @@ final class MigrationService
                 'Nothing was deleted on the source. Keep it until you have checked the new site, and change DNS yourself when you are ready.',
                 'Email, DNS records, SSL certificates, FTP accounts and cron jobs are not moved by this version.',
             ],
-            'validation' => 'Files were compared by checksum after the copy; databases were compared by table count. HTTP, PHP and DNS checks are not run by this version.',
+            'validation_note' => 'Files were compared by checksum after the copy; databases were compared by table count. The validation pass (Validate) adds document root, created files, ownership, database and HTTP checks; PHP, SSL and DNS checks are not run by this version.',
         ];
     }
 

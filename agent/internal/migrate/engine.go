@@ -584,6 +584,7 @@ func (e *Engine) runDB(ctx context.Context, m *Migration, t Puller, i int, updat
 	}
 	update(i, func(t *Task) {
 		t.Checkpoint = "imported"
+		t.Tables = have
 		t.Detail = fmt.Sprintf("%d tables imported, %d bytes of dump (sha256 %s…)", have, size, sum[:12])
 	})
 	_ = os.Remove(final)

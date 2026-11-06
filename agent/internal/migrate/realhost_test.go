@@ -171,6 +171,25 @@ func TestRealHostMigrateFilesOverSSH(t *testing.T) {
 		t.Error("the changed source was not synchronised")
 	}
 
+	// Validation: the real ownership from rsync --chown, and the document root, are checked; there is
+	// no web server serving this folder here, so the HTTP request is only a warning.
+	vrep, err := e.Validate(context.Background(), m.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vc := map[string]string{}
+	for _, c := range vrep.Checks {
+		vc[c.Name] = c.Status
+	}
+	for _, n := range []string{"Document root", "Created files present", "File ownership", "Files match the source"} {
+		if vc[n] != Pass {
+			t.Errorf("validation %q = %q (%+v)", n, vc[n], vrep.Checks)
+		}
+	}
+	if vc["HTTP answer"] != Warn && vc["HTTP answer"] != Pass {
+		t.Errorf("http check = %q", vc["HTTP answer"])
+	}
+
 	// Rollback: what the migration created goes, what the owner changed or added stays.
 	os.WriteFile(filepath.Join(site, "index.php"), []byte("<?php echo 'edited by the owner';"), 0o644)
 	os.WriteFile(filepath.Join(site, "mine.txt"), []byte("mine"), 0o644)
@@ -296,6 +315,17 @@ func TestRealHostMigrateDatabaseOverSSH(t *testing.T) {
 	// The temporary dump is gone.
 	if left, _ := filepath.Glob(filepath.Join(env.Cfg.StateDir, "tmp", "migrate-*", "*")); len(left) != 0 {
 		t.Errorf("dump files left: %v", left)
+	}
+	dv, err := e.Validate(context.Background(), m.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dc := map[string]string{}
+	for _, c := range dv.Checks {
+		dc[c.Name] = c.Status
+	}
+	if dc["Database reachable"] != Pass || dc["Table count"] != Pass {
+		t.Errorf("database validation = %+v", dv.Checks)
 	}
 	// Rollback: written to after the import, the database is kept; untouched, it is emptied and keeps its character set.
 	time.Sleep(7 * time.Second)

@@ -220,6 +220,19 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		return rep, nil
 	}})
+	r.Register(actions.Action{Name: "migrate.validate", Timeout: 5 * time.Minute, Description: "Check what a migration left in this server: document roots, created files present and owned by the website's account, databases reachable with their table counts, and an HTTP request to the site by name. Reads only; contacts no source.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			ID string `json:"id"`
+		}
+		if err := dec(p, &in); err != nil {
+			return nil, err
+		}
+		rep, err := e.Validate(ctx, in.ID)
+		if err != nil {
+			return nil, actions.InvalidParams(err.Error())
+		}
+		return rep, nil
+	}})
 	r.Register(actions.Action{Name: "migrate.get", Description: "The state of one migration: its tasks, their status, and what remains to be done by hand.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			ID string `json:"id"`

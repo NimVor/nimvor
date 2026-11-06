@@ -561,4 +561,50 @@ final class MigrationsTest extends HttpTestCase
         self::assertSame('completed', $this->db->scalar('SELECT status FROM site_migrations WHERE id = ?', [$id]), 'the agent refused, so the migration must not be recorded as rolled back');
         self::assertSame('failure', $this->db->scalar("SELECT result FROM audit_logs WHERE action = 'migration.rollback'"));
     }
+
+    private function validationReport(int $failed = 0): array
+    {
+        return ['at' => gmdate('c'), 'passed' => 5, 'warned' => 1, 'failed' => $failed, 'limits' => ['PHP execution is not checked.'], 'checks' => [
+            ['item' => 'new.example.com', 'name' => 'Document root', 'status' => 'pass', 'detail' => '/home/nimvor/new.example.com/public_html exists'],
+            ['item' => 'new.example.com', 'name' => 'HTTP answer', 'status' => 'warn', 'detail' => 'the site answers with HTTP 500'],
+            ['item' => 'newsite_wp', 'name' => 'Table count', 'status' => $failed > 0 ? 'fail' : 'pass', 'detail' => '1 table(s), as imported'],
+        ]];
+    }
+
+    public function testValidationIsOfferedAfterARunAndShowsWhatItDoesNotCheck(): void
+    {
+        $id = $this->started();
+        $this->agentState('running');
+        self::assertStringNotContainsString('Validate', $this->request('GET', "/migrations/{$id}")->body(), 'offered while running');
+        $this->post("/migrations/{$id}/validate");
+        self::assertSame(0, $this->calls('migrate.validate'));
+        self::assertStringContainsString('nothing to validate', (string) $this->flash('error'));
+
+        $this->agentState('completed');
+        self::assertStringContainsString('Validate</button>', $this->request('GET', "/migrations/{$id}")->body());
+        $this->agent->succeed('migrate.validate', $this->validationReport(1));
+        $res = $this->post("/migrations/{$id}/validate");
+        self::assertSame("/migrations/{$id}", $res->header('Location'), (string) $this->flash('error'));
+        self::assertSame('0123456789abcdef', $this->lastCall('migrate.validate')['id']);
+        self::assertSame('failure', $this->db->scalar("SELECT result FROM audit_logs WHERE action = 'migration.validate'"), 'a failed check is audited as a failure');
+
+        $this->agentState('completed', [], ['validation' => $this->validationReport(1)]);
+        $page = $this->request('GET', "/migrations/{$id}")->body();
+        foreach (['Validation', '5</strong> passed', 'Document root', 'the site answers with HTTP 500', 'Look', 'Fail', 'What this does not check', 'PHP execution is not checked.', 'Validate again'] as $needle) {
+            self::assertStringContainsString($needle, $page, $needle);
+        }
+        $report = json_decode($this->request('GET', "/migrations/{$id}/report")->body(), true);
+        self::assertSame(1, $report['validation']['failed']);
+        self::assertStringContainsString('PHP, SSL and DNS checks are not run', $report['validation_note']);
+    }
+
+    public function testARolledBackMigrationIsNotValidated(): void
+    {
+        $id = $this->started();
+        $this->agentState('failed');
+        $this->agent->succeed('migrate.rollback', ['files_removed' => 0, 'dirs_removed' => 0, 'databases_emptied' => [], 'kept' => [], 'notes' => []]);
+        $this->post("/migrations/{$id}/rollback", ['confirm' => '1']);
+        $this->post("/migrations/{$id}/validate");
+        self::assertSame(0, $this->calls('migrate.validate'));
+    }
 }
