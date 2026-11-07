@@ -478,6 +478,35 @@ func TestFroxlorCustomersDomainsDatabasesAndMailAreRead(t *testing.T) {
 	}
 }
 
+func TestCWPUsersDomainsDatabasesAndMailAreRead(t *testing.T) {
+	users := [][]string{{"alice", "alice.com"}, {"root", "x.com"}, {"bad user", "y.com"}}
+	doms := [][]string{{"shop.net", "alice", "/public_html/shop.net"}, {"alice.com", "alice", "/home/alice/public_html"}, {"o.org", "nobody", "/public_html/o"}, {"evil.org", "alice", "/public_html/../../etc"}}
+	subs := [][]string{{"blog.alice.com", "alice", "/public_html/blog"}}
+	dbs := [][]string{{"alice_wp"}, {"bob_wp"}, {"information_schema"}}
+	mail := [][]string{{"Me@alice.com", "alice.com/me/"}, {"x@unknown.org", "unknown.org/x/"}}
+	a := buildCWP(users, doms, subs, dbs, mail)
+	if len(a) != 1 || a[0].ID != "alice" || a[0].Home != "/home/alice" {
+		t.Fatalf("accounts = %+v", a)
+	}
+	got := map[string]string{}
+	for _, d := range a[0].Domains {
+		got[d.Name] = d.Kind + " " + d.DocRoot
+	}
+	if len(got) != 3 || got["alice.com"] != "main /home/alice/public_html" || got["shop.net"] != "addon /home/alice/public_html/shop.net" || got["blog.alice.com"] != "sub /home/alice/public_html/blog" {
+		t.Errorf("domains = %v", got)
+	}
+	if len(a[0].Databases) != 1 || a[0].Databases[0].Name != "alice_wp" {
+		t.Errorf("databases = %+v", a[0].Databases)
+	}
+	if len(a[0].Email) != 1 || a[0].Email[0].Maildir != "/var/vmail/alice.com/me" {
+		t.Errorf("mail = %+v", a[0].Email)
+	}
+	fw := cwpForwarders([][]string{{"me@alice.com", "me@alice.com"}, {"info@alice.com", "me@alice.com"}})
+	if len(fw) != 1 || fw[0].Source != "info@alice.com" {
+		t.Errorf("forwarders = %+v", fw)
+	}
+}
+
 func TestSQLPanelsReportAFailedQueryAndAreDetected(t *testing.T) {
 	src := &fakeSrc{}
 	src.execFn = func(cmd string, stdout io.Writer) (string, error) {
@@ -502,6 +531,7 @@ func TestSQLPanelsReportAFailedQueryAndAreDetected(t *testing.T) {
 		{cyberPanelAdapter{}, "cyberpanel\n", "cyberpanel"},
 		{ispConfigAdapter{}, "ispconfig\ndefine('ISPC_APP_VERSION', '3.2.11');\n", "ispconfig"},
 		{froxlorAdapter{}, "froxlor\n$sql['db'] = 'froxlor';\n", "froxlor"},
+		{cwpAdapter{}, "cwp\n0.9.8.1148\n", "cwp"},
 	} {
 		src.execFn = func(cmd string, stdout io.Writer) (string, error) { return c.out, nil }
 		det, ok, _ := c.a.Detect(context.Background(), src)

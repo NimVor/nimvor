@@ -35,7 +35,7 @@ func adapters() []Adapter {
 		vestaFamily{id: "vestacp", name: "VestaCP", root: "/usr/local/vesta"},
 		vestaFamily{id: "hestiacp", name: "HestiaCP", root: "/usr/local/hestia"},
 		cyberPanelAdapter{}, ispConfigAdapter{}, froxlorAdapter{},
-		cloudPanel(), aaPanel(), interWorxAdapter{},
+		cloudPanel(), aaPanel(), interWorxAdapter{}, cwpAdapter{},
 		enhanceAdapter{},
 		nimvorAdapter{},
 		linuxAdapter{}}

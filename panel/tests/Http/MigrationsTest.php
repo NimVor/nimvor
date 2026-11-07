@@ -46,6 +46,7 @@ final class MigrationsTest extends HttpTestCase
             ['panel' => 'interworx', 'name' => 'InterWorx', 'support' => 'experimental'],
             ['panel' => 'froxlor', 'name' => 'Froxlor', 'support' => 'experimental'],
             ['panel' => 'nimvor', 'name' => 'NimVor', 'support' => 'experimental'],
+            ['panel' => 'cwp', 'name' => 'CentOS Web Panel (CWP)', 'support' => 'experimental'],
             ['panel' => 'enhance', 'name' => 'Enhance (limited)', 'support' => 'experimental'],
             ['panel' => 'linux', 'name' => 'Custom Linux server (no panel)', 'support' => 'experimental'],
         ]]);
@@ -126,10 +127,10 @@ final class MigrationsTest extends HttpTestCase
         $page = $this->request('GET', '/migrations/new')->body();
         self::assertStringContainsString('cPanel / WHM', $page);
         self::assertStringContainsString('Custom Linux server', $page);
-        self::assertSame(15, substr_count($page, 'title="Experimental"'), 'every source carries an Experimental info icon');
+        self::assertSame(16, substr_count($page, 'title="Experimental"'), 'every source carries an Experimental info icon');
         self::assertStringContainsString('nim-source-pop', $page, 'the description and the button are in a box shown on hover');
         self::assertStringContainsString('Reads accounts, domains', html_entity_decode($page, ENT_QUOTES));
-        self::assertSame(15, substr_count($page, 'Use this source</button>'), 'one button per source, inside the hover box');
+        self::assertSame(16, substr_count($page, 'Use this source</button>'), 'one button per source, inside the hover box');
         self::assertStringContainsString('row-cols-md-4', $page, 'four cards in a row');
         self::assertStringNotContainsString('Fully supported</span>', $page);
         foreach (['Plesk', 'CyberPanel', 'DirectAdmin', 'HestiaCP', 'aaPanel', 'ISPConfig', 'Virtualmin'] as $p) {
