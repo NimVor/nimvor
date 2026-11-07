@@ -129,7 +129,7 @@ final class MigrationsTest extends HttpTestCase
         self::assertSame(15, substr_count($page, 'title="Experimental"'), 'every source carries an Experimental info icon');
         self::assertStringContainsString('nim-source-pop', $page, 'the description and the button are in a box shown on hover');
         self::assertStringContainsString('Reads accounts, domains', html_entity_decode($page, ENT_QUOTES));
-        self::assertSame(14, substr_count($page, 'Use this source</button>'), 'one button per source, inside the hover box');
+        self::assertSame(15, substr_count($page, 'Use this source</button>'), 'one button per source, inside the hover box');
         self::assertStringContainsString('row-cols-md-4', $page, 'four cards in a row');
         self::assertStringNotContainsString('Fully supported</span>', $page);
         foreach (['Plesk', 'CyberPanel', 'DirectAdmin', 'HestiaCP', 'aaPanel', 'ISPConfig', 'Virtualmin'] as $p) {
