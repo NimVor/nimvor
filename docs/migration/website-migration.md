@@ -20,6 +20,7 @@ against real servers; today nothing is.
 | cPanel / WHM | **Experimental** | Discovery written from cPanel's documented file layout and tested on **synthetic data only**. Not tried on a real cPanel server, and the layout differs between versions. Treat the discovery as a starting point and check it. |
 | Plesk (Linux) | **Experimental** | Read from Plesk's own database with read-only queries. Written from the documented schema, tested on synthetic data only. |
 | DirectAdmin | **Experimental** | Read from DirectAdmin's files. Written from the documented layout, tested on synthetic data only. |
+| FASTPANEL | **Experimental** | Sites read through FASTPANEL's `mogwai sites list` table (found by header names); databases listed for the whole server. Written from the documentation's description of the CLI; the exact output format is unverified. |
 | CyberPanel, Virtualmin/Webmin, HestiaCP, aaPanel, ISPConfig, Enhance, InterWorx, CloudPanel, VestaCP, Froxlor | **Not available** | Listed in the wizard so nobody assumes they work. They cannot be chosen. |
 
 ### What it moves
@@ -237,6 +238,18 @@ under `/usr/local/directadmin/data/users`, each user's `domains.list` (the first
 then migrate like any other source. Not read: PHP versions per domain, forwarders, DNS zones, FTP and
 cron. Written from DirectAdmin's documented layout and run on synthetic data only: test it on a
 non-critical user first.
+
+## FASTPANEL (experimental)
+
+Choose **FASTPANEL** as the source and log in as root. NimVor runs `mogwai sites list` on the source and
+reads the SERVER_NAME, OWNER and DOCUMENT_ROOT columns by their header names (a plain aligned table or a
+`|`/`│` drawn one). Each site owner is an account and each site's document root is copied, usually
+`/var/www/<owner>/data/www/<domain>`. Databases are shown as one list for the whole server under the
+pseudo-account "databases", and you choose each destination yourself, because FASTPANEL's
+database-to-site link is not read. Mailboxes, forwarders, DNS, FTP and cron are not read. If the table
+cannot be recognised the wizard says so instead of guessing. FASTPANEL's own `transfer` tool is the
+better choice between two FASTPANEL servers; this reader is for moving a FASTPANEL server's sites
+into NimVor.
 
 ## Known limitations
 

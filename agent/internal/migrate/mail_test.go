@@ -328,3 +328,52 @@ func TestDirectAdminIsDetectedByItsVersion(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+const fastPanelPlain = "ID  SERVER_NAME    ALIASES          OWNER         MODE    PHP_VERSION  IPS        DOCUMENT_ROOT\n" +
+	"1   example.com    www.example.com  example_usr   mpm_itk 8.2          1.2.3.4    /var/www/example_usr/data/www/example.com\n" +
+	"2   shop.test                       shop_usr      mpm_itk 8.1          1.2.3.4    /var/www/shop_usr/data/www/shop.test\n" +
+	"3   bad..name                       x_usr         mpm_itk 8.1          1.2.3.4    /var/www/x_usr/data/www/bad\n" +
+	"4   evil.test                       e_usr         mpm_itk 8.1          1.2.3.4    /var/www/../etc\n"
+
+const fastPanelBoxed = "+----+-------------+---------+-------------+---------------------------------------+\n" +
+	"| ID | SERVER_NAME | ALIASES | OWNER       | DOCUMENT_ROOT                         |\n" +
+	"+----+-------------+---------+-------------+---------------------------------------+\n" +
+	"| 1  | Example.com |         | example_usr | /var/www/example_usr/data/www/example.com |\n" +
+	"| 2  | blog.example.com |    | example_usr | /var/www/example_usr/data/www/blog.example.com |\n" +
+	"+----+-------------+---------+-------------+---------------------------------------+\n"
+
+func TestFastPanelSitesAreReadFromTheTableByHeaderName(t *testing.T) {
+	accts, warns := parseFastPanelSites(fastPanelPlain)
+	if len(accts) != 2 {
+		t.Fatalf("accounts = %+v", accts)
+	}
+	if accts[0].ID != "example_usr" || accts[0].Domains[0].Name != "example.com" || accts[0].Domains[0].DocRoot != "/var/www/example_usr/data/www/example.com" || accts[0].Home != "/var/www/example_usr" {
+		t.Errorf("first = %+v", accts[0])
+	}
+	if accts[1].ID != "shop_usr" || accts[1].Domains[0].DocRoot != "/var/www/shop_usr/data/www/shop.test" {
+		t.Errorf("second (empty aliases) = %+v", accts[1])
+	}
+	if len(warns) != 2 {
+		t.Errorf("a bad name and a path with .. must be skipped with a note: %v", warns)
+	}
+	boxed, _ := parseFastPanelSites(fastPanelBoxed)
+	if len(boxed) != 1 || len(boxed[0].Domains) != 2 || boxed[0].Domains[0].Name != "blog.example.com" {
+		t.Errorf("boxed = %+v", boxed)
+	}
+	if a, w := parseFastPanelSites("command not found: mogwai"); len(a) != 0 || len(w) != 1 || !strings.Contains(w[0], "could not be read") {
+		t.Errorf("garbage = %v %v", a, w)
+	}
+}
+
+func TestFastPanelIsDetectedByItsCLI(t *testing.T) {
+	src := &fakeSrc{}
+	src.execFn = func(cmd string, stdout io.Writer) (string, error) { return "fastpanel\n", nil }
+	det, ok, err := fastPanelAdapter{}.Detect(context.Background(), src)
+	if err != nil || !ok || det.Panel != "fastpanel" || det.Support != Experimental {
+		t.Errorf("det = %+v %v %v", det, ok, err)
+	}
+	src.execFn = func(cmd string, stdout io.Writer) (string, error) { return "", nil }
+	if _, ok, _ := (fastPanelAdapter{}).Detect(context.Background(), src); ok {
+		t.Error("detected without FASTPANEL")
+	}
+}
