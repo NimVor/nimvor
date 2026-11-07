@@ -21,7 +21,13 @@ against real servers; today nothing is.
 | Plesk (Linux) | **Experimental** | Read from Plesk's own database with read-only queries. Written from the documented schema, tested on synthetic data only. |
 | DirectAdmin | **Experimental** | Read from DirectAdmin's files. Written from the documented layout, tested on synthetic data only. |
 | FASTPANEL | **Experimental** | Sites read through FASTPANEL's `mogwai sites list` table (found by header names); databases listed for the whole server. Written from the documentation's description of the CLI; the exact output format is unverified. |
-| CyberPanel, Virtualmin/Webmin, HestiaCP, aaPanel, ISPConfig, Enhance, InterWorx, CloudPanel, VestaCP, Froxlor | **Not available** | Listed in the wizard so nobody assumes they work. They cannot be chosen. |
+| VestaCP, HestiaCP | **Experimental** | Read from the panel's own files (`web.conf`, `db.conf`, `mail/*.conf`). Written from the documented layout, synthetic data only. |
+| CyberPanel | **Experimental** | Websites, child domains and databases from the `cyberpanel` database. Table names unverified on a real server. |
+| ISPConfig | **Experimental** | Websites, databases and mailboxes from the `dbispconfig` database. Table names unverified on a real server. |
+| Froxlor | **Experimental** | Customers, domains, databases and mailboxes from Froxlor's database; a mailbox is only listed if its Maildir exists. Table names unverified on a real server. |
+| CloudPanel, aaPanel | **Experimental** | Sites from the panel's Nginx/Apache vhost files; databases listed for the whole server. |
+| InterWorx | **Experimental** | SiteWorx accounts and domains from the documented `/home/<user>/<domain>/html` folders; databases by `<user>_` prefix. |
+| Virtualmin/Webmin, Enhance | **Not available** | Listed in the wizard so nobody assumes they work. They cannot be chosen. Enhance's file and database layout could not be verified; sample output from a real Enhance server would let it be added. |
 
 ### What it moves
 
@@ -250,6 +256,17 @@ database-to-site link is not read. Mailboxes, forwarders, DNS, FTP and cron are 
 cannot be recognised the wizard says so instead of guessing. FASTPANEL's own `transfer` tool is the
 better choice between two FASTPANEL servers; this reader is for moving a FASTPANEL server's sites
 into NimVor.
+
+## More panels (experimental)
+
+VestaCP, HestiaCP, CyberPanel, ISPConfig, Froxlor, CloudPanel, aaPanel and InterWorx are read-only
+adapters in the same style as Plesk and DirectAdmin: you log in as root, NimVor reads the panel's own files
+or database (read-only SELECTs through the mysql client where the panel keeps its accounts in a database),
+and everything then migrates like any other source. What each reads is listed in the table above; none
+reads forwarders, DNS, FTP or cron. When a query fails because a table or column has another name in your
+version, the discovery says so in its warnings instead of guessing. **All of them were written from each
+project's documentation or source layout and have only run on synthetic data**, so try each on a
+non-critical account first and send the output of any failing step so the reader can be fixed.
 
 ## Known limitations
 
