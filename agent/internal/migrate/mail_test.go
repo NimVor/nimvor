@@ -598,3 +598,47 @@ func TestEnhanceWebsitesAreListedByIdAndNothingElseIsGuessed(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestCyberPanelDiscoveryAddsOnlyMailboxesWhoseMaildirExists(t *testing.T) {
+	src := &fakeSrc{}
+	src.execFn = func(cmd string, stdout io.Writer) (string, error) {
+		switch {
+		case strings.Contains(cmd, "FROM e_users"):
+			return "info@example.com\texample.com\nsales@example.com\texample.com\nghost@example.com\texample.com\nlone@nosite.org\tnosite.org\nbad@other.net\texample.com\n", nil
+		case strings.Contains(cmd, "FROM websiteFunctions_websites") && !strings.Contains(cmd, "JOIN"):
+			return "example.com\n", nil
+		case strings.Contains(cmd, "JOIN"):
+			return "", nil
+		case strings.Contains(cmd, "/home/vmail/example.com/info/Maildir/cur"):
+			return "yes\n", nil
+		case strings.Contains(cmd, "/home/vmail/example.com/sales/cur"):
+			return "yes\n", nil
+		case strings.Contains(cmd, "/home/vmail/nosite.org/lone/Maildir/cur"):
+			return "yes\n", nil
+		}
+		return "", nil
+	}
+	d, err := cyberPanelAdapter{}.Discover(context.Background(), src, ServerInfo{}, func(string) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var web, other *Account
+	for i := range d.Accounts {
+		switch d.Accounts[i].ID {
+		case "example.com":
+			web = &d.Accounts[i]
+		case "mail":
+			other = &d.Accounts[i]
+		}
+	}
+	if web == nil || len(web.Email) != 2 || web.Email[0].Maildir != "/home/vmail/example.com/info/Maildir" || web.Email[1].Maildir != "/home/vmail/example.com/sales" {
+		t.Fatalf("web = %+v", web)
+	}
+	if other == nil || len(other.Email) != 1 || other.Email[0].Address != "lone@nosite.org" {
+		t.Errorf("mail account = %+v", other)
+	}
+	joined := strings.Join(d.Warnings, "\n")
+	if !strings.Contains(joined, "1 mailbox(es) were left out") {
+		t.Errorf("warnings = %v", d.Warnings)
+	}
+}

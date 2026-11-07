@@ -22,7 +22,7 @@ against real servers; today nothing is.
 | DirectAdmin | **Experimental** | Read from DirectAdmin's files. Written from the documented layout, tested on synthetic data only. |
 | FASTPANEL | **Experimental** | Sites read through FASTPANEL's `mogwai sites list` table (found by header names); databases listed for the whole server. Written from the documentation's description of the CLI; the exact output format is unverified. |
 | VestaCP, HestiaCP | **Experimental** | Read from the panel's own files (`web.conf`, `db.conf`, `mail/*.conf`). Written from the documented layout, synthetic data only. |
-| CyberPanel | **Experimental** | Websites, child domains and databases from the `cyberpanel` database. Table names unverified on a real server. |
+| CyberPanel | **Experimental** | Websites, child domains, databases and mailboxes (`e_users`) from the `cyberpanel` database; a mailbox is listed only if its Maildir exists under `/home/vmail`. Table names unverified on a real server. |
 | ISPConfig | **Experimental** | Websites, databases and mailboxes from the `dbispconfig` database. Table names unverified on a real server. |
 | Froxlor | **Experimental** | Customers, domains, databases and mailboxes from Froxlor's database; a mailbox is only listed if its Maildir exists. Table names unverified on a real server. |
 | CloudPanel, aaPanel | **Experimental** | Sites from the panel's Nginx/Apache vhost files; databases listed for the whole server. |
