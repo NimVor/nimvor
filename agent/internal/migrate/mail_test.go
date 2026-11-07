@@ -295,3 +295,36 @@ func TestPleskIsDetectedByItsVersionFile(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestDirectAdminUserIsReadFromItsFiles(t *testing.T) {
+	out := "##dom\nExample.com\nsecond.org\nbad..name\n##sub\n@@d example.com\nblog\nbad label\n@@d unknown.net\nx\n" +
+		"##mail\n@@d example.com\ninfo\nSales\n$(x)\n@@d other.net\nz\n##end\n"
+	a := parseDirectAdminUser("alice", out)
+	var names []string
+	for _, d := range a.Domains {
+		names = append(names, d.Name+":"+d.Kind+":"+d.DocRoot)
+	}
+	want := "example.com:main:/home/alice/domains/example.com/public_html,second.org:addon:/home/alice/domains/second.org/public_html,blog.example.com:sub:/home/alice/domains/example.com/public_html/blog"
+	if strings.Join(names, ",") != want {
+		t.Errorf("domains = %v", names)
+	}
+	if len(a.Email) != 2 || a.Email[0].Address != "info@example.com" || a.Email[0].Maildir != "/home/alice/imap/example.com/info/Maildir" || a.Email[1].Address != "sales@example.com" {
+		t.Errorf("mail = %+v", a.Email)
+	}
+}
+
+func TestDirectAdminIsDetectedByItsVersion(t *testing.T) {
+	src := &fakeSrc{}
+	src.execFn = func(cmd string, stdout io.Writer) (string, error) { return "Version: 1.681\n", nil }
+	det, ok, err := directAdminAdapter{}.Detect(context.Background(), src)
+	if err != nil || !ok || det.Version != "1.681" || det.Support != Experimental {
+		t.Errorf("det = %+v %v %v", det, ok, err)
+	}
+	src.execFn = func(cmd string, stdout io.Writer) (string, error) { return "", nil }
+	if _, ok, _ := (directAdminAdapter{}).Detect(context.Background(), src); ok {
+		t.Error("detected without DirectAdmin")
+	}
+	if _, err := Lookup("directadmin"); err != nil {
+		t.Error(err)
+	}
+}
