@@ -36,6 +36,7 @@ final class MigrationsTest extends HttpTestCase
             ['panel' => 'cpanel', 'name' => 'cPanel / WHM', 'support' => 'experimental'],
             ['panel' => 'plesk', 'name' => 'Plesk (Linux)', 'support' => 'experimental'],
             ['panel' => 'directadmin', 'name' => 'DirectAdmin', 'support' => 'experimental'],
+            ['panel' => 'fastpanel', 'name' => 'FASTPANEL', 'support' => 'experimental'],
             ['panel' => 'linux', 'name' => 'Custom Linux server (no panel)', 'support' => 'experimental'],
         ]]);
     }
@@ -115,7 +116,7 @@ final class MigrationsTest extends HttpTestCase
         $page = $this->request('GET', '/migrations/new')->body();
         self::assertStringContainsString('cPanel / WHM', $page);
         self::assertStringContainsString('Custom Linux server', $page);
-        self::assertSame(4, substr_count($page, 'Experimental</span>'));
+        self::assertSame(5, substr_count($page, 'Experimental</span>'));
         self::assertStringNotContainsString('Fully supported</span>', $page);
         foreach (['Plesk', 'CyberPanel', 'DirectAdmin', 'HestiaCP', 'aaPanel', 'ISPConfig'] as $p) {
             self::assertStringContainsString($p, $page);

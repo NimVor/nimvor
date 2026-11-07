@@ -7,6 +7,9 @@ All notable changes to NimVor are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Website migration: **FASTPANEL as a source (experimental).** Sites are read from `mogwai sites list` (columns found by header name) and their document roots copied; databases are listed for the whole server and mapped by you. Mailboxes, forwarders, DNS, FTP and cron are not read. Written from FASTPANEL's documentation of its CLI and tested on synthetic tables only.
+
+### Added
 - Website migration: **DirectAdmin as a source (experimental).** Users, domains, subdomains, databases and mailboxes are read from DirectAdmin's files over SSH and migrated like any other source. Written from the documented layout and tested on synthetic data only.
 
 ## [1.5.2] — 2026-11-07
