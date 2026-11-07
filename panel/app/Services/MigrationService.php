@@ -55,6 +55,7 @@ final class MigrationService
         private readonly MailService $mail,
         private readonly DnsService $dns,
         private readonly DatabaseService $databases,
+        private readonly CronService $cron,
     ) {
     }
 
@@ -684,7 +685,7 @@ final class MigrationService
                 'Open each migrated website and check pages, forms, redirects and logins: .htaccess rules are not translated to Nginx.',
                 'Files that differ from the source (see "differences") changed while they were copied: run the migration again to synchronise them before switching DNS.',
                 'Nothing was deleted on the source. Keep it until you have checked the new site, and change DNS yourself when you are ready.',
-                'Mailbox passwords and quotas, address (A/AAAA) records, SSL certificates, FTP accounts and cron jobs are not moved by this version; email messages, forwarders and other DNS records are only moved for the items you selected.',
+                'Mailbox passwords and quotas, address (A/AAAA) records and SSL certificates are not moved by this version; email messages, forwarders and other DNS records are only moved for the items you selected.',
             ],
             'validation_note' => 'Files were compared by checksum after the copy; databases were compared by table count. The validation pass (Validate) adds document root, created files, ownership, database and HTTP checks; PHP, SSL and DNS checks are not run by this version.',
         ];
@@ -870,6 +871,71 @@ final class MigrationService
             $created[] = ['login' => $login, 'password' => $password];
         }
         $this->audit->record('migration.ftp', 'migration', (string) $id, AuditLogger::SUCCESS, ['created' => count($created), 'skipped' => count($skipped)]);
+        return ['created' => $created, 'skipped' => $skipped];
+    }
+
+    /**
+     * Create the ticked cron jobs of the source as NimVor cron jobs of the matching website. The site
+     * must already exist (it is created when the migration starts). Jobs are created switched OFF:
+     * their commands still name the old server's paths, so review each one, then enable it.
+     *
+     * @param list<string> $keys "<account>|<index>" keys from the discovery
+     * @return array{created: int, skipped: list<string>}
+     */
+    public function importCron(int $id, array $keys): array
+    {
+        $m = $this->mustFind($id);
+        if ($keys === []) {
+            throw new ValidationException(['cron' => 'Select at least one cron job.']);
+        }
+        $accounts = [];
+        foreach ((array) (((array) $m['discovery'])['accounts'] ?? []) as $a) {
+            $accounts[(string) $a['id']] = (array) $a;
+        }
+        $files = (array) (((array) $m['plan'])['files'] ?? []);
+        if ($files === []) {
+            throw new UserFacingException('Choose the websites to copy and save the selection first: a cron job is created for the website of its account.');
+        }
+        $created = 0;
+        $skipped = [];
+        foreach ($keys as $key) {
+            [$acct, $idx] = array_pad(explode('|', (string) $key, 2), 2, '');
+            $job = $accounts[$acct]['cron'][(int) $idx] ?? null;
+            if ($job === null || !ctype_digit($idx)) {
+                $skipped[] = (string) $key . ' (not in the discovery)';
+                continue;
+            }
+            $roots = array_map(static fn ($d): string => rtrim((string) ($d['doc_root'] ?? ''), '/'), (array) ($accounts[$acct]['domains'] ?? []));
+            $site = null;
+            foreach ($files as $file) {
+                if (in_array(rtrim((string) $file['source_root'], '/'), $roots, true)) {
+                    $site = $this->db->fetch('SELECT * FROM websites WHERE server_id = ? AND domain = ?', [$this->server->id(), (string) $file['domain']]);
+                    if ($site !== null) {
+                        break;
+                    }
+                }
+            }
+            $label = (string) $job['schedule'] . ' ' . mb_substr((string) $job['command'], 0, 40);
+            if ($site === null) {
+                $skipped[] = $label . ' (its website is not on this server yet: start the migration first)';
+                continue;
+            }
+            foreach ($this->cron->jobs($site) as $existing) {
+                if ($existing['schedule'] === $job['schedule'] && $existing['command'] === $job['command']) {
+                    $skipped[] = $label . ' (already a cron job of ' . $site['domain'] . ')';
+                    continue 2;
+                }
+            }
+            try {
+                $this->cron->save($site, null, ['schedule' => (string) $job['schedule'], 'command' => (string) $job['command'], 'description' => 'Imported from ' . (string) ((array) $m['discovery'])['panel']['name'] . ' (review the paths, then enable)', 'enabled' => false]);
+                $created++;
+            } catch (ValidationException $e) {
+                $skipped[] = $label . ' (' . implode(' ', array_map('strval', $e->errors())) . ')';
+            } catch (AgentException | UserFacingException $e) {
+                $skipped[] = $label . ' (' . $e->getMessage() . ')';
+            }
+        }
+        $this->audit->record('migration.cron', 'migration', (string) $id, AuditLogger::SUCCESS, ['created' => $created, 'skipped' => count($skipped)]);
         return ['created' => $created, 'skipped' => $skipped];
     }
 

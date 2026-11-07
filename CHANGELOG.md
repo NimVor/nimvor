@@ -17,6 +17,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Added
 - Website migration source: **CentOS Web Panel (CWP)** (experimental) — users, domains, subdomains, databases, mailboxes and forwarders are read from CWP's own databases with read-only queries; synthetic-data tested only.
+
+### Added
+- Website migration: **cron jobs** are read from each account's crontab (cPanel, DirectAdmin, Vesta/Hestia, CyberPanel, ISPConfig, Froxlor) and can be created as NimVor cron jobs of the matching website. They are created switched off, because commands still name the old server's paths; panel housekeeping lines are skipped and duplicates are not added.
 - Website migration gaps closed: **forwarders and aliases** are now read from Vesta/Hestia, DirectAdmin, ISPConfig, Froxlor and CyberPanel as well as cPanel; **DNS zone files** are read from DirectAdmin, Vesta/Hestia and ISPConfig as well as cPanel; **FTP accounts** of a cPanel source can be recreated as NimVor FTP accounts inside the matching website with new passwords shown once; the **site each database belongs to** is read for FASTPANEL, aaPanel and CloudPanel where the panel can say, and the old server-wide list remains when it cannot.
 
 ### Added

@@ -919,4 +919,27 @@ final class MigrationsTest extends HttpTestCase
         self::assertSame('alice_wp_2', $plan['databases'][0]['dest']);
         self::assertSame(0, $this->calls('db.create'));
     }
+
+    public function testCronJobsAreCreatedSwitchedOffInTheMatchingWebsite(): void
+    {
+        $id = $this->reach('selected');
+        $disc = $this->discovery();
+        $disc['accounts'][0]['cron'] = [['schedule' => '*/5 * * * *', 'command' => 'php /home/alice/public_html/cron.php'], ['schedule' => 'bad', 'command' => 'x']];
+        $this->db->run('UPDATE site_migrations SET discovery = ? WHERE id = ?', [(string) json_encode($disc), $id]);
+        $this->agent->succeed('cron.apply', []);
+        $this->post("/migrations/{$id}/cron", ['cron' => ['alice|0', 'alice|1', 'alice|7']]);
+        $call = $this->lastCall('cron.apply');
+        self::assertSame('new.example.com', $call['domain']);
+        self::assertFalse($call['jobs'][0]['enabled'], 'imported jobs must start switched off');
+        self::assertSame('php /home/alice/public_html/cron.php', $call['jobs'][0]['command']);
+        $msg = (string) $this->flash('success');
+        self::assertStringContainsString('1 cron job(s) created', $msg);
+        self::assertStringContainsString('alice|7 (not in the discovery)', $msg);
+        // The same job twice is not duplicated.
+        $this->post("/migrations/{$id}/cron", ['cron' => ['alice|0']]);
+        self::assertSame(1, (int) $this->db->scalar('SELECT COUNT(*) FROM cron_jobs WHERE website_id = ?', [$this->siteId]));
+        self::assertStringContainsString('already a cron job', (string) $this->flash('success'));
+        $this->post("/migrations/{$id}/cron", []);
+        self::assertArrayHasKey('cron', (array) $this->flash('errors'));
+    }
 }

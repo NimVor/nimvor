@@ -251,6 +251,26 @@ final class MigrationsController extends Controller
         return $this->redirectWithSuccess($to, $res['added'] . ' DNS record(s) added. ' . implode('; ', $res['notes']) . '.');
     }
 
+    public function cron(Request $request, string $id): Response
+    {
+        $to = '/migrations/' . (int) $id;
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        try {
+            $res = $this->service->importCron((int) $id, array_values(array_map('strval', (array) $request->input('cron', []))));
+        } catch (ValidationException $e) {
+            return $this->backWithErrors($to, $e, $request->all());
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure($to, $e);
+        }
+        $msg = $res['created'] . ' cron job(s) created, switched off until you review them.';
+        if ($res['skipped'] !== []) {
+            $msg .= ' Left alone: ' . implode('; ', $res['skipped']) . '.';
+        }
+        return $this->redirectWithSuccess($to, $msg);
+    }
+
     public function ftp(Request $request, string $id): Response
     {
         $to = '/migrations/' . (int) $id;

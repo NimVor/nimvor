@@ -104,9 +104,10 @@ echo '##end'`, b)
 				}
 			}
 		}
+		addCrontabs(ctx, t, []*Account{a})
 		d.Accounts = append(d.Accounts, *a)
 	}
-	d.Warnings = append(d.Warnings, "PHP versions per domain, forwarders, DNS, FTP and cron are not read.")
+	d.Warnings = append(d.Warnings, "PHP versions per domain, forwarders, DNS and FTP are not read.")
 	return d, nil
 }
 
