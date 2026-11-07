@@ -45,6 +45,7 @@ final class MigrationsTest extends HttpTestCase
             ['panel' => 'ispconfig', 'name' => 'ISPConfig', 'support' => 'experimental'],
             ['panel' => 'interworx', 'name' => 'InterWorx', 'support' => 'experimental'],
             ['panel' => 'froxlor', 'name' => 'Froxlor', 'support' => 'experimental'],
+            ['panel' => 'nimvor', 'name' => 'NimVor', 'support' => 'experimental'],
             ['panel' => 'enhance', 'name' => 'Enhance (limited)', 'support' => 'experimental'],
             ['panel' => 'linux', 'name' => 'Custom Linux server (no panel)', 'support' => 'experimental'],
         ]]);
@@ -125,7 +126,7 @@ final class MigrationsTest extends HttpTestCase
         $page = $this->request('GET', '/migrations/new')->body();
         self::assertStringContainsString('cPanel / WHM', $page);
         self::assertStringContainsString('Custom Linux server', $page);
-        self::assertSame(14, substr_count($page, 'title="Experimental"'), 'every source carries an Experimental info icon');
+        self::assertSame(15, substr_count($page, 'title="Experimental"'), 'every source carries an Experimental info icon');
         self::assertStringContainsString('nim-source-pop', $page, 'the description and the button are in a box shown on hover');
         self::assertStringContainsString('Reads accounts, domains', html_entity_decode($page, ENT_QUOTES));
         self::assertSame(14, substr_count($page, 'Use this source</button>'), 'one button per source, inside the hover box');
