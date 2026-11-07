@@ -29,7 +29,7 @@ final class MigrationService
 {
     /** Panels that are not supported yet: listed so nobody assumes they are. */
     public const PLANNED = [
-        'Virtualmin / Webmin', 'Enhance',
+        'Virtualmin / Webmin',
     ];
 
     /** Statuses in which the agent holds the migration's state. */

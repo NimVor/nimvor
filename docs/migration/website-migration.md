@@ -22,12 +22,13 @@ against real servers; today nothing is.
 | DirectAdmin | **Experimental** | Read from DirectAdmin's files. Written from the documented layout, tested on synthetic data only. |
 | FASTPANEL | **Experimental** | Sites read through FASTPANEL's `mogwai sites list` table (found by header names); databases listed for the whole server. Written from the documentation's description of the CLI; the exact output format is unverified. |
 | VestaCP, HestiaCP | **Experimental** | Read from the panel's own files (`web.conf`, `db.conf`, `mail/*.conf`). Written from the documented layout, synthetic data only. |
-| CyberPanel | **Experimental** | Websites, child domains and databases from the `cyberpanel` database. Table names unverified on a real server. |
+| CyberPanel | **Experimental** | Websites, child domains, databases and mailboxes (`e_users`) from the `cyberpanel` database; a mailbox is listed only if its Maildir exists under `/home/vmail`. Table names unverified on a real server. |
 | ISPConfig | **Experimental** | Websites, databases and mailboxes from the `dbispconfig` database. Table names unverified on a real server. |
 | Froxlor | **Experimental** | Customers, domains, databases and mailboxes from Froxlor's database; a mailbox is only listed if its Maildir exists. Table names unverified on a real server. |
 | CloudPanel, aaPanel | **Experimental** | Sites from the panel's Nginx/Apache vhost files; databases listed for the whole server. |
 | InterWorx | **Experimental** | SiteWorx accounts and domains from the documented `/home/<user>/<domain>/html` folders; databases by `<user>_` prefix. |
-| Virtualmin/Webmin, Enhance | **Not available** | Listed in the wizard so nobody assumes they work. They cannot be chosen. Enhance's file and database layout could not be verified; sample output from a real Enhance server would let it be added. |
+| Enhance (limited) | **Experimental** | Only lists `/var/www/<website-id>/public_html` folders, named by website id (domain names are not read), and the server's databases. |
+| Virtualmin/Webmin | **Not available** | Listed in the wizard so nobody assumes it works. It cannot be chosen. |
 
 ### What it moves
 

@@ -577,3 +577,68 @@ func TestCloudPanelAaPanelAndInterWorxAreDetected(t *testing.T) {
 		}
 	}
 }
+
+func TestEnhanceWebsitesAreListedByIdAndNothingElseIsGuessed(t *testing.T) {
+	out := "3f2b1c9e-8a4d-4e6f-9b1a-0c2d3e4f5a6b\nnot-a-uuid\n../etc\nA1B2C3D4-0000-1111-2222-333344445555\n"
+	a := parseEnhance(out)
+	if len(a) != 2 || a[0].ID != "3f2b1c9e-8a4d-4e6f-9b1a-0c2d3e4f5a6b" || a[0].Domains[0].DocRoot != "/var/www/3f2b1c9e-8a4d-4e6f-9b1a-0c2d3e4f5a6b/public_html" || a[1].ID != "a1b2c3d4-0000-1111-2222-333344445555" {
+		t.Fatalf("accounts = %+v", a)
+	}
+	src := &fakeSrc{}
+	src.execFn = func(cmd string, stdout io.Writer) (string, error) { return "enhance\n", nil }
+	det, ok, _ := enhanceAdapter{}.Detect(context.Background(), src)
+	if !ok || det.Panel != "enhance" || det.Support != Experimental {
+		t.Errorf("det = %+v %v", det, ok)
+	}
+	src.execFn = func(cmd string, stdout io.Writer) (string, error) { return "", nil }
+	if _, ok, _ := (enhanceAdapter{}).Detect(context.Background(), src); ok {
+		t.Error("detected without Enhance")
+	}
+	if _, err := Lookup("enhance"); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestCyberPanelDiscoveryAddsOnlyMailboxesWhoseMaildirExists(t *testing.T) {
+	src := &fakeSrc{}
+	src.execFn = func(cmd string, stdout io.Writer) (string, error) {
+		switch {
+		case strings.Contains(cmd, "FROM e_users"):
+			return "info@example.com\texample.com\nsales@example.com\texample.com\nghost@example.com\texample.com\nlone@nosite.org\tnosite.org\nbad@other.net\texample.com\n", nil
+		case strings.Contains(cmd, "FROM websiteFunctions_websites") && !strings.Contains(cmd, "JOIN"):
+			return "example.com\n", nil
+		case strings.Contains(cmd, "JOIN"):
+			return "", nil
+		case strings.Contains(cmd, "/home/vmail/example.com/info/Maildir/cur"):
+			return "yes\n", nil
+		case strings.Contains(cmd, "/home/vmail/example.com/sales/cur"):
+			return "yes\n", nil
+		case strings.Contains(cmd, "/home/vmail/nosite.org/lone/Maildir/cur"):
+			return "yes\n", nil
+		}
+		return "", nil
+	}
+	d, err := cyberPanelAdapter{}.Discover(context.Background(), src, ServerInfo{}, func(string) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var web, other *Account
+	for i := range d.Accounts {
+		switch d.Accounts[i].ID {
+		case "example.com":
+			web = &d.Accounts[i]
+		case "mail":
+			other = &d.Accounts[i]
+		}
+	}
+	if web == nil || len(web.Email) != 2 || web.Email[0].Maildir != "/home/vmail/example.com/info/Maildir" || web.Email[1].Maildir != "/home/vmail/example.com/sales" {
+		t.Fatalf("web = %+v", web)
+	}
+	if other == nil || len(other.Email) != 1 || other.Email[0].Address != "lone@nosite.org" {
+		t.Errorf("mail account = %+v", other)
+	}
+	joined := strings.Join(d.Warnings, "\n")
+	if !strings.Contains(joined, "1 mailbox(es) were left out") {
+		t.Errorf("warnings = %v", d.Warnings)
+	}
+}

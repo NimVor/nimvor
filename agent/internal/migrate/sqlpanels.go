@@ -156,12 +156,52 @@ func (cyberPanelAdapter) Discover(ctx context.Context, t Transport, info ServerI
 	if dbs, err = sqlRows(ctx, t, "cyberpanel", "SELECT d.dbName, w.domain FROM databases_databases d JOIN websiteFunctions_websites w ON w.id = d.website_id"); err != nil {
 		d.Warnings = append(d.Warnings, "The databases could not be read: "+err.Error())
 	}
+	var mail [][]string
+	if mail, err = sqlRows(ctx, t, "cyberpanel", "SELECT email, emailOwner_id FROM e_users"); err != nil {
+		d.Warnings = append(d.Warnings, "The mailboxes could not be read: "+err.Error())
+	}
 	accts := buildCyberPanel(sites, children, dbs)
+	// A mailbox is added only where its Maildir really exists on the source, under one of the places
+	// CyberPanel's Dovecot setup uses; one that cannot be found is left out and counted.
+	missing := 0
+	for _, r := range mail {
+		email, owner := strings.ToLower(cell(r, 0)), strings.ToLower(cell(r, 1))
+		m := mailAddrRe.FindStringSubmatch(email)
+		var acct *Account
+		for _, a := range accts {
+			if a.ID == owner {
+				acct = a
+			}
+		}
+		if m == nil || m[2] != owner {
+			continue
+		}
+		if acct == nil {
+			acct = newAccount("mail", "/home/vmail")
+			acct.Name = "mail (domains without a website)"
+			accts = append(accts, acct)
+		}
+		found := ""
+		for _, c := range []string{"/home/vmail/" + owner + "/" + m[1] + "/Maildir", "/home/vmail/" + owner + "/" + m[1]} {
+			if out, err := t.Exec(ctx, "sh -c "+Shq("[ -d "+Shq(c+"/cur")+" ] && echo yes; true"), nil); err == nil && strings.Contains(out, "yes") {
+				found = c
+				break
+			}
+		}
+		if found == "" {
+			missing++
+			continue
+		}
+		acct.Email = append(acct.Email, EmailAccount{Address: email, Maildir: found, SizeKB: -1})
+	}
+	if missing > 0 {
+		d.Warnings = append(d.Warnings, fmt.Sprintf("%d mailbox(es) were left out because their Maildir was not found under /home/vmail.", missing))
+	}
 	if len(accts) == 0 {
 		d.Warnings = append(d.Warnings, "No websites were found in CyberPanel.")
 	}
 	d.Accounts = finishAccounts(ctx, t, info, accts, progress)
-	d.Warnings = append(d.Warnings, "Mailboxes, forwarders, DNS, FTP and cron are not read from CyberPanel.")
+	d.Warnings = append(d.Warnings, "Forwarders, DNS, FTP and cron are not read from CyberPanel.")
 	return d, nil
 }
 
