@@ -25,6 +25,7 @@ against real servers; today nothing is.
 | CyberPanel | **Experimental** | Websites, child domains, databases and mailboxes (`e_users`) from the `cyberpanel` database; a mailbox is listed only if its Maildir exists under `/home/vmail`. Table names unverified on a real server. |
 | ISPConfig | **Experimental** | Websites, databases and mailboxes from the `dbispconfig` database. Table names unverified on a real server. |
 | NimVor | **Experimental** | Another NimVor server, read from its panel database (`/var/lib/nimvor/nimvor.sqlite`, needs `sqlite3` on the source): websites with their system user and document root, the databases tied to each site (databases without a site are listed separately), mailboxes (`/var/vmail/<domain>/<user>`), aliases, DNS records and cron jobs. FTP accounts are not read. |
+| CentOS Web Panel (CWP) | **Experimental** | Users, domains, subdomains, mailboxes and forwarders from CWP's `root_cwp` and `postfix` databases; databases are attached to a user by their `<user>_` name prefix (CWP has no table linking them); a mailbox is only listed if its Maildir exists. Table names unverified on a real server. |
 | Froxlor | **Experimental** | Customers, domains, databases and mailboxes from Froxlor's database; a mailbox is only listed if its Maildir exists. Table names unverified on a real server. |
 | CloudPanel, aaPanel | **Experimental** | Sites from the panel's Nginx/Apache vhost files; databases listed for the whole server. |
 | InterWorx | **Experimental** | SiteWorx accounts and domains from the documented `/home/<user>/<domain>/html` folders; databases by `<user>_` prefix. |
@@ -42,7 +43,7 @@ against real servers; today nothing is.
 | Synchronise before the switch: copy again only files changed on the source, keeping files that are newer here (files only) | ✅ |
 | Synchronising databases | ❌ by design (see "Before you switch DNS") |
 | Email messages (Maildir: every folder, flags kept) into mailboxes you already made in NimVor, with the same address | ✅ (rsync, no delete, never into a mailbox that has messages unless overwriting is allowed, checksum-verified, included in sync, rollback and validation) |
-| Email forwarders and aliases (plain address-to-address rules; cPanel, Vesta/Hestia, DirectAdmin, ISPConfig, Froxlor, CyberPanel) | ✅ created as NimVor aliases on request; existing aliases and mailboxes are never overwritten |
+| Email forwarders and aliases (plain address-to-address rules; cPanel, Vesta/Hestia, DirectAdmin, ISPConfig, Froxlor, CyberPanel, CWP) | ✅ created as NimVor aliases on request; existing aliases and mailboxes are never overwritten |
 | Mailbox passwords and quotas | ❌ (set them on the NimVor mailboxes) |
 | DNS records of the source's zone files (MX, TXT, CNAME, SRV, CAA) added to the NimVor zones of the same names (zone files are read for cPanel, DirectAdmin, Vesta/Hestia, ISPConfig) | ✅ on request; address records (A, AAAA) are never copied; only NimVor's own zones change |
 | FTP accounts (cPanel `/etc/proftpd/<user>`) | ✅ recreated as NimVor FTP accounts inside the matching website, with a **new** password shown once (the old one cannot be read); other panels are not read |
@@ -263,7 +264,7 @@ into NimVor.
 
 ## More panels (experimental)
 
-VestaCP, HestiaCP, CyberPanel, ISPConfig, Froxlor, CloudPanel, aaPanel and InterWorx are read-only
+VestaCP, HestiaCP, CyberPanel, ISPConfig, Froxlor, CWP, CloudPanel, aaPanel and InterWorx are read-only
 adapters in the same style as Plesk and DirectAdmin: you log in as root, NimVor reads the panel's own files
 or database (read-only SELECTs through the mysql client where the panel keeps its accounts in a database),
 and everything then migrates like any other source. What each reads is listed in the table above; none
