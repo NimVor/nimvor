@@ -877,6 +877,8 @@ func TestNimVorZoneIsRenderedAsABINDFileAndDetected(t *testing.T) {
 	}
 	if _, err := Lookup("nimvor"); err != nil {
 		t.Error(err)
+	}
+}
 
 func TestCrontabsAreReadWithoutPanelHousekeeping(t *testing.T) {
 	src := &fakeSrc{}
