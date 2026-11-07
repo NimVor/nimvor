@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.5.3] — 2026-11-07
+
+Website migration grows from three to sixteen sources and gains creation of destination databases and users, forwarders, DNS records, FTP accounts and cron jobs on request. All new sources are experimental and were tested on synthetic data only. The agent changes (new source readers and actions), so upgrade the panel and the agent together (`installer/upgrade.sh` does both).
+
 ### Changed
 - Migration wizard, step 1: the source cards are compact and four to a row. The *Experimental* label is an info icon with a tooltip, and hovering a card (or focusing it with the keyboard) shows what the source reads and the **Use this source** button in a box above it.
 
