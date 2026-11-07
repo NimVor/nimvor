@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Migration wizard, step 1: the source cards are compact and four to a row. The *Experimental* label is an info icon with a tooltip, and hovering a card (or focusing it with the keyboard) shows what the source reads and the **Use this source** button in a box above it.
+
 ### Added
 - Website migration: CyberPanel mailboxes are read from `e_users` and listed when their Maildir exists under `/home/vmail`; the ones that cannot be found are left out and counted in the warnings.
 
