@@ -702,3 +702,71 @@ func TestZoneFilesAreReadFromTheRightPlaceForEachPanel(t *testing.T) {
 		}
 	}
 }
+
+func TestDatabasesAreLinkedToTheirSiteWhenThePanelSaysSoAndNeverGuessedOtherwise(t *testing.T) {
+	a := newAccount("example", "/home/example")
+	a.Domains = []Domain{{Name: "example.com"}}
+	dbs := []Database{{Name: "wp1"}, {Name: "other"}, {Name: "orphan"}}
+	rest := placeDatabases([]*Account{a}, dbs, dbSiteMap([][]string{{"wp1", "Example.com"}, {"other", "gone.org"}, {"bad name", "example.com"}}))
+	if len(a.Databases) != 1 || a.Databases[0].Name != "wp1" || len(rest) != 2 {
+		t.Errorf("a = %+v rest = %+v", a.Databases, rest)
+	}
+	fp := parseFastPanelDatabases("ID  NAME      SERVER  SITE\n1   shop_db   1       shop.test\n2   other_db  1\n")
+	if fp["shop_db"] != "shop.test" || len(fp) != 1 {
+		t.Errorf("fastpanel = %v", fp)
+	}
+	boxed := parseFastPanelDatabases("| ID | NAME | SERVER_NAME |\n| 1 | blog_db | blog.test |\n")
+	if boxed["blog_db"] != "blog.test" {
+		t.Errorf("boxed = %v", boxed)
+	}
+	if len(parseFastPanelDatabases("command not found")) != 0 {
+		t.Error("garbage produced links")
+	}
+}
+
+func TestConfPanelDiscoveryLinksDatabasesAndFallsBackWhenTheLinkCannotBeRead(t *testing.T) {
+	run := func(link bool) *Discovery {
+		src := &fakeSrc{}
+		src.execFn = func(cmd string, stdout io.Writer) (string, error) {
+			switch {
+			case strings.Contains(cmd, "sites-enabled"):
+				return cloudPanelConf, nil
+			case strings.Contains(cmd, "information_schema"):
+				return "wp1\t100\nloose\t50\n", nil
+			case strings.Contains(cmd, "sqlite3"):
+				if link {
+					return "wp1|example.com\n", nil
+				}
+				return "sqlite3: command not found\n", nil
+			}
+			return "", nil
+		}
+		d, err := cloudPanel().Discover(context.Background(), src, ServerInfo{}, func(string) {})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return d
+	}
+	d := run(true)
+	var ex, pool *Account
+	for i := range d.Accounts {
+		switch d.Accounts[i].ID {
+		case "example":
+			ex = &d.Accounts[i]
+		case "databases":
+			pool = &d.Accounts[i]
+		}
+	}
+	if ex == nil || len(ex.Databases) != 1 || ex.Databases[0].Name != "wp1" || ex.Databases[0].SizeKB != 100 || pool == nil || len(pool.Databases) != 1 || pool.Databases[0].Name != "loose" {
+		t.Fatalf("linked: ex=%+v pool=%+v", ex, pool)
+	}
+	d = run(false)
+	if !strings.Contains(strings.Join(d.Warnings, "\n"), "could not be read, so the databases are listed for the whole server") {
+		t.Errorf("warnings = %v", d.Warnings)
+	}
+	for _, a := range d.Accounts {
+		if a.ID == "databases" && len(a.Databases) != 2 {
+			t.Errorf("fallback pool = %+v", a.Databases)
+		}
+	}
+}
