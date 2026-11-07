@@ -42,6 +42,13 @@ $running = in_array($m['status'], ['running', 'discovering'], true);
 </div>
 <?php if ($m['error'] !== '' && $step !== 'run'): ?><div class="alert alert-danger small"><?= e((string) $m['error']) ?></div><?php endif; ?>
 
+<?php if (!empty($dbCreds)): ?>
+<div class="alert alert-warning"><div class="fw-semibold mb-1">New databases and users: copy these now, the passwords are not shown again</div>
+    <p class="small mb-2">Point each website's configuration (for example <code>wp-config.php</code>) at the new database name, user and password.</p>
+    <table class="table table-sm mb-0"><thead><tr><th>Database</th><th>User</th><th>Password</th></tr></thead><tbody>
+    <?php foreach ((array) $dbCreds as $c): ?><tr><td class="font-monospace"><?= e((string) $c['database']) ?></td><td class="font-monospace"><?= e((string) $c['user']) ?></td><td class="font-monospace user-select-all"><?= e((string) $c['password']) ?></td></tr><?php endforeach; ?>
+    </tbody></table></div>
+<?php endif; ?>
 <?php if (!empty($ftpSecrets)): ?>
 <div class="alert alert-warning"><div class="fw-semibold mb-1">New FTP passwords: copy them now, they are not shown again</div>
     <table class="table table-sm mb-0"><tbody>
@@ -136,7 +143,7 @@ $running = in_array($m['status'], ['running', 'discovering'], true);
         <div class="nim-dtable table-responsive"><table class="table align-middle">
             <thead><tr><th class="nim-check"><input class="form-check-input" type="checkbox" data-nim-select-all="dbs[]" aria-label="Select all databases"></th><th>Account</th><th>Database</th><th class="text-end">Size</th><th>Copy into</th></tr></thead>
             <tbody>
-            <?php foreach ((array) ($disc['accounts'] ?? []) as $a): foreach ((array) $a['databases'] as $d): $key = $a['id'] . '|' . $d['name']; $dsel = array_column((array) ($m['selection']['databases'] ?? []), 'db_id', 'key'); ?>
+            <?php foreach ((array) ($disc['accounts'] ?? []) as $a): foreach ((array) $a['databases'] as $d): $key = $a['id'] . '|' . $d['name']; $dsel = array_column((array) ($m['selection']['databases'] ?? []), 'db_id', 'key'); $dnew = array_column(array_filter((array) ($m['selection']['databases'] ?? []), static fn ($r): bool => isset($r['new'])), 'new', 'key'); ?>
                 <tr data-nim-row>
                     <td><input class="form-check-input" type="checkbox" name="dbs[]" value="<?= e($key) ?>"<?= isset($dsel[$key]) ? ' checked' : '' ?> aria-label="Select <?= e((string) $d['name']) ?>"></td>
                     <td class="small"><?= e((string) $a['name']) ?></td>
@@ -144,6 +151,7 @@ $running = in_array($m['status'], ['running', 'discovering'], true);
                     <td class="small text-end text-nowrap"><?= e($fmt((int) $d['size_kb'])) ?></td>
                     <td><select class="form-select form-select-sm<?= $err('dbmap[' . $key . ']') ?>" name="dbmap[<?= e($key) ?>]" aria-label="NimVor database for <?= e((string) $d['name']) ?>">
                         <option value="">— choose —</option>
+                        <option value="new"<?= isset($dnew[$key]) ? ' selected' : '' ?>>Create a new NimVor database and user</option>
                         <?php foreach ($databases as $db): ?><option value="<?= (int) $db['id'] ?>"<?= (int) ($dsel[$key] ?? 0) === (int) $db['id'] ? ' selected' : '' ?>><?= e((string) $db['name']) ?></option><?php endforeach; ?>
                     </select><?= $fb('dbmap[' . $key . ']') ?></td>
                 </tr>

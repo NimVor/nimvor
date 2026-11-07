@@ -864,4 +864,52 @@ final class MigrationsTest extends HttpTestCase
         $this->post("/migrations/{$id}/ftp", []);
         self::assertArrayHasKey('ftp', (array) $this->flash('errors'));
     }
+
+    public function testANewNimVorDatabaseAndUserAreCreatedAtStartLinkedToTheWebsiteAndShownOnce(): void
+    {
+        $id = $this->reach('discovered');
+        self::assertStringContainsString('Create a new NimVor database and user', $this->request('GET', "/migrations/{$id}")->body());
+        $this->post("/migrations/{$id}/select", ['domains' => ['alice|shop.example.org'], 'site' => ['alice|shop.example.org' => (string) $this->siteId], 'dbs' => ['alice|alice_wp'], 'dbmap' => ['alice|alice_wp' => 'new'], 'workers' => '2']);
+        $m = $this->db->fetch('SELECT * FROM site_migrations WHERE id = ?', [$id]);
+        $plan = json_decode($m['plan'], true);
+        self::assertSame([['source' => 'alice_wp', 'dest' => 'alice_wp', 'size_kb' => 512]], $plan['databases']);
+        $sel = json_decode($m['selection'], true);
+        self::assertSame(['name' => 'alice_wp', 'site_id' => $this->siteId, 'created' => false], $sel['databases'][0]['new']);
+        // Choosing "new" creates nothing yet.
+        self::assertSame(0, $this->calls('db.create'));
+        self::assertSame(0, (int) $this->db->scalar("SELECT COUNT(*) FROM databases WHERE name = 'alice_wp'"));
+
+        $this->agent->succeedAny();
+        $this->agent->succeed('migrate.assess', ['findings' => [], 'blocked' => false]);
+        $this->post("/migrations/{$id}/assess");
+        $this->agent->succeed('migrate.create', ['id' => '0123456789abcdef', 'status' => 'created']);
+        $this->agent->succeed('migrate.start', ['job_id' => 'cccccccccccccccc', 'id' => '0123456789abcdef']);
+        $this->post("/migrations/{$id}/start");
+        self::assertSame('alice_wp', $this->lastCall('db.create')['name']);
+        $user = $this->lastCall('db.user_create');
+        self::assertSame('alice_wp', $user['user']);
+        self::assertGreaterThanOrEqual(12, strlen((string) $user['password']));
+        self::assertSame('all', $this->lastCall('db.grant')['privileges']);
+        $row = $this->db->fetch("SELECT * FROM databases WHERE name = 'alice_wp'");
+        self::assertSame($this->siteId, (int) $row['website_id']);
+        self::assertSame(1, (int) $this->db->scalar("SELECT COUNT(*) FROM database_users WHERE username = 'alice_wp' AND website_id = ?", [$this->siteId]));
+        self::assertSame('alice_wp', $this->lastCall('migrate.create')['plan']['databases'][0]['dest']);
+        // The credentials are shown once on the next page and are stored nowhere.
+        $page = $this->request('GET', "/migrations/{$id}")->body();
+        self::assertStringContainsString('New databases and users', $page);
+        self::assertStringContainsString($user['password'], $page);
+        self::assertStringNotContainsString($user['password'], $this->request('GET', "/migrations/{$id}")->body());
+        self::assertSame(0, (int) $this->db->scalar("SELECT COUNT(*) FROM database_users WHERE password_enc != ''"));
+        self::assertTrue((bool) json_decode((string) $this->db->scalar('SELECT selection FROM site_migrations WHERE id = ?', [$id]), true)['databases'][0]['new']['created']);
+    }
+
+    public function testANewDatabaseNameThatIsTakenGetsASuffixAndNothingIsCreatedBeforeStart(): void
+    {
+        $id = $this->reach('discovered');
+        $this->db->run("INSERT INTO databases (server_id, website_id, owner_id, name, created_at) VALUES (1, ?, NULL, 'alice_wp', ?)", [$this->siteId, gmdate('c')]);
+        $this->post("/migrations/{$id}/select", ['dbs' => ['alice|alice_wp'], 'dbmap' => ['alice|alice_wp' => 'new']]);
+        $plan = json_decode((string) $this->db->scalar('SELECT plan FROM site_migrations WHERE id = ?', [$id]), true);
+        self::assertSame('alice_wp_2', $plan['databases'][0]['dest']);
+        self::assertSame(0, $this->calls('db.create'));
+    }
 }

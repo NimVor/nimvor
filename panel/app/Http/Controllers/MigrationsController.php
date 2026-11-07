@@ -92,6 +92,7 @@ final class MigrationsController extends Controller
             'state' => in_array($step, ['run', 'report'], true) ? $this->service->state($m) : [],
             'sites' => $step === 'select' ? $this->sites->all($this->server->id(), $user) : [],
             'databases' => $step === 'select' ? $this->dbs->databases($this->server->id(), $user) : [],
+            'dbCreds' => (array) ($this->session->pullFlash('migration_dbcreds') ?? []),
             'ftpSecrets' => (array) ($this->session->pullFlash('migration_ftp') ?? []),
             'errors' => (array) ($this->session->pullFlash('errors') ?? []),
             'old' => (array) ($this->session->pullFlash('old') ?? []),
@@ -163,6 +164,10 @@ final class MigrationsController extends Controller
     {
         return $this->act($request, $id, function (int $i): void {
             $this->flashJob($this->service->begin($i));
+            if (($creds = $this->service->newDatabaseCredentials()) !== []) {
+                // Shown once on the next page; not stored.
+                $this->session->flash('migration_dbcreds', $creds);
+            }
         }, 'The migration has started. It runs in the background; you can close this page.');
     }
 

@@ -7,6 +7,9 @@ All notable changes to NimVor are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Website migration: **create the destination databases for you.** Each source database can be sent to a new NimVor database and user (linked to the website that receives the files) instead of an existing one. They are created when the migration starts; the new credentials are shown once and not stored.
+
+### Added
 - Website migration gaps closed: **forwarders and aliases** are now read from Vesta/Hestia, DirectAdmin, ISPConfig, Froxlor and CyberPanel as well as cPanel; **DNS zone files** are read from DirectAdmin, Vesta/Hestia and ISPConfig as well as cPanel; **FTP accounts** of a cPanel source can be recreated as NimVor FTP accounts inside the matching website with new passwords shown once; the **site each database belongs to** is read for FASTPANEL, aaPanel and CloudPanel where the panel can say, and the old server-wide list remains when it cannot.
 
 ### Added
