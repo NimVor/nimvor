@@ -522,3 +522,58 @@ func TestSQLPanelsReportAFailedQueryAndAreDetected(t *testing.T) {
 		t.Errorf("version = %q", det.Version)
 	}
 }
+
+const cloudPanelConf = "##file /etc/nginx/sites-enabled/example.com.conf\nserver {\n  listen 443 ssl;\n  server_name example.com www.example.com;\n  root /home/example/htdocs/example.com;\n}\n" +
+	"##file /etc/nginx/sites-enabled/app.conf\nserver {\n  server_name _;\n  root /home/clp/htdocs/app/files/public;\n}\n" +
+	"##file /etc/nginx/sites-enabled/shop.conf\nserver {\n  server_name shop.test;\n  root /home/shopuser/htdocs/shop.test/public;\n}\n"
+
+func TestCloudPanelSitesAreGroupedByTheirSiteUserAndThePanelItselfIsLeftOut(t *testing.T) {
+	accts := groupSites(parseWebConfig(cloudPanelConf), cloudPanelGroup)
+	if len(accts) != 2 || accts[0].ID != "example" || accts[0].Home != "/home/example" || accts[0].Domains[0].DocRoot != "/home/example/htdocs/example.com" {
+		t.Fatalf("accounts = %+v", accts)
+	}
+	if accts[1].ID != "shopuser" || accts[1].Domains[0].DocRoot != "/home/shopuser/htdocs/shop.test/public" {
+		t.Errorf("shop = %+v", accts[1])
+	}
+}
+
+func TestAaPanelOnlyKeepsSitesUnderWwwroot(t *testing.T) {
+	conf := "##file /www/server/panel/vhost/nginx/example.com.conf\nserver {\n  server_name example.com www.example.com;\n  root /www/wwwroot/example.com;\n}\n" +
+		"##file /www/server/panel/vhost/nginx/phpmyadmin.conf\nserver {\n  server_name phpmyadmin.local;\n  root /www/server/phpmyadmin;\n}\n"
+	accts := groupSites(parseWebConfig(conf), aaPanelGroup)
+	if len(accts) != 1 || accts[0].ID != "aapanel" || len(accts[0].Domains) != 2 || accts[0].Domains[0].DocRoot != "/www/wwwroot/example.com" {
+		t.Errorf("accounts = %+v", accts)
+	}
+}
+
+func TestInterWorxAccountsAreReadFromTheirFolders(t *testing.T) {
+	out := "alice example.com\nalice second.org\nbob shop.test\nbad name x\nalice ..\n"
+	a := parseInterWorx(out)
+	if len(a) != 2 || a[0].ID != "alice" || len(a[0].Domains) != 2 || a[0].Domains[0].Kind != "main" || a[0].Domains[1].Kind != "addon" || a[0].Domains[0].DocRoot != "/home/alice/example.com/html" {
+		t.Fatalf("accounts = %+v", a)
+	}
+	if a[1].ID != "bob" || a[1].Domains[0].DocRoot != "/home/bob/shop.test/html" {
+		t.Errorf("bob = %+v", a[1])
+	}
+}
+
+func TestCloudPanelAaPanelAndInterWorxAreDetected(t *testing.T) {
+	src := &fakeSrc{}
+	for _, c := range []struct {
+		a   Adapter
+		out string
+	}{{cloudPanel(), "cloudpanel\n"}, {aaPanel(), "aapanel\n"}, {interWorxAdapter{}, "interworx\n"}} {
+		src.execFn = func(cmd string, stdout io.Writer) (string, error) { return c.out, nil }
+		det, ok, _ := c.a.Detect(context.Background(), src)
+		if !ok || det.Panel != c.a.ID() || det.Support != Experimental {
+			t.Errorf("%s = %+v %v", c.a.ID(), det, ok)
+		}
+		src.execFn = func(cmd string, stdout io.Writer) (string, error) { return "", nil }
+		if _, ok, _ := c.a.Detect(context.Background(), src); ok {
+			t.Errorf("%s detected on an empty server", c.a.ID())
+		}
+		if _, err := Lookup(c.a.ID()); err != nil {
+			t.Error(err)
+		}
+	}
+}
