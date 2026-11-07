@@ -146,6 +146,13 @@ type Forwarder struct {
 	Destinations []string `json:"destinations"`
 }
 
+// FTPAccount is an FTP login of the source with the folder it opens (discovered; recreated in NimVor
+// with a new password, because a password cannot be read back).
+type FTPAccount struct {
+	Login string `json:"login"`
+	Home  string `json:"home"`
+}
+
 // CronJob is a scheduled command of the source (discovered; not moved by this version).
 type CronJob struct {
 	Schedule string `json:"schedule"`
@@ -162,6 +169,7 @@ type Account struct {
 	Databases  []Database     `json:"databases"`
 	Email      []EmailAccount `json:"email"`
 	Forwarders []Forwarder    `json:"forwarders"`
+	FTP        []FTPAccount   `json:"ftp"`
 	Cron       []CronJob      `json:"cron"`
 }
 

@@ -57,7 +57,7 @@ final class MigrationsTest extends HttpTestCase
             'server' => ['os' => 'Ubuntu 22.04', 'root' => true, 'rsync' => true, 'mysqldump' => true, 'php' => ['8.1'], 'engine' => 'mysql', 'mysql' => '8.0.33'],
             'accounts' => [['id' => 'alice', 'name' => 'alice', 'home' => '/home/alice',
                 'domains' => [['name' => 'shop.example.org', 'kind' => 'main', 'doc_root' => '/home/alice/public_html', 'size_kb' => 2048]],
-                'databases' => [['name' => 'alice_wp', 'engine' => 'mysql', 'size_kb' => 512]], 'email' => [['address' => 'info@shop.example.org', 'maildir' => '/home/alice/mail/x']], 'forwarders' => [['source' => 'sales@shop.example.org', 'destinations' => ['boss@gmail.com', 'ops@example.org']], ['source' => 'old@other.example', 'destinations' => ['x@y.com']]], 'cron' => []]],
+                'databases' => [['name' => 'alice_wp', 'engine' => 'mysql', 'size_kb' => 512]], 'email' => [['address' => 'info@shop.example.org', 'maildir' => '/home/alice/mail/x']], 'ftp' => [['login' => 'staging@shop.example.org', 'home' => '/home/alice/public_html/staging'], ['login' => 'elsewhere', 'home' => '/home/alice/other'], ['login' => 'Bad Name', 'home' => '/home/alice/public_html']], 'forwarders' => [['source' => 'sales@shop.example.org', 'destinations' => ['boss@gmail.com', 'ops@example.org']], ['source' => 'old@other.example', 'destinations' => ['x@y.com']]], 'cron' => []]],
             'warnings' => [],
             'not_migrated' => ['DNS zones and records', 'SSL certificates'],
         ];
@@ -831,5 +831,37 @@ final class MigrationsTest extends HttpTestCase
         $this->post("/migrations/{$id}/dns-import", ['dns' => ['shop.example.org']]);
         self::assertSame(0, $this->calls('migrate.dns_zone'));
         self::assertStringContainsString('DNS zones can only be read from', (string) $this->flash('error'));
+    }
+
+    public function testFtpAccountsAreCreatedInsideTheMatchingWebsiteWithNewPasswordsShownOnce(): void
+    {
+        $id = $this->reach('selected');
+        $this->agent->succeed('ftp.status', ['accounts' => [['name' => 'old@new.example.com']]]);
+        $this->agent->succeed('ftp.account_save', []);
+        $this->post("/migrations/{$id}/ftp", ['ftp' => ['alice|staging@shop.example.org', 'alice|elsewhere', 'alice|Bad Name', 'alice|ghost']]);
+        $call = $this->lastCall('ftp.account_save');
+        self::assertSame('staging@new.example.com', $call['name']);
+        self::assertSame('newsite', $call['user']);
+        self::assertSame('staging', $call['dir']);
+        self::assertGreaterThanOrEqual(10, strlen((string) $call['password']));
+        self::assertSame(1, $this->calls('ftp.account_save'));
+        $msg = (string) $this->flash('success');
+        self::assertStringContainsString('1 FTP account(s) created', $msg);
+        self::assertStringContainsString('elsewhere (its folder is not inside a website you are copying)', $msg);
+        self::assertStringContainsString('Bad Name', $msg);
+        self::assertStringContainsString('ghost (not in the discovery)', $msg);
+        self::assertStringNotContainsString((string) $call['password'], $msg, 'the password must not be in the flash message');
+        // The password is shown once, on the next page, and is not kept in the database.
+        $page = $this->request('GET', "/migrations/{$id}")->body();
+        self::assertStringContainsString($call['password'], $page);
+        self::assertStringNotContainsString($call['password'], $this->request('GET', "/migrations/{$id}")->body());
+        self::assertSame(0, (int) $this->db->scalar("SELECT COUNT(*) FROM site_migrations WHERE plan LIKE '%' || ? || '%' OR discovery LIKE '%' || ? || '%'", [$call['password'], $call['password']]));
+        // An account that exists already is left alone.
+        $this->agent->succeed('ftp.status', ['accounts' => [['name' => 'staging@new.example.com']]]);
+        $this->post("/migrations/{$id}/ftp", ['ftp' => ['alice|staging@shop.example.org']]);
+        self::assertSame(1, $this->calls('ftp.account_save'));
+        self::assertStringContainsString('already exists', (string) $this->flash('success'));
+        $this->post("/migrations/{$id}/ftp", []);
+        self::assertArrayHasKey('ftp', (array) $this->flash('errors'));
     }
 }

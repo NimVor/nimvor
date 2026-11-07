@@ -125,7 +125,7 @@ func vestaLine(l string) map[string]string {
 func parseVestaUser(user, out string) *Account {
 	sec := sections(out)
 	home := "/home/" + user
-	a := &Account{ID: user, Name: user, Home: home, Domains: []Domain{}, Databases: []Database{}, Email: []EmailAccount{}, Forwarders: []Forwarder{}, Cron: []CronJob{}}
+	a := &Account{ID: user, Name: user, Home: home, Domains: []Domain{}, Databases: []Database{}, Email: []EmailAccount{}, Forwarders: []Forwarder{}, FTP: []FTPAccount{}, Cron: []CronJob{}}
 	seen := map[string]bool{}
 	for _, l := range sec["web"] {
 		dn := strings.ToLower(vestaLine(l)["DOMAIN"])

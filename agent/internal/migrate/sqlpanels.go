@@ -80,7 +80,7 @@ func finishAccounts(ctx context.Context, t Transport, info ServerInfo, accts []*
 }
 
 func newAccount(id, home string) *Account {
-	return &Account{ID: id, Name: id, Home: home, Domains: []Domain{}, Databases: []Database{}, Email: []EmailAccount{}, Forwarders: []Forwarder{}, Cron: []CronJob{}}
+	return &Account{ID: id, Name: id, Home: home, Domains: []Domain{}, Databases: []Database{}, Email: []EmailAccount{}, Forwarders: []Forwarder{}, FTP: []FTPAccount{}, Cron: []CronJob{}}
 }
 
 // acctSet collects accounts by key, in a stable order.

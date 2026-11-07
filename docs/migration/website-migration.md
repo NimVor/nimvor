@@ -41,9 +41,11 @@ against real servers; today nothing is.
 | Synchronise before the switch: copy again only files changed on the source, keeping files that are newer here (files only) | ✅ |
 | Synchronising databases | ❌ by design (see "Before you switch DNS") |
 | Email messages (Maildir: every folder, flags kept) into mailboxes you already made in NimVor, with the same address | ✅ (rsync, no delete, never into a mailbox that has messages unless overwriting is allowed, checksum-verified, included in sync, rollback and validation) |
-| Email forwarders (cPanel: plain address-to-address rules) | ✅ created as NimVor aliases on request; existing aliases and mailboxes are never overwritten |
+| Email forwarders and aliases (plain address-to-address rules; cPanel, Vesta/Hestia, DirectAdmin, ISPConfig, Froxlor, CyberPanel) | ✅ created as NimVor aliases on request; existing aliases and mailboxes are never overwritten |
 | Mailbox passwords and quotas | ❌ (set them on the NimVor mailboxes) |
-| DNS records of a cPanel source's zones (MX, TXT, CNAME, SRV, CAA) added to the NimVor zones of the same names | ✅ on request; address records (A, AAAA) are never copied; only NimVor's own zones change |
+| DNS records of the source's zone files (MX, TXT, CNAME, SRV, CAA) added to the NimVor zones of the same names (zone files are read for cPanel, DirectAdmin, Vesta/Hestia, ISPConfig) | ✅ on request; address records (A, AAAA) are never copied; only NimVor's own zones change |
+| FTP accounts (cPanel `/etc/proftpd/<user>`) | ✅ recreated as NimVor FTP accounts inside the matching website, with a **new** password shown once (the old one cannot be read); other panels are not read |
+| The site each database belongs to (FASTPANEL, aaPanel, CloudPanel) | ✅ read where the panel can say; otherwise the databases are listed for the whole server and you choose |
 | DNS cut-over **check** (read only): where each migrated name points now, as seen by four resolvers, and whether that is this server | ✅ |
 | Changing DNS records or nameservers, TTL changes, DNS provider integration | ❌ by design: NimVor never changes DNS for a migration |
 | SSL certificates | ❌ |

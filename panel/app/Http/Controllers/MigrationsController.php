@@ -92,6 +92,7 @@ final class MigrationsController extends Controller
             'state' => in_array($step, ['run', 'report'], true) ? $this->service->state($m) : [],
             'sites' => $step === 'select' ? $this->sites->all($this->server->id(), $user) : [],
             'databases' => $step === 'select' ? $this->dbs->databases($this->server->id(), $user) : [],
+            'ftpSecrets' => (array) ($this->session->pullFlash('migration_ftp') ?? []),
             'errors' => (array) ($this->session->pullFlash('errors') ?? []),
             'old' => (array) ($this->session->pullFlash('old') ?? []),
         ]);
@@ -243,6 +244,30 @@ final class MigrationsController extends Controller
             return $this->redirectWithFailure($to, $e);
         }
         return $this->redirectWithSuccess($to, $res['added'] . ' DNS record(s) added. ' . implode('; ', $res['notes']) . '.');
+    }
+
+    public function ftp(Request $request, string $id): Response
+    {
+        $to = '/migrations/' . (int) $id;
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        try {
+            $res = $this->service->importFtp((int) $id, array_values(array_map('strval', (array) $request->input('ftp', []))));
+        } catch (ValidationException $e) {
+            return $this->backWithErrors($to, $e, $request->all());
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure($to, $e);
+        }
+        if ($res['created'] !== []) {
+            // The new passwords are shown once, on the next page, and are not stored.
+            $this->session->flash('migration_ftp', $res['created']);
+        }
+        $msg = count($res['created']) . ' FTP account(s) created with new passwords.';
+        if ($res['skipped'] !== []) {
+            $msg .= ' Left alone: ' . implode('; ', $res['skipped']) . '.';
+        }
+        return $this->redirectWithSuccess($to, $msg);
     }
 
     public function delete(Request $request, string $id): Response

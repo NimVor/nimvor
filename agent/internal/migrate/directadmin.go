@@ -115,7 +115,7 @@ echo '##end'`, u)
 func parseDirectAdminUser(user, out string) *Account {
 	sec := sections(out)
 	home := "/home/" + user
-	a := &Account{ID: user, Name: user, Home: home, Domains: []Domain{}, Databases: []Database{}, Email: []EmailAccount{}, Forwarders: []Forwarder{}, Cron: []CronJob{}}
+	a := &Account{ID: user, Name: user, Home: home, Domains: []Domain{}, Databases: []Database{}, Email: []EmailAccount{}, Forwarders: []Forwarder{}, FTP: []FTPAccount{}, Cron: []CronJob{}}
 	var doms []string
 	for i, l := range sec["dom"] {
 		l = strings.ToLower(strings.TrimSpace(l))

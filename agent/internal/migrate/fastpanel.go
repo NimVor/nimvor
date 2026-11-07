@@ -77,7 +77,7 @@ func (fastPanelAdapter) Discover(ctx context.Context, t Transport, info ServerIn
 			linked = before - len(dbs)
 		}
 		if len(dbs) > 0 {
-			d.Accounts = append(d.Accounts, Account{ID: "databases", Name: "databases (not linked to a site)", Home: "/", Domains: []Domain{}, Databases: dbs, Email: []EmailAccount{}, Forwarders: []Forwarder{}, Cron: []CronJob{}})
+			d.Accounts = append(d.Accounts, Account{ID: "databases", Name: "databases (not linked to a site)", Home: "/", Domains: []Domain{}, Databases: dbs, Email: []EmailAccount{}, Forwarders: []Forwarder{}, FTP: []FTPAccount{}, Cron: []CronJob{}})
 		}
 		if linked == 0 {
 			d.Warnings = append(d.Warnings, "FASTPANEL's database-to-site link could not be read, so the databases are listed for the whole server: choose each destination yourself.")
@@ -112,7 +112,7 @@ func parseFastPanelSites(out string) ([]*Account, []string) {
 		}
 		a := accts[owner]
 		if a == nil {
-			a = &Account{ID: owner, Name: owner, Home: "/var/www/" + owner, Domains: []Domain{}, Databases: []Database{}, Email: []EmailAccount{}, Forwarders: []Forwarder{}, Cron: []CronJob{}}
+			a = &Account{ID: owner, Name: owner, Home: "/var/www/" + owner, Domains: []Domain{}, Databases: []Database{}, Email: []EmailAccount{}, Forwarders: []Forwarder{}, FTP: []FTPAccount{}, Cron: []CronJob{}}
 			accts[owner] = a
 			order = append(order, owner)
 		}

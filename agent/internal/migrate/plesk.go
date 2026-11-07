@@ -149,7 +149,7 @@ func parsePlesk(out string, dbSizes map[string]int64) ([]*Account, []string) {
 		if m.home != "" && ValidRemotePath(m.home) {
 			home = m.home
 		}
-		a := &Account{ID: m.name, Name: name, Home: home, Domains: []Domain{}, Databases: []Database{}, Email: []EmailAccount{}, Forwarders: []Forwarder{}, Cron: []CronJob{}}
+		a := &Account{ID: m.name, Name: name, Home: home, Domains: []Domain{}, Databases: []Database{}, Email: []EmailAccount{}, Forwarders: []Forwarder{}, FTP: []FTPAccount{}, Cron: []CronJob{}}
 		accts[root] = a
 		acctOrder = append(acctOrder, root)
 		return a

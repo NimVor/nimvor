@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -768,5 +769,17 @@ func TestConfPanelDiscoveryLinksDatabasesAndFallsBackWhenTheLinkCannotBeRead(t *
 		if a.ID == "databases" && len(a.Databases) != 2 {
 			t.Errorf("fallback pool = %+v", a.Databases)
 		}
+	}
+}
+
+func TestCpanelFtpAccountsAreReadWithoutTheirPasswordHash(t *testing.T) {
+	a := Account{ID: "alice", Home: "/home/alice"}
+	parseCpanelAccount(&a, "\n##home\n/home/alice\n##mail\n##ftp\nalice:$6$secrethash:1000:1000::/home/alice:/bin/ftpsh\nstaging@example.com:$1$h2:1000:1000::/home/alice/public_html/staging:/bin/ftpsh\nftp:*:99:99::/var/ftp:/bin/false\nbad name:x:1:1::/h:/s\nrel:x:1:1::relative/path:/s\n##cron\n")
+	if len(a.FTP) != 1 || a.FTP[0].Login != "staging@example.com" || a.FTP[0].Home != "/home/alice/public_html/staging" {
+		t.Fatalf("ftp = %+v", a.FTP)
+	}
+	b, _ := json.Marshal(a.FTP)
+	if strings.Contains(string(b), "secrethash") || strings.Contains(string(b), "$1$") {
+		t.Error("a password hash was kept")
 	}
 }
