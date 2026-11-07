@@ -577,3 +577,24 @@ func TestCloudPanelAaPanelAndInterWorxAreDetected(t *testing.T) {
 		}
 	}
 }
+
+func TestEnhanceWebsitesAreListedByIdAndNothingElseIsGuessed(t *testing.T) {
+	out := "3f2b1c9e-8a4d-4e6f-9b1a-0c2d3e4f5a6b\nnot-a-uuid\n../etc\nA1B2C3D4-0000-1111-2222-333344445555\n"
+	a := parseEnhance(out)
+	if len(a) != 2 || a[0].ID != "3f2b1c9e-8a4d-4e6f-9b1a-0c2d3e4f5a6b" || a[0].Domains[0].DocRoot != "/var/www/3f2b1c9e-8a4d-4e6f-9b1a-0c2d3e4f5a6b/public_html" || a[1].ID != "a1b2c3d4-0000-1111-2222-333344445555" {
+		t.Fatalf("accounts = %+v", a)
+	}
+	src := &fakeSrc{}
+	src.execFn = func(cmd string, stdout io.Writer) (string, error) { return "enhance\n", nil }
+	det, ok, _ := enhanceAdapter{}.Detect(context.Background(), src)
+	if !ok || det.Panel != "enhance" || det.Support != Experimental {
+		t.Errorf("det = %+v %v", det, ok)
+	}
+	src.execFn = func(cmd string, stdout io.Writer) (string, error) { return "", nil }
+	if _, ok, _ := (enhanceAdapter{}).Detect(context.Background(), src); ok {
+		t.Error("detected without Enhance")
+	}
+	if _, err := Lookup("enhance"); err != nil {
+		t.Error(err)
+	}
+}

@@ -7,6 +7,9 @@ All notable changes to NimVor are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Website migration: **Enhance (limited, experimental).** Lists each website folder `/var/www/<website-id>/public_html` by its id and the server's databases so their files and data can be copied; domain names, mailboxes and everything else are not read.
+
+### Added
 - Website migration: **eight more sources (all experimental)**: VestaCP, HestiaCP, CyberPanel, ISPConfig, Froxlor, CloudPanel, aaPanel and InterWorx. VestaCP/HestiaCP are read from the panel's own files, CyberPanel/ISPConfig/Froxlor from the panel's database with read-only queries, CloudPanel/aaPanel from their Nginx/Apache vhosts, InterWorx from its documented home folders. Written from each project's documented layout and tested on synthetic data only; a failing query is reported in the discovery warnings. Virtualmin/Webmin and Enhance stay listed as not available.
 
 ### Added
