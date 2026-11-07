@@ -18,6 +18,8 @@ against real servers; today nothing is.
 |---|---|---|
 | Custom Linux server (no panel) | **Experimental** | Discovery of Nginx/Apache sites and MySQL/MariaDB databases on synthetic data. File copy and database import proven against a real `sshd` and MariaDB (see "How it was tested"). |
 | cPanel / WHM | **Experimental** | Discovery written from cPanel's documented file layout and tested on **synthetic data only**. Not tried on a real cPanel server, and the layout differs between versions. Treat the discovery as a starting point and check it. |
+| Plesk (Linux) | **Experimental** | Read from Plesk's own database with read-only queries. Written from the documented schema, tested on synthetic data only. |
+| DirectAdmin | **Experimental** | Read from DirectAdmin's files. Written from the documented layout, tested on synthetic data only. |
 | CyberPanel, Virtualmin/Webmin, HestiaCP, aaPanel, ISPConfig, Enhance, InterWorx, CloudPanel, VestaCP, Froxlor | **Not available** | Listed in the wizard so nobody assumes they work. They cannot be chosen. |
 
 ### What it moves
