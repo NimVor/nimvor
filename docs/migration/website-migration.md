@@ -51,7 +51,7 @@ against real servers; today nothing is.
 | DNS cut-over **check** (read only): where each migrated name points now, as seen by four resolvers, and whether that is this server | ✅ |
 | Changing DNS records or nameservers, TTL changes, DNS provider integration | ❌ by design: NimVor never changes DNS for a migration |
 | SSL certificates | ❌ |
-| FTP accounts, cron jobs (cron jobs are *listed*) | ❌ |
+| Cron jobs (read from the account's crontab on cPanel, DirectAdmin, Vesta/Hestia and the database-based panels; panel housekeeping lines are skipped) | ✅ created on request as NimVor cron jobs of the matching website, **switched off** until you review them (commands still name the old paths); needs the website to exist, so use it after the migration has started |
 | PHP settings per domain, rewrite rules, application configuration | ❌ (Apache `.htaccess` is not translated to Nginx) |
 | PostgreSQL | ❌ |
 | Database users and grants | ❌ (NimVor creates the database user for the NimVor database) |

@@ -231,6 +231,26 @@ $running = in_array($m['status'], ['running', 'discovering'], true);
     <button class="btn btn-outline-primary btn-sm">Create the selected FTP accounts</button>
 </form>
 <?php endif; ?>
+<?php $cronRows = []; foreach ((array) ($disc['accounts'] ?? []) as $a) { foreach ((array) ($a['cron'] ?? []) as $i => $c) { $cronRows[] = [$a['id'] . '|' . $i, $a, $c]; } } ?>
+<?php if ($cronRows !== []): ?>
+<form method="post" action="<?= e($this->url('migrations.cron', ['id' => $id])) ?>" class="mt-4" data-nim-confirm="Create the ticked cron jobs in NimVor now? They are created switched off so you can review them first.">
+    <?= $this->csrfField() ?>
+    <div class="nim-panel mb-3" data-nim-dt>
+        <div class="nim-actionbar"><div class="fw-semibold">Cron jobs to create <span class="badge rounded-pill text-bg-light border fw-normal">switched off, after the migration has started</span></div></div>
+        <?= $err('cron') !== '' ? $fb('cron') : '' ?>
+        <div class="nim-dtable table-responsive"><table class="table align-middle">
+            <thead><tr><th class="nim-check"><input class="form-check-input" type="checkbox" data-nim-select-all="cron[]" aria-label="Select all cron jobs"></th><th>Account</th><th>Schedule</th><th>Command</th></tr></thead>
+            <tbody>
+            <?php foreach ($cronRows as [$key, $a, $c]): ?>
+                <tr data-nim-row><td><input class="form-check-input" type="checkbox" name="cron[]" value="<?= e($key) ?>" aria-label="Select this cron job"></td><td class="fw-semibold"><?= e((string) $a['name']) ?></td><td class="small font-monospace"><?= e((string) $c['schedule']) ?></td><td class="small font-monospace text-break"><?= e((string) $c['command']) ?></td></tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table></div>
+        <div class="px-3 pb-3 small nim-muted">Each job is added to the website of its account and runs as that website's user. Commands are copied as written, so they may still name the old server's paths: check them, then switch the job on under the website's Cron jobs. The website must already exist (start the migration first).</div>
+    </div>
+    <button class="btn btn-outline-primary btn-sm">Create the selected cron jobs</button>
+</form>
+<?php endif; ?>
 <?php if ($fwd !== []): ?>
 <form method="post" action="<?= e($this->url('migrations.forwarders', ['id' => $id])) ?>" class="mt-4" data-nim-confirm="Create the ticked forwarders as NimVor aliases now? Existing aliases and mailboxes are left alone.">
     <?= $this->csrfField() ?>
@@ -377,7 +397,7 @@ $running = in_array($m['status'], ['running', 'discovering'], true);
     <ul class="mb-0">
         <li>Open each migrated website and check pages, forms and logins. <code>.htaccess</code> rules are not translated to Nginx.</li>
         <li>Nothing was deleted on the source. Keep it until you have checked the new site, then change the DNS records yourself: this version does not change DNS.</li>
-        <li>Not moved by this version: mailbox passwords, quotas, aliases and forwarders, DNS zones and records, SSL certificates, FTP accounts and cron jobs. The report lists what was found.</li>
+        <li>Not moved by this version: mailbox passwords, quotas, aliases and forwarders, SSL certificates. Forwarders, DNS records, FTP accounts and cron jobs can be added from the lists above on request. The report lists what was found.</li>
         <li>Files were compared by checksum after the copy and databases by table count.</li>
     </ul>
 </div></div>

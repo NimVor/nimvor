@@ -879,3 +879,27 @@ func TestNimVorZoneIsRenderedAsABINDFileAndDetected(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestCrontabsAreReadWithoutPanelHousekeeping(t *testing.T) {
+	src := &fakeSrc{}
+	var cmd string
+	src.execFn = func(c string, stdout io.Writer) (string, error) {
+		cmd = c
+		return "MAILTO=x@y.z\n# note\n*/5 * * * * php /home/alice/public_html/cron.php\n*/5 * * * * php /home/alice/public_html/cron.php\n0 3 * * * /usr/local/cpanel/bin/x\n@daily /home/alice/backup.sh\n", nil
+	}
+	jobs := readCrontab(context.Background(), src, "alice")
+	if len(jobs) != 2 || jobs[0].Schedule != "*/5 * * * *" || jobs[1].Schedule != "@daily" || !strings.Contains(cmd, "/var/spool/cron/alice") {
+		t.Errorf("jobs = %+v (%s)", jobs, cmd)
+	}
+	cmd = ""
+	for _, u := range []string{"root", "bad user", "a;b", "/"} {
+		if len(readCrontab(context.Background(), src, u)) != 0 || cmd != "" {
+			t.Errorf("%q was read", u)
+		}
+	}
+	a := &Account{ID: "alice", Cron: []CronJob{{Schedule: "@daily", Command: "keep"}}}
+	addCrontabs(context.Background(), src, []*Account{a})
+	if len(a.Cron) != 1 {
+		t.Errorf("existing jobs were replaced: %+v", a.Cron)
+	}
+}

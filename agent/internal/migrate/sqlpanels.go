@@ -49,6 +49,8 @@ func finishAccounts(ctx context.Context, t Transport, info ServerInfo, accts []*
 			dirs = append(dirs, m.Maildir)
 		}
 	}
+	progress("Reading scheduled jobs…")
+	addCrontabs(ctx, t, accts)
 	progress("Measuring folders…")
 	sz, _ := measure(ctx, t, uniq(dirs))
 	size := map[string]int64{}
@@ -206,7 +208,7 @@ func (cyberPanelAdapter) Discover(ctx context.Context, t Transport, info ServerI
 		d.Warnings = append(d.Warnings, "No websites were found in CyberPanel.")
 	}
 	d.Accounts = finishAccounts(ctx, t, info, accts, progress)
-	d.Warnings = append(d.Warnings, "DNS, FTP and cron are not read from CyberPanel.")
+	d.Warnings = append(d.Warnings, "DNS and FTP are not read from CyberPanel.")
 	return d, nil
 }
 
@@ -286,7 +288,7 @@ func (ispConfigAdapter) Discover(ctx context.Context, t Transport, info ServerIn
 		d.Warnings = append(d.Warnings, "No active websites were found in ISPConfig.")
 	}
 	d.Accounts = finishAccounts(ctx, t, info, accts, progress)
-	d.Warnings = append(d.Warnings, "Mailboxes are listed under one account \"mail\" for the whole server. DNS, FTP and cron are not read.")
+	d.Warnings = append(d.Warnings, "Mailboxes are listed under one account \"mail\" for the whole server. DNS and FTP are not read.")
 	return d, nil
 }
 
@@ -407,7 +409,7 @@ func (froxlorAdapter) Discover(ctx context.Context, t Transport, info ServerInfo
 		d.Warnings = append(d.Warnings, "No customers were found in Froxlor.")
 	}
 	d.Accounts = finishAccounts(ctx, t, info, accts, progress)
-	d.Warnings = append(d.Warnings, "DNS, FTP and cron are not read from Froxlor.")
+	d.Warnings = append(d.Warnings, "DNS and FTP are not read from Froxlor.")
 	return d, nil
 }
 
