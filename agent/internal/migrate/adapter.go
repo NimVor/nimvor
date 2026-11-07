@@ -31,7 +31,10 @@ type Adapter interface {
 
 // adapters in detection order: a specific panel before the generic server.
 func adapters() []Adapter {
-	return []Adapter{cpanelAdapter{}, pleskAdapter{}, directAdminAdapter{}, fastPanelAdapter{}, linuxAdapter{}}
+	return []Adapter{cpanelAdapter{}, pleskAdapter{}, directAdminAdapter{}, fastPanelAdapter{},
+		vestaFamily{id: "vestacp", name: "VestaCP", root: "/usr/local/vesta"},
+		vestaFamily{id: "hestiacp", name: "HestiaCP", root: "/usr/local/hestia"},
+		linuxAdapter{}}
 }
 
 // Lookup returns an adapter by id.

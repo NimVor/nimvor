@@ -377,3 +377,43 @@ func TestFastPanelIsDetectedByItsCLI(t *testing.T) {
 		t.Error("detected without FASTPANEL")
 	}
 }
+
+func TestVestaAndHestiaUsersAreReadFromTheirFiles(t *testing.T) {
+	out := "##web\nDOMAIN='Example.com' IP='1.2.3.4' ALIAS='www.example.com' SSL='yes'\nDOMAIN='blog.example.com' IP='1.2.3.4'\nDOMAIN='bad..x' IP='1'\nDOMAIN='example.com' IP='dup'\n" +
+		"##db\nDB='alice_wp' DBUSER='alice_wp' HOST='localhost' TYPE='mysql' CHARSET='UTF8'\nDB='alice_pg' TYPE='pgsql'\nDB='bad name' TYPE='mysql'\n" +
+		"##mail\n@@d example.com\nACCOUNT='info' ALIAS='' QUOTA='unlimited'\nACCOUNT='Sales' QUOTA='1'\nACCOUNT='$(x)'\n@@d bad..dom\nACCOUNT='z'\n##end\n"
+	a := parseVestaUser("alice", out)
+	if len(a.Domains) != 2 || a.Domains[0].Name != "example.com" || a.Domains[0].DocRoot != "/home/alice/web/example.com/public_html" || a.Domains[1].DocRoot != "/home/alice/web/blog.example.com/public_html" {
+		t.Errorf("domains = %+v", a.Domains)
+	}
+	if len(a.Databases) != 1 || a.Databases[0].Name != "alice_wp" || a.Databases[0].Engine != "mysql" {
+		t.Errorf("databases = %+v", a.Databases)
+	}
+	if len(a.Email) != 2 || a.Email[0].Address != "info@example.com" || a.Email[0].Maildir != "/home/alice/mail/example.com/info" || a.Email[1].Address != "sales@example.com" {
+		t.Errorf("mail = %+v", a.Email)
+	}
+}
+
+func TestVestaAndHestiaAreDetectedByTheirOwnFolder(t *testing.T) {
+	src := &fakeSrc{}
+	src.execFn = func(cmd string, stdout io.Writer) (string, error) {
+		if strings.Contains(cmd, "/usr/local/hestia") {
+			return "present\nVERSION='1.8.10'\n", nil
+		}
+		return "", nil
+	}
+	h := vestaFamily{id: "hestiacp", name: "HestiaCP", root: "/usr/local/hestia"}
+	det, ok, _ := h.Detect(context.Background(), src)
+	if !ok || det.Panel != "hestiacp" || det.Version != "1.8.10" {
+		t.Errorf("hestia = %+v %v", det, ok)
+	}
+	v := vestaFamily{id: "vestacp", name: "VestaCP", root: "/usr/local/vesta"}
+	if _, ok, _ := v.Detect(context.Background(), src); ok {
+		t.Error("vesta detected on a hestia server")
+	}
+	for _, id := range []string{"vestacp", "hestiacp"} {
+		if _, err := Lookup(id); err != nil {
+			t.Error(err)
+		}
+	}
+}

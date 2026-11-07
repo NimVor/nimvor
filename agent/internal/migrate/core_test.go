@@ -209,8 +209,8 @@ func TestADifferentPanelIsNotTakenForCpanel(t *testing.T) {
 	if _, _, err := DetectPanel(context.Background(), f, "plesk"); err == nil || !strings.Contains(err.Error(), "does not look like Plesk") {
 		t.Errorf("plesk = %v", err)
 	}
-	if _, _, err := DetectPanel(context.Background(), f, "hestiacp"); err == nil || !strings.Contains(err.Error(), "not supported") {
-		t.Errorf("hestiacp = %v", err)
+	if _, _, err := DetectPanel(context.Background(), f, "nosuchpanel"); err == nil || !strings.Contains(err.Error(), "not supported") {
+		t.Errorf("nosuchpanel = %v", err)
 	}
 }
 
