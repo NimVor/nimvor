@@ -10,6 +10,9 @@ All notable changes to NimVor are documented here. The format follows
 - Migration wizard, step 1: the source cards are compact and four to a row. The *Experimental* label is an info icon with a tooltip, and hovering a card (or focusing it with the keyboard) shows what the source reads and the **Use this source** button in a box above it.
 
 ### Added
+- Website migration source: **NimVor to NimVor** (experimental) — another NimVor server is read from its own panel database (read-only): websites, database-to-site links, mailboxes, aliases, DNS records and cron jobs, so forwarders, DNS and cron can be imported like from other panels. FTP accounts are not read.
+
+### Added
 - Website migration: **create the destination databases for you.** Each source database can be sent to a new NimVor database and user (linked to the website that receives the files) instead of an existing one. They are created when the migration starts; the new credentials are shown once and not stored.
 
 ### Added

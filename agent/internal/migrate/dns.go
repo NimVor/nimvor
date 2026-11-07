@@ -21,11 +21,14 @@ var zoneFinders = map[string]string{
 }
 
 // HasZoneFiles says whether zone files can be read from this kind of source.
-func HasZoneFiles(panel string) bool { _, ok := zoneFinders[panel]; return ok }
+func HasZoneFiles(panel string) bool { _, ok := zoneFinders[panel]; return ok || panel == "nimvor" }
 
 // ReadZone returns the BIND zone file of a domain from a source (see zoneFinders). It only reads: nothing
 // is changed on the source, and nothing here touches DNS anywhere.
 func ReadZone(ctx context.Context, t Transport, panel, domain string) (string, error) {
+	if panel == "nimvor" { // the records are in NimVor's database, not in a file
+		return nimvorZone(ctx, t, domain)
+	}
 	paths, ok := zoneFinders[panel]
 	if !ok {
 		return "", fmt.Errorf("zone files are not read from this kind of source in this version")

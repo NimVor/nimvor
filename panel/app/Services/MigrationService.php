@@ -36,7 +36,7 @@ final class MigrationService
     private array $newDatabaseCredentials = [];
 
     /** Source panels whose BIND zone files the agent can read. */
-    public const ZONE_PANELS = ['cpanel', 'directadmin', 'vestacp', 'hestiacp', 'ispconfig'];
+    public const ZONE_PANELS = ['cpanel', 'directadmin', 'vestacp', 'hestiacp', 'ispconfig', 'nimvor'];
 
     /** Statuses in which the agent holds the migration's state. */
     private const AGENT_STATES = ['running', 'paused', 'failed', 'interrupted', 'completed', 'cancelled'];

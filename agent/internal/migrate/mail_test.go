@@ -783,3 +783,69 @@ func TestCpanelFtpAccountsAreReadWithoutTheirPasswordHash(t *testing.T) {
 		t.Error("a password hash was kept")
 	}
 }
+
+func TestNimVorSourceIsReadFromItsPanelDatabase(t *testing.T) {
+	sites := [][]string{{"Shop.example.org", "shop", "/home/shop/shop.example.org", "/home/shop/shop.example.org/public_html", "main"}, {"blog.example.org", "shop", "/home/shop/blog", "/home/shop/blog/public_html", "addon"}, {"bad name", "x", "/a", "/a", "main"}, {"evil.org", "evil", "/home/evil", "/home/../etc", "main"}}
+	dbs := [][]string{{"shop_wp", "shop.example.org"}, {"loose_db", ""}, {"bad name", "shop.example.org"}}
+	mail := [][]string{{"info@shop.example.org"}, {"x@elsewhere.org"}, {"nonsense"}}
+	alias := [][]string{{"sales@shop.example.org", "boss@gmail.com,ops@example.org"}, {"*@shop.example.org", "info@shop.example.org"}}
+	cron := [][]string{{"shop.example.org", "*/5 * * * *", "php a.php | logger"}, {"gone.org", "@daily", "x"}, {"shop.example.org", "", "no schedule"}}
+	a := buildNimVor(sites, dbs, mail, alias, cron)
+	by := map[string]*Account{}
+	for _, x := range a {
+		by[x.ID] = x
+	}
+	shop := by["shop"]
+	if shop == nil || shop.Home != "/home/shop/shop.example.org" || len(shop.Domains) != 2 || shop.Domains[1].Kind != "addon" {
+		t.Fatalf("shop = %+v", shop)
+	}
+	if by["evil"] != nil || by["x"] != nil {
+		t.Error("an unusable website produced an account")
+	}
+	if len(shop.Databases) != 1 || shop.Databases[0].Name != "shop_wp" || by["databases"] == nil || len(by["databases"].Databases) != 1 {
+		t.Errorf("databases = %+v / %+v", shop.Databases, by["databases"])
+	}
+	if len(shop.Email) != 1 || shop.Email[0].Maildir != "/var/vmail/shop.example.org/info" || by["mail"] == nil || len(by["mail"].Email) != 1 {
+		t.Errorf("mail = %+v / %+v", shop.Email, by["mail"])
+	}
+	if len(shop.Forwarders) != 2 {
+		t.Errorf("forwarders = %+v", shop.Forwarders)
+	}
+	if len(shop.Cron) != 1 || shop.Cron[0].Command != "php a.php | logger" {
+		t.Errorf("cron = %+v", shop.Cron)
+	}
+}
+
+func TestNimVorZoneIsRenderedAsABINDFileAndDetected(t *testing.T) {
+	src := &fakeSrc{}
+	src.execFn = func(cmd string, stdout io.Writer) (string, error) {
+		return "@\x1fMX\x1f0\x1fmail.example.org.\x1f10\x1f0\x1f0\n@\x1fTXT\x1f300\x1fv=spf1 \"a\" -all\x1f0\x1f0\x1f0\n_sip._tcp\x1fSRV\x1f0\x1fsip.example.org.\x1f5\x1f6\x1f5060\n", nil
+	}
+	text, err := ReadZone(context.Background(), src, "nimvor", "example.org")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"$ORIGIN example.org.", "@ 3600 IN MX 10 mail.example.org.", `@ 300 IN TXT "v=spf1 \"a\" -all"`, "_sip._tcp 3600 IN SRV 5 6 5060 sip.example.org."} {
+		if !strings.Contains(text, want) {
+			t.Errorf("zone lacks %q:\n%s", want, text)
+		}
+	}
+	if _, err := ReadZone(context.Background(), src, "nimvor", "bad name'; x"); err == nil {
+		t.Error("a bad domain name was accepted")
+	}
+	if !HasZoneFiles("nimvor") {
+		t.Error("nimvor has no zone support")
+	}
+	src.execFn = func(cmd string, stdout io.Writer) (string, error) { return "nimvor\n1.5.2\n", nil }
+	det, ok, _ := (nimvorAdapter{}).Detect(context.Background(), src)
+	if !ok || det.Panel != "nimvor" || det.Version != "1.5.2" {
+		t.Errorf("detect = %+v %v", det, ok)
+	}
+	src.execFn = func(cmd string, stdout io.Writer) (string, error) { return "", nil }
+	if _, ok, _ := (nimvorAdapter{}).Detect(context.Background(), src); ok {
+		t.Error("nimvor detected on an empty server")
+	}
+	if _, err := Lookup("nimvor"); err != nil {
+		t.Error(err)
+	}
+}

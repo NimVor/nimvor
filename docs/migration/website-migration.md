@@ -24,6 +24,7 @@ against real servers; today nothing is.
 | VestaCP, HestiaCP | **Experimental** | Read from the panel's own files (`web.conf`, `db.conf`, `mail/*.conf`). Written from the documented layout, synthetic data only. |
 | CyberPanel | **Experimental** | Websites, child domains, databases and mailboxes (`e_users`) from the `cyberpanel` database; a mailbox is listed only if its Maildir exists under `/home/vmail`. Table names unverified on a real server. |
 | ISPConfig | **Experimental** | Websites, databases and mailboxes from the `dbispconfig` database. Table names unverified on a real server. |
+| NimVor | **Experimental** | Another NimVor server, read from its panel database (`/var/lib/nimvor/nimvor.sqlite`, needs `sqlite3` on the source): websites with their system user and document root, the databases tied to each site (databases without a site are listed separately), mailboxes (`/var/vmail/<domain>/<user>`), aliases, DNS records and cron jobs. FTP accounts are not read. |
 | Froxlor | **Experimental** | Customers, domains, databases and mailboxes from Froxlor's database; a mailbox is only listed if its Maildir exists. Table names unverified on a real server. |
 | CloudPanel, aaPanel | **Experimental** | Sites from the panel's Nginx/Apache vhost files; databases listed for the whole server. |
 | InterWorx | **Experimental** | SiteWorx accounts and domains from the documented `/home/<user>/<domain>/html` folders; databases by `<user>_` prefix. |
