@@ -271,6 +271,17 @@ version, the discovery says so in its warnings instead of guessing. **All of the
 project's documentation or source layout and have only run on synthetic data**, so try each on a
 non-critical account first and send the output of any failing step so the reader can be fixed.
 
+## Creating the destination databases
+
+For each source database you can pick an existing empty NimVor database, or **Create a new NimVor database
+and user**. Nothing is created when you choose it. When you press **Start**, NimVor creates the database
+(named like the source, with a number added if that name is taken) and a user with full access to it that
+has the same name, both linked to the NimVor website that receives that account's files (when exactly one
+website of the account was chosen). The new database and user credentials are shown **once**, on the page
+after Start, and are not stored. The source application's own configuration (for example `wp-config.php`)
+still holds the old database name, user and password, so update it to the new values after the copy. A
+database created this way is not removed by a rollback; delete it under Databases if you do not want it.
+
 ## Known limitations
 
 * MySQL 8 → MariaDB: databases using `utf8mb4_0900_*` collations or MySQL-8-only

@@ -32,6 +32,9 @@ final class MigrationService
         'Virtualmin / Webmin',
     ];
 
+    /** @var list<array{database: string, user: string, password: string}> credentials of databases created by the last begin() */
+    private array $newDatabaseCredentials = [];
+
     /** Source panels whose BIND zone files the agent can read. */
     public const ZONE_PANELS = ['cpanel', 'directadmin', 'vestacp', 'hestiacp', 'ispconfig'];
 
@@ -51,6 +54,7 @@ final class MigrationService
         private readonly Connection $db,
         private readonly MailService $mail,
         private readonly DnsService $dns,
+        private readonly DatabaseService $databases,
     ) {
     }
 
@@ -315,6 +319,13 @@ final class MigrationService
             $selection['domains'][] = ['key' => (string) $key, 'site_id' => $sid];
         }
         $usedDbs = [];
+        $usedNames = [];
+        // The NimVor website that receives each source account's files, when there is exactly one: a new database is linked to it.
+        $siteOfAccount = [];
+        foreach ($selection['domains'] as $sel) {
+            [$sa] = array_pad(explode('|', (string) $sel['key'], 2), 2, '');
+            $siteOfAccount[$sa][(int) $sel['site_id']] = true;
+        }
         foreach ((array) ($in['dbs'] ?? []) as $key) {
             [$acct, $name] = array_pad(explode('|', (string) $key, 2), 2, '');
             $found = null;
@@ -323,9 +334,28 @@ final class MigrationService
                     $found = (array) $d;
                 }
             }
-            $did = (int) (((array) ($in['dbmap'] ?? []))[$key] ?? 0);
+            $choice = (string) (((array) ($in['dbmap'] ?? []))[$key] ?? '');
+            $did = (int) $choice;
             if ($found === null) {
                 $errors['dbs'] = 'A database you selected is not in the discovery. Discover again.';
+                continue;
+            }
+            if ($choice === 'new') {
+                // A new NimVor database and user are made when the migration starts; only the name is chosen now.
+                $base = trim((string) preg_replace('/[^a-z0-9_]/', '_', strtolower((string) $found['name'])), '_');
+                $base = substr($base === '' ? 'db' : $base, 0, 32);
+                $dest = $base;
+                for ($n = 2; $n < 100 && (isset($usedNames[$dest]) || $this->dbs->nameTaken($this->server->id(), $dest) || in_array($dest, ['mysql', 'sys', 'information_schema', 'performance_schema'], true)); $n++) {
+                    $dest = substr($base, 0, 29) . '_' . $n;
+                }
+                if (isset($usedNames[$dest]) || $this->dbs->nameTaken($this->server->id(), $dest)) {
+                    $errors['dbmap[' . $key . ']'] = 'No free NimVor database name was found for ' . $name . '. Create one under Databases and choose it.';
+                    continue;
+                }
+                $usedNames[$dest] = true;
+                $sites = array_keys((array) ($siteOfAccount[$acct] ?? []));
+                $databases[] = ['source' => (string) $found['name'], 'dest' => $dest, 'size_kb' => (int) ($found['size_kb'] ?? 0)];
+                $selection['databases'][] = ['key' => (string) $key, 'db_id' => 0, 'new' => ['name' => $dest, 'site_id' => count($sites) === 1 ? (int) $sites[0] : 0, 'created' => false]];
                 continue;
             }
             if (!isset($dbRows[$did])) {
@@ -413,6 +443,7 @@ final class MigrationService
         if (!empty($a['blocked'])) {
             throw new UserFacingException('The compatibility check found problems that stop the migration. Solve them and check again.');
         }
+        $this->createNewDatabases($id, $m);
         $created = (array) $this->agent->call('migrate.create', ['plan' => (array) $m['plan'], 'panel' => $m['panel'], 'source' => 'ssh://' . $m['source_user'] . '@' . $m['source_host'] . ':' . $m['source_port']]);
         $agentId = (string) ($created['id'] ?? '');
         $res = (array) $this->agent->call('migrate.start', ['id' => $agentId, 'source' => $this->source($m)]);
@@ -424,6 +455,48 @@ final class MigrationService
             'allow_overwrite' => !empty($m['plan']['config']['allow_overwrite']),
         ]);
         return $job;
+    }
+
+    /**
+     * Create the NimVor databases (with a user that has full access, linked to the website) the person asked
+     * for with "create a new database". It runs once, just before the migration starts; one that was created
+     * on an earlier try is not created again. The new credentials are available from newDatabaseCredentials().
+     *
+     * @param array<string, mixed> $m
+     */
+    private function createNewDatabases(int $id, array $m): void
+    {
+        $this->newDatabaseCredentials = [];
+        $selection = (array) $m['selection'];
+        $changed = false;
+        foreach ((array) ($selection['databases'] ?? []) as $i => $row) {
+            $new = $row['new'] ?? null;
+            if (!is_array($new) || !empty($new['created'])) {
+                continue;
+            }
+            try {
+                $out = $this->databases->create([
+                    'name' => (string) $new['name'], 'create_user' => true, 'username' => substr((string) $new['name'], 0, 32),
+                    'website_id' => (int) $new['site_id'] ?: null, 'store_password' => false,
+                ], ['id' => 0, 'username' => '', 'role_scope' => 'all']);
+            } catch (ValidationException $e) {
+                throw new UserFacingException('The database ' . $new['name'] . ' could not be created: ' . implode(' ', array_map('strval', $e->errors())) . ' Go back one step and choose another name or an existing database.');
+            }
+            $selection['databases'][$i]['new']['created'] = true;
+            $selection['databases'][$i]['db_id'] = (int) ($out['database_id'] ?? 0);
+            $changed = true;
+            $this->repo->update($id, ['selection' => $selection]);
+            $this->newDatabaseCredentials[] = ['database' => (string) $new['name'], 'user' => (string) ($out['user'] ?? ''), 'password' => (string) ($out['password'] ?? '')];
+        }
+        if ($changed) {
+            $this->audit->record('migration.databases_created', 'migration', (string) $id, AuditLogger::SUCCESS, ['count' => count($this->newDatabaseCredentials)]);
+        }
+    }
+
+    /** @return list<array{database: string, user: string, password: string}> */
+    public function newDatabaseCredentials(): array
+    {
+        return $this->newDatabaseCredentials;
     }
 
     public function resume(int $id): string
