@@ -151,8 +151,20 @@ func parseVestaUser(user, out string) *Account {
 			}
 			continue
 		}
-		if acct := vestaLine(l)["ACCOUNT"]; cur != "" && pleskLocal.MatchString(acct) {
-			a.Email = append(a.Email, EmailAccount{Address: strings.ToLower(acct) + "@" + cur, Maildir: home + "/mail/" + cur + "/" + acct, SizeKB: -1})
+		kv := vestaLine(l)
+		if acct := kv["ACCOUNT"]; cur != "" && pleskLocal.MatchString(acct) {
+			addr := strings.ToLower(acct) + "@" + cur
+			a.Email = append(a.Email, EmailAccount{Address: addr, Maildir: home + "/mail/" + cur + "/" + acct, SizeKB: -1})
+			if fwd := kv["FWD"]; fwd != "" {
+				if f, ok := makeForwarder(addr, splitDests(fwd)); ok {
+					a.Forwarders = append(a.Forwarders, f)
+				}
+			}
+			for _, al := range splitDests(kv["ALIAS"]) { // other names that deliver to this mailbox
+				if f, ok := makeForwarder(al+"@"+cur, []string{addr}); ok {
+					a.Forwarders = append(a.Forwarders, f)
+				}
+			}
 		}
 	}
 	return a

@@ -72,6 +72,7 @@ func (directAdminAdapter) Discover(ctx context.Context, t Transport, info Server
 echo '##dom'; cat "$b/domains.list" 2>/dev/null
 echo '##sub'; for f in "$b"/domains/*.subdomains; do [ -f "$f" ] && { echo "@@d $(basename "$f" .subdomains)"; cat "$f"; }; done 2>/dev/null
 echo '##mail'; for f in /etc/virtual/*/passwd; do dom=$(basename "$(dirname "$f")"); [ -d /home/%[1]s/imap/$dom ] && { echo "@@d $dom"; cut -d: -f1 "$f"; }; done 2>/dev/null
+echo '##fwd'; for dom in $(cat "$b/domains.list" 2>/dev/null); do [ -f /etc/virtual/$dom/aliases ] && { echo "@@d $dom"; cat /etc/virtual/$dom/aliases; }; done 2>/dev/null
 echo '##end'`, u)
 		res, err := t.Exec(ctx, "sh -c "+Shq(script), nil)
 		if err != nil {
@@ -158,6 +159,22 @@ func parseDirectAdminUser(user, out string) *Account {
 		}
 		if cur != "" && pleskLocal.MatchString(l) {
 			a.Email = append(a.Email, EmailAccount{Address: strings.ToLower(l) + "@" + cur, Maildir: home + "/imap/" + cur + "/" + l + "/Maildir", SizeKB: -1})
+		}
+	}
+	cur = ""
+	for _, l := range sec["fwd"] {
+		l = strings.TrimSpace(l)
+		if strings.HasPrefix(l, "@@d ") {
+			cur = strings.ToLower(strings.TrimPrefix(l, "@@d "))
+			if !known[cur] {
+				cur = ""
+			}
+			continue
+		}
+		if cur != "" {
+			if f, ok := parseValias(cur, l); ok {
+				a.Forwarders = append(a.Forwarders, f)
+			}
 		}
 	}
 	return a

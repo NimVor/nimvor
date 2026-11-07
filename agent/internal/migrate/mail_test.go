@@ -642,3 +642,38 @@ func TestCyberPanelDiscoveryAddsOnlyMailboxesWhoseMaildirExists(t *testing.T) {
 		t.Errorf("warnings = %v", d.Warnings)
 	}
 }
+
+func TestForwardersAreCleanedAndAttachedToTheAccountThatOwnsTheDomain(t *testing.T) {
+	f, ok := makeForwarder("Sales@Example.com", splitDests("Boss@Gmail.com, ops@example.org;boss@gmail.com\\nsales@example.com"))
+	if !ok || f.Source != "sales@example.com" || strings.Join(f.Destinations, ",") != "boss@gmail.com,ops@example.org" {
+		t.Errorf("f = %+v %v", f, ok)
+	}
+	if c, ok := makeForwarder("@example.com", []string{"all@example.org"}); !ok || c.Source != "*@example.com" {
+		t.Errorf("catch-all = %+v %v", c, ok)
+	}
+	for _, bad := range [][]string{{"|/usr/bin/x"}, {"localuser"}, {}, {"a@b.com", "bob"}} {
+		if _, ok := makeForwarder("x@example.com", bad); ok {
+			t.Errorf("%v was accepted", bad)
+		}
+	}
+	if _, ok := makeForwarder("bad name@example.com", []string{"a@b.com"}); ok {
+		t.Error("a bad source was accepted")
+	}
+	a := newAccount("web1", "/x")
+	a.Domains = []Domain{{Name: "example.com"}}
+	got := attachForwarders([]*Account{a}, []Forwarder{{Source: "info@example.com", Destinations: []string{"a@b.com"}}, {Source: "x@other.org", Destinations: []string{"c@d.com"}}})
+	if len(got) != 2 || len(a.Forwarders) != 1 || got[1].ID != "mail" || got[1].Forwarders[0].Source != "x@other.org" {
+		t.Errorf("attached = %+v", got)
+	}
+}
+
+func TestVestaAndDirectAdminForwardersAndAliasesAreRead(t *testing.T) {
+	v := parseVestaUser("alice", "##web\nDOMAIN='example.com'\n##mail\n@@d example.com\nACCOUNT='info' ALIAS='office,desk' FWD='boss@gmail.com' FWD_ONLY='no'\nACCOUNT='plain' ALIAS='' FWD=''\n##end\n")
+	if len(v.Forwarders) != 3 || v.Forwarders[0].Source != "info@example.com" || v.Forwarders[0].Destinations[0] != "boss@gmail.com" || v.Forwarders[1].Source != "office@example.com" || v.Forwarders[1].Destinations[0] != "info@example.com" {
+		t.Errorf("vesta = %+v", v.Forwarders)
+	}
+	da := parseDirectAdminUser("alice", "##dom\nexample.com\n##fwd\n@@d example.com\nsales: boss@gmail.com,ops@example.org\nhelp: |/usr/bin/x\n@@d unknown.net\nz: a@b.com\n##end\n")
+	if len(da.Forwarders) != 1 || da.Forwarders[0].Source != "sales@example.com" || len(da.Forwarders[0].Destinations) != 2 {
+		t.Errorf("directadmin = %+v", da.Forwarders)
+	}
+}
