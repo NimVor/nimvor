@@ -13,3 +13,10 @@ document.addEventListener('click', function (e) {
     var b = e.target.closest ? e.target.closest('[data-nim-print]') : null;
     if (b) { e.preventDefault(); window.print(); }
 });
+
+// Source cards: the info icon shows its label (for example "Experimental") as a tooltip.
+(function () {
+    'use strict';
+    if (!window.bootstrap || !window.bootstrap.Tooltip) { return; }
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) { new window.bootstrap.Tooltip(el); });
+})();

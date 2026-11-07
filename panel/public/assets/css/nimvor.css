@@ -982,3 +982,11 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 .nim-colmenu { min-width: 14rem; }
 .nim-keep-input { width: 6rem; }
 .nim-db-create:empty { display: none; }
+
+/* Migration wizard: a source is one compact card; hovering it (or focusing it with the keyboard) shows what it reads and the
+   "Use this source" button in a box above it. The box touches the card, so the mouse can move into it. */
+.nim-source { position: relative; outline: none; }
+.nim-source > .card { transition: border-color .15s; }
+.nim-source:hover > .card, .nim-source:focus-within > .card, .nim-source:focus > .card { border-color: var(--bs-primary); }
+.nim-source-pop { display: none; position: absolute; left: 0; right: 0; bottom: 100%; margin-bottom: 0; z-index: 20; min-width: 15rem; }
+.nim-source:hover > .nim-source-pop, .nim-source:focus > .nim-source-pop, .nim-source:focus-within > .nim-source-pop { display: block; }

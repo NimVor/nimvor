@@ -125,7 +125,11 @@ final class MigrationsTest extends HttpTestCase
         $page = $this->request('GET', '/migrations/new')->body();
         self::assertStringContainsString('cPanel / WHM', $page);
         self::assertStringContainsString('Custom Linux server', $page);
-        self::assertSame(14, substr_count($page, 'Experimental</span>'));
+        self::assertSame(14, substr_count($page, 'title="Experimental"'), 'every source carries an Experimental info icon');
+        self::assertStringContainsString('nim-source-pop', $page, 'the description and the button are in a box shown on hover');
+        self::assertStringContainsString('Reads accounts, domains', html_entity_decode($page, ENT_QUOTES));
+        self::assertSame(14, substr_count($page, 'Use this source</button>'), 'one button per source, inside the hover box');
+        self::assertStringContainsString('row-cols-md-4', $page, 'four cards in a row');
         self::assertStringNotContainsString('Fully supported</span>', $page);
         foreach (['Plesk', 'CyberPanel', 'DirectAdmin', 'HestiaCP', 'aaPanel', 'ISPConfig', 'Virtualmin'] as $p) {
             self::assertStringContainsString($p, $page);
@@ -137,6 +141,7 @@ final class MigrationsTest extends HttpTestCase
         self::assertStringContainsString('not supported yet', (string) $this->flash('error'));
         $res = $this->post('/migrations', ['panel' => 'cpanel']);
         self::assertMatchesRegularExpression('~^/migrations/\d+$~', (string) $res->header('Location'));
+
     }
 
     public function testTheServersKeyMustBeConfirmedBeforeAnyLoginIsSent(): void
