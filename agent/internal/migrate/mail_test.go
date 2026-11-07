@@ -417,3 +417,108 @@ func TestVestaAndHestiaAreDetectedByTheirOwnFolder(t *testing.T) {
 		}
 	}
 }
+
+func TestCyberPanelAccountsAreBuiltFromItsTables(t *testing.T) {
+	sites := [][]string{{"Example.com"}, {"bad..x"}, {"shop.test"}}
+	children := [][]string{{"blog.example.com", "/home/example.com/public_html/blog", "example.com"}, {"x.example.com", "../etc", "example.com"}, {"y.other.org", "/home/o/public_html", "unknown.org"}}
+	dbs := [][]string{{"example_wp", "example.com"}, {"orphan", "ghost.org"}}
+	a := buildCyberPanel(sites, children, dbs)
+	if len(a) != 2 || a[0].ID != "example.com" || len(a[0].Domains) != 2 || a[0].Domains[0].DocRoot != "/home/example.com/public_html" || a[0].Domains[1].Name != "blog.example.com" || a[0].Domains[1].Kind != "sub" {
+		t.Fatalf("accounts = %+v", a)
+	}
+	if len(a[0].Databases) != 1 || a[0].Databases[0].Name != "example_wp" || len(a[1].Databases) != 0 {
+		t.Errorf("databases = %+v %+v", a[0].Databases, a[1].Databases)
+	}
+}
+
+func TestISPConfigSitesDatabasesAndMailboxesAreRead(t *testing.T) {
+	sites := [][]string{
+		{"1", "Example.com", "/var/www/clients/client1/web1", "web1", "vhost"},
+		{"2", "sub.example.com", "/var/www/clients/client1/web2", "web2", "vhostsubdomain"},
+		{"3", "bad..x", "/var/www/clients/client1/web3", "web3", "vhost"},
+		{"4", "evil.test", "/var/www/../etc", "web4", "vhost"},
+	}
+	dbs := [][]string{{"c1db", "1"}, {"lost", "99"}, {"bad name", "1"}}
+	mail := [][]string{{"Info@Example.com", "/var/vmail/example.com/info"}, {"nodomain", "/x"}, {"z@example.com", "/var/vmail/../x"}}
+	a := buildISPConfig(sites, dbs, mail)
+	if len(a) != 3 {
+		t.Fatalf("accounts = %+v", a)
+	}
+	if a[0].ID != "web1" || a[0].Domains[0].DocRoot != "/var/www/clients/client1/web1/web" || a[0].Domains[0].Kind != "main" || len(a[0].Databases) != 1 || a[0].Databases[0].Name != "c1db" {
+		t.Errorf("web1 = %+v", a[0])
+	}
+	if a[1].ID != "web2" || a[1].Domains[0].Kind != "sub" {
+		t.Errorf("web2 = %+v", a[1])
+	}
+	if a[2].ID != "mail" || len(a[2].Email) != 1 || a[2].Email[0].Address != "info@example.com" || a[2].Email[0].Maildir != "/var/vmail/example.com/info/Maildir" {
+		t.Errorf("mail = %+v", a[2])
+	}
+}
+
+func TestFroxlorCustomersDomainsDatabasesAndMailAreRead(t *testing.T) {
+	cust := [][]string{{"1", "web1", "/var/customers/webs/web1/"}, {"2", "bad name", "/x"}}
+	doms := [][]string{
+		{"Example.com", "/var/customers/webs/web1/example.com/", "1", "0"},
+		{"blog.example.com", "/var/customers/webs/web1/blog/", "1", "5"},
+		{"x.org", "/var/customers/webs/web1/../x", "1", "0"},
+		{"o.org", "/var/customers/webs/o/", "9", "0"},
+	}
+	dbs := [][]string{{"web1sql1", "1"}, {"web9sql", "9"}}
+	mail := [][]string{{"info@example.com", "/var/customers/mail/web1/example.com/info/", "1"}, {"x@example.com", "/var/customers/mail/web9/", "9"}}
+	a := buildFroxlor(cust, doms, dbs, mail)
+	if len(a) != 1 || a[0].ID != "web1" || a[0].Home != "/var/customers/webs/web1" {
+		t.Fatalf("accounts = %+v", a)
+	}
+	if len(a[0].Domains) != 2 || a[0].Domains[0].DocRoot != "/var/customers/webs/web1/example.com" || a[0].Domains[1].Kind != "sub" {
+		t.Errorf("domains = %+v", a[0].Domains)
+	}
+	if len(a[0].Databases) != 1 || len(a[0].Email) != 1 || a[0].Email[0].Maildir != "/var/customers/mail/web1/example.com/info" {
+		t.Errorf("db/mail = %+v %+v", a[0].Databases, a[0].Email)
+	}
+}
+
+func TestSQLPanelsReportAFailedQueryAndAreDetected(t *testing.T) {
+	src := &fakeSrc{}
+	src.execFn = func(cmd string, stdout io.Writer) (string, error) {
+		return "ERROR 1146 (42S02): Table 'cyberpanel.websiteFunctions_websites' doesn't exist\n", nil
+	}
+	if _, err := sqlRows(context.Background(), src, "cyberpanel", "SELECT 1"); err == nil || !strings.Contains(err.Error(), "doesn't exist") {
+		t.Errorf("err = %v", err)
+	}
+	if _, err := sqlRows(context.Background(), src, "bad name; rm", "SELECT 1"); err == nil {
+		t.Error("a non-plain database name was accepted")
+	}
+	src.execFn = func(cmd string, stdout io.Writer) (string, error) { return "a\tb\n\nc\td\n", nil }
+	rows, err := sqlRows(context.Background(), src, "x", "SELECT 1")
+	if err != nil || len(rows) != 2 || rows[1][1] != "d" {
+		t.Errorf("rows = %v %v", rows, err)
+	}
+	for _, c := range []struct {
+		a   Adapter
+		out string
+		id  string
+	}{
+		{cyberPanelAdapter{}, "cyberpanel\n", "cyberpanel"},
+		{ispConfigAdapter{}, "ispconfig\ndefine('ISPC_APP_VERSION', '3.2.11');\n", "ispconfig"},
+		{froxlorAdapter{}, "froxlor\n$sql['db'] = 'froxlor';\n", "froxlor"},
+	} {
+		src.execFn = func(cmd string, stdout io.Writer) (string, error) { return c.out, nil }
+		det, ok, _ := c.a.Detect(context.Background(), src)
+		if !ok || det.Panel != c.id {
+			t.Errorf("%s = %+v %v", c.id, det, ok)
+		}
+		src.execFn = func(cmd string, stdout io.Writer) (string, error) { return "", nil }
+		if _, ok, _ := c.a.Detect(context.Background(), src); ok {
+			t.Errorf("%s detected on an empty server", c.id)
+		}
+		if _, err := Lookup(c.id); err != nil {
+			t.Error(err)
+		}
+	}
+	src.execFn = func(cmd string, stdout io.Writer) (string, error) {
+		return "ispconfig\ndefine('ISPC_APP_VERSION', '3.2.11');\n", nil
+	}
+	if det, _, _ := (ispConfigAdapter{}).Detect(context.Background(), src); det.Version != "3.2.11" {
+		t.Errorf("version = %q", det.Version)
+	}
+}

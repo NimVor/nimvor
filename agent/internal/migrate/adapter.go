@@ -34,6 +34,7 @@ func adapters() []Adapter {
 	return []Adapter{cpanelAdapter{}, pleskAdapter{}, directAdminAdapter{}, fastPanelAdapter{},
 		vestaFamily{id: "vestacp", name: "VestaCP", root: "/usr/local/vesta"},
 		vestaFamily{id: "hestiacp", name: "HestiaCP", root: "/usr/local/hestia"},
+		cyberPanelAdapter{}, ispConfigAdapter{}, froxlorAdapter{},
 		linuxAdapter{}}
 }
 
