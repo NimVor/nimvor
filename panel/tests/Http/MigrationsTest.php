@@ -820,4 +820,16 @@ final class MigrationsTest extends HttpTestCase
         $this->post("/migrations/{$id}/dns-import", []);
         self::assertArrayHasKey('dns', (array) $this->flash('errors'));
     }
+
+    public function testDnsImportIsOfferedForDirectAdminButRefusedForASourceWithoutZoneFiles(): void
+    {
+        $id = $this->reach('discovered');
+        $this->db->run("UPDATE site_migrations SET panel = 'directadmin' WHERE id = ?", [$id]);
+        self::assertStringContainsString('DNS records to add', $this->request('GET', "/migrations/{$id}")->body());
+        $this->db->run("UPDATE site_migrations SET panel = 'froxlor' WHERE id = ?", [$id]);
+        self::assertStringNotContainsString('DNS records to add', $this->request('GET', "/migrations/{$id}")->body());
+        $this->post("/migrations/{$id}/dns-import", ['dns' => ['shop.example.org']]);
+        self::assertSame(0, $this->calls('migrate.dns_zone'));
+        self::assertStringContainsString('DNS zones can only be read from', (string) $this->flash('error'));
+    }
 }

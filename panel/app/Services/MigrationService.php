@@ -32,6 +32,9 @@ final class MigrationService
         'Virtualmin / Webmin',
     ];
 
+    /** Source panels whose BIND zone files the agent can read. */
+    public const ZONE_PANELS = ['cpanel', 'directadmin', 'vestacp', 'hestiacp', 'ispconfig'];
+
     /** Statuses in which the agent holds the migration's state. */
     private const AGENT_STATES = ['running', 'paused', 'failed', 'interrupted', 'completed', 'cancelled'];
 
@@ -679,8 +682,8 @@ final class MigrationService
         if ($domains === []) {
             throw new ValidationException(['dns' => 'Select at least one domain.']);
         }
-        if ($m['panel'] !== 'cpanel') {
-            throw new UserFacingException('DNS zones can only be read from a cPanel source in this version.');
+        if (!in_array($m['panel'], self::ZONE_PANELS, true)) {
+            throw new UserFacingException('DNS zones can only be read from a cPanel, DirectAdmin, VestaCP, HestiaCP or ISPConfig source in this version.');
         }
         $known = [];
         foreach ((array) (((array) $m['discovery'])['accounts'] ?? []) as $a) {

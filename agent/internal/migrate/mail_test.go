@@ -213,7 +213,7 @@ func TestReadingAZoneIsReadOnlyConfinedToTheZoneFileAndLimited(t *testing.T) {
 		t.Fatalf("text = %q, %v", text, err)
 	}
 	cmd := src.execs[0]
-	if !strings.Contains(cmd, "/var/named/example.com.db") || strings.Contains(cmd, "rm ") || strings.Contains(cmd, ">") {
+	if !strings.Contains(cmd, "/var/named/$d.db") || !strings.Contains(cmd, "example.com") || strings.Contains(cmd, "rm ") || strings.Contains(cmd, ">") {
 		t.Errorf("command = %s", cmd)
 	}
 	for _, d := range []string{"../etc/passwd", "a b", "x;rm -rf /", ""} {
@@ -675,5 +675,30 @@ func TestVestaAndDirectAdminForwardersAndAliasesAreRead(t *testing.T) {
 	da := parseDirectAdminUser("alice", "##dom\nexample.com\n##fwd\n@@d example.com\nsales: boss@gmail.com,ops@example.org\nhelp: |/usr/bin/x\n@@d unknown.net\nz: a@b.com\n##end\n")
 	if len(da.Forwarders) != 1 || da.Forwarders[0].Source != "sales@example.com" || len(da.Forwarders[0].Destinations) != 2 {
 		t.Errorf("directadmin = %+v", da.Forwarders)
+	}
+}
+
+func TestZoneFilesAreReadFromTheRightPlaceForEachPanel(t *testing.T) {
+	want := map[string]string{"directadmin": "/var/named/$d.db", "vestacp": "/home/*/conf/dns/$d.db", "hestiacp": "/home/*/conf/dns/$d.db", "ispconfig": "/etc/bind/pri.$d"}
+	for panel, path := range want {
+		src := &fakeSrc{}
+		src.execFn = func(cmd string, stdout io.Writer) (string, error) {
+			io.WriteString(stdout, "@ IN MX 10 mail.example.com.\n")
+			return "", nil
+		}
+		if _, err := ReadZone(context.Background(), src, panel, "example.com"); err != nil || !strings.Contains(src.execs[0], path) {
+			t.Errorf("%s: %v %v", panel, err, src.execs)
+		}
+		if !HasZoneFiles(panel) {
+			t.Errorf("%s has no zone support", panel)
+		}
+	}
+	for _, p := range []string{"linux", "plesk", "froxlor", "nosuch"} {
+		if HasZoneFiles(p) {
+			t.Errorf("%s claims zone support", p)
+		}
+		if _, err := ReadZone(context.Background(), &fakeSrc{}, p, "example.com"); err == nil {
+			t.Errorf("%s was read", p)
+		}
 	}
 }

@@ -177,7 +177,7 @@ $running = in_array($m['status'], ['running', 'discovering'], true);
     <button class="btn btn-primary btn-sm">Save and check compatibility</button>
 </form>
 <?php $fwd = []; foreach ((array) ($disc['accounts'] ?? []) as $a) { foreach ((array) ($a['forwarders'] ?? []) as $f) { $fwd[] = [$a['id'] . '|' . $f['source'], $f]; } } ?>
-<?php $dnsDomains = []; if (($m['panel'] ?? '') === 'cpanel') { foreach ((array) ($disc['accounts'] ?? []) as $a) { foreach ((array) ($a['domains'] ?? []) as $d) { $dnsDomains[(string) $d['name']] = true; } } } ?>
+<?php $dnsDomains = []; if (in_array($m['panel'] ?? '', \NimVor\Services\MigrationService::ZONE_PANELS, true)) { foreach ((array) ($disc['accounts'] ?? []) as $a) { foreach ((array) ($a['domains'] ?? []) as $d) { $dnsDomains[(string) $d['name']] = true; } } } ?>
 <?php if ($dnsDomains !== []): ?>
 <form method="post" action="<?= e($this->url('migrations.dns_import', ['id' => $id])) ?>" class="mt-4" data-nim-confirm="Add the source's DNS records for the ticked domains to the NimVor zones now? Existing records are kept. Nothing is changed at the source or at your registrar.">
     <?= $this->csrfField() ?>
