@@ -7,6 +7,9 @@ All notable changes to NimVor are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Website migration: **eight more sources (all experimental)**: VestaCP, HestiaCP, CyberPanel, ISPConfig, Froxlor, CloudPanel, aaPanel and InterWorx. VestaCP/HestiaCP are read from the panel's own files, CyberPanel/ISPConfig/Froxlor from the panel's database with read-only queries, CloudPanel/aaPanel from their Nginx/Apache vhosts, InterWorx from its documented home folders. Written from each project's documented layout and tested on synthetic data only; a failing query is reported in the discovery warnings. Virtualmin/Webmin and Enhance stay listed as not available.
+
+### Added
 - Website migration: **FASTPANEL as a source (experimental).** Sites are read from `mogwai sites list` (columns found by header name) and their document roots copied; databases are listed for the whole server and mapped by you. Mailboxes, forwarders, DNS, FTP and cron are not read. Written from FASTPANEL's documentation of its CLI and tested on synthetic tables only.
 
 ### Added

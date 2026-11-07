@@ -37,6 +37,14 @@ final class MigrationsTest extends HttpTestCase
             ['panel' => 'plesk', 'name' => 'Plesk (Linux)', 'support' => 'experimental'],
             ['panel' => 'directadmin', 'name' => 'DirectAdmin', 'support' => 'experimental'],
             ['panel' => 'fastpanel', 'name' => 'FASTPANEL', 'support' => 'experimental'],
+            ['panel' => 'vestacp', 'name' => 'VestaCP', 'support' => 'experimental'],
+            ['panel' => 'hestiacp', 'name' => 'HestiaCP', 'support' => 'experimental'],
+            ['panel' => 'cyberpanel', 'name' => 'CyberPanel', 'support' => 'experimental'],
+            ['panel' => 'cloudpanel', 'name' => 'CloudPanel', 'support' => 'experimental'],
+            ['panel' => 'aapanel', 'name' => 'aaPanel', 'support' => 'experimental'],
+            ['panel' => 'ispconfig', 'name' => 'ISPConfig', 'support' => 'experimental'],
+            ['panel' => 'interworx', 'name' => 'InterWorx', 'support' => 'experimental'],
+            ['panel' => 'froxlor', 'name' => 'Froxlor', 'support' => 'experimental'],
             ['panel' => 'linux', 'name' => 'Custom Linux server (no panel)', 'support' => 'experimental'],
         ]]);
     }
@@ -116,14 +124,14 @@ final class MigrationsTest extends HttpTestCase
         $page = $this->request('GET', '/migrations/new')->body();
         self::assertStringContainsString('cPanel / WHM', $page);
         self::assertStringContainsString('Custom Linux server', $page);
-        self::assertSame(5, substr_count($page, 'Experimental</span>'));
+        self::assertSame(13, substr_count($page, 'Experimental</span>'));
         self::assertStringNotContainsString('Fully supported</span>', $page);
-        foreach (['Plesk', 'CyberPanel', 'DirectAdmin', 'HestiaCP', 'aaPanel', 'ISPConfig'] as $p) {
+        foreach (['Plesk', 'CyberPanel', 'DirectAdmin', 'HestiaCP', 'aaPanel', 'ISPConfig', 'Virtualmin', 'Enhance'] as $p) {
             self::assertStringContainsString($p, $page);
         }
         self::assertStringContainsString('Not available yet', $page);
         // A panel that is only planned cannot be started.
-        $this->post('/migrations', ['panel' => 'hestiacp']);
+        $this->post('/migrations', ['panel' => 'enhance']);
         self::assertSame(0, (int) $this->db->scalar('SELECT COUNT(*) FROM site_migrations'));
         self::assertStringContainsString('not supported yet', (string) $this->flash('error'));
         $res = $this->post('/migrations', ['panel' => 'cpanel']);

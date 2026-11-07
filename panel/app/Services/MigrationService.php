@@ -29,8 +29,7 @@ final class MigrationService
 {
     /** Panels that are not supported yet: listed so nobody assumes they are. */
     public const PLANNED = [
-        'CyberPanel', 'Virtualmin / Webmin', 'HestiaCP', 'aaPanel', 'ISPConfig',
-        'Enhance', 'InterWorx', 'CloudPanel', 'VestaCP', 'Froxlor',
+        'Virtualmin / Webmin', 'Enhance',
     ];
 
     /** Statuses in which the agent holds the migration's state. */
