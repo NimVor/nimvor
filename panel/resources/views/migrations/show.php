@@ -42,6 +42,12 @@ $running = in_array($m['status'], ['running', 'discovering'], true);
 </div>
 <?php if ($m['error'] !== '' && $step !== 'run'): ?><div class="alert alert-danger small"><?= e((string) $m['error']) ?></div><?php endif; ?>
 
+<?php if (!empty($ftpSecrets)): ?>
+<div class="alert alert-warning"><div class="fw-semibold mb-1">New FTP passwords: copy them now, they are not shown again</div>
+    <table class="table table-sm mb-0"><tbody>
+    <?php foreach ((array) $ftpSecrets as $sec): ?><tr><td class="font-monospace"><?= e((string) $sec['login']) ?></td><td class="font-monospace user-select-all"><?= e((string) $sec['password']) ?></td></tr><?php endforeach; ?>
+    </tbody></table></div>
+<?php endif; ?>
 <?php if ($step === 'connect'): ?>
 <div class="row g-3">
     <div class="col-lg-7">
@@ -177,7 +183,7 @@ $running = in_array($m['status'], ['running', 'discovering'], true);
     <button class="btn btn-primary btn-sm">Save and check compatibility</button>
 </form>
 <?php $fwd = []; foreach ((array) ($disc['accounts'] ?? []) as $a) { foreach ((array) ($a['forwarders'] ?? []) as $f) { $fwd[] = [$a['id'] . '|' . $f['source'], $f]; } } ?>
-<?php $dnsDomains = []; if (($m['panel'] ?? '') === 'cpanel') { foreach ((array) ($disc['accounts'] ?? []) as $a) { foreach ((array) ($a['domains'] ?? []) as $d) { $dnsDomains[(string) $d['name']] = true; } } } ?>
+<?php $dnsDomains = []; if (in_array($m['panel'] ?? '', \NimVor\Services\MigrationService::ZONE_PANELS, true)) { foreach ((array) ($disc['accounts'] ?? []) as $a) { foreach ((array) ($a['domains'] ?? []) as $d) { $dnsDomains[(string) $d['name']] = true; } } } ?>
 <?php if ($dnsDomains !== []): ?>
 <form method="post" action="<?= e($this->url('migrations.dns_import', ['id' => $id])) ?>" class="mt-4" data-nim-confirm="Add the source's DNS records for the ticked domains to the NimVor zones now? Existing records are kept. Nothing is changed at the source or at your registrar.">
     <?= $this->csrfField() ?>
@@ -195,6 +201,26 @@ $running = in_array($m['status'], ['running', 'discovering'], true);
         <div class="px-3 pb-3 small nim-muted">Mail (MX), TXT, CNAME, SRV and CAA records are added. <strong>Address records (A, AAAA) are not</strong>: they point at the old server, and the NimVor zone already points at this one. SOA and name servers stay as NimVor has them. This changes only NimVor's own zones; it never changes your registrar or nameservers.</div>
     </div>
     <button class="btn btn-outline-primary btn-sm">Add the records</button>
+</form>
+<?php endif; ?>
+<?php $ftpRows = []; foreach ((array) ($disc['accounts'] ?? []) as $a) { foreach ((array) ($a['ftp'] ?? []) as $f) { $ftpRows[] = [$a['id'] . '|' . $f['login'], $f]; } } ?>
+<?php if ($ftpRows !== []): ?>
+<form method="post" action="<?= e($this->url('migrations.ftp', ['id' => $id])) ?>" class="mt-4" data-nim-confirm="Create the ticked FTP accounts in NimVor now? Each gets a new password, shown once.">
+    <?= $this->csrfField() ?>
+    <div class="nim-panel mb-3" data-nim-dt>
+        <div class="nim-actionbar"><div class="fw-semibold">FTP accounts to create <span class="badge rounded-pill text-bg-light border fw-normal">with new passwords, right away</span></div></div>
+        <?= $err('ftp') !== '' ? $fb('ftp') : '' ?>
+        <div class="nim-dtable table-responsive"><table class="table align-middle">
+            <thead><tr><th class="nim-check"><input class="form-check-input" type="checkbox" data-nim-select-all="ftp[]" aria-label="Select all FTP accounts"></th><th>Login on the source</th><th>Opens the folder</th></tr></thead>
+            <tbody>
+            <?php foreach ($ftpRows as [$key, $f]): ?>
+                <tr data-nim-row><td><input class="form-check-input" type="checkbox" name="ftp[]" value="<?= e($key) ?>" aria-label="Select <?= e((string) $f['login']) ?>"></td><td class="fw-semibold"><?= e((string) $f['login']) ?></td><td class="small font-monospace text-break"><?= e((string) $f['home']) ?></td></tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table></div>
+        <div class="px-3 pb-3 small nim-muted">Passwords cannot be read from the source, so each account gets a new one, shown once. An account is created only for a folder inside a website you chose above (save that selection first), and is named <em>name@website</em>. FTP must be set up under Server → FTP.</div>
+    </div>
+    <button class="btn btn-outline-primary btn-sm">Create the selected FTP accounts</button>
 </form>
 <?php endif; ?>
 <?php if ($fwd !== []): ?>

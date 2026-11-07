@@ -80,7 +80,7 @@ func finishAccounts(ctx context.Context, t Transport, info ServerInfo, accts []*
 }
 
 func newAccount(id, home string) *Account {
-	return &Account{ID: id, Name: id, Home: home, Domains: []Domain{}, Databases: []Database{}, Email: []EmailAccount{}, Forwarders: []Forwarder{}, Cron: []CronJob{}}
+	return &Account{ID: id, Name: id, Home: home, Domains: []Domain{}, Databases: []Database{}, Email: []EmailAccount{}, Forwarders: []Forwarder{}, FTP: []FTPAccount{}, Cron: []CronJob{}}
 }
 
 // acctSet collects accounts by key, in a stable order.
@@ -197,11 +197,16 @@ func (cyberPanelAdapter) Discover(ctx context.Context, t Transport, info ServerI
 	if missing > 0 {
 		d.Warnings = append(d.Warnings, fmt.Sprintf("%d mailbox(es) were left out because their Maildir was not found under /home/vmail.", missing))
 	}
+	if fw, err := sqlRows(ctx, t, "cyberpanel", "SELECT source, destination FROM e_forwardings"); err != nil {
+		d.Warnings = append(d.Warnings, "The forwarders could not be read: "+err.Error())
+	} else {
+		accts = attachForwarders(accts, forwardersFromRows(fw))
+	}
 	if len(accts) == 0 {
 		d.Warnings = append(d.Warnings, "No websites were found in CyberPanel.")
 	}
 	d.Accounts = finishAccounts(ctx, t, info, accts, progress)
-	d.Warnings = append(d.Warnings, "Forwarders, DNS, FTP and cron are not read from CyberPanel.")
+	d.Warnings = append(d.Warnings, "DNS, FTP and cron are not read from CyberPanel.")
 	return d, nil
 }
 
@@ -272,11 +277,16 @@ func (ispConfigAdapter) Discover(ctx context.Context, t Transport, info ServerIn
 		d.Warnings = append(d.Warnings, "The mailboxes could not be read: "+err.Error())
 	}
 	accts := buildISPConfig(sites, dbs, mail)
+	if fw, err := sqlRows(ctx, t, "dbispconfig", "SELECT source, destination FROM mail_forwarding WHERE active = 'y' AND type IN ('alias','forward')"); err != nil {
+		d.Warnings = append(d.Warnings, "The forwarders could not be read: "+err.Error())
+	} else {
+		accts = attachForwarders(accts, forwardersFromRows(fw))
+	}
 	if len(accts) == 0 {
 		d.Warnings = append(d.Warnings, "No active websites were found in ISPConfig.")
 	}
 	d.Accounts = finishAccounts(ctx, t, info, accts, progress)
-	d.Warnings = append(d.Warnings, "Mailboxes are listed under one account \"mail\" for the whole server. Forwarders, DNS, FTP and cron are not read.")
+	d.Warnings = append(d.Warnings, "Mailboxes are listed under one account \"mail\" for the whole server. DNS, FTP and cron are not read.")
 	return d, nil
 }
 
@@ -388,11 +398,16 @@ func (froxlorAdapter) Discover(ctx context.Context, t Transport, info ServerInfo
 	if dropped > 0 {
 		d.Warnings = append(d.Warnings, fmt.Sprintf("%d mailbox(es) were left out because their folder is not a Maildir on the source.", dropped))
 	}
+	if fw, err := sqlRows(ctx, t, db, "SELECT email_full, destination FROM mail_virtual"); err != nil {
+		d.Warnings = append(d.Warnings, "The forwarders could not be read: "+err.Error())
+	} else {
+		accts = attachForwarders(accts, forwardersFromRows(fw))
+	}
 	if len(accts) == 0 {
 		d.Warnings = append(d.Warnings, "No customers were found in Froxlor.")
 	}
 	d.Accounts = finishAccounts(ctx, t, info, accts, progress)
-	d.Warnings = append(d.Warnings, "Forwarders, DNS, FTP and cron are not read from Froxlor.")
+	d.Warnings = append(d.Warnings, "DNS, FTP and cron are not read from Froxlor.")
 	return d, nil
 }
 
@@ -435,4 +450,15 @@ func buildFroxlor(cust, doms, dbs, mail [][]string) []*Account {
 		set.get(owner).Email = append(set.get(owner).Email, EmailAccount{Address: email, Maildir: strings.TrimSuffix(dir, "/"), SizeKB: -1})
 	}
 	return set.list()
+}
+
+// forwardersFromRows builds forwarders from (source, destinations) rows.
+func forwardersFromRows(rows [][]string) []Forwarder {
+	var out []Forwarder
+	for _, r := range rows {
+		if f, ok := makeForwarder(cell(r, 0), splitDests(cell(r, 1))); ok {
+			out = append(out, f)
+		}
+	}
+	return out
 }

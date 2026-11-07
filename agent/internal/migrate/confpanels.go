@@ -17,6 +17,8 @@ type confPanel struct {
 	detect   string                              // shell test that prints the id when the panel is present
 	confs    string                              // shell snippet that prints "##file <path>" blocks of the vhost files
 	group    func(Domain) (account, home string) // account of a site; ("", "") leaves the site out
+	// dbLink reads (database, site domain) rows from the panel's own SQLite file; optional.
+	dbLink func(ctx context.Context, t Transport) ([][]string, error)
 }
 
 func (p confPanel) ID() string       { return p.id }
@@ -45,19 +47,32 @@ func (p confPanel) Discover(ctx context.Context, t Transport, info ServerInfo, p
 	if len(accts) == 0 {
 		d.Warnings = append(d.Warnings, "No sites were found in "+p.name+"'s web server configuration.")
 	}
-	d.Accounts = finishAccounts(ctx, t, info, accts, progress)
 	progress("Listing the databases…")
+	var rest []Database
 	if s, err := t.Exec(ctx, "sh -c "+Shq(dbScript), nil); err == nil && strings.TrimSpace(s) != "" {
-		if dbs := parseSchemas(s, info.Engine); len(dbs) > 0 {
-			a := newAccount("databases", "/")
-			a.Name = "databases (all of the server)"
-			a.Databases = dbs
-			d.Accounts = append(d.Accounts, *a)
+		rest = parseSchemas(s, info.Engine)
+		linked := 0
+		if p.dbLink != nil && len(rest) > 0 {
+			if rows, err := p.dbLink(ctx, t); err == nil {
+				before := len(rest)
+				rest = placeDatabases(accts, rest, dbSiteMap(rows))
+				linked = before - len(rest)
+			}
+		}
+		if linked == 0 && len(rest) > 0 {
+			d.Warnings = append(d.Warnings, p.name+"'s database-to-site link could not be read, so the databases are listed for the whole server: choose each destination yourself.")
 		}
 	} else {
 		d.Warnings = append(d.Warnings, "The databases could not be listed (the login needs access to MariaDB/MySQL).")
 	}
-	d.Warnings = append(d.Warnings, p.name+"'s own database of sites and databases, mailboxes, forwarders, DNS, FTP and cron are not read: choose each database's destination yourself.")
+	d.Accounts = finishAccounts(ctx, t, info, accts, progress)
+	if len(rest) > 0 {
+		a := newAccount("databases", "/")
+		a.Name = "databases (not linked to a site)"
+		a.Databases = rest
+		d.Accounts = append(d.Accounts, *a)
+	}
+	d.Warnings = append(d.Warnings, "Mailboxes, forwarders, DNS, FTP and cron are not read from "+p.name+".")
 	return d, nil
 }
 
@@ -101,6 +116,9 @@ func cloudPanel() confPanel {
 		detect: `{ [ -d /home/clp/htdocs/app ] || command -v clpctl >/dev/null 2>&1; } && echo cloudpanel`,
 		confs:  `for f in /etc/nginx/sites-enabled/* /etc/nginx/conf.d/*.conf; do [ -f "$f" ] && { echo "##file $f"; cat "$f"; }; done`,
 		group:  cloudPanelGroup,
+		dbLink: func(ctx context.Context, t Transport) ([][]string, error) {
+			return sqliteRows(ctx, t, "/home/clp/htdocs/app/data/db.sq3", `SELECT d.name, s.domain_name FROM "database" d JOIN site s ON s.id = d.site_id`)
+		},
 	}
 }
 
@@ -110,6 +128,9 @@ func aaPanel() confPanel {
 		detect: `{ [ -d /www/server/panel ] && [ -d /www/wwwroot ]; } && echo aapanel`,
 		confs:  `for f in /www/server/panel/vhost/nginx/*.conf /www/server/panel/vhost/apache/*.conf; do [ -f "$f" ] && { echo "##file $f"; cat "$f"; }; done`,
 		group:  aaPanelGroup,
+		dbLink: func(ctx context.Context, t Transport) ([][]string, error) {
+			return sqliteRows(ctx, t, "/www/server/panel/data/default.db", `SELECT d.name, s.name FROM databases d JOIN sites s ON s.id = d.pid`)
+		},
 	}
 }
 

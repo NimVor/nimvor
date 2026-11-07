@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -213,7 +214,7 @@ func TestReadingAZoneIsReadOnlyConfinedToTheZoneFileAndLimited(t *testing.T) {
 		t.Fatalf("text = %q, %v", text, err)
 	}
 	cmd := src.execs[0]
-	if !strings.Contains(cmd, "/var/named/example.com.db") || strings.Contains(cmd, "rm ") || strings.Contains(cmd, ">") {
+	if !strings.Contains(cmd, "/var/named/$d.db") || !strings.Contains(cmd, "example.com") || strings.Contains(cmd, "rm ") || strings.Contains(cmd, ">") {
 		t.Errorf("command = %s", cmd)
 	}
 	for _, d := range []string{"../etc/passwd", "a b", "x;rm -rf /", ""} {
@@ -640,5 +641,145 @@ func TestCyberPanelDiscoveryAddsOnlyMailboxesWhoseMaildirExists(t *testing.T) {
 	joined := strings.Join(d.Warnings, "\n")
 	if !strings.Contains(joined, "1 mailbox(es) were left out") {
 		t.Errorf("warnings = %v", d.Warnings)
+	}
+}
+
+func TestForwardersAreCleanedAndAttachedToTheAccountThatOwnsTheDomain(t *testing.T) {
+	f, ok := makeForwarder("Sales@Example.com", splitDests("Boss@Gmail.com, ops@example.org;boss@gmail.com\\nsales@example.com"))
+	if !ok || f.Source != "sales@example.com" || strings.Join(f.Destinations, ",") != "boss@gmail.com,ops@example.org" {
+		t.Errorf("f = %+v %v", f, ok)
+	}
+	if c, ok := makeForwarder("@example.com", []string{"all@example.org"}); !ok || c.Source != "*@example.com" {
+		t.Errorf("catch-all = %+v %v", c, ok)
+	}
+	for _, bad := range [][]string{{"|/usr/bin/x"}, {"localuser"}, {}, {"a@b.com", "bob"}} {
+		if _, ok := makeForwarder("x@example.com", bad); ok {
+			t.Errorf("%v was accepted", bad)
+		}
+	}
+	if _, ok := makeForwarder("bad name@example.com", []string{"a@b.com"}); ok {
+		t.Error("a bad source was accepted")
+	}
+	a := newAccount("web1", "/x")
+	a.Domains = []Domain{{Name: "example.com"}}
+	got := attachForwarders([]*Account{a}, []Forwarder{{Source: "info@example.com", Destinations: []string{"a@b.com"}}, {Source: "x@other.org", Destinations: []string{"c@d.com"}}})
+	if len(got) != 2 || len(a.Forwarders) != 1 || got[1].ID != "mail" || got[1].Forwarders[0].Source != "x@other.org" {
+		t.Errorf("attached = %+v", got)
+	}
+}
+
+func TestVestaAndDirectAdminForwardersAndAliasesAreRead(t *testing.T) {
+	v := parseVestaUser("alice", "##web\nDOMAIN='example.com'\n##mail\n@@d example.com\nACCOUNT='info' ALIAS='office,desk' FWD='boss@gmail.com' FWD_ONLY='no'\nACCOUNT='plain' ALIAS='' FWD=''\n##end\n")
+	if len(v.Forwarders) != 3 || v.Forwarders[0].Source != "info@example.com" || v.Forwarders[0].Destinations[0] != "boss@gmail.com" || v.Forwarders[1].Source != "office@example.com" || v.Forwarders[1].Destinations[0] != "info@example.com" {
+		t.Errorf("vesta = %+v", v.Forwarders)
+	}
+	da := parseDirectAdminUser("alice", "##dom\nexample.com\n##fwd\n@@d example.com\nsales: boss@gmail.com,ops@example.org\nhelp: |/usr/bin/x\n@@d unknown.net\nz: a@b.com\n##end\n")
+	if len(da.Forwarders) != 1 || da.Forwarders[0].Source != "sales@example.com" || len(da.Forwarders[0].Destinations) != 2 {
+		t.Errorf("directadmin = %+v", da.Forwarders)
+	}
+}
+
+func TestZoneFilesAreReadFromTheRightPlaceForEachPanel(t *testing.T) {
+	want := map[string]string{"directadmin": "/var/named/$d.db", "vestacp": "/home/*/conf/dns/$d.db", "hestiacp": "/home/*/conf/dns/$d.db", "ispconfig": "/etc/bind/pri.$d"}
+	for panel, path := range want {
+		src := &fakeSrc{}
+		src.execFn = func(cmd string, stdout io.Writer) (string, error) {
+			io.WriteString(stdout, "@ IN MX 10 mail.example.com.\n")
+			return "", nil
+		}
+		if _, err := ReadZone(context.Background(), src, panel, "example.com"); err != nil || !strings.Contains(src.execs[0], path) {
+			t.Errorf("%s: %v %v", panel, err, src.execs)
+		}
+		if !HasZoneFiles(panel) {
+			t.Errorf("%s has no zone support", panel)
+		}
+	}
+	for _, p := range []string{"linux", "plesk", "froxlor", "nosuch"} {
+		if HasZoneFiles(p) {
+			t.Errorf("%s claims zone support", p)
+		}
+		if _, err := ReadZone(context.Background(), &fakeSrc{}, p, "example.com"); err == nil {
+			t.Errorf("%s was read", p)
+		}
+	}
+}
+
+func TestDatabasesAreLinkedToTheirSiteWhenThePanelSaysSoAndNeverGuessedOtherwise(t *testing.T) {
+	a := newAccount("example", "/home/example")
+	a.Domains = []Domain{{Name: "example.com"}}
+	dbs := []Database{{Name: "wp1"}, {Name: "other"}, {Name: "orphan"}}
+	rest := placeDatabases([]*Account{a}, dbs, dbSiteMap([][]string{{"wp1", "Example.com"}, {"other", "gone.org"}, {"bad name", "example.com"}}))
+	if len(a.Databases) != 1 || a.Databases[0].Name != "wp1" || len(rest) != 2 {
+		t.Errorf("a = %+v rest = %+v", a.Databases, rest)
+	}
+	fp := parseFastPanelDatabases("ID  NAME      SERVER  SITE\n1   shop_db   1       shop.test\n2   other_db  1\n")
+	if fp["shop_db"] != "shop.test" || len(fp) != 1 {
+		t.Errorf("fastpanel = %v", fp)
+	}
+	boxed := parseFastPanelDatabases("| ID | NAME | SERVER_NAME |\n| 1 | blog_db | blog.test |\n")
+	if boxed["blog_db"] != "blog.test" {
+		t.Errorf("boxed = %v", boxed)
+	}
+	if len(parseFastPanelDatabases("command not found")) != 0 {
+		t.Error("garbage produced links")
+	}
+}
+
+func TestConfPanelDiscoveryLinksDatabasesAndFallsBackWhenTheLinkCannotBeRead(t *testing.T) {
+	run := func(link bool) *Discovery {
+		src := &fakeSrc{}
+		src.execFn = func(cmd string, stdout io.Writer) (string, error) {
+			switch {
+			case strings.Contains(cmd, "sites-enabled"):
+				return cloudPanelConf, nil
+			case strings.Contains(cmd, "information_schema"):
+				return "wp1\t100\nloose\t50\n", nil
+			case strings.Contains(cmd, "sqlite3"):
+				if link {
+					return "wp1|example.com\n", nil
+				}
+				return "sqlite3: command not found\n", nil
+			}
+			return "", nil
+		}
+		d, err := cloudPanel().Discover(context.Background(), src, ServerInfo{}, func(string) {})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return d
+	}
+	d := run(true)
+	var ex, pool *Account
+	for i := range d.Accounts {
+		switch d.Accounts[i].ID {
+		case "example":
+			ex = &d.Accounts[i]
+		case "databases":
+			pool = &d.Accounts[i]
+		}
+	}
+	if ex == nil || len(ex.Databases) != 1 || ex.Databases[0].Name != "wp1" || ex.Databases[0].SizeKB != 100 || pool == nil || len(pool.Databases) != 1 || pool.Databases[0].Name != "loose" {
+		t.Fatalf("linked: ex=%+v pool=%+v", ex, pool)
+	}
+	d = run(false)
+	if !strings.Contains(strings.Join(d.Warnings, "\n"), "could not be read, so the databases are listed for the whole server") {
+		t.Errorf("warnings = %v", d.Warnings)
+	}
+	for _, a := range d.Accounts {
+		if a.ID == "databases" && len(a.Databases) != 2 {
+			t.Errorf("fallback pool = %+v", a.Databases)
+		}
+	}
+}
+
+func TestCpanelFtpAccountsAreReadWithoutTheirPasswordHash(t *testing.T) {
+	a := Account{ID: "alice", Home: "/home/alice"}
+	parseCpanelAccount(&a, "\n##home\n/home/alice\n##mail\n##ftp\nalice:$6$secrethash:1000:1000::/home/alice:/bin/ftpsh\nstaging@example.com:$1$h2:1000:1000::/home/alice/public_html/staging:/bin/ftpsh\nftp:*:99:99::/var/ftp:/bin/false\nbad name:x:1:1::/h:/s\nrel:x:1:1::relative/path:/s\n##cron\n")
+	if len(a.FTP) != 1 || a.FTP[0].Login != "staging@example.com" || a.FTP[0].Home != "/home/alice/public_html/staging" {
+		t.Fatalf("ftp = %+v", a.FTP)
+	}
+	b, _ := json.Marshal(a.FTP)
+	if strings.Contains(string(b), "secrethash") || strings.Contains(string(b), "$1$") {
+		t.Error("a password hash was kept")
 	}
 }

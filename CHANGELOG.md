@@ -7,6 +7,9 @@ All notable changes to NimVor are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Website migration gaps closed: **forwarders and aliases** are now read from Vesta/Hestia, DirectAdmin, ISPConfig, Froxlor and CyberPanel as well as cPanel; **DNS zone files** are read from DirectAdmin, Vesta/Hestia and ISPConfig as well as cPanel; **FTP accounts** of a cPanel source can be recreated as NimVor FTP accounts inside the matching website with new passwords shown once; the **site each database belongs to** is read for FASTPANEL, aaPanel and CloudPanel where the panel can say, and the old server-wide list remains when it cannot.
+
+### Added
 - Website migration: CyberPanel mailboxes are read from `e_users` and listed when their Maildir exists under `/home/vmail`; the ones that cannot be found are left out and counted in the warnings.
 
 ### Added

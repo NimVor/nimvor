@@ -10,17 +10,32 @@ import (
 // maxZoneBytes is the most of a zone file that is read from a source.
 const maxZoneBytes = 1 << 20
 
-// ReadZone returns the zone file of a domain from a cPanel source (/var/named/<domain>.db). It only
-// reads: nothing is changed on the source, and nothing here touches DNS anywhere.
+// zoneFinders say where each panel keeps a domain's BIND zone file. $d is the domain (already checked).
+// The first existing regular file is used.
+var zoneFinders = map[string]string{
+	"cpanel":      `/var/named/$d.db`,
+	"directadmin": `/var/named/$d.db`,
+	"vestacp":     `/home/*/conf/dns/$d.db`,
+	"hestiacp":    `/home/*/conf/dns/$d.db`,
+	"ispconfig":   `/etc/bind/pri.$d /var/lib/bind/pri.$d`,
+}
+
+// HasZoneFiles says whether zone files can be read from this kind of source.
+func HasZoneFiles(panel string) bool { _, ok := zoneFinders[panel]; return ok }
+
+// ReadZone returns the BIND zone file of a domain from a source (see zoneFinders). It only reads: nothing
+// is changed on the source, and nothing here touches DNS anywhere.
 func ReadZone(ctx context.Context, t Transport, panel, domain string) (string, error) {
-	if panel != "cpanel" {
-		return "", fmt.Errorf("zone files are read only from cPanel sources in this version")
+	paths, ok := zoneFinders[panel]
+	if !ok {
+		return "", fmt.Errorf("zone files are not read from this kind of source in this version")
 	}
 	if !domainName.MatchString(domain) {
 		return "", fmt.Errorf("%q is not a domain name", domain)
 	}
 	var out bytes.Buffer
-	cmd := fmt.Sprintf("sh -c %s", Shq("f=/var/named/"+domain+".db; [ -f \"$f\" ] && [ ! -L \"$f\" ] && head -c "+fmt.Sprint(maxZoneBytes+1)+" \"$f\""))
+	script := "d=" + Shq(domain) + "; for f in " + paths + "; do [ -f \"$f\" ] && [ ! -L \"$f\" ] && { head -c " + fmt.Sprint(maxZoneBytes+1) + " \"$f\"; break; }; done"
+	cmd := fmt.Sprintf("sh -c %s", Shq(script))
 	if _, err := t.Exec(ctx, cmd, &out); err != nil {
 		return "", fmt.Errorf("the zone file of %s could not be read (is it hosted on this server?): %v", domain, err)
 	}

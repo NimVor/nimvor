@@ -64,13 +64,28 @@ func (fastPanelAdapter) Discover(ctx context.Context, t Transport, info ServerIn
 	}
 	progress("Listing the databases…")
 	if s, err := t.Exec(ctx, "sh -c "+Shq(dbScript), nil); err == nil && strings.TrimSpace(s) != "" {
-		if dbs := parseSchemas(s, info.Engine); len(dbs) > 0 {
-			d.Accounts = append(d.Accounts, Account{ID: "databases", Name: "databases (all of the server)", Home: "/", Domains: []Domain{}, Databases: dbs, Email: []EmailAccount{}, Forwarders: []Forwarder{}, Cron: []CronJob{}})
+		dbs := parseSchemas(s, info.Engine)
+		linked := 0
+		if lo, err := t.Exec(ctx, "sh -c "+Shq("mogwai databases list 2>&1"), nil); err == nil {
+			siteOf := parseFastPanelDatabases(lo)
+			before := len(dbs)
+			var ptrs []*Account
+			for i := range d.Accounts {
+				ptrs = append(ptrs, &d.Accounts[i])
+			}
+			dbs = placeDatabases(ptrs, dbs, siteOf)
+			linked = before - len(dbs)
+		}
+		if len(dbs) > 0 {
+			d.Accounts = append(d.Accounts, Account{ID: "databases", Name: "databases (not linked to a site)", Home: "/", Domains: []Domain{}, Databases: dbs, Email: []EmailAccount{}, Forwarders: []Forwarder{}, FTP: []FTPAccount{}, Cron: []CronJob{}})
+		}
+		if linked == 0 {
+			d.Warnings = append(d.Warnings, "FASTPANEL's database-to-site link could not be read, so the databases are listed for the whole server: choose each destination yourself.")
 		}
 	} else {
 		d.Warnings = append(d.Warnings, "The databases could not be listed (the login needs access to MariaDB/MySQL).")
 	}
-	d.Warnings = append(d.Warnings, "FASTPANEL's database-to-site link, mailboxes, forwarders, DNS, FTP and cron are not read: choose each database's destination yourself.")
+	d.Warnings = append(d.Warnings, "Mailboxes, forwarders, DNS, FTP and cron are not read from FASTPANEL.")
 	return d, nil
 }
 
@@ -78,7 +93,7 @@ func (fastPanelAdapter) Discover(ctx context.Context, t Transport, info ServerIn
 // a table drawn with | or │ is split on those characters, a plain one by the header's column offsets.
 func parseFastPanelSites(out string) ([]*Account, []string) {
 	var warnings []string
-	rows := parseCLITable(out)
+	rows := parseCLITable(out, "SERVER_NAME", "DOCUMENT_ROOT")
 	if len(rows) == 0 {
 		return nil, []string{"The site list of FASTPANEL could not be read (expected a table with SERVER_NAME, OWNER and DOCUMENT_ROOT columns). The login must be root and `mogwai` must work for it."}
 	}
@@ -97,7 +112,7 @@ func parseFastPanelSites(out string) ([]*Account, []string) {
 		}
 		a := accts[owner]
 		if a == nil {
-			a = &Account{ID: owner, Name: owner, Home: "/var/www/" + owner, Domains: []Domain{}, Databases: []Database{}, Email: []EmailAccount{}, Forwarders: []Forwarder{}, Cron: []CronJob{}}
+			a = &Account{ID: owner, Name: owner, Home: "/var/www/" + owner, Domains: []Domain{}, Databases: []Database{}, Email: []EmailAccount{}, Forwarders: []Forwarder{}, FTP: []FTPAccount{}, Cron: []CronJob{}}
 			accts[owner] = a
 			order = append(order, owner)
 		}
@@ -113,13 +128,19 @@ func parseFastPanelSites(out string) ([]*Account, []string) {
 }
 
 // parseCLITable turns a CLI table into rows keyed by upper-case header name. The header is the first
-// line that holds both SERVER_NAME and DOCUMENT_ROOT; box-drawing rules and blank lines are ignored.
-func parseCLITable(out string) []map[string]string {
+// line that holds every name in need; box-drawing rules and blank lines are ignored.
+func parseCLITable(out string, need ...string) []map[string]string {
 	lines := strings.Split(strings.ReplaceAll(out, "\r", ""), "\n")
 	hi := -1
 	for i, l := range lines {
 		u := strings.ToUpper(l)
-		if strings.Contains(u, "SERVER_NAME") && strings.Contains(u, "DOCUMENT_ROOT") {
+		all := true
+		for _, n := range need {
+			if !strings.Contains(u, n) {
+				all = false
+			}
+		}
+		if all {
 			hi = i
 			break
 		}

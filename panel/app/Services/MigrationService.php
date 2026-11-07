@@ -32,6 +32,9 @@ final class MigrationService
         'Virtualmin / Webmin',
     ];
 
+    /** Source panels whose BIND zone files the agent can read. */
+    public const ZONE_PANELS = ['cpanel', 'directadmin', 'vestacp', 'hestiacp', 'ispconfig'];
+
     /** Statuses in which the agent holds the migration's state. */
     private const AGENT_STATES = ['running', 'paused', 'failed', 'interrupted', 'completed', 'cancelled'];
 
@@ -679,8 +682,8 @@ final class MigrationService
         if ($domains === []) {
             throw new ValidationException(['dns' => 'Select at least one domain.']);
         }
-        if ($m['panel'] !== 'cpanel') {
-            throw new UserFacingException('DNS zones can only be read from a cPanel source in this version.');
+        if (!in_array($m['panel'], self::ZONE_PANELS, true)) {
+            throw new UserFacingException('DNS zones can only be read from a cPanel, DirectAdmin, VestaCP, HestiaCP or ISPConfig source in this version.');
         }
         $known = [];
         foreach ((array) (((array) $m['discovery'])['accounts'] ?? []) as $a) {
@@ -723,6 +726,80 @@ final class MigrationService
     }
 
     /** @return array<string, mixed> */
+    /**
+     * Create NimVor FTP accounts for the ticked FTP accounts of the source. An account is created only
+     * for a source folder that lies inside a website the migration copies (the longest match decides the
+     * website), gets a new random password (the old one cannot be read) and is shown once. An account
+     * that already exists in NimVor is left alone.
+     *
+     * @param list<string> $keys "account|login" from the discovery
+     * @return array{created: list<array{login: string, password: string}>, skipped: list<string>}
+     */
+    public function importFtp(int $id, array $keys): array
+    {
+        $m = $this->mustFind($id);
+        if ($keys === []) {
+            throw new ValidationException(['ftp' => 'Select at least one FTP account.']);
+        }
+        $found = [];
+        foreach ((array) (((array) $m['discovery'])['accounts'] ?? []) as $a) {
+            foreach ((array) ($a['ftp'] ?? []) as $f) {
+                $found[$a['id'] . '|' . $f['login']] = (array) $f;
+            }
+        }
+        $files = (array) (((array) $m['plan'])['files'] ?? []);
+        if ($files === []) {
+            throw new UserFacingException('Choose the websites to copy and save the selection first: an FTP account is created for the website that holds its folder.');
+        }
+        $created = [];
+        $skipped = [];
+        foreach ($keys as $key) {
+            $f = $found[(string) $key] ?? null;
+            if ($f === null) {
+                $skipped[] = (string) $key . ' (not in the discovery)';
+                continue;
+            }
+            $home = rtrim((string) $f['home'], '/');
+            $best = null;
+            foreach ($files as $file) {
+                $root = rtrim((string) $file['source_root'], '/');
+                if (($home === $root || str_starts_with($home, $root . '/')) && ($best === null || strlen($root) > strlen(rtrim((string) $best['source_root'], '/')))) {
+                    $best = (array) $file;
+                }
+            }
+            if ($best === null) {
+                $skipped[] = $f['login'] . ' (its folder is not inside a website you are copying)';
+                continue;
+            }
+            $local = strtolower((string) strstr($f['login'] . '@', '@', true));
+            if (!preg_match('/^[a-z0-9][a-z0-9._-]{0,30}$/', $local)) {
+                $skipped[] = $f['login'] . ' (the name cannot be used in NimVor)';
+                continue;
+            }
+            $login = \NimVor\Http\Controllers\FtpController::login($local, (string) $best['domain']);
+            $dir = trim(substr($home, strlen(rtrim((string) $best['source_root'], '/'))), '/');
+            try {
+                $existing = array_map(static fn ($a): string => (string) ($a['name'] ?? ''), (array) (((array) $this->agent->call('ftp.status', ['user' => (string) $best['dest_user']]))['accounts'] ?? []));
+                if (in_array($login, $existing, true)) {
+                    $skipped[] = $login . ' (an account with this name already exists)';
+                    continue;
+                }
+                if (count($existing) >= \NimVor\Http\Controllers\FtpController::MAX_ACCOUNTS) {
+                    $skipped[] = $login . ' (the website already has the maximum number of FTP accounts)';
+                    continue;
+                }
+                $password = rtrim(strtr(base64_encode(random_bytes(15)), '+/', 'Aa'), '=');
+                $this->agent->call('ftp.account_save', ['name' => $login, 'user' => (string) $best['dest_user'], 'dir' => $dir, 'quota_mb' => 0, 'password' => $password]);
+            } catch (AgentException $e) {
+                $skipped[] = $login . ' (the FTP server refused it: is FTP set up under Server → FTP?)';
+                continue;
+            }
+            $created[] = ['login' => $login, 'password' => $password];
+        }
+        $this->audit->record('migration.ftp', 'migration', (string) $id, AuditLogger::SUCCESS, ['created' => count($created), 'skipped' => count($skipped)]);
+        return ['created' => $created, 'skipped' => $skipped];
+    }
+
     private function mustFind(int $id): array
     {
         return $this->find($id) ?? throw new UserFacingException('Migration not found.');

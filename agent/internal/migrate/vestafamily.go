@@ -125,7 +125,7 @@ func vestaLine(l string) map[string]string {
 func parseVestaUser(user, out string) *Account {
 	sec := sections(out)
 	home := "/home/" + user
-	a := &Account{ID: user, Name: user, Home: home, Domains: []Domain{}, Databases: []Database{}, Email: []EmailAccount{}, Forwarders: []Forwarder{}, Cron: []CronJob{}}
+	a := &Account{ID: user, Name: user, Home: home, Domains: []Domain{}, Databases: []Database{}, Email: []EmailAccount{}, Forwarders: []Forwarder{}, FTP: []FTPAccount{}, Cron: []CronJob{}}
 	seen := map[string]bool{}
 	for _, l := range sec["web"] {
 		dn := strings.ToLower(vestaLine(l)["DOMAIN"])
@@ -151,8 +151,20 @@ func parseVestaUser(user, out string) *Account {
 			}
 			continue
 		}
-		if acct := vestaLine(l)["ACCOUNT"]; cur != "" && pleskLocal.MatchString(acct) {
-			a.Email = append(a.Email, EmailAccount{Address: strings.ToLower(acct) + "@" + cur, Maildir: home + "/mail/" + cur + "/" + acct, SizeKB: -1})
+		kv := vestaLine(l)
+		if acct := kv["ACCOUNT"]; cur != "" && pleskLocal.MatchString(acct) {
+			addr := strings.ToLower(acct) + "@" + cur
+			a.Email = append(a.Email, EmailAccount{Address: addr, Maildir: home + "/mail/" + cur + "/" + acct, SizeKB: -1})
+			if fwd := kv["FWD"]; fwd != "" {
+				if f, ok := makeForwarder(addr, splitDests(fwd)); ok {
+					a.Forwarders = append(a.Forwarders, f)
+				}
+			}
+			for _, al := range splitDests(kv["ALIAS"]) { // other names that deliver to this mailbox
+				if f, ok := makeForwarder(al+"@"+cur, []string{addr}); ok {
+					a.Forwarders = append(a.Forwarders, f)
+				}
+			}
 		}
 	}
 	return a
