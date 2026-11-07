@@ -27,7 +27,8 @@ against real servers; today nothing is.
 | Froxlor | **Experimental** | Customers, domains, databases and mailboxes from Froxlor's database; a mailbox is only listed if its Maildir exists. Table names unverified on a real server. |
 | CloudPanel, aaPanel | **Experimental** | Sites from the panel's Nginx/Apache vhost files; databases listed for the whole server. |
 | InterWorx | **Experimental** | SiteWorx accounts and domains from the documented `/home/<user>/<domain>/html` folders; databases by `<user>_` prefix. |
-| Virtualmin/Webmin, Enhance | **Not available** | Listed in the wizard so nobody assumes they work. They cannot be chosen. Enhance's file and database layout could not be verified; sample output from a real Enhance server would let it be added. |
+| Enhance (limited) | **Experimental** | Only lists `/var/www/<website-id>/public_html` folders, named by website id (domain names are not read), and the server's databases. |
+| Virtualmin/Webmin | **Not available** | Listed in the wizard so nobody assumes it works. It cannot be chosen. |
 
 ### What it moves
 
