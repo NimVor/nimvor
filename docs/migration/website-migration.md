@@ -18,7 +18,7 @@ against real servers; today nothing is.
 |---|---|---|
 | Custom Linux server (no panel) | **Experimental** | Discovery of Nginx/Apache sites and MySQL/MariaDB databases on synthetic data. File copy and database import proven against a real `sshd` and MariaDB (see "How it was tested"). |
 | cPanel / WHM | **Experimental** | Discovery written from cPanel's documented file layout and tested on **synthetic data only**. Not tried on a real cPanel server, and the layout differs between versions. Treat the discovery as a starting point and check it. |
-| CyberPanel, DirectAdmin, Virtualmin/Webmin, HestiaCP, aaPanel, ISPConfig, Enhance, InterWorx, CloudPanel, VestaCP, Froxlor | **Not available** | Listed in the wizard so nobody assumes they work. They cannot be chosen. |
+| CyberPanel, Virtualmin/Webmin, HestiaCP, aaPanel, ISPConfig, Enhance, InterWorx, CloudPanel, VestaCP, Froxlor | **Not available** | Listed in the wizard so nobody assumes they work. They cannot be chosen. |
 
 ### What it moves
 
@@ -225,6 +225,16 @@ into the NimVor websites, databases and mailboxes you chose. A Plesk subscriptio
 read from Plesk: PHP versions per domain, forwarders, DNS zones, FTP and cron. This adapter was written from
 Plesk's documented database layout and has only run on synthetic data, so test it on a non-critical
 subscription first.
+
+## DirectAdmin (experimental)
+
+Choose **DirectAdmin** as the source and log in as root. NimVor reads DirectAdmin's own files: the users
+under `/usr/local/directadmin/data/users`, each user's `domains.list` (the first domain is the main one),
+`domains/<domain>.subdomains`, the mailboxes in `/etc/virtual/<domain>/passwd` (Maildirs under
+`/home/<user>/imap/`), and databases by DirectAdmin's `<user>_<name>` naming. Files, databases and mail
+then migrate like any other source. Not read: PHP versions per domain, forwarders, DNS zones, FTP and
+cron. Written from DirectAdmin's documented layout and run on synthetic data only: test it on a
+non-critical user first.
 
 ## Known limitations
 

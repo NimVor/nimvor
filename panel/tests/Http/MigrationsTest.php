@@ -35,6 +35,7 @@ final class MigrationsTest extends HttpTestCase
         $this->agent->succeed('migrate.panels', ['panels' => [
             ['panel' => 'cpanel', 'name' => 'cPanel / WHM', 'support' => 'experimental'],
             ['panel' => 'plesk', 'name' => 'Plesk (Linux)', 'support' => 'experimental'],
+            ['panel' => 'directadmin', 'name' => 'DirectAdmin', 'support' => 'experimental'],
             ['panel' => 'linux', 'name' => 'Custom Linux server (no panel)', 'support' => 'experimental'],
         ]]);
     }
@@ -114,14 +115,14 @@ final class MigrationsTest extends HttpTestCase
         $page = $this->request('GET', '/migrations/new')->body();
         self::assertStringContainsString('cPanel / WHM', $page);
         self::assertStringContainsString('Custom Linux server', $page);
-        self::assertSame(3, substr_count($page, 'Experimental</span>'));
+        self::assertSame(4, substr_count($page, 'Experimental</span>'));
         self::assertStringNotContainsString('Fully supported</span>', $page);
         foreach (['Plesk', 'CyberPanel', 'DirectAdmin', 'HestiaCP', 'aaPanel', 'ISPConfig'] as $p) {
             self::assertStringContainsString($p, $page);
         }
         self::assertStringContainsString('Not available yet', $page);
         // A panel that is only planned cannot be started.
-        $this->post('/migrations', ['panel' => 'directadmin']);
+        $this->post('/migrations', ['panel' => 'hestiacp']);
         self::assertSame(0, (int) $this->db->scalar('SELECT COUNT(*) FROM site_migrations'));
         self::assertStringContainsString('not supported yet', (string) $this->flash('error'));
         $res = $this->post('/migrations', ['panel' => 'cpanel']);
