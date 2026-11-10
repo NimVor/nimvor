@@ -308,16 +308,23 @@ func ensureACMERoot(env *host.Env) error {
 // deployHookScript reloads what uses certificates after a renewal: Nginx
 // (only with a valid configuration) and the mail server, which keeps its
 // certificate in memory too.
-const deployHookScript = "#!/bin/sh\n# Managed by NimVor: reload the services that use certificates after a renewal (Nginx only if its configuration is valid).\n" +
-	"nginx -t -q && systemctl reload nginx\n" +
-	"for u in postfix.service dovecot.service; do systemctl -q is-active \"$u\" && systemctl reload \"$u\"; done\nexit 0\n"
+func deployHookScript(mailDir string) string {
+	return "#!/bin/sh\n# Managed by NimVor: reload the services that use certificates after a renewal (Nginx only if its configuration is valid).\n" +
+		// Postfix reads the key and the chain of a domain's own mail name from one file: refresh it.
+		"for p in " + mailDir + "/sni/*.pem; do\n  [ -f \"$p\" ] || continue\n  n=$(basename \"$p\" .pem)\n" +
+		"  if [ \"$RENEWED_LINEAGE\" = \"/etc/letsencrypt/live/$n\" ]; then\n" +
+		"    ( umask 077; cat \"$RENEWED_LINEAGE/privkey.pem\" \"$RENEWED_LINEAGE/fullchain.pem\" > \"$p.new\" ) && mv \"$p.new\" \"$p\"\n  fi\ndone\n" +
+		"nginx -t -q && systemctl reload nginx\n" +
+		"for u in postfix.service dovecot.service; do systemctl -q is-active \"$u\" && systemctl reload \"$u\"; done\nexit 0\n"
+}
 
 func ensureDeployHook(env *host.Env) error {
-	if b, err := env.Root.ReadFile(DeployHook); err == nil && string(b) == deployHookScript {
+	script := deployHookScript(env.M.MailDir)
+	if b, err := env.Root.ReadFile(DeployHook); err == nil && string(b) == script {
 		return nil
 	}
 	set := env.Changes("certbot-hook")
-	set.Write(DeployHook, []byte(deployHookScript), 0o755, agentfs.RootOwner)
+	set.Write(DeployHook, []byte(script), 0o755, agentfs.RootOwner)
 	_, err := set.Apply()
 	return err
 }
@@ -389,6 +396,11 @@ func CheckCustom(in customReq, now time.Time) (ssl.Certificate, []byte, error) {
 // challenge. log may be nil.
 func IssueFor(ctx context.Context, env *host.Env, certName string, names []string, log io.Writer) (map[string]any, error) {
 	return Issue(ctx, env, issueReq{CertName: certName, Names: names}, log)
+}
+
+// IssueNames is IssueFor with a contact address and a certificate authority (empty: Let's Encrypt).
+func IssueNames(ctx context.Context, env *host.Env, certName string, names []string, email, provider string, log io.Writer) (map[string]any, error) {
+	return Issue(ctx, env, issueReq{CertName: certName, Names: names, Email: email, Provider: provider}, log)
 }
 
 // Issue obtains or expands a Let's Encrypt certificate (webroot) and makes

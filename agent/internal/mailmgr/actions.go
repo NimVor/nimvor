@@ -288,6 +288,7 @@ func Register(r *actions.Registry, he *host.Env) {
 	registerMailRate(r, e)
 	registerAuthCheck(r, e)
 	registerTools(r, e)
+	registerNames(r, e)
 
 	r.Register(actions.Action{Name: "mail.status", Description: "Email: installed components, whether set up and running, hosted domains (with DKIM records), mailboxes (with size) and aliases.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		d, _ := e.load()
@@ -598,6 +599,7 @@ func Register(r *actions.Registry, he *host.Env) {
 				return nil, actions.Conflict("Remove the domain's aliases first.")
 			}
 		}
+		hadNames := d.Domains[in.Domain].Names != nil
 		delete(d.Domains, in.Domain)
 		d.Suspended = slices.DeleteFunc(d.Suspended, func(s string) bool { return s == in.Domain })
 		if err := e.saveData(ctx, d, func(set *changeset.Set) {
@@ -606,6 +608,12 @@ func Register(r *actions.Registry, he *host.Env) {
 			}
 		}); err != nil {
 			return nil, err
+		}
+		if hadNames {
+			// The domain's mail names go with it (the files are rebuilt from the data).
+			if err := e.applyNames(ctx, d); err != nil {
+				he.Log.Warn("mail names were not cleaned up after removing a domain", "domain", in.Domain, "error", err)
+			}
 		}
 		return map[string]any{"domain": in.Domain, "removed": true}, nil
 	}})

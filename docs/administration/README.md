@@ -1620,6 +1620,30 @@ address. Roundcube 1.6.11 as packaged in Ubuntu 26.04 declares its own
 turns the built-in off for Roundcube's pool only (`disable_functions`), so
 Roundcube's own, equivalent function is used. Websites' PHP is not changed.
 
+**A domain's own mail names:** by default every domain uses the server's host
+name for IMAP, SMTP and (if on) the one webmail address, all with the
+server's certificate. Turning on *mail names* for a domain gives it
+`mail.<domain>` (IMAP and SMTP) and `webmail.<domain>` with a Let's Encrypt
+certificate of their own, so mail apps and browsers see the customer's own
+name with no certificate warning. The agent actions are `mail.names_status`,
+`mail.names_enable` (a job) and `mail.names_disable`:
+
+- Both names must already point at this server (DNS records created first).
+  An Nginx site (`nimvor-mail-names.conf`) answers the Let's Encrypt
+  challenge on port 80 for them; one certificate (`mail.<domain>`) covers both.
+- Dovecot serves it by SNI (a `local_name` block in `99-nimvor-names.conf`)
+  and Postfix by SNI too (`tls_server_sni_maps`, needs Postfix 3.4 or later;
+  one file per certificate in `/etc/nimvor-mail/sni`, holding the key and the
+  chain, rewritten by certbot's deploy hook after every renewal). The
+  server's own certificate and host name are unchanged and remain the default
+  and the MX.
+- `webmail.<domain>` is served by Roundcube through its own HTTPS server block
+  with that certificate when webmail is on.
+- A website that already answers for one of the names blocks the change.
+  Nothing is kept if the certificate is not issued or a service does not
+  reload; turning the names off removes the SNI entries and the Nginx site but
+  keeps the certificate (certbot keeps renewing it until it is deleted).
+
  Dovecot 2.3 (Ubuntu 22.04 and 24.04) and 2.4
 (Ubuntu 26.04) are supported; NimVor writes the matching configuration
 syntax, and mail is stored the same way (Maildir, INBOX at its root).

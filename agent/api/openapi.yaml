@@ -226,6 +226,9 @@ paths:
               - mail.log_tail
               - mail.mailbox_delete
               - mail.mailbox_save
+              - mail.names_disable
+              - mail.names_enable
+              - mail.names_status
               - mail.queue
               - mail.queue_action
               - mail.queue_message
@@ -794,6 +797,9 @@ x-nimvor-actions:
   mail.log_tail: { mutating: false, description: "The latest mail log lines (Postfix, Dovecot, OpenDKIM), newest last." }
   mail.mailbox_delete: { mutating: true, description: "Delete a mailbox (confirm = address); its mail is moved to .nimvor-trash in the mail folder, or kept in place with keep_mail." }
   mail.mailbox_save: { mutating: true, description: "Create a mailbox or change its password or quota (the password is stored as a SHA-512 crypt hash)." }
+  mail.names_disable: { mutating: true, description: "Remove a mail domain's own mail names: the SNI entries and webmail's host for it go away and the domain uses the server's host name again. The certificate stays (certbot keeps renewing it until it is deleted)." }
+  mail.names_enable: { mutating: true, description: "Give a mail domain its own mail names, mail.<domain> for IMAP and SMTP and webmail.<domain>, with a Let's Encrypt certificate (job). The names must already point at this server. Dovecot and Postfix serve the certificate by SNI and Nginx serves webmail on it; the server's own host name is unchanged. Rolled back if the certificate or the configuration fails." }
+  mail.names_status: { mutating: false, description: "A mail domain's own mail names (mail.<domain>, webmail.<domain>): whether they are on and whether their certificate is in place." }
   mail.queue: { mutating: false, description: "Postfix's mail queue: messages with queue, sender, recipients, size, age and the reason delivery was deferred (postqueue -j)." }
   mail.queue_action: { mutating: true, description: "Act on queued messages: delete, retry (deliver now), hold, release; or flush (retry every deferred message). IDs go to postsuper on stdin." }
   mail.queue_message: { mutating: false, description: "Headers of one queued message (From, To, Subject, Date, Message-ID; not the body)." }

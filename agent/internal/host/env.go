@@ -114,6 +114,7 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		m.DovecotDropIn,
 		filepath.Join(filepath.Dir(m.DovecotDropIn), "99-nimvor-sieve.conf"),
 		filepath.Join(filepath.Dir(m.DovecotDropIn), "99-nimvor-tuning.conf"),
+		filepath.Join(filepath.Dir(m.DovecotDropIn), "99-nimvor-names.conf"),
 		"/etc/rspamd/local.d/*",
 		// MongoDB's main configuration file (port, bindIp, authorization).
 		"/etc/mongod.conf",
