@@ -26,6 +26,7 @@ against real servers; today nothing is.
 | ISPConfig | **Experimental** | Websites, databases and mailboxes from the `dbispconfig` database. Table names unverified on a real server. |
 | NimVor | **Experimental** | Another NimVor server, read from its panel database (`/var/lib/nimvor/nimvor.sqlite`, needs `sqlite3` on the source): websites with their system user and document root, the databases tied to each site (databases without a site are listed separately), mailboxes (`/var/vmail/<domain>/<user>`), aliases, DNS records and cron jobs. FTP accounts are not read. |
 | CentOS Web Panel (CWP) | **Experimental** | Users, domains, subdomains, mailboxes and forwarders from CWP's `root_cwp` and `postfix` databases; databases are attached to a user by their `<user>_` name prefix (CWP has no table linking them); a mailbox is only listed if its Maildir exists. Table names unverified on a real server. |
+| cPanel backup archive | **Experimental** | A `cpmove-USER.tar.gz` / `backup-…tar.gz` file copied onto this server: websites, databases, mailboxes, forwarders, cron jobs, FTP accounts and DNS zones. See *Importing a backup archive*. |
 | Froxlor | **Experimental** | Customers, domains, databases and mailboxes from Froxlor's database; a mailbox is only listed if its Maildir exists. Table names unverified on a real server. |
 | CloudPanel, aaPanel | **Experimental** | Sites from the panel's Nginx/Apache vhost files; databases listed for the whole server. |
 | InterWorx | **Experimental** | SiteWorx accounts and domains from the documented `/home/<user>/<domain>/html` folders; databases by `<user>_` prefix. |
@@ -284,12 +285,18 @@ after Start, and are not stored. The source application's own configuration (for
 still holds the old database name, user and password, so update it to the new values after the copy. A
 database created this way is not removed by a rollback; delete it under Databases if you do not want it.
 
-## Backup archives (in progress)
+## Importing a backup archive
 
 Besides copying live from a running server, NimVor can import a cPanel account backup (`cpmove-USER.tar.gz`, or a
 full `backup-…tar.gz`) that has been copied onto this server under `/root`, `/home`, `/var/backups` or `/tmp`.
-The agent actions for this exist (`migrate.archive_list`, `migrate.archive_extract`, `migrate.archive_forget`);
-the wizard page for choosing an archive is the next step.
+Choose **cPanel backup archive (cpmove)** on the first page of the wizard. The first step lists archives found
+on this server (or takes the full path of a file), unpacks it and reads what it holds; the rest of the wizard
+is the same as for a live copy: choose what to move and where it goes, run the compatibility check, start.
+No SSH connection or login is involved, and the "Synchronise before switching DNS" step does not apply.
+
+To get the file here, make the backup in cPanel (Backup → Download a Full Account Backup, or `/scripts/pkgacct USER`
+on the old server) and copy it to this server, for example with `scp`. When you are done, use **Delete the unpacked
+copy** on the report page; cancelling the migration deletes it too.
 
 - The archive is unpacked into the agent's private folder, never next to your sites. Every entry is confined to
   that folder: absolute or `..` names make the whole unpacking fail, links may only point inside it, hard links,

@@ -27,6 +27,7 @@ $about = static fn (string $panel): string => match ($panel) {
     'enhance' => 'A limited reader: lists each website folder under /var/www by its id (not its domain name) and the databases of the whole server (log in as root). Nothing else is read.',
     'nimvor' => 'Reads another NimVor server\'s own panel database (log in as root; sqlite3 must be installed there): websites, the databases tied to each site, mailboxes, aliases, DNS records and cron jobs.', 'interworx' => 'Reads SiteWorx accounts and domains from InterWorx\'s home folders (log in as root). Mailboxes are not read.',
     'cwp' => 'Reads users, domains, subdomains, databases, mailboxes and forwarders from CWP\'s own databases (root_cwp and postfix) with read-only queries (log in as root). Databases are matched to a user by their name prefix.',
+    'cpmove' => 'Imports a cPanel account backup (cpmove-USER.tar.gz or backup-….tar.gz) that you have copied onto this server: websites, databases, mailboxes, forwarders, cron jobs, FTP accounts and DNS. Nothing is read over SSH.',
     'interworx' => 'Reads SiteWorx accounts and domains from InterWorx\'s home folders (log in as root). Mailboxes are not read.',
     default => 'A server without a control panel: sites are read from the Nginx or Apache configuration, databases from MySQL/MariaDB.',
 };

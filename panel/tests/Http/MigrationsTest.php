@@ -47,6 +47,7 @@ final class MigrationsTest extends HttpTestCase
             ['panel' => 'froxlor', 'name' => 'Froxlor', 'support' => 'experimental'],
             ['panel' => 'nimvor', 'name' => 'NimVor', 'support' => 'experimental'],
             ['panel' => 'cwp', 'name' => 'CentOS Web Panel (CWP)', 'support' => 'experimental'],
+            ['panel' => 'cpmove', 'name' => 'cPanel backup archive (cpmove)', 'support' => 'experimental'],
             ['panel' => 'enhance', 'name' => 'Enhance (limited)', 'support' => 'experimental'],
             ['panel' => 'linux', 'name' => 'Custom Linux server (no panel)', 'support' => 'experimental'],
         ]]);
@@ -127,10 +128,10 @@ final class MigrationsTest extends HttpTestCase
         $page = $this->request('GET', '/migrations/new')->body();
         self::assertStringContainsString('cPanel / WHM', $page);
         self::assertStringContainsString('Custom Linux server', $page);
-        self::assertSame(16, substr_count($page, 'title="Experimental"'), 'every source carries an Experimental info icon');
+        self::assertSame(17, substr_count($page, 'title="Experimental"'), 'every source carries an Experimental info icon');
         self::assertStringContainsString('nim-source-pop', $page, 'the description and the button are in a box shown on hover');
         self::assertStringContainsString('Reads accounts, domains', html_entity_decode($page, ENT_QUOTES));
-        self::assertSame(16, substr_count($page, 'Use this source</button>'), 'one button per source, inside the hover box');
+        self::assertSame(17, substr_count($page, 'Use this source</button>'), 'one button per source, inside the hover box');
         self::assertStringContainsString('row-cols-md-4', $page, 'four cards in a row');
         self::assertStringNotContainsString('Fully supported</span>', $page);
         foreach (['Plesk', 'CyberPanel', 'DirectAdmin', 'HestiaCP', 'aaPanel', 'ISPConfig', 'Virtualmin'] as $p) {
@@ -941,5 +942,78 @@ final class MigrationsTest extends HttpTestCase
         self::assertStringContainsString('already a cron job', (string) $this->flash('success'));
         $this->post("/migrations/{$id}/cron", []);
         self::assertArrayHasKey('cron', (array) $this->flash('errors'));
+    }
+
+    public function testABackupArchiveIsChosenUnpackedReadAndMigratedWithoutAnyLogin(): void
+    {
+        $this->login('admin');
+        $this->post('/migrations', ['panel' => 'cpmove']);
+        $id = (int) $this->db->scalar('SELECT MAX(id) FROM site_migrations');
+        $this->agent->succeed('migrate.archive_list', ['archives' => [['path' => '/root/cpmove-alice.tar.gz', 'name' => 'cpmove-alice.tar.gz', 'size_kb' => 2048, 'modified' => '2026-11-01T10:00:00Z']]]);
+        $page = $this->request('GET', "/migrations/{$id}")->body();
+        self::assertStringContainsString('Choose the backup archive', $page);
+        self::assertStringContainsString('/root/cpmove-alice.tar.gz', $page);
+        self::assertStringNotContainsString('Check the server', $page, 'no SSH connection form for an archive');
+        self::assertStringNotContainsString('>Discover<', $page, 'no separate discovery step');
+
+        // A path outside the allowed folders or with the wrong name is refused before the agent is asked.
+        foreach (['/etc/cpmove-x.tar.gz', '/root/../etc/cpmove-x.tar.gz', '/root/notes.txt', 'cpmove-x.tar.gz'] as $bad) {
+            $this->post("/migrations/{$id}/archive", ['path' => $bad]);
+            self::assertArrayHasKey('path', (array) $this->flash('errors'), $bad);
+        }
+        self::assertSame(0, $this->calls('migrate.archive_extract'));
+
+        $this->agent->succeed('migrate.archive_extract', ['job_id' => 'aaaaaaaaaaaaaaaa']);
+        $this->post("/migrations/{$id}/archive", ['archive' => '/root/cpmove-alice.tar.gz']);
+        self::assertSame('/root/cpmove-alice.tar.gz', $this->lastCall('migrate.archive_extract')['path']);
+        self::assertSame('discovering', $this->db->scalar('SELECT status FROM site_migrations WHERE id = ?', [$id]));
+        $disc = $this->discovery();
+        $disc['panel'] = ['panel' => 'cpmove', 'name' => 'cPanel backup archive', 'version' => '', 'support' => 'experimental'];
+        $this->agent->responses['/v1/actions/jobs.get'] = $this->job('succeeded', ['archive' => '0123456789abcdef', 'discovery' => $disc]);
+        $page = $this->request('GET', "/migrations/{$id}")->body();
+        self::assertSame('discovered', $this->db->scalar('SELECT status FROM site_migrations WHERE id = ?', [$id]));
+        self::assertStringContainsString('Websites to copy', $page, 'goes straight to choosing what to move');
+        $info = json_decode((string) $this->db->scalar('SELECT info FROM site_migrations WHERE id = ?', [$id]), true);
+        self::assertSame('0123456789abcdef', $info['archive']);
+
+        $this->post("/migrations/{$id}/select", ['domains' => ['alice|shop.example.org'], 'site' => ['alice|shop.example.org' => (string) $this->siteId], 'dbs' => ['alice|alice_wp'], 'dbmap' => ['alice|alice_wp' => (string) $this->dbId], 'workers' => '2', 'excludes' => '', 'compress' => '1']);
+        $this->agent->succeed('migrate.assess', ['findings' => [], 'blocked' => false]);
+        $this->post("/migrations/{$id}/assess");
+        $this->agent->succeed('migrate.create', ['id' => '0123456789abcdef', 'status' => 'created']);
+        $this->agent->succeed('migrate.start', ['job_id' => 'cccccccccccccccc', 'id' => '0123456789abcdef']);
+        $this->post("/migrations/{$id}/start");
+        $start = $this->lastCall('migrate.start');
+        self::assertSame(['panel' => 'cpmove', 'archive' => '0123456789abcdef'], $start['source'], 'only the id of the unpacked archive is sent: no host, password or key');
+        self::assertSame('archive://cpmove-alice.tar.gz', $this->lastCall('migrate.create')['source']);
+
+        // A snapshot cannot be synchronised.
+        $this->agentState('completed');
+        $this->post("/migrations/{$id}/sync", ['password' => 'x']);
+        self::assertSame(0, $this->calls('migrate.sync'));
+        self::assertStringContainsString('snapshot', (string) $this->flash('error'));
+        $page = $this->request('GET', "/migrations/{$id}")->body();
+        self::assertStringNotContainsString('Synchronise before switching DNS', $page);
+        self::assertStringContainsString('Delete the unpacked copy', $page);
+
+        $this->agent->succeed('migrate.archive_forget', ['id' => '0123456789abcdef']);
+        $this->post("/migrations/{$id}/archive-forget");
+        self::assertSame('0123456789abcdef', $this->lastCall('migrate.archive_forget')['id']);
+        $info = json_decode((string) $this->db->scalar('SELECT info FROM site_migrations WHERE id = ?', [$id]), true);
+        self::assertArrayNotHasKey('archive', $info);
+    }
+
+    public function testAFailedUnpackingReturnsToTheArchiveStepWithTheReason(): void
+    {
+        $this->login('admin');
+        $this->post('/migrations', ['panel' => 'cpmove']);
+        $id = (int) $this->db->scalar('SELECT MAX(id) FROM site_migrations');
+        $this->agent->succeed('migrate.archive_list', ['archives' => []]);
+        $this->agent->succeed('migrate.archive_extract', ['job_id' => 'aaaaaaaaaaaaaaaa']);
+        $this->post("/migrations/{$id}/archive", ['path' => '/root/cpmove-bad.tar.gz']);
+        $this->agent->responses['/v1/actions/jobs.get'] = $this->job('failed', [], 'this is not a cPanel account backup');
+        $page = $this->request('GET', "/migrations/{$id}")->body();
+        self::assertSame('draft', $this->db->scalar('SELECT status FROM site_migrations WHERE id = ?', [$id]));
+        self::assertStringContainsString('not a cPanel account backup', $page);
+        self::assertStringContainsString('Choose the backup archive', $page);
     }
 }

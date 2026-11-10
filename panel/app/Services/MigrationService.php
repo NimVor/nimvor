@@ -36,7 +36,7 @@ final class MigrationService
     private array $newDatabaseCredentials = [];
 
     /** Source panels whose BIND zone files the agent can read. */
-    public const ZONE_PANELS = ['cpanel', 'directadmin', 'vestacp', 'hestiacp', 'ispconfig', 'nimvor'];
+    public const ZONE_PANELS = ['cpanel', 'directadmin', 'vestacp', 'hestiacp', 'ispconfig', 'nimvor', 'cpmove'];
 
     /** Statuses in which the agent holds the migration's state. */
     private const AGENT_STATES = ['running', 'paused', 'failed', 'interrupted', 'completed', 'cancelled'];
@@ -75,7 +75,71 @@ final class MigrationService
     /** @return array<string, mixed>|null */
     public function find(int $id): ?array
     {
-        return $this->repo->find($this->server->id(), $id);
+        $m = $this->repo->find($this->server->id(), $id);
+        if ($m !== null && $m['panel'] === 'cpmove') {
+            $m['has_login'] = !empty($m['info']['archive']); // an archive has no login: the unpacked copy plays that part
+        }
+        return $m;
+    }
+
+    /** A cPanel backup archive on this server instead of a live source. */
+    public static function isArchive(array $m): bool
+    {
+        return ($m['panel'] ?? '') === 'cpmove';
+    }
+
+    /** @return list<array<string, mixed>> archives found on this server (cpmove-*.tar.gz …) */
+    public function archives(): array
+    {
+        $res = (array) $this->agent->call('migrate.archive_list');
+        return array_values((array) ($res['archives'] ?? []));
+    }
+
+    /**
+     * Unpack a backup archive on this server and read what it holds (a background job). The archive file is
+     * only read; the unpacked copy lives in the agent's private folder until it is deleted.
+     */
+    public function unpack(int $id, string $path): string
+    {
+        $m = $this->mustFind($id);
+        if (!self::isArchive($m) || !in_array($m['status'], ['draft', 'discovered', 'selected', 'assessed'], true)) {
+            throw new UserFacingException('A backup archive can only be chosen at the first step of an archive migration.');
+        }
+        $path = trim($path);
+        if (!preg_match('~^/(root|home|var/backups|var/tmp|tmp)/[A-Za-z0-9._/-]{1,300}$~', $path) || str_contains($path, '..') || !preg_match('~/(cpmove|backup)-[A-Za-z0-9._-]+\.(tar\.gz|tgz|tar)$~i', $path)) {
+            throw new ValidationException(['path' => 'Give the full path of the archive on this server, for example /root/cpmove-user.tar.gz (under /root, /home, /var/backups or /tmp).']);
+        }
+        if (!empty($m['info']['archive'])) {
+            $this->forgetArchive($id); // choosing another archive replaces the unpacked copy
+        }
+        $res = (array) $this->agent->call('migrate.archive_extract', ['path' => $path]);
+        $job = (string) ($res['job_id'] ?? '');
+        $this->repo->update($id, ['status' => 'discovering', 'job_id' => $job, 'error' => '', 'source_host' => basename($path), 'info' => ['archive_path' => $path], 'discovery' => [], 'selection' => [], 'plan' => [], 'assessment' => []]);
+        $this->jobs->track($job, 'Unpack ' . basename($path), 'migration', (string) $id, null);
+        $this->audit->record('migration.archive', 'migration', (string) $id, AuditLogger::SUCCESS, ['archive' => basename($path)]);
+        return $job;
+    }
+
+    /** Delete the unpacked copy of the archive (the archive file itself is never touched). */
+    public function forgetArchive(int $id): void
+    {
+        $m = $this->mustFind($id);
+        $arch = (string) ($m['info']['archive'] ?? '');
+        if ($arch === '') {
+            return;
+        }
+        if (in_array($m['status'], ['running'], true)) {
+            throw new UserFacingException('The migration is running and needs the unpacked archive. Cancel it first.');
+        }
+        try {
+            $this->agent->call('migrate.archive_forget', ['id' => $arch]);
+        } catch (AgentException $e) {
+            // already gone, or the agent restarted: nothing left to delete
+        }
+        $info = (array) $m['info'];
+        unset($info['archive']);
+        $this->repo->update($id, ['info' => $info]);
+        $this->audit->record('migration.archive_forget', 'migration', (string) $id);
     }
 
     public function create(string $panel, ?int $userId): int
@@ -200,6 +264,13 @@ final class MigrationService
     /** @return array<string, mixed> the source as the agent takes it */
     private function source(array $m): array
     {
+        if (self::isArchive($m)) {
+            $arch = (string) ($m['info']['archive'] ?? '');
+            if ($arch === '') {
+                throw new UserFacingException('The unpacked archive is gone. Choose the archive again.');
+            }
+            return ['panel' => 'cpmove', 'archive' => $arch];
+        }
         $sealed = $this->repo->sealed((int) $m['id']);
         if ($sealed === '') {
             throw new UserFacingException('The source login is not kept (it is erased when a migration ends). Connect again.');
@@ -230,10 +301,15 @@ final class MigrationService
             if ($m['status'] === 'discovering' && $m['job_id'] !== '') {
                 $job = (array) $this->agent->call('jobs.get', ['id' => $m['job_id']]);
                 $st = (string) ($job['status'] ?? '');
-                if ($st === 'succeeded') {
+                if ($st === 'succeeded' && self::isArchive($m)) {
+                    $res = (array) ($job['result'] ?? []);
+                    $disc = (array) ($res['discovery'] ?? []);
+                    $info = ['archive' => (string) ($res['archive'] ?? ''), 'archive_path' => (string) ($m['info']['archive_path'] ?? ''), 'server' => (array) ($disc['server'] ?? []), 'panel' => (array) ($disc['panel'] ?? [])];
+                    $this->repo->update($id, ['discovery' => $disc, 'info' => $info, 'status' => 'discovered']);
+                } elseif ($st === 'succeeded') {
                     $this->repo->update($id, ['discovery' => (array) ($job['result'] ?? []), 'status' => 'discovered']);
                 } elseif ($st === 'failed') {
-                    $this->repo->update($id, ['status' => 'connected', 'error' => mb_substr((string) ($job['error'] ?? 'The discovery failed.'), 0, 500)]);
+                    $this->repo->update($id, ['status' => self::isArchive($m) ? 'draft' : 'connected', 'error' => mb_substr((string) ($job['error'] ?? 'The discovery failed.'), 0, 500)]);
                 }
             } elseif (in_array($m['status'], ['running', 'paused', 'interrupted', 'failed'], true) && $m['agent_id'] !== '') {
                 $state = (array) $this->agent->call('migrate.get', ['id' => $m['agent_id']]);
@@ -247,7 +323,7 @@ final class MigrationService
             }
         } catch (AgentException $e) {
             if ($e->errorCode() === 'not_found' && $m['status'] === 'discovering') {
-                $this->repo->update($id, ['status' => 'connected', 'error' => 'The discovery job was lost (the agent restarted). Discover again.']);
+                $this->repo->update($id, ['status' => self::isArchive($m) ? 'draft' : 'connected', 'error' => 'The discovery job was lost (the agent restarted). Discover again.']);
             }
         }
     }
@@ -445,7 +521,7 @@ final class MigrationService
             throw new UserFacingException('The compatibility check found problems that stop the migration. Solve them and check again.');
         }
         $this->createNewDatabases($id, $m);
-        $created = (array) $this->agent->call('migrate.create', ['plan' => (array) $m['plan'], 'panel' => $m['panel'], 'source' => 'ssh://' . $m['source_user'] . '@' . $m['source_host'] . ':' . $m['source_port']]);
+        $created = (array) $this->agent->call('migrate.create', ['plan' => (array) $m['plan'], 'panel' => $m['panel'], 'source' => self::isArchive($m) ? 'archive://' . $m['source_host'] : 'ssh://' . $m['source_user'] . '@' . $m['source_host'] . ':' . $m['source_port']]);
         $agentId = (string) ($created['id'] ?? '');
         $res = (array) $this->agent->call('migrate.start', ['id' => $agentId, 'source' => $this->source($m)]);
         $job = (string) ($res['job_id'] ?? '');
@@ -528,6 +604,9 @@ final class MigrationService
         }
         $this->repo->update($id, ['status' => 'cancelled', 'sealed' => '', 'finished_at' => gmdate('c')]);
         $this->audit->record('migration.cancel', 'migration', (string) $id);
+        if (self::isArchive($m)) {
+            $this->forgetArchive($id);
+        }
     }
 
     /**
@@ -560,6 +639,9 @@ final class MigrationService
     {
         $this->refresh($id);
         $m = $this->mustFind($id);
+        if (self::isArchive($m)) {
+            throw new UserFacingException('A backup archive is a snapshot: there is nothing newer to synchronise.');
+        }
         if ($m['agent_id'] === '' || !in_array($m['status'], ['completed', 'failed', 'paused', 'interrupted'], true)) {
             throw new UserFacingException('This migration cannot be synchronised now (it never started, is running, or was cancelled or rolled back).');
         }
@@ -757,7 +839,7 @@ final class MigrationService
             throw new ValidationException(['dns' => 'Select at least one domain.']);
         }
         if (!in_array($m['panel'], self::ZONE_PANELS, true)) {
-            throw new UserFacingException('DNS zones can only be read from a cPanel, DirectAdmin, VestaCP, HestiaCP or ISPConfig source in this version.');
+            throw new UserFacingException('DNS zones can only be read from a cPanel, DirectAdmin, VestaCP, HestiaCP, ISPConfig, NimVor or cPanel backup source in this version.');
         }
         $known = [];
         foreach ((array) (((array) $m['discovery'])['accounts'] ?? []) as $a) {
