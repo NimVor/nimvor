@@ -76,6 +76,9 @@ type Domain struct {
 	Selector string `json:"dkim_selector"`
 	// DKIMPublic is the TXT value to publish at <selector>._domainkey.
 	DKIMPublic string `json:"dkim_public"`
+	// Names are the domain's own mail host names (mail.<domain>, webmail.<domain>) with their
+	// certificate, when turned on (names.go).
+	Names *DomainNames `json:"names,omitempty"`
 }
 
 // Mailbox is one mailbox (never returned with its hash).
