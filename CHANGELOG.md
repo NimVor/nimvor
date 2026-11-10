@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Website migration, **backup archive import (agent part, first of two steps).** New agent actions unpack a cPanel `cpmove-*.tar.gz` / `backup-*.tar.gz` found on the server (`migrate.archive_list`, `migrate.archive_extract`, `migrate.archive_forget`) and describe what it holds — websites, databases, mailboxes, forwarders, cron jobs, FTP accounts and DNS zones — so the existing copy engine can move it with a local copy instead of SSH. Unpacking is confined to the agent's private folder (no absolute or `..` paths, links only inside it, no devices or hard links, no set-id bits, stops before the disk is full). The wizard page for choosing an archive comes in the next step; nothing in the panel changes yet.
+
 ## [1.5.3] — 2026-11-07
 
 Website migration grows from three to sixteen sources and gains creation of destination databases and users, forwarders, DNS records, FTP accounts and cron jobs on request. All new sources are experimental and were tested on synthetic data only. The agent changes (new source readers and actions), so upgrade the panel and the agent together (`installer/upgrade.sh` does both).

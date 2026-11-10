@@ -37,6 +37,7 @@ func adapters() []Adapter {
 		cyberPanelAdapter{}, ispConfigAdapter{}, froxlorAdapter{},
 		cloudPanel(), aaPanel(), interWorxAdapter{}, cwpAdapter{},
 		enhanceAdapter{},
+		cpmoveAdapter{},
 		nimvorAdapter{},
 		linuxAdapter{}}
 }

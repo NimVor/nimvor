@@ -284,6 +284,25 @@ after Start, and are not stored. The source application's own configuration (for
 still holds the old database name, user and password, so update it to the new values after the copy. A
 database created this way is not removed by a rollback; delete it under Databases if you do not want it.
 
+## Backup archives (in progress)
+
+Besides copying live from a running server, NimVor can import a cPanel account backup (`cpmove-USER.tar.gz`, or a
+full `backup-…tar.gz`) that has been copied onto this server under `/root`, `/home`, `/var/backups` or `/tmp`.
+The agent actions for this exist (`migrate.archive_list`, `migrate.archive_extract`, `migrate.archive_forget`);
+the wizard page for choosing an archive is the next step.
+
+- The archive is unpacked into the agent's private folder, never next to your sites. Every entry is confined to
+  that folder: absolute or `..` names make the whole unpacking fail, links may only point inside it, hard links,
+  devices and fifos are left out, set-id bits are dropped, and unpacking stops before the disk is full (it needs
+  about twice the archive's size free, plus NimVor's reserve).
+- What is found is described like a live source (websites with their document roots, databases from `mysql/*.sql`,
+  mailboxes, forwarders, cron jobs, FTP accounts, DNS zones) and copied by the same engine, with a local copy
+  instead of SSH. The archive file itself is only read.
+- A backup is a snapshot: there is nothing to synchronise afterwards, and database users, passwords and SSL
+  certificates are not restored.
+- Written from cPanel's documented backup layout and tested on a synthetic archive only (experimental): try it
+  with a real `cpmove` file and report anything that does not unpack or describe correctly.
+
 ## Known limitations
 
 * MySQL 8 → MariaDB: databases using `utf8mb4_0900_*` collations or MySQL-8-only

@@ -246,6 +246,9 @@ paths:
               - memcached.configure
               - memcached.flush
               - memcached.status
+              - migrate.archive_extract
+              - migrate.archive_forget
+              - migrate.archive_list
               - migrate.assess
               - migrate.cancel
               - migrate.create
@@ -811,6 +814,9 @@ x-nimvor-actions:
   memcached.configure: { mutating: true, description: "Set Memcached's memory, connection limit and (loopback) listen addresses in its package configuration file after explicit confirmation; restarts and verifies, rolls back on failure." }
   memcached.flush: { mutating: true, description: "Remove every item from Memcached (requires confirm)." }
   memcached.status: { mutating: false, description: "Whether Memcached is installed and running, its settings and statistics." }
+  migrate.archive_extract: { mutating: true, description: "Unpack a cPanel backup archive into the agent's private folder and describe what it holds (job). The archive file is only read; every path is confined to the private folder." }
+  migrate.archive_forget: { mutating: true, description: "Delete the unpacked copy of a backup archive (the archive file itself is never touched)." }
+  migrate.archive_list: { mutating: false, description: "List cPanel backup archives (cpmove-*.tar.gz, backup-*.tar.gz) found in /root, /home, /var/backups and /tmp. Only file names are read." }
   migrate.assess: { mutating: false, description: "Check a migration plan against this server (disk, temporary space, PHP, database engine) and the discovery. Reads only; contacts no server." }
   migrate.cancel: { mutating: true, description: "Cancel a migration. Copied files and imported databases stay; nothing is removed from the source or the destination." }
   migrate.create: { mutating: true, description: "Store a migration plan whose destinations are existing NimVor websites and databases. Starts nothing." }
