@@ -92,6 +92,7 @@ final class MigrationsController extends Controller
             'state' => in_array($step, ['run', 'report'], true) ? $this->service->state($m) : [],
             'sites' => $step === 'select' ? $this->sites->all($this->server->id(), $user) : [],
             'databases' => $step === 'select' ? $this->dbs->databases($this->server->id(), $user) : [],
+            'archives' => $step === 'connect' && MigrationService::isArchive($m) ? $this->archiveList() : [],
             'dbCreds' => (array) ($this->session->pullFlash('migration_dbcreds') ?? []),
             'ftpSecrets' => (array) ($this->session->pullFlash('migration_ftp') ?? []),
             'errors' => (array) ($this->session->pullFlash('errors') ?? []),
@@ -99,19 +100,52 @@ final class MigrationsController extends Controller
         ]);
     }
 
+    /** @return list<array<string, mixed>> */
+    private function archiveList(): array
+    {
+        try {
+            return $this->service->archives();
+        } catch (\NimVor\Agent\AgentException $e) {
+            return [];
+        }
+    }
+
+    public function archive(Request $request, string $id): Response
+    {
+        $to = '/migrations/' . (int) $id;
+        if ($r = $this->denied($request)) {
+            return $r;
+        }
+        $path = trim((string) $request->input('path', ''));
+        $path = $path !== '' ? $path : trim((string) $request->input('archive', ''));
+        try {
+            $this->flashJob($this->service->unpack((int) $id, $path));
+        } catch (ValidationException $e) {
+            return $this->backWithErrors($to, $e, $request->all());
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure($to, $e);
+        }
+        return $this->redirectWithSuccess($to, 'Unpacking started. The archive file is only read.');
+    }
+
+    public function archiveForget(Request $request, string $id): Response
+    {
+        return $this->act($request, $id, fn (int $i) => $this->service->forgetArchive($i), 'The unpacked copy was deleted. The archive file itself was not touched.');
+    }
+
     /** The step a migration is on; an earlier step can be opened with ?step= while nothing is running. */
     private function stepFor(array $m, string $want): string
     {
         $natural = match ($m['status']) {
             'draft' => 'connect',
-            'connected', 'discovering' => 'discover',
+            'connected', 'discovering' => MigrationService::isArchive($m) ? 'connect' : 'discover',
             'discovered' => 'select',
             'selected', 'assessed' => 'assess',
             'completed' => 'report',
             default => 'run',
         };
         $order = ['connect' => 1, 'discover' => 2, 'select' => 3, 'assess' => 4];
-        if (isset($order[$want], $order[$natural]) && $order[$want] <= $order[$natural] && !($want === 'discover' && !$m['has_login']) && ($want === 'connect' || $m['has_login'])) {
+        if (isset($order[$want], $order[$natural]) && $order[$want] <= $order[$natural] && !($want === 'discover' && (!$m['has_login'] || MigrationService::isArchive($m))) && ($want === 'connect' || $m['has_login'])) {
             return $want;
         }
         return $natural;

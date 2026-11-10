@@ -27,9 +27,16 @@ $info = (array) ($m['info']['server'] ?? []);
 $sev = ['critical' => ['Critical', 'danger'], 'warning' => ['Warning', 'warning'], 'info' => ['Info', 'secondary']];
 $fmt = static fn (int $kb): string => $kb < 0 ? 'unknown' : ($kb >= 1048576 ? number_format($kb / 1048576, 1) . ' GiB' : ($kb >= 1024 ? number_format($kb / 1024, 0) . ' MiB' : $kb . ' KiB'));
 $running = in_array($m['status'], ['running', 'discovering'], true);
+$isArchive = \NimVor\Services\MigrationService::isArchive($m);
+if ($isArchive) {
+    // A backup archive has no connection and no separate discovery: the first step chooses and unpacks it.
+    $steps = ['connect' => 'Archive'] + array_diff_key($steps, ['connect' => 1, 'discover' => 1]);
+    $order = array_keys($steps);
+    $reached = $m['status'] === 'discovering' ? 'connect' : ($reached === 'discover' ? 'connect' : $reached);
+}
 ?>
 <?php $this->start(); ?>Migration #<?= $id ?><?php $this->end('title'); ?>
-<?php $this->start(); ?><?= e((string) $m['panel']) ?><?= $m['source_host'] !== '' ? ' · ' . e($m['source_user'] . '@' . $m['source_host']) : '' ?><?php $this->end('subtitle'); ?>
+<?php $this->start(); ?><?= $isArchive ? 'cPanel backup archive' . (!empty($m['info']['archive_path']) ? ' · ' . e(basename((string) $m['info']['archive_path'])) : '') : e((string) $m['panel']) . ($m['source_host'] !== '' ? ' · ' . e($m['source_user'] . '@' . $m['source_host']) : '') ?><?php $this->end('subtitle'); ?>
 
 <div class="nim-subtabs mb-3" aria-label="Steps">
     <?php foreach ($steps as $k => $label):
@@ -55,7 +62,41 @@ $running = in_array($m['status'], ['running', 'discovering'], true);
     <?php foreach ((array) $ftpSecrets as $sec): ?><tr><td class="font-monospace"><?= e((string) $sec['login']) ?></td><td class="font-monospace user-select-all"><?= e((string) $sec['password']) ?></td></tr><?php endforeach; ?>
     </tbody></table></div>
 <?php endif; ?>
-<?php if ($step === 'connect'): ?>
+<?php if ($step === 'connect' && $isArchive): ?>
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card"><div class="card-header"><i class="bi bi-file-earmark-zip me-1"></i>Choose the backup archive</div><div class="card-body">
+            <?php if ($m['status'] === 'discovering'): ?>
+                <span class="nim-state is-warn"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Unpacking and reading the archive… this page refreshes by itself.</span>
+            <?php else: ?>
+            <form method="post" action="<?= e($this->url('migrations.archive', ['id' => $id])) ?>" data-nim-busy>
+                <?= $this->csrfField() ?>
+                <?php if ($archives !== []): ?>
+                <div class="mb-3">
+                    <div class="form-label">Archives found on this server</div>
+                    <?php foreach ($archives as $i => $a): ?>
+                    <div class="form-check"><input class="form-check-input" type="radio" name="archive" id="mg-ar-<?= $i ?>" value="<?= e((string) $a['path']) ?>"<?= $i === 0 ? ' checked' : '' ?>><label class="form-check-label" for="mg-ar-<?= $i ?>"><span class="font-monospace"><?= e((string) $a['path']) ?></span> <span class="text-body-secondary small">· <?= e($fmt((int) $a['size_kb'])) ?> · <?= e(substr((string) $a['modified'], 0, 10)) ?></span></label></div>
+                    <?php endforeach; ?>
+                </div>
+                <?php endif; ?>
+                <div class="mb-3"><label class="form-label" for="mg-ar-path"><?= $archives !== [] ? 'Or the full path of another file' : 'The full path of the archive on this server' ?></label><input class="form-control font-monospace<?= $err('path') ?>" id="mg-ar-path" name="path" placeholder="/root/cpmove-username.tar.gz" maxlength="300" autocomplete="off"><?= $fb('path') ?></div>
+                <button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Unpack and read the archive</button>
+            </form>
+            <?php endif; ?>
+        </div></div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card"><div class="card-header"><i class="bi bi-info-circle me-1"></i>About backup archives</div><div class="card-body small">
+            <ul class="mb-0">
+                <li>Make the backup in cPanel (Backup → Download a Full Account Backup, or <code>/scripts/pkgacct USER</code> on the old server) and copy the <code>cpmove-USER.tar.gz</code> or <code>backup-…tar.gz</code> file onto this server under <code>/root</code>, <code>/home</code>, <code>/var/backups</code> or <code>/tmp</code> (for example with <code>scp</code>).</li>
+                <li>The archive is unpacked into a private folder of the NimVor agent, never next to your sites. This needs about twice the archive's size in free disk space.</li>
+                <li>The file itself is only read. Delete the unpacked copy when you are done.</li>
+                <li>A backup is a snapshot: there is nothing to synchronise later, and database users, passwords and SSL certificates are not restored.</li>
+            </ul>
+        </div></div>
+    </div>
+</div>
+<?php elseif ($step === 'connect'): ?>
 <div class="row g-3">
     <div class="col-lg-7">
         <div class="card"><div class="card-header"><i class="bi bi-plug me-1"></i>Connect to the source server</div><div class="card-body">
@@ -343,7 +384,13 @@ $running = in_array($m['status'], ['running', 'discovering'], true);
     <?php endif; ?>
 </div>
 <?php endif; ?>
-<?php if ($canValidate && (!empty((array) ($plan['files'] ?? [])) || !empty((array) ($plan['mail'] ?? []))) && !empty($m['pending_key']['host_key'])): ?>
+<?php if ($isArchive && !empty($m['info']['archive']) && $m['status'] !== 'running'): ?>
+<div class="card mb-3"><div class="card-header"><i class="bi bi-file-earmark-zip me-1"></i>Unpacked archive</div><div class="card-body small">
+    <p>The archive <span class="font-monospace"><?= e(basename((string) ($m['info']['archive_path'] ?? ''))) ?></span> is still unpacked in the agent's private folder. It is only needed while the migration runs or may run again (resume, DNS records). Delete it when you are done; the archive file itself is never touched.</p>
+    <form method="post" action="<?= e($this->url('migrations.archive_forget', ['id' => $id])) ?>" data-nim-confirm="Delete the unpacked copy of the archive? You can unpack the archive again later."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger">Delete the unpacked copy</button></form>
+</div></div>
+<?php endif; ?>
+<?php if (!$isArchive && $canValidate && (!empty((array) ($plan['files'] ?? [])) || !empty((array) ($plan['mail'] ?? []))) && !empty($m['pending_key']['host_key'])): ?>
 <div class="card mb-3"><div class="card-header"><i class="bi bi-arrow-repeat me-1"></i>Synchronise before switching DNS</div><div class="card-body small">
     <p>Copies again <strong>only the website files and mail messages that changed on the source</strong> since the last copy, so the new server is current at the moment you switch. A file that is <strong>newer here</strong> (edited since the migration) is kept, and nothing is deleted. <strong>Databases are not synchronised</strong>: a dump can only be imported into an empty database, so a second import would drop what was written here since. For a site whose database changes, plan a short freeze, or move the database again by hand.</p>
     <form method="post" action="<?= e($this->url('migrations.sync', ['id' => $id])) ?>" autocomplete="off" data-nim-busy class="row g-2">

@@ -175,6 +175,8 @@ return static function (Router $r): void {
     $r->post('/migrations/{id}/dns-import', [\NimVor\Http\Controllers\MigrationsController::class, 'dnsImport'], ['name' => 'migrations.dns_import', 'permission' => P::SERVER_MANAGE]);
     $r->post('/migrations/{id}/ftp', [\NimVor\Http\Controllers\MigrationsController::class, 'ftp'], ['name' => 'migrations.ftp', 'permission' => P::SERVER_MANAGE]);
     $r->post('/migrations/{id}/cron', [\NimVor\Http\Controllers\MigrationsController::class, 'cron'], ['name' => 'migrations.cron', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/migrations/{id}/archive', [\NimVor\Http\Controllers\MigrationsController::class, 'archive'], ['name' => 'migrations.archive', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/migrations/{id}/archive-forget', [\NimVor\Http\Controllers\MigrationsController::class, 'archiveForget'], ['name' => 'migrations.archive_forget', 'permission' => P::SERVER_MANAGE]);
     $r->post('/migrations/{id}/forwarders', [\NimVor\Http\Controllers\MigrationsController::class, 'forwarders'], ['name' => 'migrations.forwarders', 'permission' => P::SERVER_MANAGE]);
     $r->post('/migrations/{id}/forget', [\NimVor\Http\Controllers\MigrationsController::class, 'forget'], ['name' => 'migrations.forget', 'permission' => P::SERVER_MANAGE]);
     $r->post('/migrations/{id}/delete', [\NimVor\Http\Controllers\MigrationsController::class, 'delete'], ['name' => 'migrations.delete', 'permission' => P::SERVER_MANAGE]);
