@@ -1229,6 +1229,65 @@
         if (m && window.bootstrap) { bootstrap.Modal.getOrCreateInstance(m).show(); }
     });
 
+    // Quick-settings windows of the Websites list: a menu link marked data-nim-site-modal loads the window's
+    // HTML into #nim-site-modal; its form (data-nim-site-modal-form) is saved in the background, refused
+    // fields are marked in place, and on success the list is reloaded.
+    (function () {
+        function box() { var m = document.getElementById('nim-site-modal'); return m ? { el: m, body: m.querySelector('[data-nim-site-modal-body]') } : null; }
+        document.addEventListener('click', function (e) {
+            var a = e.target.closest && e.target.closest('[data-nim-site-modal]');
+            if (!a) { return; }
+            var b = box();
+            if (!b || !window.bootstrap) { return; }
+            e.preventDefault();
+            document.querySelectorAll('details[data-nim-menu][open]').forEach(function (d) { d.open = false; });
+            b.body.innerHTML = '<div class="modal-body text-center py-5"><span class="spinner-border" aria-hidden="true"></span></div>';
+            bootstrap.Modal.getOrCreateInstance(b.el).show();
+            fetch(a.getAttribute('href'), { credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch' } })
+                .then(function (r) { return r.text(); })
+                .then(function (html) { b.body.innerHTML = html; })
+                .catch(function () { b.body.innerHTML = '<div class="modal-body text-danger small">The window could not be loaded.</div>'; });
+        });
+        document.addEventListener('submit', function (e) {
+            var f = e.target.closest && e.target.closest('form[data-nim-site-modal-form]');
+            if (!f) { return; }
+            e.preventDefault();
+            var btn = f.querySelector('button[type=submit]'), spin = btn && btn.querySelector('.spinner-border'), err = f.querySelector('[data-nim-modal-error]');
+            f.querySelectorAll('.is-invalid').forEach(function (x) { x.classList.remove('is-invalid'); });
+            f.querySelectorAll('.nim-modal-fb').forEach(function (x) { x.remove(); });
+            if (err) { err.classList.add('d-none'); }
+            if (btn) { btn.disabled = true; }
+            if (spin) { spin.classList.remove('d-none'); }
+            fetch(f.getAttribute('action'), {
+                method: 'POST', body: new FormData(f), credentials: 'same-origin',
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': NimVor.csrfToken() }
+            }).then(function (res) { return res.json().then(function (body) { return { ok: res.ok && body.success !== false, body: body }; }); })
+              .then(function (r) {
+                if (r.ok) {
+                    var b = box();
+                    if (b && window.bootstrap) { bootstrap.Modal.getOrCreateInstance(b.el).hide(); }
+                    if (NimVor.toast) { NimVor.toast(r.body.message || 'Saved.', 'success'); }
+                    setTimeout(function () { window.location.reload(); }, 700);
+                    return;
+                }
+                var er = r.body && r.body.error || {}, fields = er.errors || {};
+                Object.keys(fields).forEach(function (k) {
+                    var inp = f.querySelector('[name="' + k.replace(/"/g, '') + '"]');
+                    if (!inp) { return; }
+                    inp.classList.add('is-invalid');
+                    var m = document.createElement('div'); m.className = 'invalid-feedback d-block nim-modal-fb'; m.textContent = String(fields[k]);
+                    inp.insertAdjacentElement('afterend', m);
+                });
+                if (err) { err.textContent = er.message || 'The change was not saved.'; err.classList.remove('d-none'); }
+            }).catch(function () {
+                if (err) { err.textContent = 'The change could not be sent. Check the connection and try again.'; err.classList.remove('d-none'); }
+            }).finally(function () {
+                if (btn) { btn.disabled = false; }
+                if (spin) { spin.classList.add('d-none'); }
+            });
+        });
+    })();
+
     // Check-list helpers: <button data-nim-check-all="#box"> / data-nim-check-none
     // tick or untick every enabled checkbox inside #box.
     document.addEventListener('click', function (e) {

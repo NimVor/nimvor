@@ -327,14 +327,31 @@ final class SitesController extends Controller
         return $this->render('sites/php', ['site' => $site, 'phpVersions' => $this->service->phpVersions(), 'tab' => 'php', 'profileDefault' => $this->service->defaultPhpProfile()]);
     }
 
+    /**
+     * A website's quick-settings window (the HTML of a Bootstrap modal) for the Websites list.
+     * Only what the person may change is offered.
+     */
+    public function modal(Request $request, string $id, string $kind): Response
+    {
+        $site = $this->site($request, $id);
+        $html = null;
+        if ($site !== null && $kind === 'php' && $site['kind'] === 'php' && \NimVor\Hosting\Scope::isAll($this->user($request))) {
+            $html = $this->view->partial('sites/modal_php', ['site' => $site, 'phpVersions' => $this->service->phpVersions()]);
+        }
+        if ($html === null) {
+            return Response::html('<div class="modal-header"><h2 class="modal-title h5">Not available</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body small">This setting is not available for this website or for your account.</div>', 404);
+        }
+        return Response::html($html);
+    }
+
     public function phpUpdate(Request $request, string $id): Response
     {
         $site = $this->site($request, $id);
         if ($site === null) {
-            return $this->notFound();
+            return $request->wantsJson() ? Response::json(['success' => false, 'error' => ['message' => 'Website not found.']], 404) : $this->notFound();
         }
         if ($site['kind'] !== 'php') {
-            return $this->redirectWithError('/sites/' . (int) $id, 'PHP settings only apply to PHP websites.');
+            return $request->wantsJson() ? Response::json(['success' => false, 'error' => ['message' => 'PHP settings only apply to PHP websites.']], 422) : $this->redirectWithError('/sites/' . (int) $id, 'PHP settings only apply to PHP websites.');
         }
         $to = '/sites/' . (int) $id . '/php';
         // Only PHP settings come from this page; everything else about the
@@ -349,9 +366,18 @@ final class SitesController extends Controller
         try {
             $this->service->update($site, $input, $this->user($request));
         } catch (ValidationException $e) {
+            if ($request->wantsJson()) {
+                return Response::json(['success' => false, 'error' => ['message' => $e->getMessage() !== '' ? $e->getMessage() : 'Check the highlighted fields.', 'errors' => $e->errors()]], 422);
+            }
             return $this->backWithErrors($to, $e, $request->all());
         } catch (UserFacingException $e) {
+            if ($request->wantsJson()) {
+                return Response::json(['success' => false, 'error' => ['message' => $e->getMessage()]], 422);
+            }
             return $this->redirectWithFailure($to, $e);
+        }
+        if ($request->wantsJson()) {
+            return Response::json(['success' => true, 'message' => 'PHP settings saved and applied.']);
         }
         return $this->redirectWithSuccess($to, 'PHP settings saved and applied.');
     }
