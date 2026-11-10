@@ -218,6 +218,7 @@ func RenderPool(s Spec, l Layout) string {
 	if p.RequestTimeoutSec > 0 {
 		fmt.Fprintf(&b, "request_terminate_timeout = %ds\n", p.RequestTimeoutSec)
 	}
+	b.WriteString(poolEnvLines(s.Env))
 	fmt.Fprintf(&b, "chdir = /\ncatch_workers_output = yes\nslowlog = %s\nrequest_slowlog_timeout = %ds\n", filepath.Join(l.LogDir, "php-slow.log"), p.SlowlogSec)
 	// The website's confinement, then NimVor's defaults; the website's own
 	// directives (validated in Normalize) replace defaults they may change.

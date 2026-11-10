@@ -26,6 +26,7 @@ final class WorkerService
         private readonly AuditLogger $audit,
         private readonly ServerContext $server,
         private readonly ?PlanLimits $limits = null,
+        private readonly ?\NimVor\Repositories\SiteEnvRepository $siteEnv = null,
     ) {
     }
 
@@ -219,7 +220,8 @@ final class WorkerService
             'root' => $site['root'],
             'directory' => $worker['directory'],
             'command' => $worker['command'],
-            'env' => (object) $worker['env'],
+            // The website's variables first; the worker's own win.
+            'env' => (object) ($worker['env'] + ($this->siteEnv?->get((int) $site['id']) ?? [])),
             'restart' => $worker['restart'],
             'memory_mb' => (int) $worker['memory_mb'],
             'procs' => max(1, (int) ($worker['procs'] ?? 1)),

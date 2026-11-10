@@ -54,6 +54,7 @@ final class WebsiteService
         private readonly ?DnsService $dns = null,
         private readonly ?SettingsService $settings = null,
         private readonly ?FeatureService $features = null,
+        private readonly ?\NimVor\Repositories\SiteEnvRepository $env = null,
     ) {
     }
 
@@ -653,6 +654,9 @@ final class WebsiteService
         // new_user: it must not exist yet (see checkSystemUser).
         try {
             $spec = self::spec($site, true);
+            if ($this->env !== null && ($vars = $this->env->get((int) $site['id'])) !== []) {
+                $spec['env'] = $vars;
+            }
             // A suspended account's websites are off; their own setting is kept.
             $spec['enabled'] = $spec['enabled'] && empty($site['account_suspended']);
             // Over the plan's monthly bandwidth: the website answers 509.

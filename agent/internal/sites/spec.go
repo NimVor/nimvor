@@ -82,12 +82,14 @@ type Spec struct {
 	Headers *HeaderPolicy `json:"headers,omitempty"`
 	Cache   *CachePolicy  `json:"cache,omitempty"`
 	// Nginx is the administrator's per-website tuning (see NginxTuning).
-	Nginx           *NginxTuning `json:"nginx,omitempty"`
-	CertFile        string       `json:"cert_file"`
-	KeyFile         string       `json:"key_file"`
-	Enabled         bool         `json:"enabled"`
-	Redirects       []Redirect   `json:"redirects"`
-	ClientMaxBodyMB int          `json:"client_max_body_mb"`
+	Nginx *NginxTuning `json:"nginx,omitempty"`
+	// Env are the website's environment variables (see siteenv.go).
+	Env             map[string]string `json:"env,omitempty"`
+	CertFile        string            `json:"cert_file"`
+	KeyFile         string            `json:"key_file"`
+	Enabled         bool              `json:"enabled"`
+	Redirects       []Redirect        `json:"redirects"`
+	ClientMaxBodyMB int               `json:"client_max_body_mb"`
 	// Autoindex lists the files of folders without an index page (nginx
 	// autoindex); off by default.
 	Autoindex bool `json:"autoindex,omitempty"`
@@ -271,6 +273,12 @@ func (s *Spec) Normalize(sitesRoot, stateDir string) error {
 		if err := s.Cache.normalize(); err != nil {
 			return err
 		}
+	}
+	if err := normalizeEnv(s.Env); err != nil {
+		return err
+	}
+	if err := normalizeEnv(s.Env); err != nil {
+		return err
 	}
 	if s.Nginx != nil {
 		if err := s.Nginx.normalize(s.Kind); err != nil {
