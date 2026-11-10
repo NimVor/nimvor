@@ -226,6 +226,96 @@ final class MailService
     }
 
     /**
+     * The domain's own mail names (mail.<domain>, webmail.<domain>) as the agent knows them; empty when
+     * the agent cannot answer.
+     *
+     * @param array<string, mixed> $domain
+     * @return array<string, mixed>
+     */
+    public function namesStatus(array $domain): array
+    {
+        try {
+            return (array) $this->agent->call('mail.names_status', ['domain' => $domain['domain']]);
+        } catch (AgentException) {
+            return [];
+        }
+    }
+
+    /**
+     * DNS records the two names need: both point at this server.
+     *
+     * @param array<string, mixed> $domain
+     * @return list<array{name: string, type: string, value: string, priority: int, note: string}>
+     */
+    public function namesDnsRecords(array $domain): array
+    {
+        $ip = $this->dns->serverIpv4();
+        if ($ip === null) {
+            return [];
+        }
+        return [
+            ['name' => 'mail', 'type' => 'A', 'value' => $ip, 'priority' => 0, 'note' => 'IMAP and SMTP for ' . $domain['domain'] . ' (mail.' . $domain['domain'] . ').'],
+            ['name' => 'webmail', 'type' => 'A', 'value' => $ip, 'priority' => 0, 'note' => 'Webmail for ' . $domain['domain'] . ' (webmail.' . $domain['domain'] . ').'],
+        ];
+    }
+
+    /**
+     * Add the A records of the two names to the domain's DNS zone on this panel, when there is one.
+     *
+     * @param array<string, mixed> $domain
+     * @param array<string, mixed> $actor
+     */
+    public function publishNamesDns(array $domain, array $actor): int
+    {
+        $zone = null;
+        foreach ($this->dns->zones($actor) as $z) {
+            if ($z['name'] === $domain['domain']) {
+                $zone = $this->dns->zone((int) $z['id'], $actor);
+            }
+        }
+        if ($zone === null) {
+            return 0;
+        }
+        $existing = $this->dns->records((int) $zone['id']);
+        $added = 0;
+        foreach ($this->namesDnsRecords($domain) as $r) {
+            foreach ($existing as $e) {
+                if ($e['name'] === $r['name'] && in_array($e['type'], ['A', 'AAAA', 'CNAME'], true)) {
+                    continue 2; // the name already points somewhere: it is not changed
+                }
+            }
+            $this->dns->saveRecord($zone, null, $r + ['ttl' => 0]);
+            $added++;
+        }
+        return $added;
+    }
+
+    /**
+     * Give the domain its own mail names with a certificate of their own (a background job on the agent).
+     *
+     * @param array<string, mixed> $domain
+     */
+    public function enableNames(array $domain, string $email): string
+    {
+        $res = (array) $this->agent->call('mail.names_enable', ['domain' => $domain['domain'], 'email' => MailService::usableEmail($email)], 120);
+        $this->audit->record('mail.names_enable', 'mail_domain', (string) $domain['id'], AuditLogger::SUCCESS, ['domain' => $domain['domain']]);
+        return (string) ($res['job_id'] ?? '');
+    }
+
+    /** @param array<string, mixed> $domain */
+    public function disableNames(array $domain): void
+    {
+        $this->agent->call('mail.names_disable', ['domain' => $domain['domain']], 120);
+        $this->audit->record('mail.names_disable', 'mail_domain', (string) $domain['id'], AuditLogger::SUCCESS, ['domain' => $domain['domain']]);
+    }
+
+    /** The address for certificate notices when it is a plain address, else none. */
+    public static function usableEmail(string $email): string
+    {
+        return preg_match('/^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,}$/', $email) === 1 ? $email : '';
+    }
+
+    /**
      * Remove a website's mail domain with its mailboxes and aliases when the
      * website is deleted. A failure stops the website's deletion.
      *

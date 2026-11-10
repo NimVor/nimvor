@@ -171,6 +171,7 @@ final class MailController extends Controller
         $host = (string) ($status['hostname'] ?? '');
         return $this->render('mail/domain', [
             'domain' => $domain, 'mailboxes' => $this->mail->mailboxes((int) $domain['id']), 'aliases' => $this->mail->aliases((int) $domain['id']),
+            'names' => $this->mail->namesStatus($domain), 'namesRecords' => $this->mail->namesDnsRecords($domain),
             'records' => $this->mail->dnsRecords($domain, $host), 'host' => $host, 'sizes' => $sizes, 'webmail' => (array) ($status['webmail'] ?? []),
             'secret' => $this->session->pullFlash('secret'), 'edit' => (int) $request->query('edit', 0),
             // The website this domain belongs to, when the user may see it: the page then keeps its menu.
@@ -193,6 +194,33 @@ final class MailController extends Controller
         return $this->domainAct($request, $id, function (array $domain) use ($request): string {
             $n = $this->mail->publishDns($domain, (string) ($this->mail->status()['hostname'] ?? ''), $this->user($request));
             return $n > 0 ? $n . ' record(s) added to the DNS zone.' : 'The DNS zone already has these records.';
+        });
+    }
+
+    public function namesOn(Request $request, string $id): Response
+    {
+        if (!\NimVor\Hosting\Scope::isAll($this->user($request))) {
+            return $this->redirectWithError('/mail/domains/' . (int) $id, 'Only administrators can change a domain\'s mail names.');
+        }
+        return $this->domainAct($request, $id, function (array $domain) use ($request): string {
+            $added = $this->mail->publishNamesDns($domain, $this->user($request));
+            $job = $this->mail->enableNames($domain, (string) ($this->user($request)['email'] ?? ''));
+            if ($job !== '') {
+                $this->jobs->track($job, 'Mail names for ' . $domain['domain'], 'mail_domain', (string) $domain['id'], $this->userId($request));
+                $this->flashJob($job);
+            }
+            return 'Getting the certificate for mail.' . $domain['domain'] . ' and webmail.' . $domain['domain'] . '.' . ($added > 0 ? ' ' . $added . ' DNS record(s) were added to the zone.' : '');
+        });
+    }
+
+    public function namesOff(Request $request, string $id): Response
+    {
+        if (!\NimVor\Hosting\Scope::isAll($this->user($request))) {
+            return $this->redirectWithError('/mail/domains/' . (int) $id, 'Only administrators can change a domain\'s mail names.');
+        }
+        return $this->domainAct($request, $id, function (array $domain): string {
+            $this->mail->disableNames($domain);
+            return 'The domain uses the server\'s host name for mail again.';
         });
     }
 
