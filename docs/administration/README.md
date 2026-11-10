@@ -302,6 +302,24 @@ process limits and security profile, and the website's own `php.ini` directives.
 **Settings** keeps domains, application type, the document root and request
 limits.
 
+### Quick PHP-FPM and Nginx settings (Websites list, administrators)
+
+The three-dot menu of each website on **Websites** has **PHP-FPM** (PHP
+websites) and **Nginx** entries that open a window. Both are for
+administrators only; customers keep the pages they already have.
+
+* **PHP-FPM** saves through the same validated path as the PHP settings page.
+* **Nginx** stores per-website tuning (`websites.nginx_settings`): read, send,
+  request-body and keep-alive timeouts, the PHP response buffer, gzip on/off
+  and level, a per-connection speed limit, and up to 20 extra directives from
+  a fixed allowlist (buffer sizes, timeouts, gzip details). Values may contain
+  only letters, digits and `. _ : / * + -`, so a line can never carry a
+  variable, brace, quote or semicolon, and `root`, `include`, `location`,
+  `alias` and the like are refused. The panel checks the fields and the agent
+  checks them again when it renders the website's Nginx file; the new file is
+  tested with `nginx -t` and the previous one is restored if Nginx refuses it.
+  Empty fields keep the server-wide values.
+
 ### Security headers and cache rules (per website)
 
 **Headers & cache** (website → *Headers & cache*, permission

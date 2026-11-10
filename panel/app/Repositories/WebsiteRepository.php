@@ -186,7 +186,7 @@ final class WebsiteRepository
      */
     private function hydrate(array $row): array
     {
-        foreach (['php_settings' => [], 'redirects' => [], 'web_policy' => []] as $k => $default) {
+        foreach (['php_settings' => [], 'redirects' => [], 'web_policy' => [], 'nginx_settings' => []] as $k => $default) {
             $v = json_decode((string) ($row[$k] ?? ''), true);
             $row[$k] = is_array($v) ? $v : $default;
         }
