@@ -302,6 +302,23 @@ process limits and security profile, and the website's own `php.ini` directives.
 **Settings** keeps domains, application type, the document root and request
 limits.
 
+### Environment variables (per website)
+
+Website → **Environment** (permission `websites.manage`: the website's owner or
+an administrator) and the **Environment** entry of the Websites list's
+three-dot menu edit a website's variables as `NAME=value` lines (`#` starts a
+comment; `export` is accepted; a value may be wrapped in single or double
+quotes). The panel stores the set encrypted (`site_env`), never logs or audits
+values, and sends it with the website's spec on every apply. The agent
+validates again (names `^[A-Z][A-Z0-9_]{0,63}$`, at most 100 variables of 4096
+characters, no reserved names such as `PATH`, `HOME`, `LD_*`, `PHP*`,
+`HTTP_*`, `SERVER_*`, `NIMVOR_*`; no single quote or control character in a
+value) and writes `env[NAME] = 'value'` lines into the website's PHP-FPM pool,
+which is owned by root and not readable by website accounts. Background
+workers of the website receive the same variables (the worker's own win) and
+are re-applied when the set changes. A refused change restores the previous
+variables.
+
 ### Quick PHP-FPM and Nginx settings (Websites list, administrators)
 
 The three-dot menu of each website on **Websites** has **PHP-FPM** (PHP

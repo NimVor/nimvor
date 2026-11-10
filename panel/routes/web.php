@@ -27,6 +27,7 @@ use NimVor\Http\Controllers\ProfileController;
 use NimVor\Http\Controllers\RolesController;
 use NimVor\Http\Controllers\ServerController;
 use NimVor\Http\Controllers\SettingsController;
+use NimVor\Http\Controllers\SiteEnvController;
 use NimVor\Http\Controllers\SitesController;
 use NimVor\Http\Controllers\SslController;
 use NimVor\Http\Controllers\JobsController;
@@ -87,6 +88,9 @@ return static function (Router $r): void {
     $r->post('/sites/{id}/settings', [SitesController::class, 'update'], ['name' => 'sites.update', 'permission' => P::WEBSITES_MANAGE]);
     $r->get('/sites/{id}/modal/{kind}', [SitesController::class, 'modal'], ['name' => 'sites.modal', 'permission' => P::WEBSITES_MANAGE]);
     $r->get('/sites/{id}/php', [SitesController::class, 'php'], ['name' => 'sites.php', 'permission' => P::WEBSITES_MANAGE]);
+    $r->get('/sites/{id}/env', [SiteEnvController::class, 'show'], ['name' => 'sites.env', 'permission' => P::WEBSITES_MANAGE]);
+    $r->get('/sites/{id}/env/window', [SiteEnvController::class, 'modal'], ['name' => 'sites.env.window', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/env', [SiteEnvController::class, 'update'], ['name' => 'sites.env.update', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/nginx', [SitesController::class, 'nginxUpdate'], ['name' => 'sites.nginx.update', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/php', [SitesController::class, 'phpUpdate'], ['name' => 'sites.php.update', 'permission' => P::WEBSITES_MANAGE]);
     $r->get('/sites/{id}/redirects', [\NimVor\Http\Controllers\RedirectsController::class, 'show'], ['name' => 'sites.redirects', 'permission' => P::WEBSITES_MANAGE]);
