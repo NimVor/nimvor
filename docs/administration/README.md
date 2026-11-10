@@ -1685,13 +1685,64 @@ syntax, and mail is stored the same way (Maildir, INBOX at its root).
 
 ## DNS
 
-*DNS* serves zones from this server's BIND. An administrator installs BIND
+*DNS* serves zones from this server's nameserver (BIND until another is chosen, see below). An administrator installs BIND
 and sets it up once: NimVor adds a single `include` line for its own zone
 list to BIND's configuration (`/etc/bind/named.conf.local`, after
 confirmation, with a backup), validates with `named-checkconf`, starts
 BIND and opens port 53 when the firewall is on. Set *DNS name servers*
 (and optionally the hostmaster address and the default IPv4 for new
 zones) under *Settings*.
+
+### Nameserver selection and DNSSEC
+
+NimVor can serve the zones with **PowerDNS**, **NSD**, **Knot DNS** or **BIND**
+(Server → DNS → *Nameserver selection*, administrators). All four serve the
+same zone files, written by the agent into the zone folder, so switching
+keeps every zone; only the daemon and its configuration change. BIND stays
+the default until another is chosen.
+
+| | PowerDNS | NSD | Knot DNS | BIND |
+|---|---|---|---|---|
+| How NimVor wires its zones in | a drop-in (`pdns.d/nimvor.conf`; on RHEL a marked block in `pdns.conf`) pointing the BIND backend at NimVor's zone list | a drop-in (`nsd.conf.d/nimvor.conf`; on RHEL a marked block in `nsd.conf`) that includes NimVor's zone list | takes over `knot.conf` (the original is kept as `knot.conf.pre-nimvor`) | one `include` line in the package file |
+| Checked with | `pdns_server --config=check`, `pdnsutil check-zone` | `nsd-checkconf`, `nsd-checkzone` | `knotc conf-check`, `kzonecheck` | `named-checkconf`, `named-checkzone` |
+| A changed zone | `pdns_control bind-reload-now` | reload | `knotc zone-reload` | `rndc reload` |
+| A new or removed zone | `pdns_control reload` | restart | `knotc reload` | `rndc reconfig` |
+| DNSSEC | yes | no | yes | yes (BIND 9.16 or newer) |
+
+Choosing a nameserver is a job: it installs the packages when needed, writes
+the new daemon's configuration for the existing zone files and checks it
+with the daemon's own checker, then stops the previous nameserver, starts
+the new one and asks it for every zone (up to ten). Anything failing puts
+the previous nameserver back with the same zones, and the new
+configuration is removed. Nothing is recorded until the new nameserver
+answers. The page asks for confirmation when a package file is changed or
+taken over, and when zones are signed (see below).
+
+Details worth knowing: PowerDNS listens on IPv6 only where the machine has
+it (it refuses to start otherwise); a zone's secondaries are PowerDNS
+metadata (`ALLOW-AXFR-FROM`, `ALSO-NOTIFY`) rather than lines in the list;
+Knot is told not to keep a journal of the zone (it reloads the file whole,
+and a journal that ran ahead of the file would be served instead of it).
+
+**DNSSEC** (zone page → *DNSSEC*, or Server → DNS) signs a zone with the
+nameserver in use and shows the **DS records** to publish at the domain's
+registrar; until they are published the signatures are not validated. PowerDNS signs with
+`pdnsutil secure-zone` (one ECDSA P-256 key); Knot with a `dnssec-policy` (ECDSA P-256, automatic
+rollover of the zone-signing key); BIND with `dnssec-policy` and inline signing (the zone file stays
+unsigned and the signed copy is BIND's; on systems with AppArmor NimVor adds one line to
+`/etc/apparmor.d/local/usr.sbin.named` so BIND may write next to the zone files). NSD cannot
+sign zones, so the page says so. Turning DNSSEC off keeps the keys; **remove the DS record at
+the registrar first**, or validating resolvers stop resolving the domain. Switching the nameserver
+cannot move keys: signed zones are signed again with new keys (PowerDNS, Knot, BIND) or become unsigned
+(NSD), and the DS record at the registrar must be replaced; the page asks for confirmation first.
+A signed zone may be served with a higher serial than the zone file (signing raises it); NimVor
+accepts that when it checks that the nameserver serves the change.
+
+Tested on Ubuntu 24.04 with the real daemons (BIND 9.18, NSD 4.8, Knot 3.3,
+PowerDNS 4.8): switching through all four, changing a zone on each, and
+signing on PowerDNS, Knot and BIND. The Red Hat family's package paths
+(`/etc/pdns/pdns.conf`, `/etc/nsd/nsd.conf`, SELinux for BIND signing) are
+written from the packages' documentation and not yet tried.
 
 A zone belongs to a website (customers create zones only for their own
 websites' domains) or, for administrators, stands alone. The usual records

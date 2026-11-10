@@ -149,6 +149,17 @@ type Managed struct {
 	DNSZoneDir  string `json:"dns_zone_dir"`
 	DNSUser     string `json:"dns_user"`
 	DNSUnit     string `json:"dns_unit"`
+	// The other nameservers a server can choose (NSD, Knot DNS, PowerDNS):
+	// the file NimVor wires its zones into (a drop-in that is wholly
+	// NimVor's when ...DropIn is set, else a marked block in the package
+	// file), the main configuration file to check, the service unit and,
+	// for PowerDNS, where its DNSSEC database lives.
+	NSDConf, NSDMain, NSDUnit string
+	NSDDropIn                 bool
+	KnotConf, KnotUnit        string
+	PDNSConf, PDNSUnit        string
+	PDNSDropIn                bool
+	PDNSStateDir              string
 	// Email: NimVor's own files (MailDir), mail storage (VmailDir), the
 	// Postfix and Dovecot package files changed after confirmation, and
 	// NimVor's Dovecot drop-in.
