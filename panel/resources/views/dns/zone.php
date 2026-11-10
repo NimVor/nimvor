@@ -204,3 +204,44 @@ $sortLink = fn (string $k): string => $this->url('dns.zone', ['id' => $id], $k =
     </div>
 </div>
 <?php endif; ?>
+<?php if ($this->serverScope() && ($dnssec ?? null) !== null): ?>
+<?php
+$algNames = [8 => 'RSA/SHA-256', 10 => 'RSA/SHA-512', 13 => 'ECDSA P-256/SHA-256', 14 => 'ECDSA P-384/SHA-384', 15 => 'Ed25519', 16 => 'Ed448'];
+$digestNames = [1 => 'SHA-1', 2 => 'SHA-256', 4 => 'SHA-384'];
+?>
+<div class="card mt-3" id="dnssec">
+    <div class="card-header"><i class="bi bi-shield-lock me-1"></i>DNSSEC <?php if ($dnssec['enabled']): ?><span class="badge text-bg-success ms-1">Signed</span><?php endif; ?></div>
+    <div class="card-body">
+        <?php if (!$dnssec['supported']): ?>
+            <p class="small mb-0"><?= e($dnssec['reason'] !== '' ? $dnssec['reason'] : 'The nameserver in use cannot sign zones.') ?> <?php if ($this->hasRoute('dns.nameserver')): ?><a href="<?= e($this->url('dns.nameserver')) ?>">Nameserver selection</a><?php endif; ?></p>
+        <?php elseif (!$dnssec['enabled']): ?>
+            <p class="small">DNSSEC signs this zone's answers so resolvers can tell they were not changed on the way. <?= e($dnssec['backend_label']) ?> creates the keys and signs on its own. After turning it on, publish the <strong>DS record</strong> shown here at the domain's registrar; until then the signatures are not checked by anyone.</p>
+            <form method="post" action="<?= e($this->url('dns.dnssec.on', ['id' => $id])) ?>" data-nim-busy><?= $this->csrfField() ?><button class="btn btn-sm btn-primary"><i class="bi bi-shield-check me-1"></i>Turn on DNSSEC</button></form>
+        <?php else: ?>
+            <p class="small">Signed by <?= e($dnssec['backend_label']) ?>. Publish <strong>one</strong> of these DS records at the registrar of <code><?= e($zoneName) ?></code> (SHA-256 is the usual choice). Resolvers that check DNSSEC trust this zone once it is there.</p>
+            <?php if ($dnssec['ds'] === []): ?>
+                <p class="small text-body-secondary"><?= e($dnssec['ds_error'] !== '' ? $dnssec['ds_error'] : 'The DS record is not available yet. Open this page again in a moment.') ?></p>
+            <?php else: ?>
+                <div class="table-responsive"><table class="table table-sm small align-middle">
+                    <thead><tr><th>Key tag</th><th>Algorithm</th><th>Digest type</th><th>Digest</th></tr></thead>
+                    <tbody>
+                    <?php foreach ($dnssec['ds'] as $d): ?>
+                        <tr>
+                            <td><?= (int) $d['key_tag'] ?></td>
+                            <td><?= e(($algNames[(int) $d['algorithm']] ?? 'Algorithm') . ' (' . (int) $d['algorithm'] . ')') ?></td>
+                            <td><?= e(($digestNames[(int) $d['digest_type']] ?? 'Digest') . ' (' . (int) $d['digest_type'] . ')') ?></td>
+                            <td><code class="user-select-all text-break"><?= e((string) $d['digest']) ?></code></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table></div>
+                <p class="small text-body-secondary">As one line for registrars that ask for it: <code class="user-select-all"><?= e((string) $dnssec['ds'][0]['key_tag'] . ' ' . (string) $dnssec['ds'][0]['algorithm'] . ' ' . (string) $dnssec['ds'][0]['digest_type'] . ' ' . (string) $dnssec['ds'][0]['digest']) ?></code></p>
+            <?php endif; ?>
+            <form method="post" action="<?= e($this->url('dns.dnssec.off', ['id' => $id])) ?>" data-nim-confirm="Turn off DNSSEC for <?= e($zoneName) ?>? Remove its DS record at the registrar first: while it is still there, resolvers that check DNSSEC stop resolving this domain." data-nim-busy>
+                <?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger"><i class="bi bi-shield-x me-1"></i>Turn off DNSSEC</button>
+            </form>
+        <?php endif; ?>
+    </div>
+</div>
+<?php endif; ?>
+
