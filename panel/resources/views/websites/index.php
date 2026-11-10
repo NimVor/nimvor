@@ -179,6 +179,7 @@ $showOwner = $this->can(P::USERS_VIEW);
                                     <summary class="nim-op-more" title="More" aria-label="More actions for <?= e($m['domain']) ?>"><i class="bi bi-three-dots-vertical"></i></summary>
                                     <div class="nim-dropmenu">
                                         <a href="<?= e($this->url('sites.edit', ['id' => $id])) ?>"><i class="bi bi-sliders"></i>Settings</a>
+                                        <?php if ($this->serverScope() && ($m['kind'] ?? '') === 'php' && $this->hasRoute('sites.modal')): ?><a href="<?= e($this->url('sites.modal', ['id' => $id, 'kind' => 'php'])) ?>" data-nim-site-modal><i class="bi bi-cpu"></i>PHP-FPM</a><?php endif; ?>
                                         <?php if ($this->hasRoute('sites.subdomains')): ?><a href="<?= e($this->url('sites.subdomains', ['id' => $id])) ?>"><i class="bi bi-diagram-3"></i>Subdomains</a><?php endif; ?>
                                         <?php if ($this->hasRoute('sites.addons')): ?><a href="<?= e($this->url('sites.addons', ['id' => $id])) ?>"><i class="bi bi-plus-square"></i>Addon domains</a><?php endif; ?>
                                         <a href="<?= e($this->url('sites.advanced', ['id' => $id])) ?>"><i class="bi bi-tools"></i>Advanced</a>
@@ -272,3 +273,8 @@ $showOwner = $this->can(P::USERS_VIEW);
     </div>
     <div class="nim-pager" data-nim-dt-pager></div>
 </div>
+<?php if ($canCreate): ?>
+<div class="modal fade" id="nim-site-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content" data-nim-site-modal-body></div></div>
+</div>
+<?php endif; ?>

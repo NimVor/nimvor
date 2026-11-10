@@ -85,6 +85,7 @@ return static function (Router $r): void {
     $r->post('/sites/{id}/addons', [SitesController::class, 'storeAddon'], ['name' => 'sites.addons.store', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/convert', [\NimVor\Http\Controllers\AddonConversionController::class, 'convert'], ['name' => 'sites.convert', 'permission' => P::USERS_MANAGE]);
     $r->post('/sites/{id}/settings', [SitesController::class, 'update'], ['name' => 'sites.update', 'permission' => P::WEBSITES_MANAGE]);
+    $r->get('/sites/{id}/modal/{kind}', [SitesController::class, 'modal'], ['name' => 'sites.modal', 'permission' => P::WEBSITES_MANAGE]);
     $r->get('/sites/{id}/php', [SitesController::class, 'php'], ['name' => 'sites.php', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/php', [SitesController::class, 'phpUpdate'], ['name' => 'sites.php.update', 'permission' => P::WEBSITES_MANAGE]);
     $r->get('/sites/{id}/redirects', [\NimVor\Http\Controllers\RedirectsController::class, 'show'], ['name' => 'sites.redirects', 'permission' => P::WEBSITES_MANAGE]);
