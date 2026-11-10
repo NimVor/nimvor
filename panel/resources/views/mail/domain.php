@@ -20,6 +20,14 @@ $site ??= null;
 $openMailbox = isset($errors['local']) || isset($errors['password']);
 $openAlias = isset($errors['alias_local']) || isset($errors['destinations']);
 $webmailUrl = !empty($webmail['enabled']) && !empty($webmail['hostname']) ? 'https://' . $webmail['hostname'] . '/' : null;
+$names ??= [];
+$namesRecords ??= [];
+$namesOn = !empty($names['enabled']);
+$namesReady = $namesOn && !empty($names['cert_ready']);
+$clientHost = $namesReady ? (string) $names['mail_host'] : $host;
+if ($namesReady && !empty($webmail['enabled'])) {
+    $webmailUrl = 'https://' . $names['webmail_host'] . '/';
+}
 ?>
 <?php if ($site !== null): ?>
     <?= $this->partial('sites/header', ['site' => $site, 'tab' => 'mail']) ?>
@@ -178,13 +186,37 @@ $webmailUrl = !empty($webmail['enabled']) && !empty($webmail['hostname']) ? 'htt
         </div>
     </div>
     <div class="col-xl-5">
+        <div class="card mb-3" id="mail-names">
+            <div class="card-header"><i class="bi bi-at me-1"></i>Mail names <?php if ($namesReady): ?><span class="badge text-bg-success ms-1">on</span><?php elseif ($namesOn): ?><span class="badge text-bg-warning ms-1">waiting for the certificate</span><?php endif; ?></div>
+            <div class="card-body small">
+                <?php if ($names === []): ?>
+                    <p class="text-body-secondary mb-0">The mail server could not be asked about this domain's mail names.</p>
+                <?php elseif ($namesReady): ?>
+                    <p>Mail apps can use <code><?= e((string) $names['mail_host']) ?></code>, and webmail answers at <code><?= e((string) $names['webmail_host']) ?></code>, both with a certificate of their own<?= !empty($names['cert_days']) ? ' (renewed automatically, ' . (int) $names['cert_days'] . ' days left)' : '' ?>. The server's own host name still works.</p>
+                    <?php if ($this->serverScope()): ?>
+                    <form method="post" action="<?= e($this->url('mail.names.off', ['id' => $id])) ?>" data-nim-confirm="Turn off the mail names of <?= e($dom) ?>? Mail apps using them must switch back to <?= e($host) ?>."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary">Turn off</button></form>
+                    <?php endif; ?>
+                <?php else: ?>
+                    <p>Give <?= e($dom) ?> its own <code>mail.<?= e($dom) ?></code> (IMAP and SMTP) and <code>webmail.<?= e($dom) ?></code> with a free Let's Encrypt certificate, so mail apps and browsers show your customer's own name with no certificate warning. Today they use <code><?= e($host) ?></code>.</p>
+                    <?php if ($namesRecords !== []): ?>
+                    <p class="mb-2">Both names must point to this server. NimVor adds these records to the domain's DNS zone here when it has one; otherwise add them at your DNS provider first:</p>
+                    <?php foreach ($namesRecords as $r): ?><div><span class="badge text-bg-light border"><?= e($r['type']) ?></span> <code><?= e($r['name'] . '.' . $dom) ?></code> → <code><?= e($r['value']) ?></code></div><?php endforeach; ?>
+                    <?php endif; ?>
+                    <?php if ($this->serverScope()): ?>
+                    <form method="post" action="<?= e($this->url('mail.names.on', ['id' => $id])) ?>" class="mt-3" data-nim-busy><?= $this->csrfField() ?><button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><?= $namesOn ? 'Try the certificate again' : 'Turn on mail names' ?></button></form>
+                    <?php else: ?>
+                    <p class="text-body-secondary mb-0 mt-2">An administrator can turn this on.</p>
+                    <?php endif; ?>
+                <?php endif; ?>
+            </div>
+        </div>
         <div class="card mb-3" id="mail-clients">
             <div class="card-header"><i class="bi bi-phone me-1"></i>Mail app settings</div>
             <div class="card-body small">
                 <dl class="row mb-0">
                     <dt class="col-4">User name</dt><dd class="col-8">the full address</dd>
-                    <dt class="col-4">Incoming</dt><dd class="col-8">IMAP <code><?= e($host) ?></code> port 993, SSL/TLS</dd>
-                    <dt class="col-4">Outgoing</dt><dd class="col-8">SMTP <code><?= e($host) ?></code> port 587, STARTTLS, with sign-in</dd>
+                    <dt class="col-4">Incoming</dt><dd class="col-8">IMAP <code><?= e($clientHost) ?></code> port 993, SSL/TLS</dd>
+                    <dt class="col-4">Outgoing</dt><dd class="col-8">SMTP <code><?= e($clientHost) ?></code> port 587, STARTTLS, with sign-in</dd>
                     <?php if ($webmailUrl !== null): ?>
                     <dt class="col-4">Webmail</dt><dd class="col-8 mb-0"><a href="<?= e($webmailUrl) ?>" target="_blank" rel="noopener"><?= e($webmailUrl) ?></a></dd>
                     <?php endif; ?>

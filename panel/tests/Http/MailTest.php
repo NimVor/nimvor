@@ -126,6 +126,50 @@ final class MailTest extends HttpTestCase
         self::assertSame($calls, $this->calls('dns.zone_apply'));
     }
 
+    public function testAnAdministratorGivesADomainItsOwnMailNames(): void
+    {
+        $this->app->container->get(SettingsService::class)->update(['dns_nameservers' => 'ns1.host.test'], null);
+        $this->agent->succeed('dns.zone_apply', ['serial' => 2026090101, 'loaded' => true]);
+        $this->agent->succeed('net.addresses', ['addresses' => [['address' => '203.0.113.9', 'family' => 4, 'scope' => 'global']]]);
+        $this->agent->succeed('mail.names_status', ['domain' => 'shop.test', 'enabled' => false, 'mail_host' => 'mail.shop.test', 'webmail_host' => 'webmail.shop.test', 'sni_supported' => true, 'webmail_enabled' => true]);
+        $this->agent->succeed('mail.names_enable', ['job_id' => 'aaaaaaaaaaaaaaaa', 'mail_host' => 'mail.shop.test', 'webmail_host' => 'webmail.shop.test']);
+        $this->agent->succeed('mail.names_disable', ['enabled' => false]);
+        $this->login('admin');
+        $this->post('/dns/zones', ['website_id' => (string) $this->siteId, 'template' => '1']);
+        $this->post('/mail/domains', ['website_id' => (string) $this->siteId]);
+        $id = (int) $this->db->scalar("SELECT id FROM mail_domains WHERE domain = 'shop.test'");
+        $page = $this->request('GET', '/mail/domains/' . $id)->body();
+        self::assertStringContainsString('Turn on mail names', $page);
+        self::assertStringContainsString('mail.shop.test', $page);
+        self::assertStringContainsString('IMAP <code>mail.host.test</code>', $page, 'mail apps still use the server name until the names work');
+
+        $this->post('/mail/domains/' . $id . '/names');
+        self::assertSame('shop.test', $this->lastCall('mail.names_enable')['domain']);
+        self::assertSame('admin@example.test', $this->lastCall('mail.names_enable')['email'], 'the administrator gets the certificate notices');
+        $records = array_map(static fn (array $r): string => $r['name'] . ' ' . $r['type'] . ' ' . $r['value'], $this->lastCall('dns.zone_apply')['records']);
+        self::assertContains('mail A 203.0.113.9', $records);
+        self::assertContains('webmail A 203.0.113.9', $records);
+        self::assertStringContainsString('Getting the certificate', (string) $this->flash('success'));
+
+        // With the certificate in place the page offers the domain's own names to mail apps and for webmail.
+        $this->agent->succeed('mail.names_status', ['domain' => 'shop.test', 'enabled' => true, 'cert_ready' => true, 'cert_days' => 80, 'mail_host' => 'mail.shop.test', 'webmail_host' => 'webmail.shop.test', 'sni_supported' => true, 'webmail_enabled' => true]);
+        $this->agent->succeed('mail.status', ['installed' => ['postfix' => true, 'dovecot' => true, 'imap' => true, 'lmtp' => true, 'opendkim' => true], 'configured' => true, 'hostname' => 'mail.host.test', 'running' => ['postfix' => true, 'dovecot' => true, 'opendkim' => true], 'domains' => [], 'mailboxes' => [], 'aliases' => [], 'webmail' => ['enabled' => true, 'hostname' => 'webmail.host.test']]);
+        $page = $this->request('GET', '/mail/domains/' . $id)->body();
+        self::assertStringContainsString('IMAP <code>mail.shop.test</code> port 993', $page);
+        self::assertStringContainsString('SMTP <code>mail.shop.test</code> port 587', $page);
+        self::assertStringContainsString('https://webmail.shop.test/', $page);
+        $this->post('/mail/domains/' . $id . '/names/off');
+        self::assertSame('shop.test', $this->lastCall('mail.names_disable')['domain']);
+
+        // A customer cannot change server-wide mail configuration.
+        $before = $this->calls('mail.names_enable');
+        $this->switchTo('cust');
+        $this->post('/mail/domains/' . $id . '/names');
+        $this->post('/mail/domains/' . $id . '/names/off');
+        self::assertSame($before, $this->calls('mail.names_enable'));
+        self::assertSame(1, $this->calls('mail.names_disable'));
+    }
+
     public function testSpamFilter(): void
     {
         $this->login('admin');

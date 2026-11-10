@@ -213,7 +213,7 @@ final class DnsService
     }
 
     /** The server's first global IPv4 address, or null when it cannot be read. */
-    private function serverIpv4(): ?string
+    public function serverIpv4(): ?string
     {
         try {
             foreach ((array) ($this->agent->call('net.addresses')['addresses'] ?? []) as $a) {

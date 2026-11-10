@@ -287,6 +287,8 @@ return static function (Router $r): void {
     $r->post('/mail/domains', [MailController::class, 'store'], ['name' => 'mail.store', 'permission' => P::MAIL_MANAGE]);
     $r->get('/mail/domains/{id}', [MailController::class, 'show'], ['name' => 'mail.domain', 'permission' => P::MAIL_MANAGE]);
     $r->post('/mail/domains/{id}/dns', [MailController::class, 'publishDns'], ['name' => 'mail.dns', 'permission' => P::MAIL_MANAGE]);
+    $r->post('/mail/domains/{id}/names', [MailController::class, 'namesOn'], ['name' => 'mail.names.on', 'permission' => P::MAIL_MANAGE]);
+    $r->post('/mail/domains/{id}/names/off', [MailController::class, 'namesOff'], ['name' => 'mail.names.off', 'permission' => P::MAIL_MANAGE]);
     $r->get('/mail/domains/{id}/dns-check', [MailController::class, 'dnsCheck'], ['name' => 'mail.dns.check', 'permission' => P::MAIL_MANAGE]);
     $r->post('/mail/domains/{id}/mailboxes', [MailController::class, 'saveMailbox'], ['name' => 'mail.mailboxes.store', 'permission' => P::MAIL_MANAGE]);
     $r->post('/mail/domains/{id}/mailboxes/{mailbox}', [MailController::class, 'updateMailbox'], ['name' => 'mail.mailboxes.update', 'permission' => P::MAIL_MANAGE]);
