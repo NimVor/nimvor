@@ -100,6 +100,9 @@ func NewEngine(env *host.Env) *Engine {
 		Env:   env,
 		Store: &Store{Dir: dir},
 		Open: func(src Source) (Puller, error) {
+			if src.Archive != "" {
+				return newArchivePuller(env, src.Archive)
+			}
 			t, err := NewSSH(env, src)
 			if err != nil {
 				return nil, err

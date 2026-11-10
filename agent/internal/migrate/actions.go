@@ -107,6 +107,13 @@ func Register(r *actions.Registry, env *host.Env) {
 		if err := dec(p, &in); err != nil {
 			return nil, err
 		}
+		if in.Source.Archive != "" {
+			text, err := ArchiveZone(env, in.Source.Archive, strings.ToLower(in.Domain))
+			if err != nil {
+				return nil, actions.Failed("The zone file could not be read.", err.Error())
+			}
+			return map[string]any{"domain": strings.ToLower(in.Domain), "text": text}, nil
+		}
 		t, err := e.Open(in.Source)
 		if err != nil {
 			return nil, invalid(err)
@@ -116,6 +123,46 @@ func Register(r *actions.Registry, env *host.Env) {
 			return nil, actions.Failed("The zone file could not be read.", redact(err.Error(), in.Source))
 		}
 		return map[string]any{"domain": strings.ToLower(in.Domain), "text": text}, nil
+	}})
+
+	r.Register(actions.Action{Name: "migrate.archive_list", Description: "List cPanel backup archives (cpmove-*.tar.gz, backup-*.tar.gz) found in /root, /home, /var/backups and /tmp. Only file names are read.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		return map[string]any{"archives": ListArchives(env)}, nil
+	}})
+	r.Register(actions.Action{Name: "migrate.archive_extract", Mutating: true, Description: "Unpack a cPanel backup archive into the agent's private folder and describe what it holds (job). The archive file is only read; every path is confined to the private folder.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			Path string `json:"path"`
+		}
+		if err := dec(p, &in); err != nil {
+			return nil, err
+		}
+		if _, err := checkArchivePath(env, in.Path); err != nil {
+			return nil, invalid(err)
+		}
+		j := env.Jobs.Start("migrate.archive_extract", "migrate:archive:"+in.Path, func(ctx context.Context, log io.Writer) (any, error) {
+			id, err := ExtractArchive(ctx, env, in.Path, log)
+			if err != nil {
+				return nil, err
+			}
+			d, err := DiscoverArchive(env, id, func(s string) { fmt.Fprintln(log, s) })
+			if err != nil {
+				ForgetArchive(env, id)
+				return nil, err
+			}
+			return map[string]any{"archive": id, "discovery": d}, nil
+		})
+		return map[string]any{"job_id": j.ID}, nil
+	}})
+	r.Register(actions.Action{Name: "migrate.archive_forget", Mutating: true, Description: "Delete the unpacked copy of a backup archive (the archive file itself is never touched).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			ID string `json:"id"`
+		}
+		if err := dec(p, &in); err != nil {
+			return nil, err
+		}
+		if err := ForgetArchive(env, in.ID); err != nil {
+			return nil, invalid(err)
+		}
+		return map[string]any{"id": in.ID}, nil
 	}})
 
 	r.Register(actions.Action{Name: "migrate.discover", Description: "Discover the accounts, domains, databases, mailboxes and cron jobs of a source server (job; reads only). The result is the job's result.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
@@ -218,6 +265,9 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		if m.Status != Completed && m.Status != Failed && m.Status != Paused && m.Status != Interrupted {
 			return nil, actions.InvalidParams("a migration that is " + m.Status + " cannot be synchronised")
+		}
+		if in.Source.Archive != "" {
+			return nil, actions.InvalidParams("a backup archive is a snapshot: there is nothing newer to synchronise")
 		}
 		if err := in.Source.Validate(true); err != nil {
 			return nil, invalid(err)

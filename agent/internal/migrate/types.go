@@ -43,6 +43,8 @@ type Source struct {
 	Password   string `json:"password"`
 	PrivateKey string `json:"private_key"`
 	HostKey    string `json:"host_key"` // pinned "ssh-ed25519 AAAA…"
+	// Archive, instead of a host, names an unpacked backup archive on this server (see archive.go).
+	Archive string `json:"archive,omitempty"`
 }
 
 var (
@@ -54,6 +56,12 @@ var (
 // Validate checks the address and the login. needKey requires a pinned
 // host key (everything but the first contact).
 func (s *Source) Validate(needKey bool) error {
+	if s.Archive != "" {
+		if !archiveIDRe.MatchString(s.Archive) || s.Host != "" || s.Password != "" || s.PrivateKey != "" {
+			return fmt.Errorf("a backup archive source is only given by its id")
+		}
+		return nil
+	}
 	h := strings.Trim(s.Host, "[]")
 	if !hostRe.MatchString(h) && net.ParseIP(h) == nil {
 		return fmt.Errorf("host must be a host name or an IP address")
