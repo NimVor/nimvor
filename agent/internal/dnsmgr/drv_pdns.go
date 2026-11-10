@@ -44,19 +44,24 @@ var launchBindRe = regexp.MustCompile(`(?m)^\s*launch\s*\+?=.*\bbind\b`)
 
 func (d pdnsDriver) wire(env *host.Env, p paths, cur string) (string, bool) {
 	settings := fmt.Sprintf("bind-config=%s\nbind-dnssec-db=%s\nbind-check-interval=0\n", p.list, dnssecDB(env))
-	if !hasIPv6(env) {
+	if addrs := listenAddresses(env); addrs != nil {
+		// systemd-resolved holds 127.0.0.53:53: bind the machine's own addresses instead of all of them.
+		settings += "local-address=" + strings.Join(addrs, ", ") + "\n"
+	} else if !hasIPv6(env) {
 		settings += "local-address=0.0.0.0\n"
 	}
+	wired := func(c string) bool { return strings.Contains(c, "bind-config="+p.list) }
 	if env.M.PDNSDropIn {
 		// Debian's own drop-in already launches the BIND backend (a second
 		// launch of it is an error); this one sorts after it and wins.
 		content := "# Managed by NimVor (DNS). Do not edit: changes are overwritten.\n" + settings
-		return content, cur == content
+		return content, wired(cur)
 	}
 	if !launchBindRe.MatchString(strings.ReplaceAll(cur, blockBegin, "")) || hasBlock(cur) {
 		settings = "launch+=bind\n" + settings
 	}
-	return withBlock(cur, settings)
+	next, _ := withBlock(cur, settings)
+	return next, hasBlock(cur) && wired(cur)
 }
 
 func (pdnsDriver) renderList(env *host.Env, p paths, zones []zoneInfo, signed map[string]bool) string {

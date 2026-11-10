@@ -3,6 +3,7 @@ package dnsmgr
 import (
 	"context"
 	"fmt"
+	"net"
 	"regexp"
 	"sort"
 	"strconv"
@@ -219,3 +220,44 @@ func hasBlock(cur string) bool {
 // hasIPv6 reports whether this machine has IPv6 at all: a nameserver told to
 // listen on [::] fails to start where the kernel has none.
 func hasIPv6(env *host.Env) bool { return env.Root.Exists("/proc/net/if_inet6") }
+
+// interfaceAddrs is replaced in tests.
+var interfaceAddrs = net.InterfaceAddrs
+
+// stubHeld reports whether systemd-resolved's stub listener holds 127.0.0.53:53: a nameserver that binds
+// every address on port 53 then fails to start ("address already in use"), where BIND binds one address at a
+// time and carries on.
+func stubHeld(ctx context.Context, env *host.Env) bool {
+	return env.Root.Exists("/run/systemd/resolve/stub-resolv.conf") && env.UnitActive(ctx, "systemd-resolved.service")
+}
+
+// listenAddresses returns the addresses a nameserver should bind to instead of all of them, or nil when it can
+// bind all: every address of this machine except the stub's, link-local ones and other loopback addresses.
+func listenAddresses(env *host.Env) []string {
+	if !stubHeld(context.Background(), env) {
+		return nil
+	}
+	seen := map[string]bool{"127.0.0.1": true}
+	out := []string{"127.0.0.1"}
+	v6 := hasIPv6(env)
+	addrs, _ := interfaceAddrs()
+	for _, a := range addrs {
+		n, ok := a.(*net.IPNet)
+		if !ok {
+			continue
+		}
+		ip := n.IP
+		switch {
+		case ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsMulticast() || ip.IsUnspecified():
+			continue
+		case ip.To4() == nil && !v6:
+			continue
+		}
+		if k := ip.String(); !seen[k] {
+			seen[k] = true
+			out = append(out, k)
+		}
+	}
+	sort.Strings(out)
+	return out
+}

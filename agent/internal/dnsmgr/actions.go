@@ -178,11 +178,17 @@ func configureDriver(ctx context.Context, env *host.Env, d driver, confirm bool)
 	if !already && !confirm {
 		return nil, actions.Conflict(configureMessage(env, p, cur))
 	}
+	// Where the file is NimVor's own (not BIND's package file), a change of the machine's addresses is
+	// written without asking.
+	refresh := already && d.id() != "bind" && content != cur
 	signed := signedZones(env, p)
 	owner := zoneOwner(env, d)
 	set := env.Changes("dns")
 	set.Mkdir(p.dir, zoneDirMode(d, signed), owner)
 	set.Write(p.list, []byte(d.renderList(env, p, listZones(env, p), signed)), 0o640, owner)
+	if refresh {
+		set.Write(p.conf, []byte(content), confMode(env, p), agentfs.Keep)
+	}
 	if !already {
 		if d.wholeFile() && exists && !env.Root.Exists(p.conf+".pre-nimvor") {
 			set.Write(p.conf+".pre-nimvor", []byte(cur), 0o600, agentfs.RootOwner)

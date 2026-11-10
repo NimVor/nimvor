@@ -38,10 +38,20 @@ func (nsdDriver) notes() []string { return []string{"No DNSSEC support in NimVor
 
 func (d nsdDriver) wire(env *host.Env, p paths, cur string) (string, bool) {
 	include := fmt.Sprintf("include: \"%s\"", p.list)
-	if env.M.NSDDropIn {
-		return "# Managed by NimVor (DNS). Do not edit: changes are overwritten.\n" + include + "\n", strings.Contains(cur, include)
+	body := include
+	if addrs := listenAddresses(env); addrs != nil {
+		// systemd-resolved holds 127.0.0.53:53: bind the machine's own addresses instead of all of them.
+		body = "server:\n"
+		for _, a := range addrs {
+			body += "\tip-address: " + a + "\n"
+		}
+		body += include
 	}
-	return withBlock(cur, include)
+	if env.M.NSDDropIn {
+		return "# Managed by NimVor (DNS). Do not edit: changes are overwritten.\n" + body + "\n", strings.Contains(cur, include)
+	}
+	next, _ := withBlock(cur, body)
+	return next, hasBlock(cur) && strings.Contains(cur, include)
 }
 
 func (nsdDriver) renderList(env *host.Env, p paths, zones []zoneInfo, signed map[string]bool) string {

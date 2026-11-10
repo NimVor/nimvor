@@ -28,10 +28,13 @@ func dig(t *testing.T, args ...string) string {
 	return strings.TrimSpace(string(out))
 }
 
+// Run by hand (it is not in CI: it needs all four nameservers installed, so its name does not match the realhost
+// selection): go test -tags realhost -run TestBackendsOnRealDaemons ./internal/dnsmgr
+//
 // Switches the zones through every nameserver (BIND → PowerDNS → NSD → Knot DNS → BIND) on a host that has all
 // four installed (and a way to start and stop them as units), updating a zone and signing it where the
 // nameserver can.
-func TestRealHostBackends(t *testing.T) {
+func TestBackendsOnRealDaemons(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("needs root")
 	}

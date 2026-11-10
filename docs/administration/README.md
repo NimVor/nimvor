@@ -1718,8 +1718,12 @@ configuration is removed. Nothing is recorded until the new nameserver
 answers. The page asks for confirmation when a package file is changed or
 taken over, and when zones are signed (see below).
 
-Details worth knowing: PowerDNS listens on IPv6 only where the machine has
-it (it refuses to start otherwise); a zone's secondaries are PowerDNS
+Details worth knowing: PowerDNS and Knot listen on IPv6 only where the machine has
+it (they refuse to start otherwise); where `systemd-resolved`'s stub holds
+`127.0.0.53:53` (Ubuntu's default) NSD, Knot and PowerDNS bind this machine's own
+addresses instead of all of them (they cannot start otherwise; BIND binds one
+address at a time and carries on) — if the server's addresses change, set the
+DNS server up again to refresh them; a zone's secondaries are PowerDNS
 metadata (`ALLOW-AXFR-FROM`, `ALSO-NOTIFY`) rather than lines in the list;
 Knot is told not to keep a journal of the zone (it reloads the file whole,
 and a journal that ran ahead of the file would be served instead of it).
@@ -1739,7 +1743,7 @@ A signed zone may be served with a higher serial than the zone file (signing rai
 accepts that when it checks that the nameserver serves the change.
 
 Tested on Ubuntu 24.04 with the real daemons (BIND 9.18, NSD 4.8, Knot 3.3,
-PowerDNS 4.8): switching through all four, changing a zone on each, and
+PowerDNS 4.8, with and without a resolver stub on 127.0.0.53; by hand, `go test -tags realhost -run TestBackendsOnRealDaemons ./internal/dnsmgr`): switching through all four, changing a zone on each, and
 signing on PowerDNS, Knot and BIND. The Red Hat family's package paths
 (`/etc/pdns/pdns.conf`, `/etc/nsd/nsd.conf`, SELinux for BIND signing) are
 written from the packages' documentation and not yet tried.

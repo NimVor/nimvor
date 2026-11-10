@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -525,5 +526,62 @@ func TestPowerDNSDatabaseIsCreatedOnce(t *testing.T) {
 	n := len(f.h.Runner.Calls)
 	if err := d.prepare(context.Background(), f.h.Env, pathsFor(f.h.Env, d)); err != nil || len(f.h.Runner.Calls) != n {
 		t.Fatalf("an existing database was created again: %v", err)
+	}
+}
+
+// Ubuntu runs systemd-resolved's stub on 127.0.0.53:53: a nameserver that binds every address on port 53 then
+// fails to start. NimVor binds the machine's own addresses instead (BIND binds one at a time and carries on).
+func TestNameserversAvoidTheResolverStub(t *testing.T) {
+	f := setup(t)
+	env := f.h.Env
+	interfaceAddrs = func() ([]net.Addr, error) {
+		return []net.Addr{
+			&net.IPNet{IP: net.ParseIP("127.0.0.1"), Mask: net.CIDRMask(8, 32)},
+			&net.IPNet{IP: net.ParseIP("127.0.0.53"), Mask: net.CIDRMask(8, 32)},
+			&net.IPNet{IP: net.ParseIP("203.0.113.10"), Mask: net.CIDRMask(24, 32)},
+			&net.IPNet{IP: net.ParseIP("2001:db8::10"), Mask: net.CIDRMask(64, 128)},
+			&net.IPNet{IP: net.ParseIP("fe80::1"), Mask: net.CIDRMask(64, 128)},
+		}, nil
+	}
+	t.Cleanup(func() { interfaceAddrs = net.InterfaceAddrs })
+	if got := listenAddresses(env); got != nil {
+		t.Fatalf("no stub, yet addresses = %v", got)
+	}
+	os.MkdirAll(filepath.Join(f.h.Base, "run/systemd/resolve"), 0o755)
+	os.WriteFile(filepath.Join(f.h.Base, "run/systemd/resolve/stub-resolv.conf"), []byte("nameserver 127.0.0.53\n"), 0o644)
+	// This machine has no IPv6 kernel support (the fixture has no /proc/net/if_inet6): IPv4 only.
+	if got := strings.Join(listenAddresses(env), ","); got != "127.0.0.1,203.0.113.10" {
+		t.Fatalf("addresses = %s", got)
+	}
+	os.MkdirAll(filepath.Join(f.h.Base, "proc/net"), 0o755)
+	os.WriteFile(filepath.Join(f.h.Base, "proc/net/if_inet6"), []byte("x"), 0o644)
+	if got := strings.Join(listenAddresses(env), ","); got != "127.0.0.1,2001:db8::10,203.0.113.10" {
+		t.Fatalf("addresses with IPv6 = %s", got)
+	}
+	nsd, _ := nsdDriver{}.wire(env, pathsFor(env, nsdDriver{}), "")
+	knot, _ := knotDriver{}.wire(env, pathsFor(env, knotDriver{}), "")
+	pdns, _ := pdnsDriver{}.wire(env, pathsFor(env, pdnsDriver{}), "")
+	for name, want := range map[string][]string{
+		"nsd":      {"ip-address: 127.0.0.1\n", "ip-address: 203.0.113.10\n", "ip-address: 2001:db8::10\n"},
+		"knot":     {`listen: [ "127.0.0.1@53", "2001:db8::10@53", "203.0.113.10@53" ]`},
+		"powerdns": {"local-address=127.0.0.1, 2001:db8::10, 203.0.113.10\n"},
+	} {
+		got := map[string]string{"nsd": nsd, "knot": knot, "powerdns": pdns}[name]
+		for _, w := range want {
+			if !strings.Contains(got, w) {
+				t.Errorf("%s lacks %q:\n%s", name, w, got)
+			}
+		}
+		if strings.Contains(got, "127.0.0.53") || strings.Contains(got, "fe80") || strings.Contains(got, "0.0.0.0") {
+			t.Errorf("%s binds an address it must not:\n%s", name, got)
+		}
+	}
+	// A change of the machine's addresses does not make the nameserver look unconfigured.
+	if _, wired := (nsdDriver{}).wire(env, pathsFor(env, nsdDriver{}), nsd+"# older addresses\n"); !wired {
+		t.Fatal("wiring is judged by what NimVor wrote, not by every address in it")
+	}
+	// BIND is left alone: it binds one address at a time.
+	if c, _ := (bindDriver{}).wire(env, pathsFor(env, bindDriver{}), "options {};\n"); strings.Contains(c, "203.0.113.10") {
+		t.Fatalf("BIND wiring lists addresses:\n%s", c)
 	}
 }

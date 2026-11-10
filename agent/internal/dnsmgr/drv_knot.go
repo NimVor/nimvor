@@ -44,6 +44,14 @@ func (d knotDriver) wire(env *host.Env, p paths, cur string) (string, bool) {
 	if !hasIPv6(env) {
 		listen = `[ "0.0.0.0@53" ]`
 	}
+	if addrs := listenAddresses(env); addrs != nil {
+		// systemd-resolved holds 127.0.0.53:53: bind the machine's own addresses instead of all of them.
+		items := make([]string, len(addrs))
+		for i, a := range addrs {
+			items[i] = `"` + a + `@53"`
+		}
+		listen = "[ " + strings.Join(items, ", ") + " ]"
+	}
 	conf := fmt.Sprintf(`# Managed by NimVor (DNS). Do not edit: changes are overwritten.
 # The configuration this server had before is kept as %s.pre-nimvor.
 server:
@@ -83,7 +91,7 @@ template:
 
 include: "%s"
 `, p.conf, listen, p.dir, p.dir, p.list)
-	return conf, cur == conf
+	return conf, strings.Contains(cur, "Managed by NimVor") && strings.Contains(cur, fmt.Sprintf("include: \"%s\"", p.list))
 }
 
 func (knotDriver) renderList(env *host.Env, p paths, zones []zoneInfo, signed map[string]bool) string {
