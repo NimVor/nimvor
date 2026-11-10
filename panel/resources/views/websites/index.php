@@ -180,6 +180,7 @@ $showOwner = $this->can(P::USERS_VIEW);
                                     <div class="nim-dropmenu">
                                         <a href="<?= e($this->url('sites.edit', ['id' => $id])) ?>"><i class="bi bi-sliders"></i>Settings</a>
                                         <?php if ($this->serverScope() && ($m['kind'] ?? '') === 'php' && $this->hasRoute('sites.modal')): ?><a href="<?= e($this->url('sites.modal', ['id' => $id, 'kind' => 'php'])) ?>" data-nim-site-modal><i class="bi bi-cpu"></i>PHP-FPM</a><?php endif; ?>
+                                        <?php if ($this->serverScope() && $this->hasRoute('sites.modal')): ?><a href="<?= e($this->url('sites.modal', ['id' => $id, 'kind' => 'nginx'])) ?>" data-nim-site-modal><i class="bi bi-hdd-network"></i>Nginx</a><?php endif; ?>
                                         <?php if ($this->hasRoute('sites.subdomains')): ?><a href="<?= e($this->url('sites.subdomains', ['id' => $id])) ?>"><i class="bi bi-diagram-3"></i>Subdomains</a><?php endif; ?>
                                         <?php if ($this->hasRoute('sites.addons')): ?><a href="<?= e($this->url('sites.addons', ['id' => $id])) ?>"><i class="bi bi-plus-square"></i>Addon domains</a><?php endif; ?>
                                         <a href="<?= e($this->url('sites.advanced', ['id' => $id])) ?>"><i class="bi bi-tools"></i>Advanced</a>

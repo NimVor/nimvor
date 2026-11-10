@@ -129,6 +129,7 @@ func body(b *strings.Builder, s Spec, l Layout) {
 	}
 	fmt.Fprintf(b, "    access_log %s;\n    error_log %s warn;\n", filepath.Join(l.LogDir, "access.log"), filepath.Join(l.LogDir, "error.log"))
 	fmt.Fprintf(b, "    client_max_body_size %dm;\n", s.ClientMaxBodyMB)
+	b.WriteString(s.Nginx.serverLines())
 	if s.Autoindex && s.Kind != "proxy" {
 		b.WriteString("    autoindex on;\n")
 	}
@@ -162,7 +163,11 @@ func body(b *strings.Builder, s Spec, l Layout) {
 		b.WriteString("    location / {\n        try_files $uri $uri/ /index.php?$query_string;\n    }\n")
 		b.WriteString("    location ~ \\.php$ {\n        try_files $uri =404;\n        fastcgi_split_path_info ^(.+\\.php)(/.+)$;\n        include fastcgi_params;\n")
 		b.WriteString("        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;\n        fastcgi_param PATH_INFO $fastcgi_path_info;\n")
-		fmt.Fprintf(b, "        fastcgi_pass unix:%s;\n        fastcgi_read_timeout %ds;\n", l.Socket, s.PHP.MaxExecSeconds+10)
+		readTimeout := s.PHP.MaxExecSeconds + 10
+		if s.Nginx != nil && s.Nginx.ReadTimeoutSeconds > 0 {
+			readTimeout = s.Nginx.ReadTimeoutSeconds
+		}
+		fmt.Fprintf(b, "        fastcgi_pass unix:%s;\n        fastcgi_read_timeout %ds;\n", l.Socket, readTimeout)
 		b.WriteString(pageCacheLocation(s))
 		b.WriteString("    }\n")
 	case "static":
@@ -171,7 +176,12 @@ func body(b *strings.Builder, s Spec, l Layout) {
 		fmt.Fprintf(b, "    location / {\n        proxy_pass %s;\n", s.ProxyPass)
 		b.WriteString("        proxy_http_version 1.1;\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n")
 		b.WriteString("        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n")
-		b.WriteString("        proxy_set_header Upgrade $http_upgrade;\n        proxy_set_header Connection $connection_upgrade_nimvor;\n        proxy_read_timeout 300s;\n    }\n")
+		b.WriteString("        proxy_set_header Upgrade $http_upgrade;\n        proxy_set_header Connection $connection_upgrade_nimvor;\n")
+		proxyRead := 300
+		if s.Nginx != nil && s.Nginx.ReadTimeoutSeconds > 0 {
+			proxyRead = s.Nginx.ReadTimeoutSeconds
+		}
+		fmt.Fprintf(b, "        proxy_read_timeout %ds;\n    }\n", proxyRead)
 	}
 }
 

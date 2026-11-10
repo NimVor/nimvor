@@ -534,6 +534,7 @@ final class WebsiteService
         ] + (!empty($site['directory_listing']) && $site['kind'] !== 'proxy' ? ['autoindex' => true] : [])
           + (!empty($site['ipv4']) ? ['ipv4' => (string) $site['ipv4']] : [])
           + (!empty($site['ipv6']) ? ['ipv6' => (string) $site['ipv6']] : [])
+          + (!empty($site['nginx_settings']) ? ['nginx' => (array) $site['nginx_settings']] : [])
           + WebPolicyService::specParts($site);
     }
 
@@ -672,7 +673,7 @@ final class WebsiteService
         $id = (int) $previous['id'];
         $fields = array_intersect_key($previous, array_flip([
             'domain', 'system_user', 'root', 'document_root', 'kind', 'php_version', 'php_settings', 'proxy_pass',
-            'https', 'force_https', 'hsts', 'security_headers', 'ssl_mode', 'cert_file', 'key_file', 'redirects', 'client_max_body_mb', 'enabled', 'status', 'directory_listing', 'ipv4', 'ipv6', 'web_policy',
+            'https', 'force_https', 'hsts', 'security_headers', 'ssl_mode', 'cert_file', 'key_file', 'redirects', 'client_max_body_mb', 'enabled', 'status', 'directory_listing', 'ipv4', 'ipv6', 'web_policy', 'nginx_settings',
         ]));
         $this->sites->update($id, $fields);
         $this->sites->replaceDomains((int) $previous['server_id'], $id, array_merge([(string) $previous['domain']], $previous['aliases']));

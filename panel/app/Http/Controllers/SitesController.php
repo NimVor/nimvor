@@ -28,6 +28,7 @@ final class SitesController extends Controller
         SessionInterface $session,
         private readonly WebsiteRepository $sites,
         private readonly WebsiteService $service,
+        private readonly \NimVor\Services\SiteNginxService $nginx,
         private readonly ServerContext $server,
         private readonly AgentClient $agent,
         private readonly UserRepository $users,
@@ -338,6 +339,9 @@ final class SitesController extends Controller
         if ($site !== null && $kind === 'php' && $site['kind'] === 'php' && \NimVor\Hosting\Scope::isAll($this->user($request))) {
             $html = $this->view->partial('sites/modal_php', ['site' => $site, 'phpVersions' => $this->service->phpVersions()]);
         }
+        if ($site !== null && $kind === 'nginx' && \NimVor\Hosting\Scope::isAll($this->user($request))) {
+            $html = $this->view->partial('sites/modal_nginx', ['site' => $site]);
+        }
         if ($html === null) {
             return Response::html('<div class="modal-header"><h2 class="modal-title h5">Not available</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body small">This setting is not available for this website or for your account.</div>', 404);
         }
@@ -380,6 +384,23 @@ final class SitesController extends Controller
             return Response::json(['success' => true, 'message' => 'PHP settings saved and applied.']);
         }
         return $this->redirectWithSuccess($to, 'PHP settings saved and applied.');
+    }
+
+    /** Saves the Nginx window of the Websites list (administrators only); answers JSON for the window. */
+    public function nginxUpdate(Request $request, string $id): Response
+    {
+        $site = $this->site($request, $id);
+        if ($site === null || !\NimVor\Hosting\Scope::isAll($this->user($request))) {
+            return Response::json(['success' => false, 'error' => ['message' => 'Website not found.']], 404);
+        }
+        try {
+            $this->nginx->save($site, $request->all());
+        } catch (ValidationException $e) {
+            return Response::json(['success' => false, 'error' => ['message' => 'Check the highlighted fields.', 'errors' => $e->errors()]], 422);
+        } catch (UserFacingException $e) {
+            return Response::json(['success' => false, 'error' => ['message' => $e->getMessage()]], 422);
+        }
+        return Response::json(['success' => true, 'message' => 'Nginx settings saved and applied.']);
     }
 
     public function update(Request $request, string $id): Response

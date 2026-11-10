@@ -86,4 +86,49 @@ final class SiteModalsTest extends HttpTestCase
         self::assertArrayHasKey('max_children', $out['error']['errors']);
         self::assertSame($calls, $this->calls('sites.apply'), 'nothing is applied after a refused value');
     }
+
+    public function testTheNginxWindowIsOfferedToAdministratorsForEveryKindOfWebsite(): void
+    {
+        $this->login('admin');
+        $this->agent->succeed('discovery.inventory', ['websites' => ['nginx_version' => '1.24.0', 'catch_all_vhosts' => 0, 'warnings' => [], 'websites' => []]]);
+        $page = $this->request('GET', '/websites', [], [], '', ['view' => 'list'])->body();
+        self::assertStringContainsString('/sites/' . $this->siteId . '/modal/nginx', $page);
+        self::assertStringContainsString('/sites/' . $this->staticId . '/modal/nginx', $page);
+        $res = $this->request('GET', '/sites/' . $this->staticId . '/modal/nginx');
+        self::assertSame(200, $res->status());
+        foreach (['name="read_timeout_seconds"', 'name="gzip"', 'name="extra"', 'data-nim-site-modal-form', 'plain.test'] as $want) {
+            self::assertStringContainsString($want, $res->body(), $want);
+        }
+        self::assertStringNotContainsString('name="fastcgi_buffer_kb"', $res->body(), 'a static website has no PHP response buffer');
+        self::assertStringContainsString('name="fastcgi_buffer_kb"', $this->request('GET', '/sites/' . $this->siteId . '/modal/nginx')->body());
+        $this->switchTo('cust');
+        self::assertSame(404, $this->request('GET', '/sites/' . $this->siteId . '/modal/nginx')->status());
+    }
+
+    public function testNginxTuningIsSavedSentToTheAgentAndRefusedWhenUnsafe(): void
+    {
+        $this->login('admin');
+        $this->agent->succeed('sites.apply', ['changed' => []]);
+        $token = ['_token' => $this->app->container->get(\NimVor\Security\Csrf::class)->token()];
+        $json = ['accept' => 'application/json', 'x-requested-with' => 'XMLHttpRequest'];
+        $ok = $this->request('POST', '/sites/' . $this->siteId . '/nginx', ['read_timeout_seconds' => '120', 'gzip' => 'on', 'gzip_level' => '5', 'extra' => "client_body_buffer_size 256k;\n\ntcp_nodelay on"] + $token, $json);
+        self::assertSame(200, $ok->status());
+        $sent = $this->lastCall('sites.apply')['nginx'];
+        self::assertSame([120, true, 5, ['client_body_buffer_size 256k', 'tcp_nodelay on']], [$sent['read_timeout_seconds'], $sent['gzip'], $sent['gzip_level'], $sent['extra']]);
+        self::assertStringContainsString('client_body_buffer_size 256k', $this->request('GET', '/sites/' . $this->siteId . '/modal/nginx')->body());
+
+        $calls = $this->calls('sites.apply');
+        foreach (['root /etc', 'gzip_types $host', 'include /etc/passwd'] as $bad) {
+            $res = $this->request('POST', '/sites/' . $this->siteId . '/nginx', ['extra' => $bad] + $token, $json);
+            self::assertSame(422, $res->status(), $bad);
+            self::assertArrayHasKey('extra', json_decode($res->body(), true)['error']['errors']);
+        }
+        $res = $this->request('POST', '/sites/' . $this->staticId . '/nginx', ['fastcgi_buffer_kb' => '16'] + $token, $json);
+        self::assertSame(422, $res->status());
+        self::assertSame($calls, $this->calls('sites.apply'), 'a refused value reaches no server');
+
+        $this->switchTo('cust');
+        $token = ['_token' => $this->app->container->get(\NimVor\Security\Csrf::class)->token()];
+        self::assertSame(404, $this->request('POST', '/sites/' . $this->siteId . '/nginx', ['gzip' => 'off'] + $token, $json)->status());
+    }
 }
