@@ -210,3 +210,43 @@ func TestEnablingMailNamesChecksWhatItNeedsAndIssuesTheCertificate(t *testing.T)
 		t.Errorf("certbot arguments:\n%s", calls)
 	}
 }
+
+// A name without a block of its own on 443 falls through to another website there (a browser forces HTTPS for
+// .dev, so webmail.tplix.dev opened a different site): the names the certificate covers always answer, and
+// the file follows webmail being turned on or off.
+func TestNamesAlwaysAnswerOnHTTPSAndFollowWebmail(t *testing.T) {
+	h, _ := mailWithDomain(t)
+	e := env{h.Env}
+	fakeLE(t, h, "mail.abc.com", "mail.abc.com", "webmail.abc.com")
+	d, _ := e.load()
+	n := namesFor("abc.com")
+	dv := d.Domains["abc.com"]
+	dv.Names = &n
+	d.Domains["abc.com"] = dv
+	if err := e.applyNames(context.Background(), d); err != nil {
+		t.Fatal(err)
+	}
+	file := "etc/nginx/sites-available/nimvor-mail-names.conf"
+	vh := h.Read(file)
+	idle := "listen 443 ssl"
+	i := strings.Index(vh, idle)
+	if i < 0 || !strings.Contains(vh[i:], "server_name mail.abc.com webmail.abc.com;") || !strings.Contains(vh[i:], "return 404") || strings.Contains(vh, "fastcgi_pass") {
+		t.Fatalf("webmail is off: both names must answer on 443 without serving webmail:\n%s", vh)
+	}
+
+	// Webmail turned on: the same file now serves webmail on its name and keeps mail's own block.
+	os.MkdirAll(filepath.Join(h.Base, "etc/nimvor-webmail"), 0o755)
+	os.WriteFile(filepath.Join(h.Base, "etc/nimvor-webmail/webmail.json"), []byte(`{"enabled":true,"hostname":"webmail.example.net","php":"8.3"}`), 0o600)
+	e.refreshNames(context.Background())
+	vh = h.Read(file)
+	if !strings.Contains(vh, "fastcgi_pass unix:/run/php/nimvor-webmail.sock;") || strings.Contains(vh, "server_name mail.abc.com webmail.abc.com;") || strings.Count(vh, "return 404 \"") != 1 {
+		t.Fatalf("webmail on:\n%s", vh)
+	}
+
+	// And off again.
+	os.WriteFile(filepath.Join(h.Base, "etc/nimvor-webmail/webmail.json"), []byte(`{"enabled":false,"hostname":"webmail.example.net","php":"8.3"}`), 0o600)
+	e.refreshNames(context.Background())
+	if vh = h.Read(file); strings.Contains(vh, "fastcgi_pass") || !strings.Contains(vh, "server_name mail.abc.com webmail.abc.com;") {
+		t.Fatalf("webmail off again:\n%s", vh)
+	}
+}

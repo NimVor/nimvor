@@ -765,6 +765,7 @@ func registerWebmail(r *actions.Registry, e env) {
 		if cert == e.M.WebmailDir+"/tls.crt" {
 			notes = append(notes, "A self-signed certificate is used: Let's Encrypt could not issue one for "+in.Hostname+" yet. Make sure it points to this server (its A record) and port 80 is reachable, then save again.")
 		}
+		e.refreshNames(ctx)
 		return map[string]any{"enabled": true, "hostname": in.Hostname, "php": v, "url": "https://" + in.Hostname + "/", "certificate": cert, "notes": notes}, nil
 	}})
 }
@@ -798,6 +799,7 @@ func (e env) disableWebmail(ctx context.Context, prev Webmail) (any, error) {
 			e.Log.Warn("php-fpm reload after removing the webmail pool failed", "err", err)
 		}
 	}
+	e.refreshNames(ctx)
 	return map[string]any{"enabled": false}, nil
 }
 

@@ -6,6 +6,11 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Webmail on a domain's own name (webmail.<domain>) opened another website.** Nginx had no HTTPS block for the name unless webmail was already on when the mail names were turned on, so the request fell through to whichever site answers first on port 443 (always the case for `.dev` domains, which browsers force to HTTPS). The names the certificate covers now always answer on 443 (a short "nothing is served here" page while webmail is off), and turning webmail on or off rebuilds the names' Nginx file, so webmail appears at `webmail.<domain>` without turning the names off and on again.
+
+
 ## [1.5.5] — 2026-11-11
 
 ### Changed
