@@ -110,7 +110,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		live := filepath.Join(env.M.LiveDir(), in.CertName)
 		if users := referencing(ctx, env, live); len(users) > 0 {
-			return nil, actions.Conflict("The certificate is still used by: " + strings.Join(users, ", ") + ". Disable HTTPS there first.")
+			return nil, actions.Conflict("The certificate is still used by: " + strings.Join(users, ", ") + ". Switch them to another certificate first (for a domain's mail names, turn the names off).")
 		}
 		out, err := env.Runner.Run(ctx, "certbot", "delete", "--cert-name", in.CertName, "--non-interactive")
 		if err != nil {
@@ -335,6 +335,14 @@ func referencing(ctx context.Context, env *host.Env, dir string) []string {
 	for _, v := range env.Discovery.Nginx(ctx).VHosts {
 		if v.CertFile != "" && strings.HasPrefix(v.CertFile, dir+"/") {
 			out = append(out, filepath.Base(v.File))
+		}
+	}
+	// Dovecot and Postfix (mail certificates and the mail names) name certificates in their own files.
+	for f, users := range mailUse(env) {
+		if strings.HasPrefix(f, dir+"/") {
+			for _, u := range users {
+				out = append(out, u)
+			}
 		}
 	}
 	return out

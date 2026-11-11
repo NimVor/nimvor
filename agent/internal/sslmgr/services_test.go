@@ -133,3 +133,44 @@ func TestMailTLS(t *testing.T) {
 		t.Fatal("drop-in not restored")
 	}
 }
+
+// A domain's mail names use a certificate only Dovecot and Postfix name; the store must say so (it was listed
+// as "unused", with a Delete button) and refuse to delete it.
+func TestMailNamesCertificateIsInUse(t *testing.T) {
+	h := testhost.New(t)
+	live := "/etc/letsencrypt/live/mail.tplix.dev"
+	os.MkdirAll(filepath.Join(h.Base, "etc/letsencrypt/live/mail.tplix.dev"), 0o755)
+	os.WriteFile(filepath.Join(h.Base, "etc/letsencrypt/live/mail.tplix.dev/fullchain.pem"), []byte("x"), 0o644)
+	os.WriteFile(filepath.Join(h.Base, "etc/letsencrypt/live/mail.tplix.dev/privkey.pem"), []byte("k"), 0o600)
+	os.MkdirAll(filepath.Join(h.Base, "etc/letsencrypt/live/spare.test"), 0o755)
+	os.WriteFile(filepath.Join(h.Base, "etc/letsencrypt/live/spare.test/fullchain.pem"), []byte("x"), 0o644)
+	os.MkdirAll(filepath.Join(h.Base, "etc/dovecot/conf.d"), 0o755)
+	os.WriteFile(filepath.Join(h.Base, "etc/dovecot/conf.d/99-nimvor-names.conf"), []byte("local_name mail.tplix.dev {\n  ssl_cert = <"+live+"/fullchain.pem\n  ssl_key = <"+live+"/privkey.pem\n}\n"), 0o644)
+	os.MkdirAll(filepath.Join(h.Base, filepath.Dir(h.Env.M.MailDir+"/sni_maps")), 0o755)
+	os.WriteFile(filepath.Join(h.Base, h.Env.M.MailDir+"/sni_maps"), []byte("mail.tplix.dev /x.pem\n"), 0o644)
+
+	certs, _ := Store(context.Background(), h.Env)
+	var got, spare *StoredCert
+	for i := range certs {
+		switch certs[i].Name {
+		case "mail.tplix.dev":
+			got = &certs[i]
+		case "spare.test":
+			spare = &certs[i]
+		}
+	}
+	if got == nil || spare == nil {
+		t.Fatalf("certificates = %+v", certs)
+	}
+	if strings.Join(got.UsedBy, ",") != "99-nimvor-names.conf,postfix sni_maps" || got.Deletable {
+		t.Fatalf("mail names certificate: used_by=%v deletable=%v", got.UsedBy, got.Deletable)
+	}
+	if len(spare.UsedBy) != 0 || !spare.Deletable {
+		t.Fatalf("an unused certificate: %+v", spare)
+	}
+	r := actions.NewRegistry(true)
+	Register(r, h.Env)
+	if _, err := call(t, r, "ssl.delete", `{"cert_name":"mail.tplix.dev"}`); err == nil || !strings.Contains(err.Error(), "99-nimvor-names.conf") {
+		t.Fatalf("a certificate the mail names use was deleted or refused without saying why: %v", err)
+	}
+}

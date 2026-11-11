@@ -8,6 +8,11 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Fixed
 
+- **SSL/TLS page: mail certificates show where they are used.** A domain's mail names certificate (and the certificate of the server's mail host) was listed as "unused" with a **Delete** button, because only Nginx's files were searched. Dovecot's and Postfix's files are read too: the certificate now shows e.g. `99-nimvor-names.conf, postfix sni_maps`, cannot be deleted while in use, and the delete refusal names the files.
+
+
+### Fixed
+
 - Choosing PowerDNS failed with "Could not connect to the SQLite database" when the package had not created its state folder yet; NimVor now creates it (owned by the pdns account) before making the DNSSEC database. On Debian and Ubuntu it also installs `pdns-backend-bind` (PowerDNS' BIND backend is a separate package there; without it PowerDNS rejects the `bind-config` setting).
 - The opt-in VM matrix (and so the release workflow's publish step) failed on every image: the test VMs refused password logins, which the migration and terminal real-host tests use against the local sshd. The VMs now allow them.
 
