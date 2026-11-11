@@ -24,7 +24,7 @@ use NimVor\View\View;
  * Basic WebHost Settings (the essentials of a new server: contact, panel
  * address, name servers, defaults for new accounts) and Tweak Settings
  * (every panel setting in tabs, with search, its default, whether it was
- * changed and a reset), in the manner of cPanel's WHM. Both edit the same
+ * changed and a reset), Both edit the same
  * settings as the Settings page and the pages that own them.
  */
 final class WebHostSettingsController extends Controller

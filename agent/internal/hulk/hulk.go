@@ -1,5 +1,5 @@
 // Package hulk is the agent side of brute force protection (Security →
-// cPHulk Brute Force Protection): it reads failed logins from the logs of
+// Brute Force Protection): it reads failed logins from the logs of
 // the login services and applies the panel's blocks with nftables. The
 // panel decides what to block; the agent only reports and enforces.
 package hulk

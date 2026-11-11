@@ -18,7 +18,7 @@ use NimVor\Support\ValidationException;
 use NimVor\View\View;
 
 /**
- * PHP Manager (in the manner of cPanel's EasyApache): choose the PHP
+ * PHP Manager: choose the PHP
  * versions and extensions the server should have, review what that
  * changes (install, update, switch on or off, remove, unchanged, kept),
  * apply it as one job, and keep it as the server's PHP profile. The agent

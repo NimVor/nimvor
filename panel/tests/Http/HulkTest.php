@@ -11,7 +11,7 @@ use NimVor\Services\HulkService;
 use NimVor\Services\SettingsService;
 use NimVor\Tests\Support\HttpTestCase;
 
-/** Security → cPHulk Brute Force Protection. */
+/** Security → Brute Force Protection. */
 final class HulkTest extends HttpTestCase
 {
     private const BASE = [
@@ -58,7 +58,7 @@ final class HulkTest extends HttpTestCase
         $this->login('admin');
         $page = $this->request('GET', '/security/hulk')->body();
         foreach ([
-            'cPHulk provides protection from brute force attacks against your web services.',
+            'Brute force protection watches failed sign-ins to the services of this server and blocks the addresses and accounts that keep failing.',
             'Username-based protection tracks login attempts for user accounts.', 'Maximum Failures by Account',
             'Apply protection to local addresses only', 'Apply protection to local and remote addresses', 'Allow username protection to lock the “root” user',
             'IP Address-based protection tracks login attempts from specific IP addresses.', 'Maximum Failures per IP Address',

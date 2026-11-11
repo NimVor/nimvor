@@ -6,6 +6,11 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Security pages no longer carry other products' names.** *Security → Brute Force Protection* was titled "cPHulk Brute Force Protection" (menu, page, settings, messages, the header NimVor writes into its nftables file), and the firewall protection and countries help texts named CSF settings. They now describe what NimVor does in its own words. No behaviour changes.
+
+
 ## [1.5.8] — 2026-11-11
 
 ### Fixed

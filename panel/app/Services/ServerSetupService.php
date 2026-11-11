@@ -767,7 +767,7 @@ final class ServerSetupService
 
     /**
      * The recommended security settings (malware scans, fail2ban jails,
-     * compilers, SMTP restrictions, metadata block, cPHulk, fork bomb
+     * compilers, SMTP restrictions, metadata block, Brute force protection, fork bomb
      * protection, traceroute), turned on once: a later run leaves what an
      * administrator changed alone. They stay switchable on the Security
      * overview.

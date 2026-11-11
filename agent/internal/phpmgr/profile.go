@@ -15,7 +15,7 @@ import (
 )
 
 // A PHP profile is the set of PHP versions the server should have and the
-// extensions each of them gets (in the manner of cPanel's EasyApache): the
+// extensions each of them gets: the
 // plan compares it with what is installed, the apply job carries the plan
 // out. The plan is always computed again by the agent; the panel only
 // sends the wanted profile.
