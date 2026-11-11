@@ -15,6 +15,7 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/host"
 	"github.com/NimVor/nimvor/agent/internal/ssl"
 	"github.com/NimVor/nimvor/agent/internal/sslmgr"
+	"github.com/NimVor/nimvor/agent/internal/tlsprofile"
 )
 
 // A domain's own mail names. By default every domain uses the server's host name for IMAP, SMTP and
@@ -116,12 +117,60 @@ func (e env) renderNamesVhost(d Data, w Webmail, http2 bool) string {
 			b.WriteString("    listen [::]:80;\n")
 		}
 		fmt.Fprintf(&b, "    server_name %s;\n%s    location / {\n        return 404;\n    }\n}\n", names, acme)
+		if ready {
+			live := leLive(n.Cert)
+			// Without a block of its own on 443, a name falls through to whichever website Nginx answers first
+			// there (a browser also forces HTTPS for some top-level domains such as .dev): the names the
+			// certificate covers always get one, and say that nothing is served when webmail is not.
+			idle := n.Mail
+			if !serveWebmail {
+				idle += " " + n.Webmail
+			}
+			b.WriteString("\n" + e.renderNamesIdle(idle, live, http2))
+		}
 		if serveWebmail {
 			live := leLive(n.Cert)
 			b.WriteString("\n" + e.renderWebmailVhost(vhostParams{Hostname: n.Webmail, Cert: live + "/fullchain.pem", Key: live + "/privkey.pem", HTTP2Direct: http2, IPv6: e.IPv6()}))
 		}
 	}
 	return b.String()
+}
+
+// renderNamesIdle is the HTTPS block of names that serve no website: mail apps use them, a browser is told so.
+func (e env) renderNamesIdle(names, live string, http2 bool) string {
+	var b strings.Builder
+	b.WriteString("server {\n")
+	listen := func(port string) {
+		fmt.Fprintf(&b, "    listen %s;\n", port)
+		if e.IPv6() {
+			fmt.Fprintf(&b, "    listen [::]:%s;\n", port)
+		}
+	}
+	if http2 {
+		listen("443 ssl")
+		b.WriteString("    http2 on;\n")
+	} else {
+		listen("443 ssl http2")
+	}
+	fmt.Fprintf(&b, "    server_name %s;\n    ssl_certificate %s/fullchain.pem;\n    ssl_certificate_key %s/privkey.pem;\n", names, live, live)
+	b.WriteString(tlsprofile.Include(e.Env))
+	b.WriteString("    default_type text/plain;\n    return 404 \"No website is served at this name. Mail apps connect here (IMAP 993, SMTP 587); webmail is turned on in NimVor under Email.\\n\";\n}\n")
+	return b.String()
+}
+
+// refreshNames rebuilds the mail names' files after webmail was turned on or off (the Nginx file serves
+// webmail only while it is on). A problem here does not undo the webmail change.
+func (e env) refreshNames(ctx context.Context) {
+	if !e.configured() {
+		return
+	}
+	d, err := e.load()
+	if err != nil || len(namesDomains(d)) == 0 {
+		return
+	}
+	if err := e.applyNames(ctx, d); err != nil {
+		e.Log.Warn("mail names were not refreshed after a webmail change", "error", err)
+	}
 }
 
 // applyNames writes everything the mail names need from the data, validates it, reloads the services and
