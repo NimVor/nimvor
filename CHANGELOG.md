@@ -6,13 +6,12 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
-## [1.5.6] — 2026-11-11
-
 ### Fixed
 
 - **Webmail could not be set to `webmail.<domain>`.** With a domain's mail names on, turning webmail on at that name was refused ("The website mail.<domain> already answers for webmail.<domain>"): NimVor's own mail-names Nginx file was counted as a website. It no longer is, and when webmail is on at `webmail.<domain>` itself the names' file leaves that name to webmail's own site.
 - A failed webmail set-up now writes the reason to the agent log (it was only in the answer to the panel), so "The webmail sign-in page did not load" can be traced.
 
+## [1.5.6] — 2026-11-11
 
 ### Fixed
 
