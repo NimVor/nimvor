@@ -109,7 +109,7 @@ var defs = []def{
 			return mailmgr.Configured(env), "Set up email on the Email page (Set up and start)."
 		}},
 	{id: "dns", name: "DNS server", desc: "BIND answers for the zones hosted here (only needed when this server is the domains' nameserver).", packages: []string{"bind9"},
-		units: func(env *host.Env, _ map[string]bool) []string { return []string{env.M.DNSUnit} }, ports: tcp("53", "53/udp"),
+		units: func(env *host.Env, _ map[string]bool) []string { return dnsmgr.Units(env) }, ports: tcp("53", "53/udp"),
 		setup: func(env *host.Env) (bool, string) {
 			return dnsmgr.Configured(env), "Turn on DNS hosting on the DNS page."
 		}},

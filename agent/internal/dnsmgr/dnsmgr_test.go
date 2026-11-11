@@ -136,7 +136,8 @@ func setup(t *testing.T) *fx {
 	f := &fx{h: h, r: actions.NewRegistry(true)}
 	Register(f.r, h.Env)
 	query = func(ctx context.Context, server, zone string) (uint32, error) { return f.served, nil }
-	t.Cleanup(func() { query = querySOA })
+	verifyWait = 2 * time.Millisecond
+	t.Cleanup(func() { query = querySOA; verifyWait = 250 * time.Millisecond })
 	return f
 }
 

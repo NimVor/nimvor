@@ -149,7 +149,12 @@ paths:
               - discovery.redis
               - discovery.users
               - discovery.websites
+              - dns.backend_select
+              - dns.backends
               - dns.configure
+              - dns.dnssec_disable
+              - dns.dnssec_enable
+              - dns.dnssec_status
               - dns.status
               - dns.zone_apply
               - dns.zone_delete
@@ -720,9 +725,14 @@ x-nimvor-actions:
   discovery.redis: { mutating: false, description: "Redis installation and configuration summary." }
   discovery.users: { mutating: false, description: "Local system accounts." }
   discovery.websites: { mutating: false, description: "Existing websites correlated from Nginx, PHP-FPM and certificates." }
-  dns.configure: { mutating: true, description: "Set up BIND for NimVor's zones: adds one include line to BIND's configuration (requires confirm_edit_package_config), validates with named-checkconf, starts or reconfigures named and opens port 53 when the firewall is active." }
-  dns.status: { mutating: false, description: "Whether BIND is installed, set up for NimVor and running, and the zones NimVor serves (with serials)." }
-  dns.zone_apply: { mutating: true, description: "Write a complete zone (SOA, records, optional secondaries) with a new serial, validate it with named-checkzone and named-checkconf, load it and verify BIND serves the new serial; rolls back on failure." }
+  dns.backend_select: { mutating: true, description: "Switch the nameserver NimVor runs the zones with (PowerDNS, NSD, Knot DNS or BIND), as a job: installs it when needed, writes its configuration for the same zone files, checks it, stops the previous nameserver, starts the new one and verifies every zone is served. Restores the previous nameserver when anything fails. Signed zones get new keys on the new nameserver (the DS record at the registrar must be updated) or become unsigned (NSD)." }
+  dns.backends: { mutating: false, description: "The nameservers NimVor can run the zones with (PowerDNS, NSD, Knot DNS, BIND): which is in use, which are installed or running, what each offers and whether it can sign zones (DNSSEC). Nothing is changed." }
+  dns.configure: { mutating: true, description: "Set up the chosen nameserver for NimVor's zones: the zone list and one change to its configuration (BIND: an include line, requires confirm_edit_package_config), checked before it is kept; the daemon is started or reloaded and port 53 opened when the firewall is active. Restores the previous files when the daemon does not take them." }
+  dns.dnssec_disable: { mutating: true, description: "Stop signing a zone. Remove the DS record at the registrar first, or validating resolvers stop resolving the domain." }
+  dns.dnssec_enable: { mutating: true, description: "Start signing a zone (DNSSEC) with the nameserver in use and return the DS records to publish at the registrar. Restores the previous state when the nameserver does not take it." }
+  dns.dnssec_status: { mutating: false, description: "Whether the nameserver in use can sign zones, which zones are signed and, for one zone, the DS records to publish at its registrar." }
+  dns.status: { mutating: false, description: "Which nameserver NimVor runs the zones with, whether it is installed, set up for NimVor and running, and the zones NimVor serves (with serials)." }
+  dns.zone_apply: { mutating: true, description: "Write a complete zone (SOA, records, optional secondaries) with a new serial, check it with the nameserver's own checker, load it and verify the nameserver serves the new serial; rolls back on failure." }
   dns.zone_delete: { mutating: true, description: "Stop serving a zone and remove its file (confirm = zone name)." }
   dns.zone_parse: { mutating: false, description: "Read a zone file (BIND format) for import: the supported records, relative to the zone, and the lines skipped with reasons. Nothing is changed." }
   dns.zone_render: { mutating: false, description: "Validate a zone and return its zone file (BIND format) without writing it, e.g. for export." }
