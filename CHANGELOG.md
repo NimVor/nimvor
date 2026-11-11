@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The opt-in VM matrix (and so the release workflow's publish step) failed on every image: the test VMs refused password logins, which the migration and terminal real-host tests use against the local sshd. The VMs now allow them.
+
 ## [1.5.4] — 2026-11-11
 
 ### Added
