@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -48,9 +49,19 @@ func Store(ctx context.Context, env *host.Env) ([]StoredCert, []SSLHost) {
 	now := env.Now()
 	vhosts := env.Discovery.Nginx(ctx).VHosts
 	usedBy := map[string][]string{}
+	nginx := map[string]bool{}
 	for _, v := range vhosts {
 		if v.CertFile != "" {
 			usedBy[v.CertFile] = appendOnce(usedBy[v.CertFile], filepath.Base(v.File))
+			nginx[v.CertFile] = true
+		}
+	}
+	// The mail server's certificates are not in Nginx's files: add where Dovecot and Postfix name them, for the
+	// certificates that are listed anyway (a mail certificate is not "unused" and must not be deleted).
+	mail := mailUse(env)
+	for f, users := range mail {
+		for _, u := range users {
+			usedBy[f] = appendOnce(usedBy[f], u)
 		}
 	}
 	certs := []StoredCert{}
@@ -73,6 +84,9 @@ func Store(ctx context.Context, env *host.Env) ([]StoredCert, []SSLHost) {
 	// Certificates Nginx uses from elsewhere (shown, never changed).
 	var other []string
 	for f := range usedBy {
+		if !seen[f] && !nginx[f] {
+			continue // a certificate only the mail server names, and not in the store: not listed here
+		}
 		if !seen[f] {
 			other = append(other, f)
 		}
@@ -118,6 +132,41 @@ func Store(ctx context.Context, env *host.Env) ([]StoredCert, []SSLHost) {
 	}
 	sort.Slice(hosts, func(i, j int) bool { return hosts[i].Name < hosts[j].Name })
 	return certs, hosts
+}
+
+var (
+	dovecotCertRe = regexp.MustCompile(`(?m)^\s*ssl_(?:cert\s*=\s*<|server_cert_file\s*=\s*)(\S+)\s*$`)
+	postfixCertRe = regexp.MustCompile(`(?m)^smtpd_tls_cert_file\s*=\s*(\S+)\s*$`)
+)
+
+// mailUse maps certificate files to the mail configuration files that serve them: Dovecot's drop-in (the
+// server's own certificate), its names drop-in (one per domain's mail names, which Postfix serves by SNI as
+// well) and Postfix's main.cf.
+func mailUse(env *host.Env) map[string][]string {
+	out := map[string][]string{}
+	add := func(file string, rx *regexp.Regexp, label string) {
+		b, err := env.Root.ReadFile(file)
+		if err != nil {
+			return
+		}
+		for _, m := range rx.FindAllStringSubmatch(string(b), -1) {
+			out[m[1]] = appendOnce(out[m[1]], label)
+		}
+	}
+	dir := filepath.Dir(env.M.DovecotDropIn)
+	add(env.M.DovecotDropIn, dovecotCertRe, filepath.Base(env.M.DovecotDropIn))
+	names := filepath.Join(dir, "99-nimvor-names.conf")
+	add(names, dovecotCertRe, "99-nimvor-names.conf")
+	if env.Root.Exists(env.M.MailDir + "/sni_maps") {
+		// Postfix serves the same mail names by SNI from this map.
+		if b, err := env.Root.ReadFile(names); err == nil {
+			for _, m := range dovecotCertRe.FindAllStringSubmatch(string(b), -1) {
+				out[m[1]] = appendOnce(out[m[1]], "postfix sni_maps")
+			}
+		}
+	}
+	add(filepath.Join(env.M.PostfixDir, "main.cf"), postfixCertRe, "postfix main.cf")
+	return out
 }
 
 func appendOnce(s []string, v string) []string {
