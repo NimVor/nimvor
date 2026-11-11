@@ -7,7 +7,7 @@ html[data-nim-theme="classic"] {
     --bs-border-radius-lg: .45rem;
     --bs-body-font-size: .9rem;
 }
-html[data-nim-theme="classic"][data-bs-theme="dark"] { --nim-accent: #f59e0b; }
+html[data-nim-theme="classic"][data-bs-theme="dark"] { --nim-accent: #f59e0b; --nt-bg: #14171c; --nt-surface: #1c2027; --nt-border: rgba(255, 255, 255, .12); --nt-muted: #9aa3b0; --nt-head-bg: #1c2027; }
 .nt-classic .ncl-wrap { width: 100%; max-width: 1280px; margin-inline: auto; padding-inline: 1rem; }
 .ncl-top { background: var(--nt-head-bg); border-bottom: 3px solid var(--nim-accent); position: sticky; top: 0; z-index: 1030; }
 .ncl-top-in { display: flex; align-items: center; gap: 1rem; min-height: 3.5rem; }

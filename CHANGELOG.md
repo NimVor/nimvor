@@ -8,6 +8,7 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Added
 
+- **Customer panel themes.** Hosting customers choose how their panel looks under *Account menu → Appearance*: NimVor Modern (unchanged, the default), **Classic** (tools grouped in a launcher grid with search), **Workspace** (sidebar, website cards, tool tabs), **Simple** (large shortcuts, tab bar on phones) and **Compact** (dense lists, account limits always visible), each with light/dark mode and an accent colour, a preview before saving and *Restore default*. Every theme is rendered by the same controllers and shows every tool the customer's role and plan allow; switching changes no website data. Administrators control it under *Settings → Customer panel themes* (which themes are offered, the default, whether customers may choose, default appearance, accent colours). Preferences are stored per user (migration `0074`); only the chosen theme's stylesheet is loaded. How to add a theme: `docs/development/themes.md`.
 - **Sending mail on port 465.** *Email → Port 465* (administrators) turns on a second mail submission service, SMTP over TLS from the first byte, for networks that block port 587. New agent action `mail.smtps_set` (checked with `postfix check`, reloaded, tried with a TLS connection, previous `master.cf` restored on failure; opens the port in the firewall); `mail.status` reports `smtps`. The Email page and a domain's mail app settings show port 465 when it is on.
 
 ### Changed

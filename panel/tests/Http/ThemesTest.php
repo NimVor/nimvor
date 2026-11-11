@@ -79,6 +79,7 @@ final class ThemesTest extends HttpTestCase
         self::assertStringContainsString('nim-brandbar', $page, 'the existing customer layout is untouched');
         self::assertStringNotContainsString('nt-body', $page);
         self::assertStringNotContainsString('assets/css/themes/', $page, 'no theme stylesheet is loaded for the default theme');
+        self::assertStringContainsString('href="/appearance"', $page, 'the account menu leads to Appearance');
     }
 
     #[\PHPUnit\Framework\Attributes\DataProvider('themes')]
@@ -106,6 +107,28 @@ final class ThemesTest extends HttpTestCase
                 str_contains($page, 'href="/sites/' . $this->siteId . '/' . $tool . '"'),
                 $theme . ' hides the ' . $tool . ' tool'
             );
+        }
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('themes')]
+    public function testEveryToolOpensInEveryTheme(string $theme): void
+    {
+        $this->switchTo('cust');
+        $this->choose($theme);
+        $this->app = $this->makeApp();
+        $view = $this->app->container->get(\NimVor\View\View::class);
+        $page = $this->request('GET', '/sites/' . $this->siteId);
+        self::assertSame(200, $page->status());
+        // Every link of the website's menu, as the theme shows it.
+        preg_match_all('#href="(/sites/' . $this->siteId . '/[a-z0-9_/-]+)"#', $page->body(), $m);
+        $urls = array_values(array_unique($m[1]));
+        self::assertGreaterThan(15, count($urls), 'the website\'s tools are listed');
+        foreach ($urls as $url) {
+            $res = $this->request('GET', $url);
+            self::assertContains($res->status(), [200, 302], $theme . ' ' . $url . ' answered ' . $res->status());
+            if ($res->status() === 200) {
+                self::assertStringContainsString('data-nim-theme="' . $theme . '"', $res->body(), $theme . ' ' . $url);
+            }
         }
     }
 

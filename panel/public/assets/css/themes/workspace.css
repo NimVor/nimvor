@@ -6,7 +6,7 @@ html[data-nim-theme="workspace"] {
     --bs-border-radius: .5rem;
     --nws-side-w: 16rem;
 }
-html[data-nim-theme="workspace"][data-bs-theme="dark"] { --nim-accent: #60a5fa; }
+html[data-nim-theme="workspace"][data-bs-theme="dark"] { --nim-accent: #60a5fa; --nt-bg: #0f141b; --nt-surface: #171e28; --nt-border: rgba(255, 255, 255, .1); --nt-muted: #98a6ba; --nt-head-bg: #171e28; }
 .nws-shell { display: flex; min-height: 100vh; }
 .nws-side { width: var(--nws-side-w); flex-shrink: 0; background: var(--nt-surface); border-right: 1px solid var(--nt-border); position: sticky; top: 0; height: 100vh; overflow-y: auto; padding: 1rem .75rem 2rem; }
 .nws-brand { padding: 0 .5rem 1rem; }

@@ -2,7 +2,7 @@
  * Shared pieces of the customer-panel themes (everything the non-default themes have in common).
  * Each theme sets the --nt-* variables and lays the frame out in its own stylesheet.
  */
-html[data-nim-theme]:not([data-nim-theme="modern"]) {
+html:where([data-nim-theme]:not([data-nim-theme="modern"])) {
     --nt-bg: #f4f6f9;
     --nt-surface: #fff;
     --nt-border: rgba(15, 23, 42, .12);
@@ -12,32 +12,38 @@ html[data-nim-theme]:not([data-nim-theme="modern"]) {
     --nt-head-fg: var(--bs-body-color);
     --nim-surface: var(--nt-bg);
     --nim-accent-strong: color-mix(in srgb, var(--nim-accent) 80%, #000);
+    --nim-accent-btn: var(--nim-accent);
+    --nim-accent-btn-hover: var(--nim-accent-strong);
     --nim-accent-soft: color-mix(in srgb, var(--nim-accent) 12%, transparent);
     --bs-primary: var(--nim-accent);
     --bs-link-color: var(--nim-accent-strong);
     --bs-link-hover-color: var(--nim-accent-strong);
 }
-html[data-nim-theme]:not([data-nim-theme="modern"])[data-bs-theme="dark"] {
+html:where([data-nim-theme]:not([data-nim-theme="modern"])[data-bs-theme="dark"]) {
     --nt-bg: #10161e;
     --nt-surface: #18212c;
     --nt-border: rgba(255, 255, 255, .12);
     --nt-muted: #9aa7b8;
     --nt-head-bg: #18212c;
     --bs-body-bg: #10161e;
+    /* A light accent on a dark page: text takes a lighter shade, buttons a darker one so white text stays readable. */
+    --nim-accent-strong: color-mix(in srgb, var(--nim-accent) 60%, #fff);
+    --nim-accent-btn: color-mix(in srgb, var(--nim-accent) 55%, #000);
+    --nim-accent-btn-hover: color-mix(in srgb, var(--nim-accent) 42%, #000);
     --bs-link-color: color-mix(in srgb, var(--nim-accent) 55%, #fff);
     --bs-link-hover-color: color-mix(in srgb, var(--nim-accent) 40%, #fff);
 }
 /* The accent reaches the buttons and bars the panel's own stylesheet colours teal. */
 html[data-nim-theme]:not([data-nim-theme="modern"]) .btn-primary {
-    --bs-btn-bg: var(--nim-accent); --bs-btn-border-color: var(--nim-accent);
-    --bs-btn-hover-bg: var(--nim-accent-strong); --bs-btn-hover-border-color: var(--nim-accent-strong);
-    --bs-btn-active-bg: var(--nim-accent-strong); --bs-btn-active-border-color: var(--nim-accent-strong);
-    --bs-btn-disabled-bg: var(--nim-accent); --bs-btn-disabled-border-color: var(--nim-accent);
+    --bs-btn-bg: var(--nim-accent-btn); --bs-btn-border-color: var(--nim-accent-btn);
+    --bs-btn-hover-bg: var(--nim-accent-btn-hover); --bs-btn-hover-border-color: var(--nim-accent-btn-hover);
+    --bs-btn-active-bg: var(--nim-accent-btn-hover); --bs-btn-active-border-color: var(--nim-accent-btn-hover);
+    --bs-btn-disabled-bg: var(--nim-accent-btn); --bs-btn-disabled-border-color: var(--nim-accent-btn);
     --bs-btn-color: #fff; --bs-btn-hover-color: #fff; --bs-btn-active-color: #fff;
 }
 html[data-nim-theme]:not([data-nim-theme="modern"]) .btn-outline-primary {
     --bs-btn-color: var(--nim-accent-strong); --bs-btn-border-color: var(--nim-accent);
-    --bs-btn-hover-bg: var(--nim-accent); --bs-btn-hover-border-color: var(--nim-accent); --bs-btn-hover-color: #fff; --bs-btn-active-bg: var(--nim-accent-strong);
+    --bs-btn-hover-bg: var(--nim-accent-btn); --bs-btn-hover-border-color: var(--nim-accent-btn); --bs-btn-hover-color: #fff; --bs-btn-active-bg: var(--nim-accent-btn-hover);
 }
 html[data-nim-theme]:not([data-nim-theme="modern"]) .progress { --bs-progress-bar-bg: var(--nim-accent); }
 html[data-nim-theme]:not([data-nim-theme="modern"]) .text-bg-primary { background-color: var(--nim-accent) !important; }

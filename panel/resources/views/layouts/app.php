@@ -104,6 +104,7 @@ $topHost = (string) ($topStatus['hostname'] ?? '');
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><span class="dropdown-item-text small text-body-secondary"><?= e($user['role_label']) ?></span></li>
                             <li><a class="dropdown-item" href="<?= e($this->url('profile')) ?>"><i class="bi bi-person me-2"></i>Profile</a></li>
+                            <li><a class="dropdown-item" href="<?= e($this->url('appearance')) ?>"><i class="bi bi-palette me-2"></i>Appearance</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li>
                                 <form method="post" action="<?= e($this->url('logout')) ?>" data-nim-noajax>
