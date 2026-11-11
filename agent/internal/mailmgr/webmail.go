@@ -65,13 +65,13 @@ var webmailModules = []string{"dom", "intl", "mbstring", "openssl", "pdo_sqlite"
 var webmailPackages = []string{"roundcube-core", "roundcube-sqlite3", "roundcube-plugins", "php-fpm", "php-sqlite3", "php-intl", "php-mbstring", "php-xml"}
 
 // webmailProbe fetches the login page through Nginx (tests replace it).
-var webmailProbe = func(ctx context.Context, hostname string) error {
+var webmailProbe = func(ctx context.Context, hostname, addr string) error {
 	tr := &http.Transport{
 		// The request goes to this machine; the certificate may be
 		// self-signed until one is issued for the host name.
 		TLSClientConfig: &cryptotls.Config{ServerName: hostname, InsecureSkipVerify: true}, //nolint:gosec // loopback check of our own vhost
 		DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
-			return (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, network, "127.0.0.1:443")
+			return (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, network, addr)
 		},
 	}
 	c := &http.Client{Transport: tr, Timeout: 20 * time.Second}
@@ -491,27 +491,22 @@ func (e env) prependLine(prefix string) string {
 type vhostParams struct {
 	Hostname, Cert, Key string
 	HTTP2Direct, IPv6   bool
+	Listen              listenSet
 }
 
 // renderWebmailVhost serves Roundcube's public folder. Only index.php
 // runs; other PHP files and files that may hold settings are refused.
 func (e env) renderWebmailVhost(p vhostParams) string {
 	var b strings.Builder
-	listen := func(port string) {
-		fmt.Fprintf(&b, "    listen %s;\n", port)
-		if p.IPv6 {
-			fmt.Fprintf(&b, "    listen [::]:%s;\n", port)
-		}
-	}
 	acme := "    location ^~ /.well-known/acme-challenge/ {\n        root " + e.M.ACMERoot + ";\n        default_type \"text/plain\";\n        try_files $uri =404;\n    }\n"
 	b.WriteString("# " + webmailHeader + "\n\nserver {\n")
-	listen("80")
+	b.WriteString(p.Listen.lines("80", ""))
 	fmt.Fprintf(&b, "    server_name %s;\n%s    location / {\n        return 301 https://$host$request_uri;\n    }\n}\n\nserver {\n", p.Hostname, acme)
 	if p.HTTP2Direct {
-		listen("443 ssl")
+		b.WriteString(p.Listen.lines("443", "ssl"))
 		b.WriteString("    http2 on;\n")
 	} else {
-		listen("443 ssl http2")
+		b.WriteString(p.Listen.lines("443", "ssl http2"))
 	}
 	fmt.Fprintf(&b, "    server_name %s;\n    ssl_certificate %s;\n    ssl_certificate_key %s;\n", p.Hostname, p.Cert, p.Key)
 	b.WriteString(tlsprofile.Include(e.Env))
@@ -669,7 +664,8 @@ func registerWebmail(r *actions.Registry, e env) {
 		if prev.PHP != "" && prev.PHP != v {
 			set.Remove(e.webmailPoolFile(prev.PHP))
 		}
-		vh := vhostParams{Hostname: in.Hostname, Cert: cert, Key: certKey, HTTP2Direct: e.NginxAtLeast(ctx, 1, 25, 1), IPv6: e.IPv6()}
+		ls := e.listenSet(ctx)
+		vh := vhostParams{Hostname: in.Hostname, Cert: cert, Key: certKey, HTTP2Direct: e.NginxAtLeast(ctx, 1, 25, 1), IPv6: e.IPv6(), Listen: ls}
 		tlsprofile.Ensure(e.Env, set)
 		set.Write(e.webmailVhost(), []byte(e.renderWebmailVhost(vh)), 0o644, agentfs.RootOwner)
 		set.Link(e.webmailVhost(), e.webmailLink())
@@ -742,7 +738,7 @@ func registerWebmail(r *actions.Registry, e env) {
 			return fail("Nginx did not reload.", err)
 		}
 		if !e.Cfg.SimulateCommands && e.UnitActive(ctx, e.M.NginxUnit) {
-			if err := webmailProbe(ctx, in.Hostname); err != nil {
+			if err := webmailProbe(ctx, in.Hostname, ls.dial()); err != nil {
 				return fail("The webmail sign-in page did not load.", errors.New(err.Error()+"\n"+e.webmailLogs()+e.webmailServeDiagnosis(ctx, v)))
 			}
 		}

@@ -6,6 +6,11 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Webmail could not be turned on where the websites listen on the server's own address.** The webmail site (and the mail names' sites) asked Nginx to listen on every address on port 443. NimVor's websites hold the server's own address there, and Linux does not let a reload start the every-address listener (`bind() to 0.0.0.0:443 failed (98: Address already in use)` in Nginx's error log), so nothing answered, the sign-in check was refused and the set-up was rolled back ("The webmail sign-in page did not load"). These sites now listen on the same addresses as the other sites, and the check connects to one of them.
+
+
 ## [1.5.7] — 2026-11-11
 
 ### Fixed

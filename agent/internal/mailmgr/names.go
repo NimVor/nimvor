@@ -100,7 +100,7 @@ func renderDovecotNames(d Data, ready func(DomainNames) bool) string {
 // renderNamesVhost is the Nginx file of all domains' mail names: port 80 answers the certificate challenge
 // for the names that have no certificate yet (and mail.<domain>, which has nothing to show), and webmail.<domain>
 // is Roundcube over HTTPS once it has its certificate and webmail is on.
-func (e env) renderNamesVhost(d Data, w Webmail, http2 bool) string {
+func (e env) renderNamesVhost(d Data, w Webmail, http2 bool, ls listenSet) string {
 	var b strings.Builder
 	acme := "    location ^~ /.well-known/acme-challenge/ {\n        root " + e.M.ACMERoot + ";\n        default_type \"text/plain\";\n        try_files $uri =404;\n    }\n"
 	b.WriteString("# Managed by NimVor (email → mail names). Do not edit: changes are overwritten.\n")
@@ -114,10 +114,7 @@ func (e env) renderNamesVhost(d Data, w Webmail, http2 bool) string {
 		if !serveWebmail && !own {
 			names += " " + n.Webmail
 		}
-		b.WriteString("\nserver {\n    listen 80;\n")
-		if e.IPv6() {
-			b.WriteString("    listen [::]:80;\n")
-		}
+		b.WriteString("\nserver {\n" + ls.lines("80", ""))
 		fmt.Fprintf(&b, "    server_name %s;\n%s    location / {\n        return 404;\n    }\n}\n", names, acme)
 		if ready {
 			live := leLive(n.Cert)
@@ -128,31 +125,25 @@ func (e env) renderNamesVhost(d Data, w Webmail, http2 bool) string {
 			if !serveWebmail && !own {
 				idle += " " + n.Webmail
 			}
-			b.WriteString("\n" + e.renderNamesIdle(idle, live, http2))
+			b.WriteString("\n" + e.renderNamesIdle(idle, live, http2, ls))
 		}
 		if serveWebmail {
 			live := leLive(n.Cert)
-			b.WriteString("\n" + e.renderWebmailVhost(vhostParams{Hostname: n.Webmail, Cert: live + "/fullchain.pem", Key: live + "/privkey.pem", HTTP2Direct: http2, IPv6: e.IPv6()}))
+			b.WriteString("\n" + e.renderWebmailVhost(vhostParams{Hostname: n.Webmail, Cert: live + "/fullchain.pem", Key: live + "/privkey.pem", HTTP2Direct: http2, IPv6: e.IPv6(), Listen: ls}))
 		}
 	}
 	return b.String()
 }
 
 // renderNamesIdle is the HTTPS block of names that serve no website: mail apps use them, a browser is told so.
-func (e env) renderNamesIdle(names, live string, http2 bool) string {
+func (e env) renderNamesIdle(names, live string, http2 bool, ls listenSet) string {
 	var b strings.Builder
 	b.WriteString("server {\n")
-	listen := func(port string) {
-		fmt.Fprintf(&b, "    listen %s;\n", port)
-		if e.IPv6() {
-			fmt.Fprintf(&b, "    listen [::]:%s;\n", port)
-		}
-	}
 	if http2 {
-		listen("443 ssl")
+		b.WriteString(ls.lines("443", "ssl"))
 		b.WriteString("    http2 on;\n")
 	} else {
-		listen("443 ssl http2")
+		b.WriteString(ls.lines("443", "ssl http2"))
 	}
 	fmt.Fprintf(&b, "    server_name %s;\n    ssl_certificate %s/fullchain.pem;\n    ssl_certificate_key %s/privkey.pem;\n", names, live, live)
 	b.WriteString(tlsprofile.Include(e.Env))
@@ -221,7 +212,7 @@ func (e env) applyNames(ctx context.Context, d Data) error {
 		if !e.Root.Exists(e.M.NginxAvailable) {
 			set.Mkdir(e.M.NginxAvailable, 0o755, agentfs.RootOwner)
 		}
-		set.Write(e.namesNginxFile(), []byte(e.renderNamesVhost(d, w, e.NginxAtLeast(ctx, 1, 25, 1))), 0o644, agentfs.RootOwner)
+		set.Write(e.namesNginxFile(), []byte(e.renderNamesVhost(d, w, e.NginxAtLeast(ctx, 1, 25, 1), e.listenSet(ctx))), 0o644, agentfs.RootOwner)
 		set.Link(e.namesNginxFile(), e.namesNginxLink())
 	} else if e.Root.Exists(e.namesNginxFile()) {
 		set.Remove(e.namesNginxLink())
