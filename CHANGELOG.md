@@ -6,6 +6,8 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.6.0] — 2026-11-11
+
 ### Added
 
 - **Customer panel themes.** Hosting customers choose how their panel looks under *Account menu → Appearance*: NimVor Modern (unchanged, the default), **Classic** (tools grouped in a launcher grid with search), **Workspace** (sidebar, website cards, tool tabs), **Simple** (large shortcuts, tab bar on phones) and **Compact** (dense lists, account limits always visible), each with light/dark mode and an accent colour, a preview before saving and *Restore default*. Every theme is rendered by the same controllers and shows every tool the customer's role and plan allow; switching changes no website data. Administrators control it under *Settings → Customer panel themes* (which themes are offered, the default, whether customers may choose, default appearance, accent colours). Preferences are stored per user (migration `0074`); only the chosen theme's stylesheet is loaded. How to add a theme: `docs/development/themes.md`.
