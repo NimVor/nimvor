@@ -592,7 +592,9 @@ func registerWebmail(r *actions.Registry, e env) {
 				// Webmail's own site, and NimVor's host-name challenge site
 				// (port 80, ACME only), do not count as a website owning the
 				// name — webmail can still answer for it on 443.
-				mine = mine || f == e.webmailVhost() || f == e.webmailLink() || filepath.Base(f) == "nimvor-hostname.conf"
+				// The mail names' own file (NimVor's, one site per domain's names) is not a website either:
+				// it answers for webmail.<domain> only while webmail is not on that name itself.
+				mine = mine || f == e.webmailVhost() || f == e.webmailLink() || filepath.Base(f) == "nimvor-hostname.conf" || filepath.Base(f) == "nimvor-mail-names.conf"
 			}
 			if !mine && (w.Domain == in.Hostname || contains(w.Aliases, in.Hostname)) {
 				return nil, actions.Conflict("The website " + w.Domain + " already answers for " + in.Hostname + ". Choose another host name for webmail.")
@@ -691,6 +693,8 @@ func registerWebmail(r *actions.Registry, e env) {
 			e.ReloadNginx(ctx)
 		}
 		fail := func(msg string, cause error) (any, error) {
+			// The reason goes to the log too: the answer to the panel carries it, but the log is where it is found later.
+			e.Log.Warn("webmail was not set up", "step", msg, "hostname", in.Hostname, "detail", logging.Redact(cause.Error()))
 			applied.Rollback()
 			reload()
 			return nil, actions.Failed(msg+" The previous configuration was restored.", cause.Error())

@@ -107,9 +107,11 @@ func (e env) renderNamesVhost(d Data, w Webmail, http2 bool) string {
 	for _, dom := range namesDomains(d) {
 		n := *d.Domains[dom].Names
 		_, ready := e.certReady(n)
-		serveWebmail := ready && w.Enabled
+		// Webmail turned on at this very name: its own site answers for it, so this file only has mail.<domain>.
+		own := w.Enabled && w.Hostname == n.Webmail
+		serveWebmail := ready && w.Enabled && !own
 		names := n.Mail
-		if !serveWebmail {
+		if !serveWebmail && !own {
 			names += " " + n.Webmail
 		}
 		b.WriteString("\nserver {\n    listen 80;\n")
@@ -123,7 +125,7 @@ func (e env) renderNamesVhost(d Data, w Webmail, http2 bool) string {
 			// there (a browser also forces HTTPS for some top-level domains such as .dev): the names the
 			// certificate covers always get one, and say that nothing is served when webmail is not.
 			idle := n.Mail
-			if !serveWebmail {
+			if !serveWebmail && !own {
 				idle += " " + n.Webmail
 			}
 			b.WriteString("\n" + e.renderNamesIdle(idle, live, http2))
