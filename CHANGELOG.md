@@ -6,6 +6,8 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.5.6] — 2026-11-11
+
 ### Fixed
 
 - **Webmail could not be set to `webmail.<domain>`.** With a domain's mail names on, turning webmail on at that name was refused ("The website mail.<domain> already answers for webmail.<domain>"): NimVor's own mail-names Nginx file was counted as a website. It no longer is, and when webmail is on at `webmail.<domain>` itself the names' file leaves that name to webmail's own site.
@@ -15,7 +17,6 @@ All notable changes to NimVor are documented here. The format follows
 ### Fixed
 
 - **Webmail on a domain's own name (webmail.<domain>) opened another website.** Nginx had no HTTPS block for the name unless webmail was already on when the mail names were turned on, so the request fell through to whichever site answers first on port 443 (always the case for `.dev` domains, which browsers force to HTTPS). The names the certificate covers now always answer on 443 (a short "nothing is served here" page while webmail is off), and turning webmail on or off rebuilds the names' Nginx file, so webmail appears at `webmail.<domain>` without turning the names off and on again.
-
 - **SSL/TLS page: mail certificates show where they are used.** A domain's mail names certificate (and the certificate of the server's mail host) was listed as "unused" with a **Delete** button, because only Nginx's files were searched. Dovecot's and Postfix's files are read too: the certificate now shows e.g. `99-nimvor-names.conf, postfix sni_maps`, cannot be deleted while in use, and the delete refusal names the files.
 
 ## [1.5.5] — 2026-11-11
