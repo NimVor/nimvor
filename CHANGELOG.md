@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **SSL/TLS page: mail certificates show where they are used.** A domain's mail names certificate (and the certificate of the server's mail host) was listed as "unused" with a **Delete** button, because only Nginx's files were searched. Dovecot's and Postfix's files are read too: the certificate now shows e.g. `99-nimvor-names.conf, postfix sni_maps`, cannot be deleted while in use, and the delete refusal names the files.
+
 ## [1.5.5] — 2026-11-11
 
 ### Changed
