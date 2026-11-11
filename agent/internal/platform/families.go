@@ -278,6 +278,7 @@ var rhelPackages = map[string]string{
 	"bind9":               "bind",
 	"bind9utils":          "bind-utils",
 	"pdns-server":         "pdns",
+	"pdns-backend-bind":   "pdns",
 	"knot-dnssecutils":    "knot",
 	"dovecot-imapd":       "dovecot",
 	"dovecot-lmtpd":       "dovecot",

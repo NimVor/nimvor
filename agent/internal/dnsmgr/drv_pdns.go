@@ -8,6 +8,7 @@ import (
 
 	"github.com/NimVor/nimvor/agent/internal/agentfs"
 	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/pkgs"
 )
 
 // pdnsDriver runs the zones with the PowerDNS Authoritative Server, using
@@ -16,9 +17,18 @@ import (
 // database NimVor creates next to PowerDNS' own files.
 type pdnsDriver struct{}
 
-func (pdnsDriver) id() string                    { return "powerdns" }
-func (pdnsDriver) label() string                 { return "PowerDNS" }
-func (pdnsDriver) packages() []string            { return []string{"pdns-server"} }
+func (pdnsDriver) id() string    { return "powerdns" }
+func (pdnsDriver) label() string { return "PowerDNS" }
+func (pdnsDriver) packages() []string {
+	// Debian and Ubuntu ship the BIND backend apart from the server; without it pdns_server does not know the
+	// bind-* settings. (The same package as the server on AlmaLinux and Rocky.)
+	return []string{"pdns-server", "pdns-backend-bind"}
+}
+
+// complete reports whether the packages the BIND backend needs are all installed.
+func (d pdnsDriver) complete(ctx context.Context, env *host.Env) bool {
+	return len(pkgs.Installed(ctx, env, d.packages())) == len(d.packages())
+}
 func (pdnsDriver) installed(env *host.Env) bool  { return env.Root.Exists("/usr/sbin/pdns_server") }
 func (pdnsDriver) unit(env *host.Env) string     { return env.M.PDNSUnit }
 func (pdnsDriver) account(env *host.Env) string  { return "pdns" }

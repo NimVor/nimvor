@@ -305,6 +305,24 @@ func TestSwitchingBackPutsTheOldNameserverBackWhenTheNewOneFails(t *testing.T) {
 	}
 }
 
+// Debian ships PowerDNS' BIND backend as its own package: a server installed without it is completed.
+func TestPowerDNSInstallsTheBINDBackendPackage(t *testing.T) {
+	f := setup(t)
+	f.installAll(t)
+	f.bindWithZone(t)
+	f.h.Respond = func(id string, args []string) (string, error, bool) {
+		if id == "dpkg-query" {
+			return "pdns-server\tii \t4.8\n", nil, true
+		}
+		return "", nil, false
+	}
+	var log bytes.Buffer
+	selectBackend(context.Background(), f.h.Env, pdnsDriver{}, &log)
+	if !strings.Contains(strings.Join(f.h.Runner.Calls, "\n"), "pdns-backend-bind") {
+		t.Fatalf("the backend package was not installed:\n%s\n%s", strings.Join(f.h.Runner.Calls, "\n"), log.String())
+	}
+}
+
 func TestPowerDNSKeepsItsSettingsInADropInAndTheSecondariesAsMetadata(t *testing.T) {
 	f := setup(t)
 	f.installAll(t)

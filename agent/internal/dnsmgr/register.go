@@ -503,7 +503,13 @@ func selectBackend(ctx context.Context, env *host.Env, to driver, log io.Writer)
 	}
 	pFrom := pathsFor(env, from)
 	fromRunning := configured(env, pFrom) && from.running(ctx, env)
-	if !to.installed(env) {
+	complete := true
+	if c, ok := to.(interface {
+		complete(context.Context, *host.Env) bool
+	}); ok {
+		complete = c.complete(ctx, env)
+	}
+	if !to.installed(env) || !complete {
 		fmt.Fprintf(log, "Installing %s…\n", to.label())
 		if err := pkgs.Install(ctx, env, log, to.packages()); err != nil {
 			return nil, err

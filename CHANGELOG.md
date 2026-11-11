@@ -8,7 +8,7 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Fixed
 
-- Choosing PowerDNS failed with "Could not connect to the SQLite database" when the package had not created its state folder yet; NimVor now creates it (owned by the pdns account) before making the DNSSEC database.
+- Choosing PowerDNS failed with "Could not connect to the SQLite database" when the package had not created its state folder yet; NimVor now creates it (owned by the pdns account) before making the DNSSEC database. On Debian and Ubuntu it also installs `pdns-backend-bind` (PowerDNS' BIND backend is a separate package there; without it PowerDNS rejects the `bind-config` setting).
 
 ## [1.5.4] — 2026-11-11
 
