@@ -501,6 +501,77 @@ final class DnsService
         });
     }
 
+    /**
+     * The nameservers this server can run the zones with and what each offers (the agent knows what is installed
+     * and whether it can sign zones).
+     *
+     * @return array{backends: list<array<string, mixed>>, active: string, zones: int, signed: int}
+     */
+    public function backends(): array
+    {
+        $r = (array) $this->agent->call('dns.backends');
+        return [
+            'backends' => array_map(static fn ($b): array => (array) $b, (array) ($r['backends'] ?? [])),
+            'active' => (string) ($r['active'] ?? 'bind'),
+            'zones' => (int) ($r['zones'] ?? 0),
+            'signed' => (int) ($r['signed'] ?? 0),
+        ];
+    }
+
+    public const BACKENDS = ['powerdns', 'nsd', 'knot', 'bind'];
+
+    /**
+     * Starts switching the nameserver (the agent installs it when needed and puts the previous one back if the
+     * new one does not work out). Returns the job id.
+     */
+    public function selectBackend(string $backend, bool $confirmEdit, bool $confirmDnssec, ?int $userId): string
+    {
+        if (!in_array($backend, self::BACKENDS, true)) {
+            throw new ValidationException(['backend' => 'Choose PowerDNS, NSD, Knot DNS or BIND.']);
+        }
+        $res = (array) $this->agent->call('dns.backend_select', [
+            'backend' => $backend, 'confirm_edit_package_config' => $confirmEdit, 'confirm_dnssec_reset' => $confirmDnssec,
+        ], 60);
+        if (empty($res['job_id'])) {
+            throw new UserFacingException('That nameserver is already in use.');
+        }
+        $this->audit->record('dns.backend', 'server', 'dns', AuditLogger::SUCCESS, ['backend' => $backend, 'dnssec_reset' => $confirmDnssec], $userId);
+        return (string) $res['job_id'];
+    }
+
+    /**
+     * Whether the nameserver in use can sign zones and the zone's DNSSEC state with the DS records to publish at
+     * its registrar.
+     *
+     * @return array{supported: bool, reason: string, backend: string, backend_label: string, enabled: bool, ds: list<array<string, mixed>>, ds_error: string}
+     */
+    public function dnssec(string $zoneName): array
+    {
+        $r = (array) $this->agent->call('dns.dnssec_status', ['zone' => $zoneName]);
+        return [
+            'supported' => !empty($r['supported']), 'reason' => (string) ($r['reason'] ?? ''),
+            'backend' => (string) ($r['backend'] ?? ''), 'backend_label' => (string) ($r['backend_label'] ?? ''),
+            'enabled' => !empty($r['enabled']),
+            'ds' => array_map(static fn ($d): array => (array) $d, (array) ($r['ds'] ?? [])),
+            'ds_error' => (string) ($r['ds_error'] ?? ''),
+        ];
+    }
+
+    /** @param array<string, mixed> $zone */
+    public function dnssecEnable(array $zone): string
+    {
+        $r = (array) $this->agent->call('dns.dnssec_enable', ['zone' => $zone['name']], 120);
+        $this->audit->record('dns.dnssec_enable', 'dns_zone', (string) $zone['id'], AuditLogger::SUCCESS, ['zone' => $zone['name']]);
+        return (string) ($r['warning'] ?? '');
+    }
+
+    /** @param array<string, mixed> $zone */
+    public function dnssecDisable(array $zone): void
+    {
+        $this->agent->call('dns.dnssec_disable', ['zone' => $zone['name']], 120);
+        $this->audit->record('dns.dnssec_disable', 'dns_zone', (string) $zone['id'], AuditLogger::SUCCESS, ['zone' => $zone['name']]);
+    }
+
     /** Load the zone again (e.g. after the DNS server was reinstalled). */
     public function sync(array $zone): void
     {

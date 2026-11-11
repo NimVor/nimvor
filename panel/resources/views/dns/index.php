@@ -14,18 +14,22 @@ use NimVor\Security\Permissions as P;
 $errors ??= [];
 $old ??= [];
 $ready = !empty($status['configured']) && !empty($status['running']);
+$ns = (string) ($status['backend_label'] ?? 'BIND');
 ?>
 <?php $this->start(); ?>DNS<?php $this->end('title'); ?>
-<?php $this->start(); ?>Zones served by this server's DNS server (BIND)<?php $this->end('subtitle'); ?>
+<?php $this->start(); ?>Zones served by this server's DNS server (<?= e($ns) ?>)<?php $this->end('subtitle'); ?>
+<?php if ($this->can(P::SERVER_MANAGE) && $this->hasRoute('dns.nameserver')): ?>
+    <p class="small mb-3"><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('dns.nameserver')) ?>"><i class="bi bi-arrow-left-right me-1"></i>Nameserver selection</a> <span class="text-body-secondary ms-1">PowerDNS, NSD, Knot DNS or BIND (in use: <?= e($ns) ?>), and DNSSEC.</span></p>
+<?php endif; ?>
 <?php if ($agentError !== null): ?>
     <?= $this->partial('partials/agent_error', ['error' => $agentError]) ?>
 <?php elseif (!$ready): ?>
     <div class="card mb-3"><div class="card-body">
         <?php if (empty($status['installed'])): ?>
-            <p>The DNS server (BIND) is not installed on this server.</p>
+            <p>The DNS server (<?= e($ns) ?>) is not installed on this server.</p>
             <?php if ($this->can(P::PACKAGES_MANAGE)): ?><form method="post" action="<?= e($this->url('dns.install')) ?>"><?= $this->csrfField() ?><button class="btn btn-primary"><i class="bi bi-download me-1"></i>Install BIND</button></form><?php endif; ?>
         <?php elseif ($this->can(P::SERVER_MANAGE)): ?>
-            <p><?= empty($status['configured']) ? 'BIND is installed but not set up for NimVor yet.' : 'BIND is set up but not running.' ?></p>
+            <p><?= e(empty($status['configured']) ? $ns . ' is installed but not set up for NimVor yet.' : $ns . ' is set up but not running.') ?></p>
             <form method="post" action="<?= e($this->url('dns.setup')) ?>" data-nim-busy>
                 <?= $this->csrfField() ?>
                 <?php if (empty($status['configured'])): ?>

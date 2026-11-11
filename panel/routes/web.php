@@ -331,6 +331,10 @@ return static function (Router $r): void {
     $r->get('/dns', [DnsController::class, 'index'], ['name' => 'dns', 'permission' => P::DNS_MANAGE]);
     $r->post('/dns/install', [DnsController::class, 'install'], ['name' => 'dns.install', 'permission' => P::PACKAGES_MANAGE]);
     $r->post('/dns/setup', [DnsController::class, 'setup'], ['name' => 'dns.setup', 'permission' => P::SERVER_MANAGE]);
+    $r->get('/dns/nameserver', [DnsController::class, 'nameserver'], ['name' => 'dns.nameserver', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/dns/nameserver', [DnsController::class, 'selectNameserver'], ['name' => 'dns.nameserver.select', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/dns/zones/{id}/dnssec', [DnsController::class, 'dnssecOn'], ['name' => 'dns.dnssec.on', 'permission' => P::DNS_MANAGE]);
+    $r->post('/dns/zones/{id}/dnssec/off', [DnsController::class, 'dnssecOff'], ['name' => 'dns.dnssec.off', 'permission' => P::DNS_MANAGE]);
     $r->post('/dns/zones', [DnsController::class, 'store'], ['name' => 'dns.store', 'permission' => P::DNS_MANAGE]);
     $r->get('/dns/zones/{id}', [DnsController::class, 'show'], ['name' => 'dns.zone', 'permission' => P::DNS_MANAGE]);
     $r->post('/dns/zones/{id}/records', [DnsController::class, 'addRecord'], ['name' => 'dns.records.store', 'permission' => P::DNS_MANAGE]);

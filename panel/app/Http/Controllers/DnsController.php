@@ -89,6 +89,66 @@ final class DnsController extends Controller
         });
     }
 
+    /** Nameserver selection: PowerDNS, NSD, Knot DNS or BIND (administrators). */
+    public function nameserver(Request $request): Response
+    {
+        $info = null;
+        $error = null;
+        try {
+            $info = $this->dns->backends();
+        } catch (AgentException $e) {
+            $error = $e;
+        }
+        return $this->render('dns/nameserver', ['info' => $info, 'agentError' => $error]);
+    }
+
+    public function selectNameserver(Request $request): Response
+    {
+        try {
+            $job = $this->dns->selectBackend($request->string('backend'), $request->input('confirm') === '1', $request->input('confirm_dnssec') === '1', $this->userId($request));
+        } catch (ValidationException $e) {
+            return $this->backWithErrors('/dns/nameserver', $e, $request->all());
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure('/dns/nameserver', $e);
+        }
+        $this->jobs->track($job, 'Switch the DNS server', 'server', 'dns', $this->userId($request));
+        $this->flashJob($job);
+        return $this->redirectWithSuccess('/dns/nameserver', 'Switching the nameserver. The current one keeps answering until the new one answers for every zone; if it does not work out, the current one is put back.');
+    }
+
+    /** Turns DNSSEC on or off for a zone (administrators: it changes the zone's signing on the server). */
+    private function dnssecAct(Request $request, string $id, bool $on): Response
+    {
+        $zone = $this->dns->zone((int) $id, $this->user($request));
+        if ($zone === null) {
+            return $this->redirectWithError('/dns', 'Zone not found.');
+        }
+        $to = '/dns/zones/' . (int) $zone['id'];
+        if (!Scope::isAll($this->user($request))) {
+            return $this->redirectWithError($to, 'Only an administrator can change a zone\'s DNSSEC signing.');
+        }
+        try {
+            if ($on) {
+                $warning = $this->dns->dnssecEnable($zone);
+                return $this->redirectWithSuccess($to, 'DNSSEC is on for ' . $zone['name'] . '. Publish the DS record below at the domain\'s registrar.' . ($warning !== '' ? ' ' . $warning : ''));
+            }
+            $this->dns->dnssecDisable($zone);
+            return $this->redirectWithSuccess($to, 'DNSSEC is off for ' . $zone['name'] . '.');
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure($to, $e);
+        }
+    }
+
+    public function dnssecOn(Request $request, string $id): Response
+    {
+        return $this->dnssecAct($request, $id, true);
+    }
+
+    public function dnssecOff(Request $request, string $id): Response
+    {
+        return $this->dnssecAct($request, $id, false);
+    }
+
     public function store(Request $request): Response
     {
         $id = 0;
@@ -116,13 +176,20 @@ final class DnsController extends Controller
             }
         } catch (AgentException) {
         }
+        $dnssec = null;
+        if (Scope::isAll($this->user($request))) {
+            try {
+                $dnssec = $this->dns->dnssec((string) $zone['name']);
+            } catch (AgentException) {
+            }
+        }
         $records = $this->dns->records((int) $zone['id']);
         $sort = in_array($request->query('sort'), ['name', 'type', 'ttl', 'value'], true) ? (string) $request->query('sort') : '';
         if ($sort !== '') {
             usort($records, static fn (array $a, array $b): int => ($sort === 'ttl' ? ((int) $a['ttl'] <=> (int) $b['ttl']) : strcmp((string) $a[$sort], (string) $b[$sort])) ?: strcmp((string) $a['name'], (string) $b['name']));
         }
         return $this->render('dns/zone', [
-            'zone' => $zone, 'records' => $records, 'served' => $served, 'sort' => $sort,
+            'zone' => $zone, 'records' => $records, 'served' => $served, 'sort' => $sort, 'dnssec' => $dnssec,
             'warnings' => DnsService::warnings((string) $zone['name'], $records),
             'import' => $this->session->pullFlash('dns_import'),
             // The website this zone belongs to, when the user may see it: the page then keeps its menu.
