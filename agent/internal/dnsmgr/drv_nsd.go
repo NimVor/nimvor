@@ -29,12 +29,12 @@ func (nsdDriver) afterApply(context.Context, *host.Env, paths, string, []string)
 }
 
 func (nsdDriver) advantages() []string {
-	return []string{"Very high performance.", "Small and simple: it only answers for the zones it hosts.", "Low memory requirements.", "Designed for the security of an authoritative server."}
+	return []string{"Fast and small: it only answers for the zones it hosts.", "Uses little memory.", "Built with the security of a public nameserver in mind."}
 }
 func (nsdDriver) disadvantages() []string {
-	return []string{"Does not sign zones: DNSSEC needs the zones to be signed elsewhere.", "Does not provide a recursive (caching) nameserver.", "A new or removed zone restarts the service (a changed zone does not)."}
+	return []string{"Cannot sign zones: DNSSEC needs them signed elsewhere.", "Is not a caching resolver.", "Adding or removing a zone restarts it (changing a zone does not)."}
 }
-func (nsdDriver) notes() []string { return []string{"No DNSSEC support in NimVor with NSD."} }
+func (nsdDriver) notes() []string { return []string{"NimVor cannot sign zones served by NSD."} }
 
 func (d nsdDriver) wire(env *host.Env, p paths, cur string) (string, bool) {
 	include := fmt.Sprintf("include: \"%s\"", p.list)

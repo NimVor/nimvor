@@ -39,13 +39,13 @@ func (pdnsDriver) wholeFile() bool               { return false }
 func (pdnsDriver) dnssec() dnssecOps             { return pdnsSigning{} }
 
 func (pdnsDriver) advantages() []string {
-	return []string{"Very high performance.", "Instant start-up.", "Low memory requirements.", "Built-in support for DNSSEC."}
+	return []string{"Answers quickly, even with many zones.", "Starts almost at once.", "Uses little memory.", "Signs zones itself (DNSSEC); keys are kept in a small database."}
 }
 func (pdnsDriver) disadvantages() []string {
-	return []string{"Does not provide a recursive (caching) nameserver (requires external nameservers in resolv.conf).", "CPU intensive with a high volume of DNS zones that use DNSSEC."}
+	return []string{"Is not a caching resolver: this server needs another resolver in resolv.conf.", "Signing many zones takes noticeable CPU."}
 }
 func (pdnsDriver) notes() []string {
-	return []string{"This is the default choice in cPanel.", "Built-in support for DNSSEC."}
+	return []string{"Runs with its BIND backend: it reads the same zone files as the others.", "On Debian and Ubuntu NimVor also installs pdns-backend-bind."}
 }
 
 func dnssecDB(env *host.Env) string { return env.M.PDNSStateDir + "/nimvor-dnssec.db" }
