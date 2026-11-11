@@ -1620,6 +1620,15 @@ mail for hosted domains only and offers no sign-in; only this machine may
 relay. Signed-in users can send only as their own address or an alias that
 delivers to them. Outgoing mail is DKIM-signed.
 
+**Sending on port 465.** Some office, hotel and mobile networks block port 587.
+*Email → Port 465* (administrators) turns on a second submission service on
+port 465 (TLS from the first byte, same sign-in and sender rules as 587). NimVor
+adds the service to Postfix's `master.cf` with `postconf`, checks it
+(`postfix check`), reloads Postfix, opens the port in the firewall and tries a
+TLS connection; if any step fails the previous `master.cf` is put back. Turning
+it off removes the service again. The Email page and each domain's *Mail app
+settings* then show port 465 next to 587.
+
 **Spam filter:** *Email → Spam filter* installs and turns on Rspamd as a
 milter in front of Postfix. Mail scoring above the *Junk* score gets
 `X-Spam: Yes` and is filed into the mailbox's Junk folder by a Sieve rule

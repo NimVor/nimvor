@@ -216,7 +216,7 @@ if ($namesReady && !empty($webmail['enabled'])) {
                 <dl class="row mb-0">
                     <dt class="col-4">User name</dt><dd class="col-8">the full address</dd>
                     <dt class="col-4">Incoming</dt><dd class="col-8">IMAP <code><?= e($clientHost) ?></code> port 993, SSL/TLS</dd>
-                    <dt class="col-4">Outgoing</dt><dd class="col-8">SMTP <code><?= e($clientHost) ?></code> port 587, STARTTLS, with sign-in</dd>
+                    <dt class="col-4">Outgoing</dt><dd class="col-8">SMTP <code><?= e($clientHost) ?></code> port 587, STARTTLS, with sign-in<?php if (!empty($smtps)): ?>, or port 465, SSL/TLS<?php endif; ?></dd>
                     <?php if ($webmailUrl !== null): ?>
                     <dt class="col-4">Webmail</dt><dd class="col-8 mb-0"><a href="<?= e($webmailUrl) ?>" target="_blank" rel="noopener"><?= e($webmailUrl) ?></a></dd>
                     <?php endif; ?>

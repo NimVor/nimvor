@@ -245,6 +245,7 @@ paths:
               - mail.routing_set
               - mail.server_status
               - mail.settings_set
+              - mail.smtps_set
               - mail.spam_configure
               - mail.status
               - mail.suspend
@@ -821,6 +822,7 @@ x-nimvor-actions:
   mail.routing_set: { mutating: true, description: "Route a mail domain: local (mailboxes here), backup (queue its mail for the primary MX) or remote (another server receives it; mail for it from this server goes there)." }
   mail.server_status: { mutating: false, description: "Mail services (Postfix, Dovecot, OpenDKIM, Rspamd): running, enabled, version; configuration checks; the managed Postfix and Dovecot settings." }
   mail.settings_set: { mutating: true, description: "Change managed Postfix settings (postconf, postfix check, reload) and Dovecot settings (drop-in, doveconf -n, reload); the previous values come back on failure." }
+  mail.smtps_set: { mutating: true, description: "Turn sending mail on port 465 (SMTP over TLS from the first byte, next to 587 with STARTTLS) on or off. Written into Postfix's master.cf with postconf, checked with postfix check, reloaded and tried with a TLS connection; the previous master.cf is restored if anything fails. Opens the port in the firewall." }
   mail.spam_configure: { mutating: true, description: "Turn the spam filter (Rspamd) on or off and set the scores at which mail is filed into Junk or refused. Writes only NimVor's files in Rspamd's local.d (replacing other files there needs confirm_replace), validates with rspamadm configtest, restarts Rspamd and updates Postfix; rolled back on failure." }
   mail.status: { mutating: false, description: "Email: installed components, whether set up and running, hosted domains (with DKIM records), mailboxes (with size) and aliases." }
   mail.suspend: { mutating: true, description: "Suspend or resume logins for a mail domain's mailboxes (account suspension); incoming mail is still delivered." }

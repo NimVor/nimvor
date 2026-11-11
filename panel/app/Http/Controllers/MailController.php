@@ -145,6 +145,17 @@ final class MailController extends Controller
         });
     }
 
+    /** Sending mail on port 465 (SMTP over TLS from the first byte), next to 587 with STARTTLS. */
+    public function smtps(Request $request): Response
+    {
+        return $this->act($request, '/mail', function () use ($request): string {
+            $enabled = $request->input('enabled') === '1';
+            $this->agent->call('mail.smtps_set', ['enabled' => $enabled], 120);
+            $this->audit->record('mail.smtps_set', 'server', 'mail', AuditLogger::SUCCESS, ['enabled' => $enabled]);
+            return $enabled ? 'Sending on port 465 is on. In a mail app choose SMTP port 465 with SSL/TLS.' : 'Sending on port 465 is off.';
+        });
+    }
+
     public function store(Request $request): Response
     {
         $id = 0;
@@ -172,7 +183,7 @@ final class MailController extends Controller
         return $this->render('mail/domain', [
             'domain' => $domain, 'mailboxes' => $this->mail->mailboxes((int) $domain['id']), 'aliases' => $this->mail->aliases((int) $domain['id']),
             'names' => $this->mail->namesStatus($domain), 'namesRecords' => $this->mail->namesDnsRecords($domain),
-            'records' => $this->mail->dnsRecords($domain, $host), 'host' => $host, 'sizes' => $sizes, 'webmail' => (array) ($status['webmail'] ?? []),
+            'records' => $this->mail->dnsRecords($domain, $host), 'host' => $host, 'sizes' => $sizes, 'webmail' => (array) ($status['webmail'] ?? []), 'smtps' => !empty($status['smtps']),
             'secret' => $this->session->pullFlash('secret'), 'edit' => (int) $request->query('edit', 0),
             // The website this domain belongs to, when the user may see it: the page then keeps its menu.
             'site' => (int) ($domain['website_id'] ?? 0) > 0 ? $this->sites->find($this->server->id(), (int) $domain['website_id'], $this->user($request)) : null,
