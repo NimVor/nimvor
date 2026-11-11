@@ -34,7 +34,7 @@ disable_root: false
 users:
   - name: root
     ssh_authorized_keys: ["$(cat "$WORK/key.pub")"]
-ssh_pwauth: false
+ssh_pwauth: true
 growpart: {mode: auto, devices: ["/"]}
 EOF
     printf 'instance-id: nimvor-ci\nlocal-hostname: %s.nimvor.test\n' "$os" > "$WORK/meta-data"
@@ -45,7 +45,7 @@ EOF
         -display none -serial "file:$WORK/console.log" -daemonize -pidfile "$WORK/qemu.pid"
     for _ in $(seq 1 120); do
         if ssh "${SSH_OPTS[@]}" root@127.0.0.1 true 2>/dev/null; then
-            ssh "${SSH_OPTS[@]}" root@127.0.0.1 'cloud-init status --wait >/dev/null; grep -E "^(PRETTY_NAME|VERSION_ID)=" /etc/os-release; command -v getenforce >/dev/null && getenforce; true'
+            ssh "${SSH_OPTS[@]}" root@127.0.0.1 'cloud-init status --wait >/dev/null; echo "PasswordAuthentication yes" > /etc/ssh/sshd_config.d/00-nimvor-ci.conf; sshd -t && { systemctl reload sshd || systemctl reload ssh; }; grep -E "^(PRETTY_NAME|VERSION_ID)=" /etc/os-release; command -v getenforce >/dev/null && getenforce; true'
             exit 0
         fi
         sleep 5
