@@ -26,7 +26,7 @@ func TestWebmail(t *testing.T) {
 	}
 	old := webmailProbe
 	probed := ""
-	webmailProbe = func(_ context.Context, host string) error { probed = host; return nil }
+	webmailProbe = func(_ context.Context, host, _ string) error { probed = host; return nil }
 	t.Cleanup(func() { webmailProbe = old })
 	on := map[string]any{"enabled": true, "hostname": "Webmail.Example.net."}
 
@@ -202,7 +202,7 @@ func TestWebmailOnPHP85(t *testing.T) {
 		return next(id, args)
 	}
 	old := webmailProbe
-	webmailProbe = func(context.Context, string) error { return nil }
+	webmailProbe = func(context.Context, string, string) error { return nil }
 	t.Cleanup(func() { webmailProbe = old })
 	h.Env.Cfg.SimulateCommands = true
 	if _, err := call(t, r, "mail.configure", map[string]any{"hostname": "mail.example.net", "confirm_edit_package_config": true}); err != nil {
