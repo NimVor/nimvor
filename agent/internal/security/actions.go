@@ -39,7 +39,7 @@ func Register(r *actions.Registry, env *host.Env) {
 	r.Register(actions.Action{Name: "security.audit", Description: "Security checks with findings and remedies (read-only).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return Audit(ctx, env), nil
 	}})
-	r.Register(actions.Action{Name: "firewall.protection", Description: "Firewall protections in the manner of CSF (SYN flood, connection limits, port flood, invalid packets, ping rate): the applied configuration, whether its nftables table is loaded, and what each protection dropped.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "firewall.protection", Description: "Firewall protections (SYN flood, connection limits, port flood, invalid packets, ping rate): the applied configuration, whether its nftables table is loaded, and what each protection dropped.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return ProtectionStatus(ctx, env), nil
 	}})
 	r.Register(actions.Action{Name: "firewall.protection_set", Mutating: true, Description: "Apply the firewall protections (nftables table inet nimvor_flood, next to UFW or firewalld; it only drops or rejects). Undone automatically unless confirmed.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {

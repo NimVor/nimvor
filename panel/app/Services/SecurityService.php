@@ -80,7 +80,7 @@ final class SecurityService
     }
 
     /**
-     * Firewall protections (CSF-style): the form's values, checked and sent
+     * Firewall protections : the form's values, checked and sent
      * to the agent as one guarded change. $myIp, when given, is exempted.
      *
      * @param array<string, mixed> $in

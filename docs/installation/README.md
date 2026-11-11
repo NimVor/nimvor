@@ -215,7 +215,7 @@ once, for every profile: weekly malware scans of every website with
 quarantine, the five fail2ban jails (sshd, recidive, nginx-http-auth,
 nginx-botsearch, nginx-limit-req: 60 minute ban, 5 attempts in 10 minutes),
 compiler access for root only, SMTP restrictions, the cloud-metadata block
-for website accounts, cPHulk brute force protection with its recommended
+for website accounts, brute force protection with its recommended
 limits (your own address is whitelisted), shell fork bomb protection and
 traceroute disabled for users. ModSecurity is only reported (its Nginx
 connector is built from the ModSecurity page). A later run leaves what you

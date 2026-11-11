@@ -120,7 +120,7 @@ final class AdminListsTest extends HttpTestCase
         $this->agent->succeed('fail2ban.status', ['installed' => true, 'running' => true, 'jails' => [], 'managed_config' => '']);
         $page = $this->request('GET', '/security')->body();
         // (high pass 3 + medium warn 1 + the panel's own checks: password
-        // strength, medium pass 2; cPHulk off, high fail 0)
+        // strength, medium pass 2; brute force protection off, high fail 0)
         // / (3 + 3 + 2 + 2 + 3) = 46; info does not count.
         self::assertStringContainsString('46 / 100', $page);
         self::assertStringContainsString('Insecure', $page);

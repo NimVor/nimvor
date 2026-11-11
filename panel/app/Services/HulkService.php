@@ -11,7 +11,7 @@ use NimVor\Security\Countries;
 use NimVor\Support\Logger;
 
 /**
- * Brute force protection (Security → cPHulk Brute Force Protection).
+ * Brute force protection (Security → Brute Force Protection).
  *
  * Failed logins come from the panel itself and, through the agent, from the
  * logs of the SSH server, Dovecot (IMAP/POP3), Postfix (SMTP AUTH), pure-ftpd

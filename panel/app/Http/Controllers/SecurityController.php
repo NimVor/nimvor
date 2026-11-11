@@ -88,8 +88,8 @@ final class SecurityController extends Controller
             'detail' => $strong ? sprintf('Password strength requirements are strong (minimum strength %d).', $min) : ($this->settings->bool('policy_password_strength') ? sprintf('The minimum password strength is %d.', $min) : 'Password strength requirements are off.'),
             'remedy' => $strong ? '' : sprintf('Require a password strength of %d or more under Password Strength Configuration.', \NimVor\Security\PasswordPolicy::STRONG)];
         $hulk = $this->settings->bool('hulk_enabled');
-        $out[] = ['id' => 'hulk', 'title' => 'cPHulk Brute Force Protection', 'severity' => 'high', 'link' => 'security.hulk', 'status' => $hulk ? 'pass' : 'fail',
-            'detail' => $hulk ? 'cPHulk Brute Force Protection is enabled.' : 'cPHulk Brute Force Protection is disabled.', 'remedy' => $hulk ? '' : 'Enable it under cPHulk Brute Force Protection (add your own IP address to its whitelist first).'];
+        $out[] = ['id' => 'hulk', 'title' => 'Brute Force Protection', 'severity' => 'high', 'link' => 'security.hulk', 'status' => $hulk ? 'pass' : 'fail',
+            'detail' => $hulk ? 'Brute Force Protection is enabled.' : 'Brute Force Protection is disabled.', 'remedy' => $hulk ? '' : 'Enable it under Brute Force Protection (add your own IP address to its whitelist first).'];
         if (isset($h['forkbomb'])) {
             $on = !empty($h['forkbomb']['enabled']);
             $out[] = ['id' => 'forkbomb', 'title' => 'Shell Fork Bomb Protection', 'severity' => 'medium', 'link' => 'security.forkbomb', 'status' => $on ? 'pass' : 'warn',
@@ -241,7 +241,7 @@ final class SecurityController extends Controller
         return $this->page('firewall', ['fw' => (array) $fw, 'agentError' => $err, 'myIp' => SecurityService::publicAddress($ip) ? $ip : '', 'protection' => $protection]);
     }
 
-    /** Firewall → Protection (CSF-style flood and connection limits). */
+    /** Firewall → Protection (flood and connection limits). */
     public function protection(Request $request): Response
     {
         /** @var list<string> $proxies */
