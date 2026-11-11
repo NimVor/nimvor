@@ -250,3 +250,25 @@ func TestNamesAlwaysAnswerOnHTTPSAndFollowWebmail(t *testing.T) {
 		t.Fatalf("webmail off again:\n%s", vh)
 	}
 }
+
+// Webmail turned on at webmail.<domain> itself: its own site answers there, so the names' file has only
+// mail.<domain> (two sites for one name would leave Nginx to pick one).
+func TestNamesFileLeavesTheNameToWebmailItselfWhenWebmailIsOnThere(t *testing.T) {
+	h, _ := mailWithDomain(t)
+	e := env{h.Env}
+	fakeLE(t, h, "mail.abc.com", "mail.abc.com", "webmail.abc.com")
+	os.MkdirAll(filepath.Join(h.Base, "etc/nimvor-webmail"), 0o755)
+	os.WriteFile(filepath.Join(h.Base, "etc/nimvor-webmail/webmail.json"), []byte(`{"enabled":true,"hostname":"webmail.abc.com","php":"8.3"}`), 0o600)
+	d, _ := e.load()
+	n := namesFor("abc.com")
+	dv := d.Domains["abc.com"]
+	dv.Names = &n
+	d.Domains["abc.com"] = dv
+	if err := e.applyNames(context.Background(), d); err != nil {
+		t.Fatal(err)
+	}
+	vh := h.Read("etc/nginx/sites-available/nimvor-mail-names.conf")
+	if strings.Contains(vh, "webmail.abc.com") || strings.Contains(vh, "fastcgi_pass") || !strings.Contains(vh, "server_name mail.abc.com;") {
+		t.Fatalf("the names file must leave webmail.abc.com to webmail's own site:\n%s", vh)
+	}
+}
