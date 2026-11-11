@@ -990,3 +990,63 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 .nim-source:hover > .card, .nim-source:focus-within > .card, .nim-source:focus > .card { border-color: var(--bs-primary); }
 .nim-source-pop { display: none; position: absolute; left: 0; right: 0; bottom: 100%; margin-bottom: 0; z-index: 20; min-width: 15rem; }
 .nim-source:hover > .nim-source-pop, .nim-source:focus > .nim-source-pop, .nim-source:focus-within > .nim-source-pop { display: block; }
+
+/* ---- Appearance (theme choice) ---- */
+.nim-theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
+.nim-theme-card { display: flex; flex-direction: column; border: 1px solid var(--nim-card-border); border-radius: .6rem; overflow: hidden; background: var(--bs-body-bg); }
+.nim-theme-card.is-current { border-color: var(--nim-accent); box-shadow: 0 0 0 1px var(--nim-accent); }
+.nim-theme-card-body { padding: .75rem .9rem .9rem; display: flex; flex-direction: column; gap: .25rem; flex: 1; }
+.nim-accent-choice { display: inline-flex; align-items: center; gap: .4rem; padding: .3rem .6rem; border: 1px solid var(--nim-card-border); border-radius: 2rem; cursor: pointer; font-size: .875rem; }
+.nim-accent-choice input { position: absolute; opacity: 0; pointer-events: none; }
+.nim-accent-choice:has(input:checked) { border-color: var(--nim-accent); box-shadow: 0 0 0 1px var(--nim-accent); }
+.nim-accent-choice:has(input:focus-visible) { outline: 2px solid var(--nim-accent); outline-offset: 2px; }
+.nim-accent-dot { display: inline-block; width: .9rem; height: .9rem; border-radius: 50%; background: var(--nim-accent); }
+.nim-accent-auto { background: conic-gradient(#0f766e, #2563eb, #7c3aed, #be123c, #b45309, #475569, #0f766e); }
+.nim-accent-teal { background: #0f766e; } .nim-accent-blue { background: #2563eb; } .nim-accent-violet { background: #7c3aed; }
+.nim-accent-rose { background: #be123c; } .nim-accent-amber { background: #b45309; } .nim-accent-slate { background: #475569; }
+
+/* A drawing of each theme's layout (blocks, no images). */
+.nim-thumb { position: relative; display: block; flex-shrink: 0; width: 100%; aspect-ratio: 16 / 9; background: #eef1f5; overflow: hidden; }
+.d-flex > .nim-thumb { width: 120px; border-radius: .4rem; }
+.nim-thumb > span { position: absolute; border-radius: 2px; background: #fff; box-shadow: 0 0 0 1px rgba(15, 23, 42, .08); }
+.nim-thumb .nim-thumb-bar { left: 0; right: 0; top: 0; height: 12%; border-radius: 0; background: #0b1726; }
+.nim-thumb .nim-thumb-side { left: 0; top: 12%; bottom: 0; width: 20%; border-radius: 0; background: #13263b; }
+.nim-thumb .nim-thumb-a { left: 26%; top: 22%; width: 32%; height: 26%; }
+.nim-thumb .nim-thumb-b { left: 62%; top: 22%; width: 32%; height: 26%; }
+.nim-thumb .nim-thumb-c { left: 26%; top: 54%; width: 32%; height: 26%; }
+.nim-thumb .nim-thumb-d { left: 62%; top: 54%; width: 32%; height: 26%; }
+/* Classic: a search bar and a grid of tool tiles, no sidebar */
+.nim-thumb-classic .nim-thumb-bar { background: #b45309; }
+.nim-thumb-classic .nim-thumb-side { left: 28%; top: 20%; width: 44%; height: 9%; bottom: auto; background: #fff; }
+.nim-thumb-classic .nim-thumb-a { left: 8%; top: 36%; width: 20%; height: 22%; }
+.nim-thumb-classic .nim-thumb-b { left: 32%; top: 36%; width: 20%; height: 22%; }
+.nim-thumb-classic .nim-thumb-c { left: 56%; top: 36%; width: 20%; height: 22%; }
+.nim-thumb-classic .nim-thumb-d { left: 80%; top: 36%; width: 14%; height: 22%; }
+/* Workspace: a light sidebar and website cards */
+.nim-thumb-workspace .nim-thumb-bar { background: #fff; }
+.nim-thumb-workspace .nim-thumb-side { background: #dbe5f5; width: 22%; }
+.nim-thumb-workspace .nim-thumb-a { left: 28%; top: 22%; width: 66%; height: 22%; border-left: 3px solid #2563eb; }
+.nim-thumb-workspace .nim-thumb-b { left: 28%; top: 49%; width: 66%; height: 22%; border-left: 3px solid #2563eb; }
+.nim-thumb-workspace .nim-thumb-c, .nim-thumb-workspace .nim-thumb-d { display: none; }
+/* Simple: a slim top bar, large shortcut tiles and a bottom tab bar */
+.nim-thumb-simple .nim-thumb-bar { background: #fff; height: 10%; }
+.nim-thumb-simple .nim-thumb-side { left: 0; right: 0; top: auto; bottom: 0; width: auto; height: 12%; background: #fff; }
+.nim-thumb-simple .nim-thumb-a { left: 8%; top: 20%; width: 40%; height: 30%; border-radius: 6px; }
+.nim-thumb-simple .nim-thumb-b { left: 52%; top: 20%; width: 40%; height: 30%; border-radius: 6px; }
+.nim-thumb-simple .nim-thumb-c { left: 8%; top: 56%; width: 40%; height: 24%; border-radius: 6px; }
+.nim-thumb-simple .nim-thumb-d { left: 52%; top: 56%; width: 40%; height: 24%; border-radius: 6px; }
+/* Compact: a dark top strip, a narrow category menu and dense rows */
+.nim-thumb-compact .nim-thumb-bar { height: 9%; background: #334155; }
+.nim-thumb-compact .nim-thumb-side { top: 9%; width: 16%; background: #e2e8f0; }
+.nim-thumb-compact .nim-thumb-a { left: 20%; top: 16%; width: 76%; height: 12%; }
+.nim-thumb-compact .nim-thumb-b { left: 20%; top: 32%; width: 76%; height: 12%; }
+.nim-thumb-compact .nim-thumb-c { left: 20%; top: 48%; width: 76%; height: 12%; }
+.nim-thumb-compact .nim-thumb-d { left: 20%; top: 64%; width: 76%; height: 12%; }
+[data-bs-theme="dark"] .nim-thumb { background: #1a2433; }
+[data-bs-theme="dark"] .nim-thumb > span { background: #263449; box-shadow: none; }
+[data-bs-theme="dark"] .nim-thumb-workspace .nim-thumb-bar, [data-bs-theme="dark"] .nim-thumb-simple .nim-thumb-bar { background: #0f1722; }
+
+/* The bar shown while a theme is only being previewed. */
+.nim-preview-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; padding: .5rem 1rem; background: #fff7ed; border-bottom: 1px solid #fed7aa; color: #7c2d12; font-size: .875rem; }
+[data-bs-theme="dark"] .nim-preview-bar { background: #3b2412; border-color: #7c2d12; color: #fed7aa; }
+.nim-preview-bar form { display: inline; margin: 0; }

@@ -10,7 +10,7 @@ $topStatus = $serverAdmin && isset($agent_status) && is_callable($agent_status) 
 $topHost = (string) ($topStatus['hostname'] ?? '');
 ?>
 <!doctype html>
-<html lang="en" data-bs-theme="light">
+<html lang="en" data-bs-theme="light"<?= $this->themeAttrs() ?>>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -22,6 +22,7 @@ $topHost = (string) ($topStatus['hostname'] ?? '');
     <link rel="stylesheet" href="<?= e($this->asset('assets/vendor/bootstrap/css/bootstrap.min.css')) ?>">
     <link rel="stylesheet" href="<?= e($this->asset('assets/vendor/bootstrap-icons/bootstrap-icons.min.css')) ?>">
     <link rel="stylesheet" href="<?= e($this->asset('assets/css/nimvor.css')) ?>">
+    <?= $this->partial('partials/theme_assets') ?>
     <?= $this->section('head') ?>
     <script src="<?= e($this->asset('assets/js/theme.js')) ?>"></script>
 </head>
@@ -118,6 +119,7 @@ $topHost = (string) ($topStatus['hostname'] ?? '');
         <main class="nim-content">
             <?php // The page's own buttons: top right of the page, not in the top bar. ?>
             <?php if (trim($this->section('actions')) !== ''): ?><div class="nim-page-actions"><?= $this->section('actions') ?></div><?php endif; ?>
+            <?= $this->partial('partials/theme_preview_bar') ?>
             <?= $this->partial('partials/flash') ?>
             <?= $content ?>
         </main>

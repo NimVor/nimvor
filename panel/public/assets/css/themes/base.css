@@ -1,0 +1,111 @@
+/*
+ * Shared pieces of the customer-panel themes (everything the non-default themes have in common).
+ * Each theme sets the --nt-* variables and lays the frame out in its own stylesheet.
+ */
+html[data-nim-theme]:not([data-nim-theme="modern"]) {
+    --nt-bg: #f4f6f9;
+    --nt-surface: #fff;
+    --nt-border: rgba(15, 23, 42, .12);
+    --nt-muted: #5b6676;
+    --nt-radius: .5rem;
+    --nt-head-bg: #fff;
+    --nt-head-fg: var(--bs-body-color);
+    --nim-surface: var(--nt-bg);
+    --nim-accent-strong: color-mix(in srgb, var(--nim-accent) 80%, #000);
+    --nim-accent-soft: color-mix(in srgb, var(--nim-accent) 12%, transparent);
+    --bs-primary: var(--nim-accent);
+    --bs-link-color: var(--nim-accent-strong);
+    --bs-link-hover-color: var(--nim-accent-strong);
+}
+html[data-nim-theme]:not([data-nim-theme="modern"])[data-bs-theme="dark"] {
+    --nt-bg: #10161e;
+    --nt-surface: #18212c;
+    --nt-border: rgba(255, 255, 255, .12);
+    --nt-muted: #9aa7b8;
+    --nt-head-bg: #18212c;
+    --bs-body-bg: #10161e;
+    --bs-link-color: color-mix(in srgb, var(--nim-accent) 55%, #fff);
+    --bs-link-hover-color: color-mix(in srgb, var(--nim-accent) 40%, #fff);
+}
+/* The accent reaches the buttons and bars the panel's own stylesheet colours teal. */
+html[data-nim-theme]:not([data-nim-theme="modern"]) .btn-primary {
+    --bs-btn-bg: var(--nim-accent); --bs-btn-border-color: var(--nim-accent);
+    --bs-btn-hover-bg: var(--nim-accent-strong); --bs-btn-hover-border-color: var(--nim-accent-strong);
+    --bs-btn-active-bg: var(--nim-accent-strong); --bs-btn-active-border-color: var(--nim-accent-strong);
+    --bs-btn-disabled-bg: var(--nim-accent); --bs-btn-disabled-border-color: var(--nim-accent);
+    --bs-btn-color: #fff; --bs-btn-hover-color: #fff; --bs-btn-active-color: #fff;
+}
+html[data-nim-theme]:not([data-nim-theme="modern"]) .btn-outline-primary {
+    --bs-btn-color: var(--nim-accent-strong); --bs-btn-border-color: var(--nim-accent);
+    --bs-btn-hover-bg: var(--nim-accent); --bs-btn-hover-border-color: var(--nim-accent); --bs-btn-hover-color: #fff; --bs-btn-active-bg: var(--nim-accent-strong);
+}
+html[data-nim-theme]:not([data-nim-theme="modern"]) .progress { --bs-progress-bar-bg: var(--nim-accent); }
+html[data-nim-theme]:not([data-nim-theme="modern"]) .text-bg-primary { background-color: var(--nim-accent) !important; }
+html[data-nim-theme]:not([data-nim-theme="modern"]) .nav-pills { --bs-nav-pills-link-active-bg: var(--nim-accent); }
+
+.nt-body { background: var(--nt-bg); min-height: 100vh; }
+.nt-body a { text-underline-offset: .15em; }
+/* The themes draw their own breadcrumbs; the website pages' own would repeat them. */
+.nt-body .nim-crumbs { display: none; }
+.nt-body :focus-visible { outline: 2px solid var(--nim-accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .nt-body * { transition: none !important; animation: none !important; } }
+
+/* ---- Page head ---- */
+.nt-pagehead { display: flex; flex-wrap: wrap; align-items: flex-start; gap: .5rem 1rem; margin-bottom: 1rem; }
+.nt-pagehead-title { flex: 1 1 18rem; min-width: 0; }
+.nt-pagehead-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.nt-pagehead .nim-subtitle { color: var(--nt-muted); font-size: .875rem; }
+
+/* ---- Top bar parts ---- */
+.nt-actions { display: flex; align-items: center; gap: .25rem; }
+.nt-iconbtn { color: inherit; border: 0; background: transparent; font-size: 1.1rem; line-height: 1; padding: .4rem .5rem; border-radius: var(--nt-radius); }
+.nt-iconbtn:hover, .nt-iconbtn:focus-visible { background: var(--nim-accent-soft); color: inherit; }
+.nt-brand { display: inline-flex; align-items: center; gap: .55rem; color: inherit; text-decoration: none; font-weight: 700; letter-spacing: -.01em; }
+.nt-brand img { width: 28px; height: 28px; }
+.nt-brand:hover { color: inherit; }
+.nt-menu-btn { display: none; }
+
+/* ---- Breadcrumbs ---- */
+.nt-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; font-size: .85rem; color: var(--nt-muted); min-width: 0; }
+.nt-crumbs i { font-size: .65rem; }
+.nt-crumbs a { color: var(--nt-muted); text-decoration: none; }
+.nt-crumbs a:hover { color: var(--bs-body-color); text-decoration: underline; }
+.nt-crumbs [aria-current] { color: var(--bs-body-color); font-weight: 600; }
+
+/* ---- Tiles, chips, meters ---- */
+.nt-tile { display: flex; align-items: center; gap: .6rem; padding: .6rem .75rem; border: 1px solid var(--nt-border); border-radius: var(--nt-radius); background: var(--nt-surface); color: var(--bs-body-color); text-decoration: none; min-width: 0; }
+.nt-tile i { font-size: 1.25rem; color: var(--nim-accent-strong); flex-shrink: 0; }
+.nt-tile span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nt-tile:hover { border-color: var(--nim-accent); background: var(--nim-accent-soft); color: var(--bs-body-color); }
+.nt-tile[hidden], [data-nt-group][hidden], [data-nt-empty][hidden] { display: none !important; }
+.nt-chip { display: inline-flex; align-items: center; gap: .25rem; padding: .1rem .5rem; border-radius: 2rem; font-size: .75rem; font-weight: 600; background: rgba(100, 116, 139, .15); color: var(--nt-muted); white-space: nowrap; }
+.nt-chip.is-ok { background: rgba(22, 163, 74, .14); color: #15803d; }
+.nt-chip.is-bad { background: rgba(220, 38, 38, .14); color: #b91c1c; }
+.nt-chip.is-warn { background: rgba(217, 119, 6, .16); color: #b45309; }
+[data-bs-theme="dark"] .nt-chip.is-ok { color: #4ade80; } [data-bs-theme="dark"] .nt-chip.is-bad { color: #f87171; } [data-bs-theme="dark"] .nt-chip.is-warn { color: #fbbf24; }
+.nt-usage { list-style: none; margin: 0; padding: 0; display: grid; gap: .65rem; }
+.nt-usage-line { display: flex; justify-content: space-between; gap: .5rem; font-size: .8rem; margin-bottom: .2rem; }
+.nt-usage .progress { height: .4rem; background: var(--nim-accent-soft); }
+.nt-usage-inline { grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); }
+.nt-box { background: var(--nt-surface); border: 1px solid var(--nt-border); border-radius: var(--nt-radius); }
+.nt-box-head { padding: .6rem .9rem; border-bottom: 1px solid var(--nt-border); font-weight: 600; display: flex; align-items: center; gap: .5rem; }
+.nt-box-body { padding: .9rem; }
+.nt-dl { display: grid; grid-template-columns: max-content 1fr; gap: .25rem .9rem; margin: 0; font-size: .85rem; }
+.nt-dl dt { color: var(--nt-muted); font-weight: 400; } .nt-dl dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+
+/* ---- Finder (type to find a tool) ---- */
+.nt-finder { position: relative; display: flex; align-items: center; min-width: 0; }
+.nt-finder > i { position: absolute; left: .7rem; color: var(--nt-muted); pointer-events: none; }
+.nt-finder input { padding-left: 2rem; }
+.nt-finder-list { position: absolute; top: calc(100% + .25rem); left: 0; right: 0; z-index: 1050; list-style: none; margin: 0; padding: .25rem; background: var(--nt-surface); border: 1px solid var(--nt-border); border-radius: var(--nt-radius); box-shadow: 0 8px 24px rgba(15, 23, 42, .18); }
+.nt-finder-list[hidden], .nt-finder-list li[hidden] { display: none; }
+.nt-finder-list a { display: flex; align-items: center; gap: .5rem; padding: .4rem .6rem; border-radius: calc(var(--nt-radius) - 2px); color: var(--bs-body-color); text-decoration: none; font-size: .875rem; }
+.nt-finder-list a:hover, .nt-finder-list a:focus-visible { background: var(--nim-accent-soft); }
+
+/* ---- Footer ---- */
+.nt-footer { color: var(--nt-muted); font-size: .8rem; padding: 1rem 0; }
+.nt-footer a { color: inherit; }
+.nt-skip { position: absolute; left: -999px; top: 0; z-index: 2000; background: #fff; padding: .5rem 1rem; }
+.nt-skip:focus { left: .5rem; top: .5rem; }
+
+@media (max-width: 991.98px) { .nt-menu-btn { display: inline-flex; } }

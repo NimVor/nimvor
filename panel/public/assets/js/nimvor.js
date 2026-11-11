@@ -96,6 +96,13 @@
         try { localStorage.setItem('nim-theme', next); } catch (err) { /* ignore */ }
     });
 
+    // Appearance: saving a light/dark choice makes this browser follow it (the toggle in the top bar keeps its own
+    // per-browser override until then).
+    document.addEventListener('submit', function (e) {
+        if (!e.target.matches('[data-nim-appearance-form]')) { return; }
+        try { localStorage.removeItem('nim-theme'); } catch (err) { /* ignore */ }
+    });
+
     // App installer (Website → Apps): the category buttons switch which
     // category's application panel is shown.
     document.addEventListener('click', function (e) {

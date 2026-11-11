@@ -242,6 +242,7 @@ final class Application
             $view = $this->container->get(View::class);
             $view->share('current_path', $request->path());
             $view->share('current_view', (string) $request->query('view', ''));
+            $view->share('current_query', $request->queryAll());
             $view->share('flash_success', $session->pullFlash('success'));
             $view->share('flash_error', $session->pullFlash('error'));
             $view->share('flash_details', $session->pullFlash('details'));
@@ -249,6 +250,15 @@ final class Application
             $view->share('errors', $session->pullFlash('errors', []));
             $view->share('old', $session->pullFlash('old', []));
             $view->share('app_version', $this->config->string('app.version'));
+            $view->setThemeResolver(function () use ($view, $session): ?array {
+                $user = $view->shared('user');
+                if (!is_array($user)) {
+                    return null;
+                }
+                $preview = $session->get('ui_theme_preview');
+                return $this->container->get(\NimVor\Services\ThemeService::class)->resolve($user, $view->simpleLayout(), is_string($preview) ? $preview : null);
+            });
+            $view->share('theme_account', fn (array $u): array => $this->container->get(\NimVor\Services\ThemeService::class)->account($u));
             $view->share('plugin_nav', fn (): array => $this->container->get(\NimVor\Plugins\PluginManager::class)->nav());
             try {
                 $view->share('panel_name', $this->container->get(SettingsService::class)->string('panel_name'));

@@ -1,0 +1,28 @@
+/* Accent colours a user can pick (Appearance). Loaded only when one is chosen. */
+html[data-nim-accent="teal"]   { --nim-accent: #0f766e; --nim-accent-strong: #115e59; --nim-accent-soft: rgba(15, 118, 110, .12); }
+html[data-nim-accent="blue"]   { --nim-accent: #2563eb; --nim-accent-strong: #1d4ed8; --nim-accent-soft: rgba(37, 99, 235, .12); }
+html[data-nim-accent="violet"] { --nim-accent: #7c3aed; --nim-accent-strong: #6d28d9; --nim-accent-soft: rgba(124, 58, 237, .12); }
+html[data-nim-accent="rose"]   { --nim-accent: #be123c; --nim-accent-strong: #9f1239; --nim-accent-soft: rgba(190, 18, 60, .12); }
+html[data-nim-accent="amber"]  { --nim-accent: #b45309; --nim-accent-strong: #92400e; --nim-accent-soft: rgba(180, 83, 9, .14); }
+html[data-nim-accent="slate"]  { --nim-accent: #475569; --nim-accent-strong: #334155; --nim-accent-soft: rgba(71, 85, 105, .14); }
+html[data-nim-accent][data-bs-theme="dark"] { --nim-accent-on-dark: color-mix(in srgb, var(--nim-accent) 55%, #fff); }
+
+html[data-nim-accent] {
+    --bs-primary: var(--nim-accent);
+    --bs-link-color: var(--nim-accent);
+    --bs-link-hover-color: var(--nim-accent-strong);
+}
+html[data-nim-accent] .btn-primary {
+    --bs-btn-bg: var(--nim-accent); --bs-btn-border-color: var(--nim-accent);
+    --bs-btn-hover-bg: var(--nim-accent-strong); --bs-btn-hover-border-color: var(--nim-accent-strong);
+    --bs-btn-active-bg: var(--nim-accent-strong); --bs-btn-active-border-color: var(--nim-accent-strong);
+    --bs-btn-disabled-bg: var(--nim-accent); --bs-btn-disabled-border-color: var(--nim-accent);
+}
+html[data-nim-accent] .btn-outline-primary {
+    --bs-btn-color: var(--nim-accent); --bs-btn-border-color: var(--nim-accent);
+    --bs-btn-hover-bg: var(--nim-accent); --bs-btn-hover-border-color: var(--nim-accent); --bs-btn-active-bg: var(--nim-accent-strong);
+}
+html[data-nim-accent][data-bs-theme="dark"] .btn-outline-primary { --bs-btn-color: var(--nim-accent-on-dark); }
+html[data-nim-accent][data-bs-theme="dark"] { --bs-link-color: var(--nim-accent-on-dark); }
+html[data-nim-accent] .progress { --bs-progress-bar-bg: var(--nim-accent); }
+html[data-nim-accent] .text-bg-primary { background-color: var(--nim-accent) !important; }

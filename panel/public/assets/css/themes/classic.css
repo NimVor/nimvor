@@ -1,0 +1,40 @@
+/* Classic: grouped tool grid, a light header and compact boxes. */
+html[data-nim-theme="classic"] {
+    --nim-accent: #b45309;
+    --nt-bg: #f1f3f6;
+    --nt-radius: .35rem;
+    --bs-border-radius: .35rem;
+    --bs-border-radius-lg: .45rem;
+    --bs-body-font-size: .9rem;
+}
+html[data-nim-theme="classic"][data-bs-theme="dark"] { --nim-accent: #f59e0b; }
+.nt-classic .ncl-wrap { width: 100%; max-width: 1280px; margin-inline: auto; padding-inline: 1rem; }
+.ncl-top { background: var(--nt-head-bg); border-bottom: 3px solid var(--nim-accent); position: sticky; top: 0; z-index: 1030; }
+.ncl-top-in { display: flex; align-items: center; gap: 1rem; min-height: 3.5rem; }
+.ncl-find { flex: 1 1 auto; max-width: 28rem; margin-left: auto; }
+.ncl-top-in .nt-actions { margin-left: auto; }
+.ncl-bar { background: var(--nt-surface); border-bottom: 1px solid var(--nt-border); }
+.ncl-bar-in { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-block: .55rem; }
+.ncl-switch select { min-width: 12rem; }
+.ncl-main { padding-block: 1.25rem 2rem; }
+
+.ncl-toolbar { display: grid; grid-template-columns: minmax(10rem, 16rem) 1fr auto; gap: 1rem; align-items: end; }
+.ncl-open { display: flex; gap: .5rem; }
+.ncl-group { margin-bottom: 1.25rem; }
+.ncl-group-title { display: flex; align-items: center; gap: .5rem; font-size: .95rem; font-weight: 700; margin: 0 0 .6rem; padding: .4rem .75rem; background: var(--nt-surface); border: 1px solid var(--nt-border); border-left: 4px solid var(--nim-accent); border-radius: var(--nt-radius); }
+.ncl-group-title i { color: var(--nim-accent-strong); }
+/* Icon above the label, like a launcher grid. */
+.ncl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: .6rem; }
+.ncl-grid .nt-tile { flex-direction: column; justify-content: center; text-align: center; padding: .9rem .5rem; gap: .4rem; min-height: 5.5rem; }
+.ncl-grid .nt-tile i { font-size: 1.75rem; }
+.ncl-grid .nt-tile span { max-width: 100%; white-space: normal; font-size: .85rem; line-height: 1.2; }
+.nt-classic .card, .nt-classic .nim-panel { border-radius: var(--nt-radius); }
+
+@media (max-width: 767.98px) {
+    .ncl-toolbar { grid-template-columns: 1fr; }
+    .ncl-find { max-width: none; }
+    .ncl-top-in { flex-wrap: wrap; padding-block: .5rem; }
+    .ncl-find { order: 3; flex-basis: 100%; }
+    .ncl-bar-in { flex-wrap: wrap; }
+    .ncl-grid { grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr)); }
+}
