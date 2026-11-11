@@ -305,6 +305,24 @@ func TestSwitchingBackPutsTheOldNameserverBackWhenTheNewOneFails(t *testing.T) {
 	}
 }
 
+// Debian ships PowerDNS' BIND backend as its own package: a server installed without it is completed.
+func TestPowerDNSInstallsTheBINDBackendPackage(t *testing.T) {
+	f := setup(t)
+	f.installAll(t)
+	f.bindWithZone(t)
+	f.h.Respond = func(id string, args []string) (string, error, bool) {
+		if id == "dpkg-query" {
+			return "pdns-server\tii \t4.8\n", nil, true
+		}
+		return "", nil, false
+	}
+	var log bytes.Buffer
+	selectBackend(context.Background(), f.h.Env, pdnsDriver{}, &log)
+	if !strings.Contains(strings.Join(f.h.Runner.Calls, "\n"), "pdns-backend-bind") {
+		t.Fatalf("the backend package was not installed:\n%s\n%s", strings.Join(f.h.Runner.Calls, "\n"), log.String())
+	}
+}
+
 func TestPowerDNSKeepsItsSettingsInADropInAndTheSecondariesAsMetadata(t *testing.T) {
 	f := setup(t)
 	f.installAll(t)
@@ -526,6 +544,28 @@ func TestPowerDNSDatabaseIsCreatedOnce(t *testing.T) {
 	n := len(f.h.Runner.Calls)
 	if err := d.prepare(context.Background(), f.h.Env, pathsFor(f.h.Env, d)); err != nil || len(f.h.Runner.Calls) != n {
 		t.Fatalf("an existing database was created again: %v", err)
+	}
+}
+
+// A package that does not create PowerDNS' state folder leaves pdnsutil unable to open its database there.
+func TestPowerDNSCreatesItsStateFolder(t *testing.T) {
+	f := setup(t)
+	f.h.Respond = func(id string, args []string) (string, error, bool) {
+		if id == "pdnsutil" && len(args) == 2 && args[0] == "create-bind-db" {
+			if _, err := os.Stat(filepath.Dir(args[1])); err != nil {
+				return "Could not connect to the SQLite database", errors.New("exit status 1"), true
+			}
+			os.WriteFile(args[1], []byte("SQLite format 3"), 0o644)
+			return "", nil, true
+		}
+		return "", nil, false
+	}
+	d := pdnsDriver{}
+	if err := d.prepare(context.Background(), f.h.Env, pathsFor(f.h.Env, d)); err != nil {
+		t.Fatal(err)
+	}
+	if f.h.Read("var/lib/powerdns/nimvor-dnssec.db") != "SQLite format 3" {
+		t.Fatal("database not created")
 	}
 }
 

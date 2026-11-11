@@ -32,10 +32,12 @@ func (bindDriver) afterApply(context.Context, *host.Env, paths, string, []string
 }
 
 func (bindDriver) advantages() []string {
-	return []string{"Configuration file can be edited by hand.", "Extremely configurable.", "Provides a caching nameserver.", "Very tolerant of syntax errors in zone files.", "Signs zones itself (DNSSEC, BIND 9.16 or newer)."}
+	return []string{"Its configuration can be edited by hand.", "Highly configurable.", "Can also act as a caching resolver.", "Signs zones itself (DNSSEC, BIND 9.16 or newer)."}
 }
-func (bindDriver) disadvantages() []string { return []string{"Large memory footprint."} }
-func (bindDriver) notes() []string         { return []string{"The classic choice. NimVor's first nameserver."} }
+func (bindDriver) disadvantages() []string { return []string{"Uses more memory than the others."} }
+func (bindDriver) notes() []string {
+	return []string{"The longest-established choice, and the one NimVor started with."}
+}
 
 func (d bindDriver) wire(env *host.Env, p paths, cur string) (string, bool) {
 	line := fmt.Sprintf("include \"%s\"; // NimVor DNS zones (added by NimVor)", p.list)

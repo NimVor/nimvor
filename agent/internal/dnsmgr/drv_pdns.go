@@ -8,6 +8,7 @@ import (
 
 	"github.com/NimVor/nimvor/agent/internal/agentfs"
 	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/pkgs"
 )
 
 // pdnsDriver runs the zones with the PowerDNS Authoritative Server, using
@@ -16,9 +17,18 @@ import (
 // database NimVor creates next to PowerDNS' own files.
 type pdnsDriver struct{}
 
-func (pdnsDriver) id() string                    { return "powerdns" }
-func (pdnsDriver) label() string                 { return "PowerDNS" }
-func (pdnsDriver) packages() []string            { return []string{"pdns-server"} }
+func (pdnsDriver) id() string    { return "powerdns" }
+func (pdnsDriver) label() string { return "PowerDNS" }
+func (pdnsDriver) packages() []string {
+	// Debian and Ubuntu ship the BIND backend apart from the server; without it pdns_server does not know the
+	// bind-* settings. (The same package as the server on AlmaLinux and Rocky.)
+	return []string{"pdns-server", "pdns-backend-bind"}
+}
+
+// complete reports whether the packages the BIND backend needs are all installed.
+func (d pdnsDriver) complete(ctx context.Context, env *host.Env) bool {
+	return len(pkgs.Installed(ctx, env, d.packages())) == len(d.packages())
+}
 func (pdnsDriver) installed(env *host.Env) bool  { return env.Root.Exists("/usr/sbin/pdns_server") }
 func (pdnsDriver) unit(env *host.Env) string     { return env.M.PDNSUnit }
 func (pdnsDriver) account(env *host.Env) string  { return "pdns" }
@@ -29,13 +39,13 @@ func (pdnsDriver) wholeFile() bool               { return false }
 func (pdnsDriver) dnssec() dnssecOps             { return pdnsSigning{} }
 
 func (pdnsDriver) advantages() []string {
-	return []string{"Very high performance.", "Instant start-up.", "Low memory requirements.", "Built-in support for DNSSEC."}
+	return []string{"Answers quickly, even with many zones.", "Starts almost at once.", "Uses little memory.", "Signs zones itself (DNSSEC); keys are kept in a small database."}
 }
 func (pdnsDriver) disadvantages() []string {
-	return []string{"Does not provide a recursive (caching) nameserver (requires external nameservers in resolv.conf).", "CPU intensive with a high volume of DNS zones that use DNSSEC."}
+	return []string{"Is not a caching resolver: this server needs another resolver in resolv.conf.", "Signing many zones takes noticeable CPU."}
 }
 func (pdnsDriver) notes() []string {
-	return []string{"This is the default choice in cPanel.", "Built-in support for DNSSEC."}
+	return []string{"Runs with its BIND backend: it reads the same zone files as the others.", "On Debian and Ubuntu NimVor also installs pdns-backend-bind."}
 }
 
 func dnssecDB(env *host.Env) string { return env.M.PDNSStateDir + "/nimvor-dnssec.db" }
@@ -84,6 +94,15 @@ func (d pdnsDriver) prepare(ctx context.Context, env *host.Env, p paths) error {
 	if env.Cfg.SimulateCommands {
 		return nil
 	}
+	owner := agentfs.RootOwner
+	if u, err := env.LookupUser("pdns"); err == nil {
+		owner = agentfs.Owner{UID: u.UID, GID: u.GID}
+	}
+	// pdnsutil cannot open a database in a folder that is not there ("Could not connect to the SQLite
+	// database"); some packages do not create PowerDNS' state folder until the daemon first runs.
+	if _, err := env.Writer.MkdirAll(env.M.PDNSStateDir, 0o755, owner); err != nil {
+		return fmt.Errorf("creating %s: %w", env.M.PDNSStateDir, err)
+	}
 	scratch := db + ".new"
 	real, err := env.Root.Path(scratch)
 	if err != nil {
@@ -96,10 +115,6 @@ func (d pdnsDriver) prepare(ctx context.Context, env *host.Env, p paths) error {
 	data, err := env.Root.ReadFile(scratch)
 	if err != nil {
 		return err
-	}
-	owner := agentfs.RootOwner
-	if u, err := env.LookupUser("pdns"); err == nil {
-		owner = agentfs.Owner{UID: u.UID, GID: u.GID}
 	}
 	_, err = env.Writer.WriteFile(db, data, 0o640, owner)
 	env.Writer.Remove(scratch)

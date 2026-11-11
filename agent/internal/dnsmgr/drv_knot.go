@@ -32,12 +32,14 @@ func (knotDriver) afterApply(context.Context, *host.Env, paths, string, []string
 }
 
 func (knotDriver) advantages() []string {
-	return []string{"Very high performance.", "Signs zones automatically (DNSSEC) with key rollover.", "Reloads zones and configuration without a restart.", "Low memory requirements."}
+	return []string{"Fast, and handles many zones well.", "Signs zones itself (DNSSEC) and rolls keys over by itself.", "Loads new zones and settings without a restart.", "Uses little memory."}
 }
 func (knotDriver) disadvantages() []string {
-	return []string{"NimVor takes over its configuration file (the original is kept).", "Does not provide a recursive (caching) nameserver."}
+	return []string{"NimVor replaces its configuration file (the original is kept next to it).", "Is not a caching resolver."}
 }
-func (knotDriver) notes() []string { return []string{"DNSSEC signing is built in."} }
+func (knotDriver) notes() []string {
+	return []string{"Signing is part of the server; no extra tool is needed beyond its key manager."}
+}
 
 func (d knotDriver) wire(env *host.Env, p paths, cur string) (string, bool) {
 	listen := `[ "0.0.0.0@53", "::@53" ]`

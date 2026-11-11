@@ -8,6 +8,7 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Fixed
 
+- Choosing PowerDNS failed with "Could not connect to the SQLite database" when the package had not created its state folder yet; NimVor now creates it (owned by the pdns account) before making the DNSSEC database. On Debian and Ubuntu it also installs `pdns-backend-bind` (PowerDNS' BIND backend is a separate package there; without it PowerDNS rejects the `bind-config` setting).
 - The opt-in VM matrix (and so the release workflow's publish step) failed on every image: the test VMs refused password logins, which the migration and terminal real-host tests use against the local sshd. The VMs now allow them.
 
 ## [1.5.4] — 2026-11-11

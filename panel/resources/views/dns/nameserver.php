@@ -1,6 +1,6 @@
 <?php
 /**
- * Nameserver selection (like cPanel's): PowerDNS, NSD, Knot DNS or BIND serve the same zones.
+ * Nameserver selection: PowerDNS, NSD, Knot DNS or BIND serve the same zones.
  *
  * @var \NimVor\View\View $this
  * @var array{backends: list<array<string, mixed>>, active: string, zones: int, signed: int}|null $info

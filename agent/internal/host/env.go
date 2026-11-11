@@ -112,6 +112,7 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		m.KnotConf + ".pre-nimvor",
 		m.NSDConf + ".pre-nimvor",
 		m.PDNSConf,
+		m.PDNSStateDir,
 		m.PDNSStateDir + "/nimvor-dnssec.db*",
 		m.MailDir + "/**",
 		m.VmailDir + "/**",
