@@ -529,6 +529,28 @@ func TestPowerDNSDatabaseIsCreatedOnce(t *testing.T) {
 	}
 }
 
+// A package that does not create PowerDNS' state folder leaves pdnsutil unable to open its database there.
+func TestPowerDNSCreatesItsStateFolder(t *testing.T) {
+	f := setup(t)
+	f.h.Respond = func(id string, args []string) (string, error, bool) {
+		if id == "pdnsutil" && len(args) == 2 && args[0] == "create-bind-db" {
+			if _, err := os.Stat(filepath.Dir(args[1])); err != nil {
+				return "Could not connect to the SQLite database", errors.New("exit status 1"), true
+			}
+			os.WriteFile(args[1], []byte("SQLite format 3"), 0o644)
+			return "", nil, true
+		}
+		return "", nil, false
+	}
+	d := pdnsDriver{}
+	if err := d.prepare(context.Background(), f.h.Env, pathsFor(f.h.Env, d)); err != nil {
+		t.Fatal(err)
+	}
+	if f.h.Read("var/lib/powerdns/nimvor-dnssec.db") != "SQLite format 3" {
+		t.Fatal("database not created")
+	}
+}
+
 // Ubuntu runs systemd-resolved's stub on 127.0.0.53:53: a nameserver that binds every address on port 53 then
 // fails to start. NimVor binds the machine's own addresses instead (BIND binds one at a time and carries on).
 func TestNameserversAvoidTheResolverStub(t *testing.T) {

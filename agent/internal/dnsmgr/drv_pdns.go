@@ -84,6 +84,15 @@ func (d pdnsDriver) prepare(ctx context.Context, env *host.Env, p paths) error {
 	if env.Cfg.SimulateCommands {
 		return nil
 	}
+	owner := agentfs.RootOwner
+	if u, err := env.LookupUser("pdns"); err == nil {
+		owner = agentfs.Owner{UID: u.UID, GID: u.GID}
+	}
+	// pdnsutil cannot open a database in a folder that is not there ("Could not connect to the SQLite
+	// database"); some packages do not create PowerDNS' state folder until the daemon first runs.
+	if _, err := env.Writer.MkdirAll(env.M.PDNSStateDir, 0o755, owner); err != nil {
+		return fmt.Errorf("creating %s: %w", env.M.PDNSStateDir, err)
+	}
 	scratch := db + ".new"
 	real, err := env.Root.Path(scratch)
 	if err != nil {
@@ -96,10 +105,6 @@ func (d pdnsDriver) prepare(ctx context.Context, env *host.Env, p paths) error {
 	data, err := env.Root.ReadFile(scratch)
 	if err != nil {
 		return err
-	}
-	owner := agentfs.RootOwner
-	if u, err := env.LookupUser("pdns"); err == nil {
-		owner = agentfs.Owner{UID: u.UID, GID: u.GID}
 	}
 	_, err = env.Writer.WriteFile(db, data, 0o640, owner)
 	env.Writer.Remove(scratch)

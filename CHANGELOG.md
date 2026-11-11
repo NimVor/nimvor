@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Choosing PowerDNS failed with "Could not connect to the SQLite database" when the package had not created its state folder yet; NimVor now creates it (owned by the pdns account) before making the DNSSEC database.
+
 ## [1.5.4] — 2026-11-11
 
 ### Added
