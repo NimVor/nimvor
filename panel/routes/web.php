@@ -290,6 +290,7 @@ return static function (Router $r): void {
     $r->post('/mail/spam', [MailController::class, 'spam'], ['name' => 'mail.spam', 'permission' => P::SERVER_MANAGE]);
     $r->post('/mail/webmail/install', [MailController::class, 'installWebmail'], ['name' => 'mail.webmail.install', 'permission' => P::PACKAGES_MANAGE]);
     $r->post('/mail/webmail', [MailController::class, 'webmail'], ['name' => 'mail.webmail', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/mail/smtps', [MailController::class, 'smtps'], ['name' => 'mail.smtps', 'permission' => P::SERVER_MANAGE]);
     $r->post('/mail/domains', [MailController::class, 'store'], ['name' => 'mail.store', 'permission' => P::MAIL_MANAGE]);
     $r->get('/mail/domains/{id}', [MailController::class, 'show'], ['name' => 'mail.domain', 'permission' => P::MAIL_MANAGE]);
     $r->post('/mail/domains/{id}/dns', [MailController::class, 'publishDns'], ['name' => 'mail.dns', 'permission' => P::MAIL_MANAGE]);

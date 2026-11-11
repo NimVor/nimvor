@@ -44,10 +44,11 @@ $ready = !empty($status['configured']) && !empty($running['postfix']);
 <div class="nim-panel mb-3">
     <div class="nim-actionbar">
         <div class="fw-semibold"><i class="bi bi-envelope me-1" aria-hidden="true"></i>Mail domains <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($domains) ?></span>
-            <?php if ($ready): ?><span class="small text-body-secondary fw-normal ms-2">IMAP <code><?= e((string) $status['hostname']) ?>:993</code> · SMTP <code><?= e((string) $status['hostname']) ?>:587</code> (STARTTLS)</span><?php endif; ?></div>
+            <?php if ($ready): ?><span class="small text-body-secondary fw-normal ms-2">IMAP <code><?= e((string) $status['hostname']) ?>:993</code> · SMTP <code><?= e((string) $status['hostname']) ?>:587</code> (STARTTLS)<?php if (!empty($status['smtps'])): ?> or <code><?= e((string) $status['hostname']) ?>:465</code> (SSL/TLS)<?php endif; ?></span><?php endif; ?></div>
         <div class="nim-actionbar-end">
             <?php if ($srvManage): ?>
                 <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#spam-filter"><i class="bi bi-shield-exclamation me-1" aria-hidden="true"></i>Spam filter <?= !empty($spam['enabled']) ? $this->statusBadge(!empty($status['spam_running']) ? 'active' : 'failed', !empty($status['spam_running']) ? 'on' : 'not running') : $this->statusBadge('inactive', 'off') ?></button>
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#smtps"><i class="bi bi-send me-1" aria-hidden="true"></i>Port 465 <?= !empty($status['smtps']) ? $this->statusBadge('active', 'on') : $this->statusBadge('inactive', 'off') ?></button>
                 <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#webmail"><i class="bi bi-envelope-open me-1" aria-hidden="true"></i>Webmail <?= !empty($wm['enabled']) ? $this->statusBadge(!empty($wm['running']) ? 'active' : 'failed', !empty($wm['running']) ? 'on' : 'not running') : $this->statusBadge('inactive', 'off') ?></button>
             <?php endif; ?>
             <?php if ($ready): ?><button class="btn btn-sm btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#mail-add"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Host email for a domain</button><?php endif; ?>
@@ -94,6 +95,17 @@ $ready = !empty($status['configured']) && !empty($running['postfix']);
                     </form>
                 <?php endif; ?>
             </div>
+    <?= $this->modalEnd() ?>
+    <?= $this->modalStart('smtps', 'Sending on port 465', false, 'modal-md') ?>
+        <div class="small">
+            <p class="text-body-secondary">Mail apps send through port 587 (STARTTLS). Some office, hotel and mobile networks block that port; port 465 (SSL/TLS from the first byte) usually gets through. Turn it on to offer both. The sign-in rules are the same as on 587.</p>
+            <form method="post" action="<?= e($this->url('mail.smtps')) ?>" data-nim-busy>
+                <?= $this->csrfField() ?>
+                <div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" role="switch" name="enabled" value="1" id="smtps-on"<?= !empty($status['smtps']) ? ' checked' : '' ?>><label class="form-check-label" for="smtps-on">Sending on port 465</label></div>
+                <button class="btn btn-sm btn-primary">Save</button>
+                <div class="form-text mt-2">NimVor changes Postfix's service list, checks it, reloads Postfix and tries a TLS connection; it keeps the previous configuration if any step fails. The port is opened in the firewall.</div>
+            </form>
+        </div>
     <?= $this->modalEnd() ?>
     <?= $this->modalStart('webmail', 'Webmail', isset($errors['webmail_hostname']), 'modal-md') ?>
         <div class="small">

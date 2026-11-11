@@ -224,6 +224,34 @@ final class MailTest extends HttpTestCase
         self::assertSame(1, $this->calls('mail.webmail_configure'));
     }
 
+    public function testSendingOnPort465IsAnAdministratorsSwitch(): void
+    {
+        $this->login('admin');
+        $status = ['installed' => ['postfix' => true], 'configured' => true, 'hostname' => 'mail.host.test', 'running' => ['postfix' => true], 'domains' => [], 'mailboxes' => [], 'aliases' => [], 'webmail' => ['installed' => false], 'smtps' => false];
+        $this->agent->succeed('mail.status', $status);
+        $body = $this->request('GET', '/mail')->body();
+        self::assertStringContainsString('Sending on port 465', $body);
+        self::assertStringNotContainsString('mail.host.test:465', $body, 'the line shows 465 only when it is on');
+
+        $this->agent->succeed('mail.smtps_set', ['enabled' => true, 'changed' => true, 'notes' => []]);
+        $this->post('/mail/smtps', ['enabled' => '1']);
+        self::assertSame(['enabled' => true], $this->lastCall('mail.smtps_set'));
+        self::assertStringContainsString('port 465 is on', (string) $this->flash('success'));
+
+        $status['smtps'] = true;
+        $this->agent->succeed('mail.status', $status);
+        self::assertStringContainsString('mail.host.test:465</code> (SSL/TLS)', $this->request('GET', '/mail')->body());
+
+        $this->post('/mail/smtps', ['enabled' => '0']);
+        self::assertSame(['enabled' => false], $this->lastCall('mail.smtps_set'));
+        self::assertSame(2, $this->calls('mail.smtps_set'));
+
+        // A customer cannot change it.
+        $this->switchTo('cust');
+        $this->post('/mail/smtps', ['enabled' => '1']);
+        self::assertSame(2, $this->calls('mail.smtps_set'));
+    }
+
     public function testSetupNeedsAHostName(): void
     {
         $this->login('admin');

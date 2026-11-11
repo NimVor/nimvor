@@ -6,6 +6,11 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Sending mail on port 465.** *Email → Port 465* (administrators) turns on a second mail submission service, SMTP over TLS from the first byte, for networks that block port 587. New agent action `mail.smtps_set` (checked with `postfix check`, reloaded, tried with a TLS connection, previous `master.cf` restored on failure; opens the port in the firewall); `mail.status` reports `smtps`. The Email page and a domain's mail app settings show port 465 when it is on.
+
+
 ## [1.5.8] — 2026-11-11
 
 ### Fixed
