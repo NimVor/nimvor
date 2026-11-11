@@ -213,10 +213,10 @@ final class SettingsService
                 'category' => 'policy', 'type' => 'int', 'default' => 0, 'min' => 0, 'max' => 32,
                 'label' => 'Lowercase characters', 'help' => 'a–z.',
             ],
-            // Brute force protection (Security → cPHulk Brute Force Protection; not on the Settings page).
+            // Brute force protection (Security → Brute Force Protection; not on the Settings page).
             'hulk_enabled' => [
                 'category' => 'hulk', 'type' => 'bool', 'default' => false,
-                'label' => 'cPHulk Brute Force Protection', 'help' => '',
+                'label' => 'Brute Force Protection', 'help' => '',
             ],
             'hulk_user_enabled' => [
                 'category' => 'hulk', 'type' => 'bool', 'default' => true,
@@ -313,7 +313,7 @@ final class SettingsService
             ],
             'hulk_countries_all' => [
                 'category' => 'hulk', 'type' => 'bool', 'default' => false,
-                'label' => 'Block blacklisted countries on every port', 'help' => 'Like CSF\'s CC_DENY: blacklisted countries cannot reach any service, websites included. Otherwise only NimVor and the login services.',
+                'label' => 'Block blacklisted countries on every port', 'help' => 'Blacklisted countries cannot reach any service, websites included. Otherwise only NimVor and the login services.',
             ],
             'hulk_whitelist' => [
                 'category' => 'hulk', 'type' => 'string', 'optional' => true, 'default' => '', 'max_length' => 4000,

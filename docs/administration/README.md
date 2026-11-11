@@ -1013,13 +1013,13 @@ All under **Security** in the sidebar (administrators).
 - **Firewall**: the page lists the ports NimVor keeps open. *Turn on
   firewall* adds allow rules for SSH and the panel's HTTPS port (always),
   the running services' ports (option) and every port from your current
-  address (option; it is also added to the cPHulk whitelist), then turns
+  address (option; it is also added to the brute force protection whitelist), then turns
   the firewall on (UFW, or firewalld on RHEL-family systems). Confirm with
   **Keep change** within 2 minutes; otherwise the firewall is turned off
   and the added rules are removed, so a mistake cannot lock you out.
   The last rule opening SSH or the panel cannot be deleted while the
   firewall is on.
-- **Firewall → Protection** (in the manner of CSF/LFD, next to UFW or
+- **Firewall → Protection** (flood and connection limits, next to UFW or
   firewalld, which stay in charge): drop invalid packets and impossible
   TCP flags (PACKET_FILTER), new connections per second per address (SYN
   flood), connections at once per address and port (CONNLIMIT, refused
@@ -1041,7 +1041,7 @@ All under **Security** in the sidebar (administrators).
   is reported as strong) and minimum numbers of total, special, numeric,
   alphabet, upper case and lower case characters. It applies to NimVor
   users, mailbox passwords typed in (webmail) and the root password.
-- **cPHulk Brute Force Protection**: failed logins are read every minute
+- **Brute Force Protection**: failed logins are read every minute
   from the journal (sshd, Dovecot, Postfix SMTP AUTH, pure-ftpd) and
   Roundcube's log, and counted at once for NimVor sign-ins. Too many for an
   account lock its NimVor sign-ins; too many from an address block it from
@@ -1052,7 +1052,7 @@ All under **Security** in the sidebar (administrators).
   (not root) with a 15-second limit and shell-quoted variables. Countries
   use DB-IP's IP to Country Lite database (CC BY 4.0), downloaded monthly;
   blacklisted countries are blocked from NimVor and the login ports, or
-  from every port when you choose so on the Countries tab (CSF's CC_DENY);
+  from every port when you choose so on the Countries tab;
   without Internet access import it with `bin/nimvor hulk:geo-import FILE`.
   If you block yourself: `bin/nimvor hulk:unblock <ip|user|all>`. When
   protection is first turned on with an empty whitelist, your own address

@@ -25,7 +25,7 @@ final class SecurityAndSystemTest extends HttpTestCase
         $this->agent->succeed('hardening.status', ['smtp' => ['enabled' => true, 'available' => true], 'compilers' => ['restricted' => false], 'egress' => ['metadata_blocked' => true, 'available' => true], 'forkbomb' => ['enabled' => false], 'traceroute' => ['enabled' => true, 'programs' => [['path' => '/usr/bin/traceroute']]]]);
         $this->agent->succeed('modsec.status', ['module_loaded' => false, 'active' => false]);
         $page = $this->request('GET', '/security')->body();
-        foreach (['Malware scans', 'Brute-force protection (fail2ban)', 'Compiler access', 'SMTP restrictions', 'Outgoing connections', 'cPHulk Brute Force Protection', 'Shell Fork Bomb Protection', 'Traceroute', 'ModSecurity', 'The Nginx connector is not installed yet.'] as $want) {
+        foreach (['Malware scans', 'Brute-force protection (fail2ban)', 'Compiler access', 'SMTP restrictions', 'Outgoing connections', 'Brute Force Protection', 'Shell Fork Bomb Protection', 'Traceroute', 'ModSecurity', 'The Nginx connector is not installed yet.'] as $want) {
             self::assertStringContainsString($want, $page, $want);
         }
         self::assertStringContainsString('name="item" value="forkbomb"', $page);
@@ -139,7 +139,7 @@ final class SecurityAndSystemTest extends HttpTestCase
         $this->agent->succeed('hulk.sync', ['changed' => true]);
         $this->post('/security/firewall/toggle', ['enabled' => '1', 'allow_services' => '1', 'allow_me' => '1']);
         self::assertSame(['enabled' => true, 'allow_services' => true, 'allow_from' => '192.0.2.10'], $this->lastCall('firewall.set_enabled'));
-        self::assertStringContainsString('192.0.2.10', $this->app->container->get(\NimVor\Services\SettingsService::class)->string('hulk_whitelist'), 'also whitelisted in cPHulk');
+        self::assertStringContainsString('192.0.2.10', $this->app->container->get(\NimVor\Services\SettingsService::class)->string('hulk_whitelist'), 'also whitelisted in brute force protection');
         // Without the options: only SSH and the panel (the agent always opens those).
         $this->post('/security/firewall/toggle', ['enabled' => '1', 'allow_services' => '0']);
         self::assertSame(['enabled' => true, 'allow_services' => false, 'allow_from' => ''], $this->lastCall('firewall.set_enabled'));

@@ -16,8 +16,8 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
-// Firewall protections in the manner of CSF/LFD (SYNFLOOD, CONNLIMIT,
-// PORTFLOOD, PACKET_FILTER, ICMP_IN_RATE), kept next to the firewall
+// Firewall protections (SYN flood, connection limits,
+// port flood, invalid packets, ping rate), kept next to the firewall
 // (UFW or firewalld), which stays in charge: the table inet nimvor_flood
 // only drops or rejects, so it never opens what the firewall closes. Its
 // chain runs before the firewall's; an exempt address skips this table

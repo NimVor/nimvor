@@ -128,7 +128,7 @@ $strategy = ['allow' => ['Allow', 'nim-good'], 'limit' => ['Allow (rate-limited)
     <?php if ($myIp !== ''): ?>
         <div class="form-check mb-2">
             <input class="form-check-input" type="checkbox" id="fw-me" name="allow_me" value="1" checked>
-            <label class="form-check-label" for="fw-me">Always allow my address <code><?= e($myIp) ?></code> on every port, and whitelist it in cPHulk</label>
+            <label class="form-check-label" for="fw-me">Always allow my address <code><?= e($myIp) ?></code> on every port, and whitelist it in brute force protection</label>
         </div>
     <?php endif; ?>
     <div class="small text-body-secondary mb-3">After turning it on you have 2 minutes to click <strong>Keep change</strong>. If the panel stops answering, you do nothing and the firewall is turned off again, with the rules it added removed.</div>
@@ -219,7 +219,7 @@ $strategy = ['allow' => ['Allow', 'nim-good'], 'limit' => ['Allow (rate-limited)
     <div class="nim-statusbar">
         <span class="fw-medium">Protection</span>
         <span><?= !empty($protection['active']) ? '<span class="nim-state is-ok">On</span>' : '<span class="nim-state">Off</span>' ?></span>
-        <span class="small nim-muted">Flood and connection limits in the manner of CSF, next to the firewall: they only drop or refuse traffic, never open a port.</span>
+        <span class="small nim-muted">Flood and connection limits, next to the firewall: they only drop or refuse traffic, never open a port.</span>
     </div>
     <?php if (empty($protection['available'])): ?>
         <div class="nim-infobar m-3"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>nftables is not installed. Install <strong>nftables</strong> from <a href="<?= e($this->url('packages')) ?>">Packages</a>.</span></div>
@@ -244,28 +244,28 @@ $strategy = ['allow' => ['Allow', 'nim-good'], 'limit' => ['Allow (rate-limited)
         <div class="form-check mb-3">
             <input type="hidden" name="invalid" value="0">
             <input class="form-check-input" type="checkbox" id="pr-invalid" name="invalid" value="1"<?= ($fresh || !empty($pc['invalid'])) ? ' checked' : '' ?><?= $dis ?>>
-            <label class="form-check-label" for="pr-invalid">Drop invalid packets <span class="small nim-muted">(of no known connection, and impossible TCP flags used by port scans: NULL, Xmas, SYN+FIN; CSF's PACKET_FILTER)</span></label>
+            <label class="form-check-label" for="pr-invalid">Drop invalid packets <span class="small nim-muted">(of no known connection, and impossible TCP flags used by port scans: NULL, Xmas, SYN+FIN)</span></label>
         </div>
         <div class="row g-3">
             <div class="col-md-6">
                 <label class="form-label small fw-medium" for="pr-syn">SYN flood: new connections per second per address</label>
                 <input class="form-control form-control-sm" id="pr-syn" name="syn_rate" inputmode="numeric" value="<?= e((string) ($fresh ? 100 : (int) ($pc['syn_rate'] ?? 0))) ?>"<?= $dis ?>>
-                <div class="form-text">0 turns it off. Above it, new connections from that address are dropped (CSF's SYNFLOOD).</div>
+                <div class="form-text">0 turns it off. Above it, new connections from that address are dropped.</div>
             </div>
             <div class="col-md-6">
                 <label class="form-label small fw-medium" for="pr-icmp">Ping: echo requests per second per address</label>
                 <input class="form-control form-control-sm" id="pr-icmp" name="icmp_rate" inputmode="numeric" value="<?= e((string) ($fresh ? 5 : (int) ($pc['icmp_rate'] ?? 0))) ?>"<?= $dis ?>>
-                <div class="form-text">0 turns it off (CSF's ICMP_IN_RATE).</div>
+                <div class="form-text">0 turns it off.</div>
             </div>
             <div class="col-md-6">
                 <label class="form-label small fw-medium" for="pr-conn">Connection limits: port:connections at once per address</label>
                 <input class="form-control form-control-sm font-monospace" id="pr-conn" name="conn_limits" placeholder="22:10, 80:150, 443:150" value="<?= e($limits((array) ($pc['conn_limits'] ?? []), false)) ?>"<?= $dis ?>>
-                <div class="form-text">TCP. Above the limit, new connections are refused (CSF's CONNLIMIT). Keep web ports generous: browsers open several connections.</div>
+                <div class="form-text">TCP. Above the limit, new connections are refused. Keep web ports generous: browsers open several connections.</div>
             </div>
             <div class="col-md-6">
                 <label class="form-label small fw-medium" for="pr-flood">Port flood: protocol/port:new connections per minute per address</label>
                 <input class="form-control form-control-sm font-monospace" id="pr-flood" name="port_flood" placeholder="tcp/22:20, tcp/25:60, udp/53:600" value="<?= e($limits((array) ($pc['port_flood'] ?? []), true)) ?>"<?= $dis ?>>
-                <div class="form-text">Above the rate, new connections are dropped until it falls (CSF's PORTFLOOD).</div>
+                <div class="form-text">Above the rate, new connections are dropped until it falls.</div>
             </div>
             <div class="col-12">
                 <label class="form-label small fw-medium" for="pr-exempt">Exempt addresses and networks</label>

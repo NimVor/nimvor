@@ -10,6 +10,10 @@ All notable changes to NimVor are documented here. The format follows
 
 - **Sending mail on port 465.** *Email → Port 465* (administrators) turns on a second mail submission service, SMTP over TLS from the first byte, for networks that block port 587. New agent action `mail.smtps_set` (checked with `postfix check`, reloaded, tried with a TLS connection, previous `master.cf` restored on failure; opens the port in the firewall); `mail.status` reports `smtps`. The Email page and a domain's mail app settings show port 465 when it is on.
 
+### Changed
+
+- **Security pages no longer carry other products' names.** *Security → Brute Force Protection* was titled "cPHulk Brute Force Protection" (menu, page, settings, messages, the header NimVor writes into its nftables file), and the firewall protection and countries help texts named CSF settings. They now describe what NimVor does in its own words. No behaviour changes.
+
 
 ## [1.5.8] — 2026-11-11
 

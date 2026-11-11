@@ -18,7 +18,7 @@ use NimVor\Support\UserFacingException;
 use NimVor\Support\ValidationException;
 use NimVor\View\View;
 
-/** Security → cPHulk Brute Force Protection (administrators). */
+/** Security → Brute Force Protection (administrators). */
 final class HulkController extends Controller
 {
     private const KEYS = ['hulk_enabled', 'hulk_user_enabled', 'hulk_user_period', 'hulk_user_max', 'hulk_user_scope', 'hulk_user_lock_root',
@@ -100,7 +100,7 @@ final class HulkController extends Controller
         } catch (AgentException $e) {
             return $this->redirectWithFailure('/security/hulk', $e);
         }
-        return $this->redirectWithSuccess('/security/hulk', 'cPHulk settings saved.' . $note);
+        return $this->redirectWithSuccess('/security/hulk', 'Brute force protection settings saved.' . $note);
     }
 
     public function countries(Request $request): Response

@@ -29,7 +29,7 @@ $retention = (int) $v['hulk_retention'];
 <?= $this->partial('security/_header', get_defined_vars()) ?>
 
 <div class="nim-panel mb-3">
-    <p class="mb-2">cPHulk provides protection from brute force attacks against your web services.</p>
+    <p class="mb-2">Brute force protection watches failed sign-ins to the services of this server and blocks the addresses and accounts that keep failing.</p>
     <div class="d-flex flex-wrap align-items-center gap-2">
         <span class="fw-medium">Status:</span>
         <?php if (empty($v['hulk_enabled'])): ?><span class="nim-state is-off">Disabled</span>
@@ -40,7 +40,7 @@ $retention = (int) $v['hulk_retention'];
 </div>
 
 <div class="nim-subtabs" role="tablist">
-    <button class="active" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#settings" aria-controls="settings" aria-selected="true">cPHulk Settings</button>
+    <button class="active" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#settings" aria-controls="settings" aria-selected="true">Brute force protection Settings</button>
     <button type="button" role="tab" data-bs-toggle="tab" data-bs-target="#countries" aria-controls="countries" aria-selected="false">Countries Management</button>
     <button type="button" role="tab" data-bs-toggle="tab" data-bs-target="#report" aria-controls="report" aria-selected="false">Failed Logins Report <span class="badge rounded-pill text-bg-light border fw-normal"><?= count($report) ?></span></button>
 </div>
@@ -50,12 +50,12 @@ $retention = (int) $v['hulk_retention'];
 <form method="post" action="<?= e($this->url('security.hulk.save')) ?>" data-nim-busy>
     <?= $this->csrfField() ?>
     <div class="nim-panel mb-3">
-        <?= $switch('hulk_enabled', 'Enable cPHulk Brute Force Protection') ?>
+        <?= $switch('hulk_enabled', 'Enable Brute Force Protection') ?>
     </div>
 
     <div class="nim-panel mb-3">
         <div class="fw-semibold mb-2">Username-based Protection</div>
-        <?= $switch('hulk_user_enabled', 'Username-based Protection', 'Username-based protection tracks login attempts for user accounts. When disabled, cPHulk will not lock user accounts, but existing account locks will remain. Locked accounts cannot sign in to NimVor until the lock ends.') ?>
+        <?= $switch('hulk_user_enabled', 'Username-based Protection', 'Username-based protection tracks login attempts for user accounts. When disabled, Brute force protection will not lock user accounts, but existing account locks will remain. Locked accounts cannot sign in to NimVor until the lock ends.') ?>
         <div class="row g-3 mb-3">
             <?= $number('hulk_user_period', 'Brute Force Protection Period (in minutes)', 1, 1440) ?>
             <?= $number('hulk_user_max', 'Maximum Failures by Account', 1, 1000) ?>
@@ -70,7 +70,7 @@ $retention = (int) $v['hulk_retention'];
 
     <div class="nim-panel mb-3">
         <div class="fw-semibold mb-2">IP Address-based Protection</div>
-        <?= $switch('hulk_ip_enabled', 'IP Address-based Protection', 'IP Address-based protection tracks login attempts from specific IP addresses. When disabled, cPHulk will not block IP addresses, but existing blocks will remain.') ?>
+        <?= $switch('hulk_ip_enabled', 'IP Address-based Protection', 'IP Address-based protection tracks login attempts from specific IP addresses. When disabled, Brute force protection will not block IP addresses, but existing blocks will remain.') ?>
         <div class="row g-3 mb-3">
             <?= $number('hulk_ip_period', 'IP Address-based Brute Force Protection Period (in minutes)', 1, 1440) ?>
             <?= $number('hulk_ip_max', 'Maximum Failures per IP Address', 1, 1000) ?>
@@ -150,7 +150,7 @@ $retention = (int) $v['hulk_retention'];
             <div class="px-3 py-2 border-bottom small">
                 <span class="fw-medium me-2">Block blacklisted countries on</span>
                 <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="scope" id="h-cc-login" value="login"<?= empty($v['hulk_countries_all']) ? ' checked' : '' ?><?= $dis ?>><label class="form-check-label" for="h-cc-login">NimVor and the login services</label></div>
-                <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="scope" id="h-cc-all" value="all"<?= !empty($v['hulk_countries_all']) ? ' checked' : '' ?><?= $dis ?>><label class="form-check-label" for="h-cc-all">every port, websites included (like CSF's CC_DENY)</label></div>
+                <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="scope" id="h-cc-all" value="all"<?= !empty($v['hulk_countries_all']) ? ' checked' : '' ?><?= $dis ?>><label class="form-check-label" for="h-cc-all">every port, websites included</label></div>
             </div>
             <div class="nim-dtable table-responsive">
                 <table class="table align-middle">

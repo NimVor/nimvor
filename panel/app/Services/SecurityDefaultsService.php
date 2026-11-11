@@ -11,7 +11,7 @@ use NimVor\Support\UserFacingException;
 /**
  * The recommended security settings, as switches: malware scans, fail2ban
  * jails, compiler access, SMTP restrictions, the outgoing connection block
- * for cloud metadata services, brute force protection (cPHulk), shell fork
+ * for cloud metadata services, brute force protection (brute force protection), shell fork
  * bomb protection, traceroute and ModSecurity.
  *
  * The server setup turns the recommended ones on once ({@see applyDefaults});
@@ -29,7 +29,7 @@ final class SecurityDefaultsService
         'compilers' => ['Compiler access', 'Only root (and NimVor\'s build account) may run compilers.'],
         'smtp' => ['SMTP restrictions', 'Only the mail server may open outgoing SMTP connections.'],
         'egress' => ['Outgoing connections', 'Block website accounts from reaching cloud metadata services.'],
-        'hulk' => ['cPHulk Brute Force Protection', 'Block addresses and accounts with repeated failed logins to the panel, SSH, mail and FTP, using the recommended limits.'],
+        'hulk' => ['Brute Force Protection', 'Block addresses and accounts with repeated failed logins to the panel, SSH, mail and FTP, using the recommended limits.'],
         'forkbomb' => ['Shell Fork Bomb Protection', 'Limit how many processes one shell login may start.'],
         'traceroute' => ['Traceroute', 'Disabled for users other than root.'],
         'modsec' => ['ModSecurity', 'The web application firewall for Nginx, with the OWASP Core Rule Set (detection only until blocking is allowed).'],
@@ -38,14 +38,14 @@ final class SecurityDefaultsService
     /** The jails the recommended fail2ban setup enables. */
     public const JAILS = ['sshd', 'recidive', 'nginx-http-auth', 'nginx-botsearch', 'nginx-limit-req'];
 
-    /** Recommended brute force protection (cPHulk) settings. */
+    /** Recommended brute force protection (brute force protection) settings. */
     public const HULK = [
         'hulk_enabled' => '1', 'hulk_user_enabled' => '1', 'hulk_user_period' => 5, 'hulk_user_max' => 5, 'hulk_user_scope' => 'all',
         'hulk_ip_enabled' => '1', 'hulk_ip_period' => 15, 'hulk_ip_max' => 15, 'hulk_oneday_max' => 30, 'hulk_retention' => 360,
         'hulk_notify_root' => '1', 'hulk_notify_brute' => '1',
     ];
 
-    /** Whitelisted in cPHulk when it is turned on (the administrator's own address). */
+    /** Whitelisted in brute force protection when it is turned on (the administrator's own address). */
     public ?string $adminIp = null;
 
     public function __construct(
@@ -202,7 +202,7 @@ final class SecurityDefaultsService
         }
         $this->settings->update($values, $userId);
         $this->hulk->sync();
-        return $on ? 'cPHulk Brute Force Protection is on with the recommended limits.' : 'cPHulk Brute Force Protection is off.';
+        return $on ? 'Brute Force Protection is on with the recommended limits.' : 'Brute Force Protection is off.';
     }
 
     private function modsec(bool $on): string

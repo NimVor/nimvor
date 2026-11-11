@@ -39,8 +39,7 @@ type State struct {
 	Blocks    []Block  `json:"blocks"`
 	Countries []Range  `json:"countries"`
 	Whitelist []string `json:"whitelist"`
-	// CountriesAll blocks blacklisted countries on every port (CSF's
-	// CC_DENY), not only the login services.
+	// CountriesAll blocks blacklisted countries on every port, not only the login services.
 	CountriesAll bool `json:"countries_all,omitempty"`
 }
 
@@ -139,7 +138,7 @@ func rules(s State, sshPorts []int, now int64) string {
 	sort.Slice(pl, func(i, j int) bool { a, _ := strconv.Atoi(pl[i]); b, _ := strconv.Atoi(pl[j]); return a < b })
 	dport := "tcp dport { " + strings.Join(pl, ", ") + " }"
 	var b strings.Builder
-	b.WriteString("# Managed by NimVor: brute force protection (Security → cPHulk Brute Force Protection).\n")
+	b.WriteString("# Managed by NimVor: brute force protection (Security → Brute Force Protection).\n")
 	b.WriteString("table inet nimvor_hulk\ndelete table inet nimvor_hulk\ntable inet nimvor_hulk {\n")
 	b.WriteString(set("allow4", "ipv4_addr", "interval", wl4))
 	b.WriteString(set("allow6", "ipv6_addr", "interval", wl6))

@@ -10,8 +10,7 @@ use NimVor\Repositories\UserRepository;
 use NimVor\Support\ValidationException;
 
 /**
- * Creates a hosting account in one step (like WHM's "Create a New
- * Account"): the panel login (a hosting customer, or a reseller), its plan
+ * Creates a hosting account in one step: the panel login (a hosting customer, or a reseller), its plan
  * and hosting options, and its first website for the domain, run by a new
  * system account of the same name. The website then gets its DNS zone,
  * email and automatic SSL (SiteProvisioner, AutoSslService).

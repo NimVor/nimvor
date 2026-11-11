@@ -762,7 +762,7 @@ x-nimvor-actions:
   files.upload: { mutating: true, description: "Upload a file chunk (base64)." }
   files.write: { mutating: true, description: "Save a text file." }
   firewall.allow_ports: { mutating: true, description: "Allow several ports from anywhere in one change (a component's ports), auto-reverted unless confirmed; ports already allowed are skipped." }
-  firewall.protection: { mutating: false, description: "Firewall protections in the manner of CSF (SYN flood, connection limits, port flood, invalid packets, ping rate): the applied configuration, whether its nftables table is loaded, and what each protection dropped." }
+  firewall.protection: { mutating: false, description: "Firewall protections (SYN flood, connection limits, port flood, invalid packets, ping rate): the applied configuration, whether its nftables table is loaded, and what each protection dropped." }
   firewall.protection_set: { mutating: true, description: "Apply the firewall protections (nftables table inet nimvor_flood, next to UFW or firewalld; it only drops or rejects). Undone automatically unless confirmed." }
   firewall.rule_add: { mutating: true, description: "Add a UFW rule (auto-reverted unless confirmed)." }
   firewall.rule_delete: { mutating: true, description: "Delete a UFW rule (auto-reverted unless confirmed)." }
