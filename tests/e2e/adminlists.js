@@ -93,7 +93,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
       await page.screenshot({ path: OUT + '/adminlists-' + shot + '.png', fullPage: true });
     }
     const items = await page.$$eval('[data-nim-section-menu="security"] a', (as) => as.map((a) => a.textContent.trim()));
-    const want = ['Overview', 'Firewall', 'SSH', 'Brute-force protection', 'Malware scan', 'File integrity', 'TLS audit', 'Vulnerability advisories', 'Shell access', 'ModSecurity', 'Configure Security Policies', 'Compiler Access', 'SMTP Restrictions', 'Outgoing Connections', 'cPHulk Brute Force Protection', 'Password Strength Configuration', 'Shell Fork Bomb Protection', 'Traceroute Enable/Disable'];
+    const want = ['Overview', 'Firewall', 'SSH', 'Brute-force protection', 'Malware scan', 'File integrity', 'TLS audit', 'Vulnerability advisories', 'Shell access', 'ModSecurity', 'Configure Security Policies', 'Compiler Access', 'SMTP Restrictions', 'Outgoing Connections', 'Brute Force Protection', 'Password Strength Configuration', 'Shell Fork Bomb Protection', 'Traceroute Enable/Disable'];
     if (want.some((w, i) => items[i] !== w)) { throw new Error('security menu order: ' + items.join(', ')); }
     step('security menu in order: ' + items.join(', '));
     await page.goto(BASE + '/security/hulk#countries');
@@ -101,7 +101,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
     await page.click('button[data-bs-target="#report"]');
     await page.waitForSelector('#report.show.active');
     await page.screenshot({ path: OUT + '/adminlists-hulk-report.png', fullPage: true });
-    step('cPHulk: countries tab from #countries, report tab');
+    step('brute force protection: countries tab from #countries, report tab');
 
     // ---- Phones
     await page.setViewportSize({ width: 390, height: 844 });

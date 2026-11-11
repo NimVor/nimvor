@@ -2335,3 +2335,21 @@ time and command line.
   uninstalled.
 - The panel and SSH are not affected.
 
+## Customer panel themes
+
+*Settings → Customer panel themes* controls how the panel looks for hosting customers. Customers choose under
+*Account menu → Appearance*: a theme, light or dark (or follow the device) and an accent colour, with a preview before
+anything is saved and *Restore default* to go back.
+
+* **Themes offered**: NimVor Modern (always), Classic (tools grouped in a grid), Workspace (sidebar and website cards),
+  Simple (large shortcuts, phone friendly) and Compact (dense lists). All of them have every feature, the same
+  permissions and the same security checks; a theme only changes the layout and look. Switching a theme changes no
+  website, setting or hosting data.
+* **Default theme**: used for customers who have not chosen one. It must be an enabled theme; new installations use
+  NimVor Modern.
+* **Customers may choose their theme**: off, and every customer sees the default theme (light or dark and the accent
+  colour can still be chosen).
+* **Default appearance** and **default accent colour**, and which **accent colours** customers can pick.
+
+Administrators and resellers keep the server-management layout; their light/dark mode and accent colour follow the same
+choices. To build another theme, see `docs/development/themes.md`.

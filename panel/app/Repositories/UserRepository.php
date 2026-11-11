@@ -8,7 +8,7 @@ use NimVor\Database\Connection;
 
 final class UserRepository
 {
-    private const COLUMNS = 'u.id, u.username, u.email, u.display_name, u.role_id, u.is_active, u.last_login_at, u.last_login_ip, u.password_changed_at, u.created_at, u.updated_at, r.name AS role_name, r.label AS role_label, r.scope AS role_scope, r.require_two_factor AS role_requires_2fa, u.parent_id, u.plan_id, u.suspended_at, u.suspend_reason, ' . self::SUSPENDED . ' AS suspended';
+    private const COLUMNS = 'u.id, u.username, u.email, u.display_name, u.role_id, u.is_active, u.last_login_at, u.last_login_ip, u.password_changed_at, u.created_at, u.updated_at, r.name AS role_name, r.label AS role_label, r.scope AS role_scope, r.require_two_factor AS role_requires_2fa, u.parent_id, u.plan_id, u.suspended_at, u.suspend_reason, u.ui_theme, u.ui_mode, u.ui_accent, ' . self::SUSPENDED . ' AS suspended';
 
     /** An account is suspended itself or through its (suspended) reseller. */
     /** The account (or its reseller) is over its monthly bandwidth this month. */
@@ -137,6 +137,12 @@ final class UserRepository
                 'id' => $id,
             ]
         );
+    }
+
+    /** Appearance preferences; an empty value means the administrator's default. */
+    public function setUiPreferences(int $id, string $theme, string $mode, string $accent): void
+    {
+        $this->db->run('UPDATE users SET ui_theme = ?, ui_mode = ?, ui_accent = ? WHERE id = ?', [$theme, $mode, $accent, $id]);
     }
 
     public function updatePassword(int $id, string $hash): void

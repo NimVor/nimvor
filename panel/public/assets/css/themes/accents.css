@@ -1,0 +1,38 @@
+/* Accent colours a user can pick (Appearance). Loaded only when one is chosen. */
+html[data-nim-accent="teal"]   { --nim-accent: #0f766e; }
+html[data-nim-accent="blue"]   { --nim-accent: #2563eb; }
+html[data-nim-accent="violet"] { --nim-accent: #7c3aed; }
+html[data-nim-accent="rose"]   { --nim-accent: #be123c; }
+html[data-nim-accent="amber"]  { --nim-accent: #b45309; }
+html[data-nim-accent="slate"]  { --nim-accent: #475569; }
+
+html[data-nim-accent] {
+    --nim-accent-strong: color-mix(in srgb, var(--nim-accent) 80%, #000);
+    --nim-accent-btn: var(--nim-accent);
+    --nim-accent-btn-hover: var(--nim-accent-strong);
+    --nim-accent-soft: color-mix(in srgb, var(--nim-accent) 14%, transparent);
+    --bs-primary: var(--nim-accent);
+    --bs-link-color: var(--nim-accent-strong);
+    --bs-link-hover-color: var(--nim-accent-strong);
+}
+/* On a dark page: lighter text and links, darker buttons. */
+html[data-nim-accent][data-bs-theme="dark"] {
+    --nim-accent-strong: color-mix(in srgb, var(--nim-accent) 55%, #fff);
+    --nim-accent-btn: color-mix(in srgb, var(--nim-accent) 75%, #000);
+    --nim-accent-btn-hover: color-mix(in srgb, var(--nim-accent) 60%, #000);
+    --bs-link-color: var(--nim-accent-strong);
+    --bs-link-hover-color: var(--nim-accent-strong);
+}
+html[data-nim-accent] .btn-primary {
+    --bs-btn-bg: var(--nim-accent-btn); --bs-btn-border-color: var(--nim-accent-btn);
+    --bs-btn-hover-bg: var(--nim-accent-btn-hover); --bs-btn-hover-border-color: var(--nim-accent-btn-hover);
+    --bs-btn-active-bg: var(--nim-accent-btn-hover); --bs-btn-active-border-color: var(--nim-accent-btn-hover);
+    --bs-btn-disabled-bg: var(--nim-accent-btn); --bs-btn-disabled-border-color: var(--nim-accent-btn);
+    --bs-btn-color: #fff; --bs-btn-hover-color: #fff; --bs-btn-active-color: #fff;
+}
+html[data-nim-accent] .btn-outline-primary {
+    --bs-btn-color: var(--nim-accent-strong); --bs-btn-border-color: var(--nim-accent-strong);
+    --bs-btn-hover-bg: var(--nim-accent-btn); --bs-btn-hover-border-color: var(--nim-accent-btn); --bs-btn-hover-color: #fff; --bs-btn-active-bg: var(--nim-accent-btn-hover);
+}
+html[data-nim-accent] .progress { --bs-progress-bar-bg: var(--nim-accent); }
+html[data-nim-accent] .text-bg-primary { background-color: var(--nim-accent-btn) !important; }

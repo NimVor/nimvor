@@ -4,7 +4,7 @@
 $pageTitle = $this->section('title') !== '' ? trim(strip_tags($this->section('title'))) : ($panel_name ?? 'NimVor');
 ?>
 <!doctype html>
-<html lang="en" data-bs-theme="light">
+<html lang="en" data-bs-theme="light"<?= $this->themeAttrs() ?>>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -16,6 +16,7 @@ $pageTitle = $this->section('title') !== '' ? trim(strip_tags($this->section('ti
     <link rel="stylesheet" href="<?= e($this->asset('assets/vendor/bootstrap/css/bootstrap.min.css')) ?>">
     <link rel="stylesheet" href="<?= e($this->asset('assets/vendor/bootstrap-icons/bootstrap-icons.min.css')) ?>">
     <link rel="stylesheet" href="<?= e($this->asset('assets/css/nimvor.css')) ?>">
+    <?= $this->partial('partials/theme_assets') ?>
     <script src="<?= e($this->asset('assets/js/theme.js')) ?>"></script>
 </head>
 <body class="nim-tool">

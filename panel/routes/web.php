@@ -668,6 +668,8 @@ return static function (Router $r): void {
     $r->post('/roles/{id}/two-factor', [RolesController::class, 'twoFactorPolicy'], ['name' => 'roles.2fa', 'permission' => P::ROLES_MANAGE]);
     $r->post('/roles/{id}/delete', [RolesController::class, 'destroy'], ['name' => 'roles.delete', 'permission' => P::ROLES_MANAGE]);
     $r->get('/settings', [SettingsController::class, 'index'], ['name' => 'settings', 'permission' => P::SETTINGS_VIEW]);
+    $r->get('/settings/themes', [\NimVor\Http\Controllers\AppearanceController::class, 'admin'], ['name' => 'settings.themes', 'permission' => P::SETTINGS_VIEW]);
+    $r->post('/settings/themes', [\NimVor\Http\Controllers\AppearanceController::class, 'saveAdmin'], ['name' => 'settings.themes.save', 'permission' => P::SETTINGS_MANAGE]);
     $r->get('/settings/basic', [\NimVor\Http\Controllers\WebHostSettingsController::class, 'basic'], ['name' => 'settings.basic', 'permission' => P::SETTINGS_VIEW]);
     $r->post('/settings/basic', [\NimVor\Http\Controllers\WebHostSettingsController::class, 'saveBasic'], ['name' => 'settings.basic.save', 'permission' => P::SETTINGS_MANAGE]);
     $r->get('/settings/tweak', [\NimVor\Http\Controllers\WebHostSettingsController::class, 'tweak'], ['name' => 'settings.tweak', 'permission' => P::SETTINGS_VIEW]);
@@ -699,6 +701,12 @@ return static function (Router $r): void {
 
     // Own account (any signed-in user)
     $r->get('/profile', [ProfileController::class, 'show'], ['name' => 'profile']);
+    // Own appearance: theme, light/dark and accent colour (any signed-in user)
+    $r->get('/appearance', [\NimVor\Http\Controllers\AppearanceController::class, 'show'], ['name' => 'appearance']);
+    $r->post('/appearance', [\NimVor\Http\Controllers\AppearanceController::class, 'save'], ['name' => 'appearance.save']);
+    $r->post('/appearance/reset', [\NimVor\Http\Controllers\AppearanceController::class, 'reset'], ['name' => 'appearance.reset']);
+    $r->post('/appearance/preview', [\NimVor\Http\Controllers\AppearanceController::class, 'preview'], ['name' => 'appearance.preview']);
+    $r->post('/appearance/preview/cancel', [\NimVor\Http\Controllers\AppearanceController::class, 'cancelPreview'], ['name' => 'appearance.preview.cancel']);
     $r->post('/profile/password', [ProfileController::class, 'password'], ['name' => 'profile.password']);
     $r->post('/profile/two-factor/setup', [ProfileController::class, 'twoFactorSetup'], ['name' => 'profile.2fa.setup']);
     $r->post('/profile/two-factor/enable', [ProfileController::class, 'twoFactorEnable'], ['name' => 'profile.2fa.enable']);

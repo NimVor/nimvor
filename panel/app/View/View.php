@@ -26,6 +26,15 @@ final class View
     /** @var callable(string): bool */
     private $permissionChecker;
 
+    /** @var (callable(): ?array<string, mixed>)|null */
+    private $themeResolver = null;
+
+    /** @var array<string, mixed>|null */
+    private ?array $theme = null;
+
+    /** @var array<string, mixed>|null */
+    private ?array $account = null;
+
     public function __construct(
         private readonly string $directory,
         private readonly Router $router,
@@ -51,15 +60,87 @@ final class View
         $this->permissionChecker = $checker;
     }
 
+    /** @param callable(): ?array<string, mixed> $resolver decides the viewer's theme, once per request */
+    public function setThemeResolver(callable $resolver): void
+    {
+        $this->themeResolver = $resolver;
+        $this->theme = null;
+        $this->account = null;
+    }
+
+    /**
+     * The theme, light/dark mode and accent of the viewer (NimVor Modern when nobody is signed in).
+     *
+     * @return array{key: string, label: string, mode: string, accent: string, layout: string, css: ?string, preview: bool, customer: bool}
+     */
+    public function theme(): array
+    {
+        if ($this->theme === null) {
+            $resolved = null;
+            if ($this->themeResolver !== null) {
+                try {
+                    $resolved = ($this->themeResolver)();
+                } catch (\Throwable) {
+                    $resolved = null; // a broken theme setting must never lock anyone out of the panel
+                }
+            }
+            $this->theme = is_array($resolved) ? $resolved : ['key' => 'modern', 'label' => 'NimVor Modern', 'mode' => 'auto', 'accent' => '', 'layout' => 'layouts/app', 'css' => null, 'preview' => false, 'customer' => false];
+        }
+        return $this->theme;
+    }
+
+    /**
+     * The websites and plan usage of the signed-in account, for the theme's frame (loaded once per request).
+     *
+     * @return array{sites: list<array<string, mixed>>, plan: string, usage: list<array<string, mixed>>}
+     */
+    public function themeAccount(): array
+    {
+        if ($this->account === null) {
+            $user = $this->shared['user'] ?? null;
+            $loader = $this->shared['theme_account'] ?? null;
+            $this->account = is_array($user) && is_callable($loader) ? $loader($user) : ['sites' => [], 'plan' => '', 'usage' => []];
+        }
+        return $this->account;
+    }
+
+    /** The attributes the theme's stylesheet and the dark-mode script read from <html>. */
+    public function themeAttrs(): string
+    {
+        $t = $this->theme();
+        return ' data-nim-theme="' . e($t['key']) . '" data-nim-mode="' . e($t['mode']) . '"' . ($t['accent'] !== '' ? ' data-nim-accent="' . e($t['accent']) . '"' : '');
+    }
+
     /** @param array<string, mixed> $data */
     public function render(string $template, array $data = [], ?string $layout = 'layouts/app'): string
     {
         $this->sections = [];
-        $content = $this->renderFile($template, $data);
+        $content = $this->renderFile($this->themed('pages/' . $template, $template), $data);
         if ($layout === null) {
             return $content;
         }
-        return $this->renderFile($layout, $data + ['content' => $content]);
+        return $this->renderFile($this->themedLayout($layout), $data + ['content' => $content]);
+    }
+
+    /** The theme's own version of a page when it has one (themes/<theme>/pages/<template>), else the shared page. */
+    private function themed(string $themeRelative, string $fallback): string
+    {
+        $key = $this->theme()['key'];
+        if ($key === 'modern') {
+            return $fallback;
+        }
+        $candidate = 'themes/' . $key . '/' . $themeRelative;
+        return is_file($this->directory . '/' . $candidate . '.php') ? $candidate : $fallback;
+    }
+
+    /** The panel layout is replaced by the viewer's theme; tool windows and the sign-in page keep theirs. */
+    private function themedLayout(string $layout): string
+    {
+        if ($layout !== 'layouts/app') {
+            return $layout;
+        }
+        $themed = $this->theme()['layout'];
+        return is_file($this->directory . '/' . $themed . '.php') ? $themed : $layout;
     }
 
     /**
@@ -90,7 +171,7 @@ final class View
             }
             return (string) ob_get_clean();
         })($file, $data);
-        return $this->renderFile('layouts/app', $data + ['content' => $content]);
+        return $this->renderFile($this->themedLayout('layouts/app'), $data + ['content' => $content]);
     }
 
     /** @param array<string, mixed> $data */

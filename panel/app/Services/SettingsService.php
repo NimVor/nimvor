@@ -381,7 +381,7 @@ final class SettingsService
                 'category' => 'ssl', 'type' => 'int', 'default' => 14, 'min' => 1, 'max' => 90,
                 'label' => 'Certificate warning threshold (days)', 'help' => 'Certificates expiring within this many days are highlighted.',
             ],
-        ];
+        ] + \NimVor\View\Themes::settingDefinitions();
     }
 
     public function get(string $key): mixed

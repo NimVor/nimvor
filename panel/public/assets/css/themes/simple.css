@@ -1,0 +1,45 @@
+/* Simple: light and roomy, large shortcuts, a bottom tab bar on phones. */
+html[data-nim-theme="simple"] {
+    --nim-accent: #7c3aed;
+    --nt-bg: #f8f7fc;
+    --nt-radius: 1rem;
+    --bs-border-radius: .75rem;
+    --bs-border-radius-lg: 1rem;
+    --nt-border: rgba(76, 29, 149, .12);
+}
+html[data-nim-theme="simple"][data-bs-theme="dark"] { --nim-accent: #a78bfa; --nt-bg: #14111d; --nt-surface: #1d1928; --nt-border: rgba(196, 181, 253, .16); --nt-muted: #a8a1bd; --nt-head-bg: #1d1928; }
+.nsi-wrap { width: 100%; max-width: 1080px; margin-inline: auto; padding-inline: 1rem; }
+.nsi-top { background: var(--nt-head-bg); border-bottom: 1px solid var(--nt-border); position: sticky; top: 0; z-index: 1030; }
+.nsi-top-in { display: flex; align-items: center; gap: .75rem; min-height: 3.75rem; }
+.nsi-site-btn { border: 1px solid var(--nt-border); border-radius: 2rem; max-width: 13rem; display: inline-flex; align-items: center; }
+.nsi-links { gap: .25rem; margin-left: .5rem; }
+.nsi-link { border: 0; background: transparent; padding: .45rem .9rem; border-radius: 2rem; color: var(--nt-muted); text-decoration: none; font-weight: 500; font-size: .95rem; }
+.nsi-link:hover { background: var(--nim-accent-soft); color: var(--bs-body-color); }
+.nsi-link.active { background: var(--nim-accent-soft); color: var(--nim-accent-strong); }
+.nsi-main { padding-block: 1.5rem 6rem; }
+.nsi-back { display: inline-flex; align-items: center; gap: .4rem; margin-bottom: .75rem; color: var(--nt-muted); text-decoration: none; font-size: .9rem; }
+.nsi-back:hover { color: var(--bs-body-color); }
+.nsi-card { background: var(--nt-surface); border: 1px solid var(--nt-border); border-radius: var(--nt-radius); padding: 1.25rem; margin-bottom: 1rem; }
+.nsi-hero { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+.nsi-hero-main { flex: 1 1 14rem; min-width: 0; }
+.nsi-hero-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+.nsi-sites { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: .4rem; }
+.nsi-sitechip { padding: .25rem .75rem; border-radius: 2rem; border: 1px solid var(--nt-border); font-size: .85rem; text-decoration: none; color: var(--bs-body-color); }
+.nsi-sitechip.active, .nsi-sitechip:hover { background: var(--nim-accent-soft); border-color: var(--nim-accent); }
+.nsi-h { font-size: 1rem; font-weight: 700; margin: 1.5rem 0 .75rem; }
+.nsi-quick { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: .75rem; }
+.nsi-quick-tile { display: flex; flex-direction: column; align-items: center; gap: .6rem; padding: 1.1rem .5rem; background: var(--nt-surface); border: 1px solid var(--nt-border); border-radius: var(--nt-radius); color: var(--bs-body-color); text-decoration: none; font-weight: 500; text-align: center; font-size: .9rem; cursor: pointer; }
+.nsi-quick-tile:hover { border-color: var(--nim-accent); transform: translateY(-1px); color: var(--bs-body-color); }
+.nsi-quick-icon { width: 3rem; height: 3rem; display: grid; place-items: center; border-radius: 50%; background: var(--nim-accent-soft); color: var(--nim-accent-strong); font-size: 1.4rem; }
+.nsi-tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1035; display: flex; background: var(--nt-head-bg); border-top: 1px solid var(--nt-border); padding-bottom: env(safe-area-inset-bottom); }
+.nsi-tabbar a, .nsi-tabbar button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: .1rem; padding: .5rem 0; border: 0; background: transparent; color: var(--nt-muted); text-decoration: none; font-size: .7rem; }
+.nsi-tabbar i { font-size: 1.3rem; }
+.nsi-tabbar .active { color: var(--nim-accent-strong); font-weight: 600; }
+.nsi-tools-h { font-size: .75rem; letter-spacing: .06em; text-transform: uppercase; color: var(--nt-muted); margin: 1.25rem 0 .4rem; }
+.nsi-tools-h:first-child { margin-top: 0; }
+.nsi-tools-list { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem; }
+.nsi-tools-list a { display: flex; align-items: center; gap: .5rem; padding: .55rem .6rem; border-radius: .6rem; color: var(--bs-body-color); text-decoration: none; font-size: .9rem; min-width: 0; }
+.nsi-tools-list a:hover { background: var(--nim-accent-soft); }
+.nsi-tools-list i { color: var(--nim-accent-strong); }
+.nt-simple .card, .nt-simple .nim-panel { border-radius: var(--nt-radius); }
+@media (max-width: 767.98px) { .nsi-site-btn { max-width: 9rem; } .nt-simple .nt-brand span { display: none; } }
