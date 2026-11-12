@@ -111,7 +111,6 @@ final class ThemesTest extends HttpTestCase
             self::assertStringContainsString('Hosting package', $page, 'the package and its usage are in the sidebar');
             self::assertStringContainsString('Statistics', $page);
         }
-        }
         foreach (['files', 'databases', 'dns', 'ssl', 'backups', 'git', 'cron', 'logs', 'php', 'terminal', 'redirects'] as $tool) {
             self::assertTrue(
                 str_contains($page, 'href="/sites/' . $this->siteId . '/' . $tool . '"'),
