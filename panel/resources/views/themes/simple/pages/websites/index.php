@@ -1,6 +1,7 @@
 <?php
 /** @var \NimVor\View\View $this */
 /** @var list<array<string, mixed>> $managed */
+/** @var array<int, int> $backups */
 use NimVor\Security\Permissions as P;
 use NimVor\View\ThemeContext;
 use NimVor\View\ThemeNav;
@@ -8,16 +9,23 @@ use NimVor\View\ThemeNav;
 $nt = ThemeContext::build($this);
 $site = $nt['site'];
 $canCreate = $this->can(P::WEBSITES_MANAGE);
+$backups ??= [];
 $who = !empty($user) ? ($user['display_name'] !== '' ? $user['display_name'] : $user['username']) : '';
-$labels = ['dns' => 'Domains & DNS', 'php' => $site !== null && $site['kind'] === 'php' ? 'PHP ' . $site['php_version'] : 'PHP', 'stats' => 'Usage statistics'];
+$hour = (int) date('G');
+$greet = $hour < 12 ? 'Good morning' : ($hour < 18 ? 'Good afternoon' : 'Good evening');
+$labels = ['dns' => 'Domains & DNS', 'php' => 'PHP settings', 'stats' => 'Usage statistics', 'ssl' => 'SSL / HTTPS'];
 $tools = [];
 foreach (ThemeNav::pick($nt['items'], ['files', 'mail', 'databases', 'dns', 'ssl', 'backups', 'php', 'stats']) as $t) {
     $t['label'] = $labels[$t['key']] ?? $t['label'];
     $tools[] = $t;
 }
+$url = static fn (string $key): string => ThemeNav::pick($nt['items'], [$key])[0]['url'] ?? '#';
+$has = static fn (string $key): bool => ThemeNav::pick($nt['items'], [$key]) !== [];
+$rings = array_values(array_filter($nt['account']['usage'], static fn (array $u): bool => $u['limit'] > 0));
+$rings = array_slice($rings, 0, 4);
 ?>
-<?php $this->start(); ?>Hello<?= $who !== '' ? ', ' . e($who) : '' ?><?php $this->end('title'); ?>
-<?php $this->start(); ?><?= count($managed) ?> website<?= count($managed) === 1 ? '' : 's' ?><?php $this->end('subtitle'); ?>
+<?php $this->start(); ?><?= e($greet) ?><?= $who !== '' ? ', ' . e($who) : '' ?><?php $this->end('title'); ?>
+<?php $this->start(); ?><?= count($managed) ?> website<?= count($managed) === 1 ? '' : 's' ?> · here is how they are doing<?php $this->end('subtitle'); ?>
 <?php $this->start(); ?><?php if ($canCreate): ?><a class="btn btn-primary" href="<?= e($this->url('sites.create')) ?>"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>New website</a><?php endif; ?><?php $this->end('actions'); ?>
 
 <?php if ($site === null): ?>
@@ -28,15 +36,18 @@ foreach (ThemeNav::pick($nt['items'], ['files', 'mail', 'databases', 'dns', 'ssl
         <?php if ($canCreate): ?><a class="btn btn-primary" href="<?= e($this->url('sites.create')) ?>">Create a website</a><?php endif; ?>
     </div>
 <?php else: ?>
-    <section class="nsi-card nsi-hero" aria-label="Website">
+    <section class="nsi-hero" aria-label="Website">
         <div class="nsi-hero-main">
-            <div class="small text-body-secondary">Your website</div>
-            <h2 class="h4 mb-1"><?= e($site['domain']) ?> <?= $this->partial('themes/components/site_status', ['site' => $site]) ?></h2>
-            <div class="small text-body-secondary"><?= $site['kind'] === 'php' ? 'PHP ' . e($site['php_version']) . ' · ' : '' ?>SSL <?= $site['https'] ? 'on' : 'off' ?></div>
+            <span class="nsi-hero-eyebrow">Your website</span>
+            <h2 class="nsi-hero-title"><?= e($site['domain']) ?></h2>
+            <div class="nsi-hero-meta">
+                <?php if (!empty($site['account_suspended'])): ?><span class="nsi-pill is-bad">Suspended</span><?php elseif ($site['status'] === 'error'): ?><span class="nsi-pill is-bad">Needs attention</span><?php elseif ($site['enabled']): ?><span class="nsi-pill is-ok"><i class="bi bi-circle-fill" aria-hidden="true"></i>Online</span><?php else: ?><span class="nsi-pill">Disabled</span><?php endif; ?>
+                <?php if ($site['kind'] === 'php'): ?><span class="nsi-pill">PHP <?= e($site['php_version']) ?></span><?php endif; ?>
+            </div>
         </div>
         <div class="nsi-hero-actions">
-            <a class="btn btn-outline-primary" href="<?= e($this->url('sites.show', ['id' => (int) $site['id']])) ?>">Overview</a>
-            <?php if ($site['enabled']): ?><a class="btn btn-outline-secondary" href="<?= e(($site['https'] ? 'https://' : 'http://') . $site['domain']) ?>/" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>Visit</a><?php endif; ?>
+            <?php if ($site['enabled']): ?><a class="btn btn-light" href="<?= e(($site['https'] ? 'https://' : 'http://') . $site['domain']) ?>/" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>Visit site</a><?php endif; ?>
+            <a class="btn btn-outline-light" href="<?= e($this->url('sites.show', ['id' => (int) $site['id']])) ?>">Overview</a>
         </div>
         <?php if (count($managed) > 1): ?>
             <div class="nsi-sites" role="list" aria-label="Your websites">
@@ -44,6 +55,27 @@ foreach (ThemeNav::pick($nt['items'], ['files', 'mail', 'databases', 'dns', 'ssl
             </div>
         <?php endif; ?>
     </section>
+
+    <div class="nsi-status">
+        <article class="nsi-card nsi-status-card">
+            <span class="nsi-status-icon <?= $site['https'] ? 'is-ok' : 'is-warn' ?>"><i class="bi bi-<?= $site['https'] ? 'shield-lock-fill' : 'shield-exclamation' ?>" aria-hidden="true"></i></span>
+            <div class="nsi-status-body"><div class="nsi-status-label">SSL certificate</div><div class="nsi-status-value"><?= $site['https'] ? 'Secured with HTTPS' : 'Not secured yet' ?></div></div>
+            <?php if ($has('ssl')): ?><a class="nsi-status-link" href="<?= e($url('ssl')) ?>"><?= $site['https'] ? 'Manage' : 'Secure it' ?><i class="bi bi-arrow-right" aria-hidden="true"></i></a><?php endif; ?>
+        </article>
+        <?php if ($site['kind'] === 'php'): ?>
+        <article class="nsi-card nsi-status-card">
+            <span class="nsi-status-icon"><i class="bi bi-filetype-php" aria-hidden="true"></i></span>
+            <div class="nsi-status-body"><div class="nsi-status-label">PHP version</div><div class="nsi-status-value">PHP <?= e($site['php_version']) ?></div></div>
+            <?php if ($has('php')): ?><a class="nsi-status-link" href="<?= e($url('php')) ?>">Change<i class="bi bi-arrow-right" aria-hidden="true"></i></a><?php endif; ?>
+        </article>
+        <?php endif; ?>
+        <article class="nsi-card nsi-status-card">
+            <?php $n = (int) ($backups[(int) $site['id']] ?? 0); ?>
+            <span class="nsi-status-icon <?= $n > 0 ? 'is-ok' : 'is-warn' ?>"><i class="bi bi-archive-fill" aria-hidden="true"></i></span>
+            <div class="nsi-status-body"><div class="nsi-status-label">Backups</div><div class="nsi-status-value"><?= $n > 0 ? $n . ' saved' : 'None yet' ?></div></div>
+            <?php if ($has('backups')): ?><a class="nsi-status-link" href="<?= e($url('backups')) ?>"><?= $n > 0 ? 'Manage' : 'Back up now' ?><i class="bi bi-arrow-right" aria-hidden="true"></i></a><?php endif; ?>
+        </article>
+    </div>
 
     <h2 class="nsi-h">Quick access</h2>
     <div class="nsi-quick">
@@ -54,5 +86,17 @@ foreach (ThemeNav::pick($nt['items'], ['files', 'mail', 'databases', 'dns', 'ssl
     </div>
 
     <h2 class="nsi-h">Your plan<?= $nt['account']['plan'] !== '' ? ' · ' . e($nt['account']['plan']) : '' ?></h2>
-    <section class="nsi-card"><?= $this->partial('themes/components/usage', ['rows' => $nt['account']['usage'], 'variant' => 'inline']) ?></section>
+    <?php if ($rings !== []): ?>
+        <section class="nsi-rings">
+            <?php foreach ($rings as $u): $pct = (int) min(100, round(100 * $u['used'] / max(1, $u['limit']))); ?>
+                <div class="nsi-ringbox">
+                    <div class="nsi-ring nsi-ring-<?= (int) (round($pct / 5) * 5) ?><?= $pct >= 100 ? ' is-full' : ($pct >= 80 ? ' is-high' : '') ?>" role="img" aria-label="<?= e($u['label']) ?>: <?= (int) $u['used'] ?> of <?= (int) $u['limit'] ?>"><span><?= $pct ?>%</span></div>
+                    <div class="nsi-ring-label"><?= e($u['label']) ?></div>
+                    <div class="nsi-ring-sub"><?= (int) $u['used'] ?> of <?= (int) $u['limit'] ?></div>
+                </div>
+            <?php endforeach; ?>
+        </section>
+    <?php else: ?>
+        <section class="nsi-card"><?= $this->partial('themes/components/usage', ['rows' => $nt['account']['usage'], 'variant' => 'inline']) ?></section>
+    <?php endif; ?>
 <?php endif; ?>
