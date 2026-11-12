@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Classic theme redesigned.** A search-first home (press `/` to search), collapsible colour-coded tool groups that remember whether they are open, *General information* and *Statistics* panels beside them, a tool icon on every page head, and restyled cards, tables and dialogs for the pages inside. Same tools, permissions and behaviour as before.
+
 ## [1.6.0] — 2026-11-11
 
 ### Added
