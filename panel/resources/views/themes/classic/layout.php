@@ -2,18 +2,32 @@
 /** @var \NimVor\View\View $this */
 /** @var string $content */
 use NimVor\View\ThemeContext;
+use NimVor\View\ThemeNav;
 
 $nt = ThemeContext::build($this);
+$menu = $nt['menu'];
+// The tool the page belongs to: its icon and category colour mark the page head.
+$tool = null;
+if ($menu !== null) {
+    foreach ($menu['items'] as $i) {
+        if ($i['key'] === $menu['active']) {
+            $tool = $i;
+        }
+    }
+}
+$cat = $tool !== null && $tool['key'] !== 'overview' ? ThemeNav::category($tool['key']) : 'home';
+$who = !empty($user) ? ($user['display_name'] !== '' ? $user['display_name'] : $user['username']) : '';
 ?>
 <?= $this->partial('themes/components/head', ['bodyClass' => 'nt-classic']) ?>
 <a class="nt-skip" href="#nt-main">Skip to the page</a>
 <header class="ncl-top">
     <div class="ncl-wrap ncl-top-in">
         <a class="nt-brand" href="<?= e($this->url('websites')) ?>">
-            <img src="<?= e($this->asset('assets/img/logo-dark.png')) ?>" alt="" width="28" height="28">
+            <img src="<?= e($this->asset('assets/img/logo-dark.png')) ?>" alt="" width="30" height="30">
             <span><?= e($panel_name ?? 'NimVor') ?></span>
         </a>
-        <div class="ncl-find"><?= $this->partial('themes/components/finder', ['entries' => $nt['entries'], 'placeholder' => 'Find a tool…']) ?></div>
+        <a class="ncl-home" href="<?= e($this->url('websites')) ?>" aria-label="Home"><i class="bi bi-house-door" aria-hidden="true"></i><span>Home</span></a>
+        <div class="ncl-find"><?= $this->partial('themes/components/finder', ['entries' => $nt['entries'], 'placeholder' => 'Search tools']) ?><kbd class="ncl-kbd" aria-hidden="true">/</kbd></div>
         <?= $this->partial('themes/components/account_actions') ?>
     </div>
 </header>
@@ -32,7 +46,10 @@ $nt = ThemeContext::build($this);
 </div>
 <main class="ncl-wrap ncl-main" id="nt-main">
     <?= $this->partial('partials/theme_preview_bar') ?>
-    <?= $this->partial('themes/components/page_head') ?>
+    <div class="ncl-pagehead ncl-cat-<?= e($cat) ?>">
+        <?php if ($tool !== null && $tool['key'] !== 'overview'): ?><span class="ncl-pagehead-icon" aria-hidden="true"><i class="bi bi-<?= e($tool['icon']) ?>"></i></span><?php endif; ?>
+        <?= $this->partial('themes/components/page_head') ?>
+    </div>
     <?= $this->partial('partials/flash') ?>
     <?= $content ?>
 </main>
