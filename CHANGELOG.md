@@ -8,6 +8,7 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Changed
 
+- **Each theme gives the shared pages its own skin.** Files, databases, DNS, PHP and every other tool keep the same pages and logic, but their boxes, headings, controls and tables now follow the theme: Classic has accent-edged titled boxes, Workspace roomy panels with pill buttons, Simple airy flat cards with large controls, and Compact dense square boxes with dark title bars.
 - **Classic theme: a website's own page is themed too.** Opening a website (`/sites/<id>`) now shows the Classic arrangement (General information panel and collapsible colour-coded tool groups) instead of the shared page. The other themes follow. The right sidebar also shows the hosting package (its name and limits) and the usage statistics, on the home page and on the website page.
 - **Workspace theme: the website page is themed.** A website's overview shows its tools as cards in groups with a Resources and Website side panel.
 - **Classic theme: a website's own page is themed too.** Opening a website (`/sites/<id>`) now shows the Classic arrangement (General information panel and collapsible colour-coded tool groups) instead of the shared page. The other themes follow.

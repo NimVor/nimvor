@@ -127,3 +127,12 @@ html[data-nim-theme="workspace"][data-bs-theme="dark"] {
     .nws-content { padding: 1rem; }
     .nws-cards { grid-template-columns: 1fr; }
 }
+
+/* ---- Module pages, Workspace skin: roomy white panels with a quiet title row and pill actions ---- */
+.nt-workspace .card { border-radius: .9rem; box-shadow: 0 1px 2px rgba(15, 23, 42, .05), 0 6px 18px rgba(15, 23, 42, .05); }
+.nt-workspace .card-header { background: transparent; border-bottom: 1px solid var(--nt-border); font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--nt-muted); padding: .9rem 1.15rem; }
+.nt-workspace .card-header i { color: var(--nim-accent); }
+.nt-workspace .card-body { padding: 1.15rem; }
+.nt-workspace .btn { border-radius: 999px; padding-inline: 1rem; }
+.nt-workspace .btn-sm { padding-inline: .8rem; }
+.nt-workspace .table thead th { background: transparent; }

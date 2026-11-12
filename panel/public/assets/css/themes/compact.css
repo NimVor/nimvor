@@ -103,3 +103,10 @@ html[data-nim-theme="compact"][data-bs-theme="dark"] {
 .nco-facts th { width: 9rem; font-weight: 600; color: var(--bs-secondary-color); background: color-mix(in srgb, var(--nt-bg) 55%, transparent); white-space: nowrap; }
 .nco-facts td { word-break: break-word; }
 @media (max-width: 767.98px) { .nco-facts th { width: auto; } }
+
+/* ---- Module pages, Compact skin: dark title bars on square, dense boxes ---- */
+.nt-compact .card { border-radius: .3rem; box-shadow: none; }
+.nt-compact .card-header { background: var(--nco-menu-bg, #0f1b2d); color: #e8eef7; border-bottom: 0; font-size: .8rem; font-weight: 600; letter-spacing: .02em; border-radius: .3rem .3rem 0 0; }
+.nt-compact .card-header i { color: #7fd4e8; }
+.nt-compact .table thead th { background: color-mix(in srgb, var(--nt-bg) 80%, transparent); }
+.nt-compact .table > :not(caption) > tr:hover > * { background: color-mix(in srgb, var(--nim-accent) 7%, transparent); }
