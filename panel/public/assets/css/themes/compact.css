@@ -100,3 +100,6 @@ html[data-nim-theme="compact"][data-bs-theme="dark"] {
     .nt-nav-open .nco-backdrop { display: block; position: fixed; inset: 0; background: rgba(0, 0, 0, .5); z-index: 1040; }
     .nco-find { width: auto; flex: 1; }
 }
+.nco-facts th { width: 9rem; font-weight: 600; color: var(--bs-secondary-color); background: color-mix(in srgb, var(--nt-bg) 55%, transparent); white-space: nowrap; }
+.nco-facts td { word-break: break-word; }
+@media (max-width: 767.98px) { .nco-facts th { width: auto; } }
