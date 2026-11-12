@@ -103,10 +103,14 @@ final class ThemesTest extends HttpTestCase
         $view = $this->app->container->get(\NimVor\View\View::class);
         self::assertStringContainsString('/sites/' . $this->siteId . '/files', $page);
 <<<<<<< HEAD
+<<<<<<< HEAD
         $marker = ['classic' => 'ncl-group', 'workspace' => 'nws-tool'][$theme] ?? null;
 =======
         $marker = ['classic' => 'ncl-group', 'simple' => 'nsi-quick-tile'][$theme] ?? null;
 >>>>>>> origin/claude/redesign-simple
+=======
+        $marker = ['classic' => 'ncl-group', 'compact' => 'nco-facts'][$theme] ?? null;
+>>>>>>> origin/claude/redesign-compact
         if ($marker !== null) {
             self::assertStringContainsString($marker, $page, 'the website page has the theme\'s own arrangement, not the shared one');
             self::assertStringNotContainsString('nim-site-hero', $page);
