@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -154,8 +155,26 @@ func TestRealHostSFTP(t *testing.T) {
 // reloadSSH makes an sshd that is not managed by systemd (containers)
 // re-read its configuration; under systemd the action reloads it.
 func reloadSSH() {
-	if !systemd() {
+	if systemd() {
+		// The agent's actions reload sshd, but a test that removes the
+		// drop-in itself (its cleanup) must reload too, or sshd keeps the
+		// stale configuration into the next test.
+		for _, u := range []string{"ssh", "sshd"} {
+			if exec.Command("systemctl", "reload", u).Run() == nil {
+				break
+			}
+		}
+	} else {
 		exec.Command("pkill", "-HUP", "-x", "sshd").Run()
+	}
+	time.Sleep(500 * time.Millisecond)
+	// Wait until sshd accepts connections again: a connection made while it
+	// re-reads its configuration is refused.
+	for i := 0; i < 20; i++ {
+		if c, err := net.DialTimeout("tcp", "127.0.0.1:22", time.Second); err == nil {
+			c.Close()
+			return
+		}
 		time.Sleep(500 * time.Millisecond)
 	}
 }
@@ -328,12 +347,13 @@ func TestRealHostShellModes(t *testing.T) {
 		// sshd's view of the account if it still refuses.
 		for i := 0; i < 8; i++ {
 			out, err = exec.Command("ssh", append(sshOpts, "rtftp@127.0.0.1", cmd)...).CombinedOutput()
-			if err == nil || !(strings.Contains(string(out), "Connection refused") || strings.Contains(string(out), "Permission denied (publickey)")) {
+			// "Permission denied (publickey)" and, while sshd re-reads its configuration, "(publickey,password)".
+			if err == nil || !(strings.Contains(string(out), "Connection refused") || strings.Contains(string(out), "Permission denied (publickey")) {
 				break
 			}
 			time.Sleep(time.Second)
 		}
-		if strings.Contains(string(out), "Permission denied (publickey)") {
+		if strings.Contains(string(out), "Permission denied (publickey") {
 			out = append(out, "\n"+sshDiagnosis(env.M.SFTPKeysDir)...)
 		}
 		return string(out), err

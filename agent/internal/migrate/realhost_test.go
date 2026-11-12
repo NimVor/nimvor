@@ -89,9 +89,18 @@ func TestRealHostMigrateFilesOverSSH(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	info, err := Inspect(context.Background(), tr)
-	if err != nil {
-		t.Fatalf("inspect: %v", err)
+	// Other tests reconfigure and reload sshd just before this one: a login
+	// made while it re-reads its configuration may be refused, so a few tries.
+	var info ServerInfo
+	for try := 0; ; try++ {
+		info, err = Inspect(context.Background(), tr)
+		if err == nil {
+			break
+		}
+		if try == 5 || !(strings.Contains(err.Error(), "Permission denied") || strings.Contains(err.Error(), "Connection refused")) {
+			t.Fatalf("inspect: %v", err)
+		}
+		time.Sleep(2 * time.Second)
 	}
 	if info.Root || info.Hostname == "" || !info.Rsync {
 		t.Errorf("info = %+v", info)
