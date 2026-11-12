@@ -111,6 +111,19 @@ final class ThemesTest extends HttpTestCase
             self::assertStringContainsString('Hosting package', $page, 'the package and its usage are in the sidebar');
             self::assertStringContainsString('Statistics', $page);
         }
+        // The home page's own widget for what needs attention (the test website has no HTTPS and no backup).
+        $widget = ['workspace' => 'nws-attn-list', 'simple' => 'nsi-todo', 'compact' => 'nco-strip'][$theme] ?? null;
+        if ($widget !== null) {
+            self::assertStringContainsString($widget, $home, $theme . ' shows what needs attention');
+        }
+        if ($theme === 'compact') {
+            self::assertStringContainsString('data-nt-pin', $page, 'Compact can pin tools to favourites');
+        }
+        // A shared page's heading is each theme's own component (same data, different markup).
+        $head = ['classic' => 'ncl-head', 'workspace' => 'nws-head', 'simple' => 'nsi-head', 'compact' => 'nco-head'][$theme] ?? null;
+        if ($head !== null) {
+            self::assertStringContainsString($head, $this->page('/appearance'), $theme . ' has its own page heading');
+        }
         foreach (['files', 'databases', 'dns', 'ssl', 'backups', 'git', 'cron', 'logs', 'php', 'terminal', 'redirects'] as $tool) {
             self::assertTrue(
                 str_contains($page, 'href="/sites/' . $this->siteId . '/' . $tool . '"'),

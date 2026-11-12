@@ -105,3 +105,12 @@ html[data-nim-theme="classic"][data-bs-theme="dark"] {
     .ncl-grid { grid-template-columns: repeat(auto-fill, minmax(7.6rem, 1fr)); gap: .6rem; }
     .ncl-pagehead-icon { width: 2.4rem; height: 2.4rem; font-size: 1.15rem; }
 }
+
+/* ---- Module pages, Classic skin: titled boxes with an accent edge, like a launcher panel's sections ---- */
+.nt-classic .card { border-left: 3px solid var(--nim-accent); }
+.nt-classic .card-header { display: flex; align-items: center; gap: .5rem; font-size: .95rem; background: var(--nt-surface); }
+.nt-classic .card-header i { color: var(--nim-accent); }
+.nt-classic .btn-primary { border-radius: .4rem; }
+.nt-classic .table > :not(caption) > tr:nth-child(even) > * { background: color-mix(in srgb, var(--nt-bg) 45%, transparent); }
+.ncl-head { align-items: center; }
+.ncl-gohome { white-space: nowrap; }

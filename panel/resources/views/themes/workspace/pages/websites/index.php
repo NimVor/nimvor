@@ -5,6 +5,7 @@
 use NimVor\Security\Permissions as P;
 use NimVor\View\SiteMenu;
 use NimVor\View\ThemeContext;
+use NimVor\View\ThemeInsights;
 use NimVor\View\ThemeNav;
 
 $nt = ThemeContext::build($this);
@@ -12,6 +13,7 @@ $canCreate = $this->can(P::WEBSITES_MANAGE);
 $quickKeys = ['files', 'databases', 'mail', 'backups', 'git', 'logs'];
 $backups ??= [];
 $total = count($managed);
+$attention = ThemeInsights::attention($this, $managed, $backups);
 $active = count(array_filter($managed, static fn (array $m): bool => $m['enabled'] && $m['status'] !== 'error'));
 $secure = count(array_filter($managed, static fn (array $m): bool => $m['https']));
 $withBackup = count(array_filter($managed, static fn (array $m): bool => (int) ($backups[(int) $m['id']] ?? 0) > 0));
@@ -84,6 +86,18 @@ $stats = [
         </div>
     </div>
     <aside class="col-xxl-3" aria-label="Plan">
+        <section class="nws-panel nws-attention">
+            <h2 class="nws-panel-title"><i class="bi bi-bell" aria-hidden="true"></i>Needs attention</h2>
+            <?php if ($attention === []): ?>
+                <p class="small text-body-secondary mb-0"><i class="bi bi-check-circle-fill text-success me-1" aria-hidden="true"></i>Everything looks good.</p>
+            <?php else: ?>
+                <ul class="nws-attn-list">
+                    <?php foreach (array_slice($attention, 0, 6) as $a): ?>
+                        <li class="is-<?= e($a['level']) ?>"><i class="bi bi-<?= e($a['icon']) ?>" aria-hidden="true"></i><div><div class="fw-medium"><?= e($a['site']) ?></div><div class="small text-body-secondary"><?= e($a['text']) ?></div></div><a class="btn btn-sm btn-outline-secondary" href="<?= e($a['url']) ?>"><?= e($a['action']) ?></a></li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
+        </section>
         <section class="nws-panel">
             <h2 class="nws-panel-title"><i class="bi bi-speedometer" aria-hidden="true"></i>Resources<?= $nt['account']['plan'] !== '' ? ' · ' . e($nt['account']['plan']) : '' ?></h2>
             <?= $this->partial('themes/components/usage', ['rows' => $nt['account']['usage'], 'variant' => 'bars']) ?>

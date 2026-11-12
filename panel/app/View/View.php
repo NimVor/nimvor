@@ -177,7 +177,24 @@ final class View
     /** @param array<string, mixed> $data */
     public function partial(string $template, array $data = []): string
     {
-        return $this->renderFile($template, $data);
+        return $this->renderFile($this->themedComponent($template), $data);
+    }
+
+    /**
+     * A shared theme component (themes/components/<name>) can be replaced by a theme's own version
+     * (themes/<theme>/components/<name>); the data and the logic stay the same, only the markup differs.
+     */
+    private function themedComponent(string $template): string
+    {
+        if (!str_starts_with($template, 'themes/components/')) {
+            return $template;
+        }
+        $key = $this->theme()['key'];
+        if ($key === 'modern') {
+            return $template;
+        }
+        $candidate = 'themes/' . $key . '/components/' . substr($template, strlen('themes/components/'));
+        return is_file($this->directory . '/' . $candidate . '.php') ? $candidate : $template;
     }
 
     /** Capture a named section (e.g. page actions) for the layout. */
