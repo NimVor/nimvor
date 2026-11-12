@@ -76,6 +76,34 @@
         b.setAttribute('aria-expanded', target.hidden ? 'false' : 'true');
     });
 
+    // Folding groups remember their state: a group with data-nt-remember="key" stays folded after a reload.
+    document.querySelectorAll('[data-nt-remember]').forEach(function (g) {
+        var key = 'nt-fold-' + g.getAttribute('data-nt-remember');
+        var folded = null;
+        try { folded = localStorage.getItem(key); } catch (e) { /* storage unavailable */ }
+        if (folded === '1') {
+            var b = g.querySelector('[data-nt-fold]');
+            var t = b && document.querySelector(b.getAttribute('data-nt-fold'));
+            if (t) { t.hidden = true; b.setAttribute('aria-expanded', 'false'); }
+        }
+    });
+    document.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-nt-fold]');
+        var g = b && b.closest('[data-nt-remember]');
+        if (!g) { return; }
+        var t = document.querySelector(b.getAttribute('data-nt-fold'));
+        try { localStorage.setItem('nt-fold-' + g.getAttribute('data-nt-remember'), t && t.hidden ? '1' : '0'); } catch (err) { /* storage unavailable */ }
+    });
+
+    // "/" jumps to the search box that asked for it (data-nt-focus-key="/"), or to the top bar's finder.
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) { return; }
+        var t = e.target;
+        if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) { return; }
+        var box = document.querySelector('[data-nt-focus-key="/"]') || document.querySelector('[data-nt-finder-input]');
+        if (box) { e.preventDefault(); box.focus(); box.select(); }
+    });
+
     // A select that goes to the page it names: <select data-nt-jump>.
     document.addEventListener('change', function (e) {
         var s = e.target.closest('select[data-nt-jump]');
