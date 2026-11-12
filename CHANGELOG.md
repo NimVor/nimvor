@@ -8,6 +8,7 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Changed
 
+- **Classic theme: a website's own page is themed too.** Opening a website (`/sites/<id>`) now shows the Classic arrangement (General information panel and collapsible colour-coded tool groups) instead of the shared page. The other themes follow. The right sidebar also shows the hosting package (its name and limits) and the usage statistics, on the home page and on the website page.
 - **Workspace theme: the website page is themed.** A website's overview shows its tools as cards in groups with a Resources and Website side panel.
 - **Classic theme: a website's own page is themed too.** Opening a website (`/sites/<id>`) now shows the Classic arrangement (General information panel and collapsible colour-coded tool groups) instead of the shared page. The other themes follow.
 - **Classic theme redesigned.** A home built around the top-bar search (press `/` to focus it), collapsible colour-coded tool groups that remember whether they are open, *General information* and *Statistics* panels beside them, a tool icon on every page head, and restyled cards, tables and dialogs for the pages inside. Same tools, permissions and behaviour as before.
