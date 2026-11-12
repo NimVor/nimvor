@@ -33,7 +33,7 @@ $groups = ThemeNav::grouped($nt['items']);
                     <td><a class="fw-semibold" href="<?= e($this->url('sites.show', ['id' => $id])) ?>"><?= e($m['domain']) ?></a></td>
                     <td><?= $this->partial('themes/components/site_status', ['site' => $m]) ?></td>
                     <td><?= $m['kind'] === 'php' ? 'PHP ' . e($m['php_version']) : e(\NimVor\Services\WebsiteService::KINDS[$m['kind']] ?? $m['kind']) ?></td>
-                    <td><?= $m['https'] ? 'On' : '<span class="text-warning-emphasis">Off</span>' ?></td>
+                    <td><?= $m['https'] ? '<span class="nt-chip is-ok"><i class="bi bi-lock-fill" aria-hidden="true"></i>On</span>' : '<span class="nt-chip is-warn"><i class="bi bi-unlock" aria-hidden="true"></i>Off</span>' ?></td>
                     <td class="text-body-secondary"><?= e($m['system_user']) ?></td>
                     <td class="text-end text-nowrap"><a class="btn btn-sm btn-outline-secondary py-0" href="<?= e($this->url('websites', [], ['site' => $id])) ?>">Show tools</a> <a class="btn btn-sm btn-primary py-0" href="<?= e($this->url('sites.show', ['id' => $id])) ?>">Manage</a></td>
                 </tr>
@@ -50,8 +50,8 @@ $groups = ThemeNav::grouped($nt['items']);
 </div>
 <div class="nco-tools" id="nco-tools">
     <?php foreach ($groups as $cat => $g): ?>
-        <section class="nt-box" data-nt-group aria-labelledby="nco-g-<?= e($cat) ?>">
-            <h3 class="nt-box-head h6 mb-0" id="nco-g-<?= e($cat) ?>"><i class="bi bi-<?= e($g['icon']) ?>" aria-hidden="true"></i><?= e($g['label']) ?></h3>
+        <section class="nt-box nco-box nco-cat-<?= e($cat) ?>" data-nt-group aria-labelledby="nco-g-<?= e($cat) ?>">
+            <h3 class="nt-box-head h6 mb-0" id="nco-g-<?= e($cat) ?>"><i class="bi bi-<?= e($g['icon']) ?>" aria-hidden="true"></i><?= e($g['label']) ?><span class="nco-count"><?= count($g['items']) ?></span></h3>
             <ul class="nco-list">
                 <?php foreach ($g['items'] as $i): ?><li><a class="nt-tile" href="<?= e($i['url']) ?>" data-nt-tile data-name="<?= e(strtolower($i['label'])) ?>"><i class="bi bi-<?= e($i['icon']) ?>" aria-hidden="true"></i><span><?= e($i['label']) ?></span></a></li><?php endforeach; ?>
             </ul>

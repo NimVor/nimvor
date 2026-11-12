@@ -16,6 +16,8 @@ All notable changes to NimVor are documented here. The format follows
 - **Simple theme: the website page is themed.** A website's overview is a friendly summary: status cards (SSL, backups, databases), its tools as big tiles by group, and plan usage rings.
 - **Classic theme redesigned.** A search-first home (press `/` to search), collapsible colour-coded tool groups that remember whether they are open, *General information* and *Statistics* panels beside them, a tool icon on every page head, and restyled cards, tables and dialogs for the pages inside. Same tools, permissions and behaviour as before.
 - **Simple theme redesigned.** A coloured hero for the website with its status, status cards for SSL, PHP version and backups with a direct action, large quick-access tiles, usage rings for the plan's limits, and a floating tab bar on phones.
+- **Compact theme: the website page is themed.** A website's overview is a dense information table followed by every tool in small colour-coded boxes you can filter.
+- **Compact theme redesigned.** A dark category menu, a top strip with the account's limits, a dense websites table with status chips, and tool groups with their own accent colour and count.
 
 ## [1.6.0] — 2026-11-11
 
