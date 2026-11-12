@@ -6,21 +6,35 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.7.0] — 2026-11-12
+
+Customer panel themes get their own structure. Each theme (Classic, Workspace, Simple, Compact) now has its own
+layout, navigation, home page and website page instead of one layout in different colours. The tool pages and all
+logic stay shared; NimVor Modern is unchanged.
+
 ### Changed
 
-- **Per-theme page headings and home widgets.** A theme can now replace a shared component with its own markup (`themes/<theme>/components/<name>.php`, same data and logic). Every theme has its own page heading (Classic with a Home button, Workspace a titled bar, Simple a large lead title, Compact a single dense line). The home page shows what needs attention in each theme's own way: a panel (Workspace), a friendly to-do list (Simple) and a strip (Compact).
-- **Compact: favourite tools.** A star on a menu entry pins the tool to a Favourites block at the top of the menu (kept in the browser).
-- **Each theme gives the shared pages its own skin.** Files, databases, DNS, PHP and every other tool keep the same pages and logic, but their boxes, headings, controls and tables now follow the theme: Classic has accent-edged titled boxes, Workspace roomy panels with pill buttons, Simple airy flat cards with large controls, and Compact dense square boxes with dark title bars.
-- **Classic theme: a website's own page is themed too.** Opening a website (`/sites/<id>`) now shows the Classic arrangement (General information panel and collapsible colour-coded tool groups) instead of the shared page. The other themes follow. The right sidebar also shows the hosting package (its name and limits) and the usage statistics, on the home page and on the website page.
-- **Workspace theme: the website page is themed.** A website's overview shows its tools as cards in groups with a Resources and Website side panel.
-- **Classic theme: a website's own page is themed too.** Opening a website (`/sites/<id>`) now shows the Classic arrangement (General information panel and collapsible colour-coded tool groups) instead of the shared page. The other themes follow.
-- **Classic theme redesigned.** A home built around the top-bar search (press `/` to focus it), collapsible colour-coded tool groups that remember whether they are open, *General information* and *Statistics* panels beside them, a tool icon on every page head, and restyled cards, tables and dialogs for the pages inside. Same tools, permissions and behaviour as before.
-- **Workspace theme redesigned.** A dark navigation rail listing the websites, summary tiles, website cards with a colour preview, status chips and quick actions, a website header with tabs for its tools, and shared polish for the pages inside every theme (cards, tables, forms, dialogs).
-- **Simple theme: the website page is themed.** A website's overview is a friendly summary: status cards (SSL, backups, databases), its tools as big tiles by group, and plan usage rings.
-- **Classic theme redesigned.** A search-first home (press `/` to search), collapsible colour-coded tool groups that remember whether they are open, *General information* and *Statistics* panels beside them, a tool icon on every page head, and restyled cards, tables and dialogs for the pages inside. Same tools, permissions and behaviour as before.
-- **Simple theme redesigned.** A coloured hero for the website with its status, status cards for SSL, PHP version and backups with a direct action, large quick-access tiles, usage rings for the plan's limits, and a floating tab bar on phones.
-- **Compact theme: the website page is themed.** A website's overview is a dense information table followed by every tool in small colour-coded boxes you can filter.
-- **Compact theme redesigned.** A dark category menu, a top strip with the account's limits, a dense websites table with status chips, and tool groups with their own accent colour and count.
+- **Classic theme (launcher-style).** A home built around the top-bar search (press `/` to focus it), collapsible
+  colour-coded tool groups that remember whether they are open, and a right sidebar with General information,
+  Hosting package (its limits) and Statistics. A website's own page (`/sites/<id>`) has the same arrangement.
+- **Workspace theme (website-centric).** A dark navigation rail listing the websites, summary tiles, website cards
+  with a colour preview and quick actions, and a website header with a tool tab strip. A website's page shows its
+  tools as cards in groups with Resources and Website side panels.
+- **Simple theme (minimal).** A coloured hero for the website, status cards (SSL, backups, databases) with direct
+  actions, big quick-access tiles, usage rings and a floating tab bar on phones. A website's page is a friendly
+  summary of the same.
+- **Compact theme (dense).** A dark category menu, a strip with the account's limits, a dense websites table and
+  accent-coloured tool groups. A website's page is an information table followed by filterable tool boxes.
+- **Each theme gives the shared pages its own skin.** Files, databases, DNS, PHP and every other tool keep the same
+  pages and logic, but their boxes, headings, controls and tables follow the theme: accent-edged titled boxes
+  (Classic), roomy panels with pill buttons (Workspace), airy flat cards with large controls (Simple), dense square
+  boxes with dark title bars (Compact).
+- **Per-theme page headings and home widgets.** A theme can replace a shared component with its own markup
+  (`themes/<theme>/components/<name>.php`, same data and logic). Every theme has its own page heading. The home page
+  shows what needs attention (no HTTPS, no backup, a failed change, a suspension) as a panel (Workspace), a to-do
+  list (Simple) or a strip (Compact).
+- **Compact: favourite tools.** A star on a menu entry pins the tool to a Favourites block at the top of the menu
+  (kept in the browser).
 
 ## [1.6.0] — 2026-11-11
 
