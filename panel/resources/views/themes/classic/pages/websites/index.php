@@ -83,6 +83,10 @@ foreach ($nt['accountPages'] as $p) {
             </dl>
         </section>
         <section class="ncl-card">
+            <h2 class="ncl-card-title">Hosting package</h2>
+            <?= $this->partial('themes/components/package', ['plan' => $nt['account']['plan'], 'rows' => $nt['account']['usage']]) ?>
+        </section>
+        <section class="ncl-card">
             <h2 class="ncl-card-title">Statistics</h2>
             <?= $this->partial('themes/components/usage', ['rows' => $nt['account']['usage'], 'variant' => 'bars']) ?>
         </section>

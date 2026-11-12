@@ -109,6 +109,15 @@ html[data-nim-theme="workspace"][data-bs-theme="dark"] {
 .nws-panel-title { display: flex; align-items: center; gap: .5rem; font-size: .95rem; font-weight: 700; margin: 0 0 1rem; }
 .nws-panel-title i { color: var(--nim-accent); }
 
+/* A website's tools: cards in groups (Hosting & DNS, Files & databases, ...). */
+.nws-toolgroup { margin-bottom: 1.25rem; }
+.nws-tools { display: grid; grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr)); gap: .75rem; }
+.nws-tool { display: flex; align-items: center; gap: .75rem; padding: .7rem .8rem; border: 1px solid var(--nt-border); border-radius: .75rem; background: var(--nt-bg, transparent); color: var(--nt-text, inherit); text-decoration: none; font-weight: 500; font-size: .9rem; transition: border-color .12s, box-shadow .12s, transform .12s; }
+.nws-tool:hover { border-color: var(--nim-accent); box-shadow: 0 4px 14px rgba(15, 23, 42, .08); transform: translateY(-1px); color: var(--nim-accent-strong, var(--nim-accent)); }
+.nws-tool-icon { width: 2.4rem; height: 2.4rem; border-radius: .65rem; display: grid; place-items: center; flex-shrink: 0; font-size: 1.15rem; background: color-mix(in srgb, var(--nim-accent) 13%, transparent); color: var(--nim-accent); }
+.nws-tool-label { min-width: 0; overflow-wrap: anywhere; }
+.row > aside .nws-panel + .nws-panel { margin-top: 1.25rem; }
+
 @media (max-width: 991.98px) {
     .nws-side { position: fixed; left: 0; top: 0; z-index: 1045; transform: translateX(-100%); transition: transform .2s ease; box-shadow: 0 0 40px rgba(0, 0, 0, .35); }
     .nt-nav-open .nws-side { transform: none; }
