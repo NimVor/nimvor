@@ -4,12 +4,14 @@
 /** @var array<int, int> $backups */
 use NimVor\Security\Permissions as P;
 use NimVor\View\ThemeContext;
+use NimVor\View\ThemeInsights;
 use NimVor\View\ThemeNav;
 
 $nt = ThemeContext::build($this);
 $site = $nt['site'];
 $canCreate = $this->can(P::WEBSITES_MANAGE);
 $backups ??= [];
+$todo = ThemeInsights::attention($this, $managed, $backups);
 $who = !empty($user) ? ($user['display_name'] !== '' ? $user['display_name'] : $user['username']) : '';
 $hour = (int) date('G');
 $greet = $hour < 12 ? 'Good morning' : ($hour < 18 ? 'Good afternoon' : 'Good evening');
@@ -76,6 +78,15 @@ $rings = array_slice($rings, 0, 4);
             <?php if ($has('backups')): ?><a class="nsi-status-link" href="<?= e($url('backups')) ?>"><?= $n > 0 ? 'Manage' : 'Back up now' ?><i class="bi bi-arrow-right" aria-hidden="true"></i></a><?php endif; ?>
         </article>
     </div>
+
+    <?php if ($todo !== []): ?>
+        <h2 class="nsi-h">To do</h2>
+        <ul class="nsi-todo">
+            <?php foreach (array_slice($todo, 0, 4) as $t): ?>
+                <li class="nsi-card is-<?= e($t['level']) ?>"><span class="nsi-todo-icon"><i class="bi bi-<?= e($t['icon']) ?>" aria-hidden="true"></i></span><span class="nsi-todo-text"><strong><?= e($t['site']) ?></strong> · <?= e($t['text']) ?></span><a class="btn btn-sm btn-primary" href="<?= e($t['url']) ?>"><?= e($t['action']) ?></a></li>
+            <?php endforeach; ?>
+        </ul>
+    <?php endif; ?>
 
     <h2 class="nsi-h">Quick access</h2>
     <div class="nsi-quick">

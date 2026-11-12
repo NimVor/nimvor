@@ -36,6 +36,7 @@ $activeKey = $menu['active'] ?? '';
                 </select>
             </div>
             <a class="nco-item<?= $activeKey === 'overview' ? ' active' : '' ?>" href="<?= e($this->url('sites.show', ['id' => (int) $site['id']])) ?>"><i class="bi bi-speedometer2" aria-hidden="true"></i>Overview</a>
+            <div class="nco-favs" data-nt-favs hidden><div class="nco-favs-title"><i class="bi bi-star-fill" aria-hidden="true"></i>Favourites</div><div data-nt-favs-list></div></div>
             <?php foreach ($grouped as $cat => $g):
                 $open = false;
                 foreach ($g['items'] as $i) {
@@ -44,7 +45,7 @@ $activeKey = $menu['active'] ?? '';
                 ?>
                 <button class="nco-cat" type="button" data-nt-fold="#nco-c-<?= e($cat) ?>" aria-expanded="<?= $open ? 'true' : 'false' ?>"><span><i class="bi bi-<?= e($g['icon']) ?>" aria-hidden="true"></i><?= e($g['label']) ?></span><i class="bi bi-chevron-down" aria-hidden="true"></i></button>
                 <div class="nco-sub" id="nco-c-<?= e($cat) ?>"<?= $open ? '' : ' hidden' ?>>
-                    <?php foreach ($g['items'] as $i): ?><a class="nco-subitem<?= $i['key'] === $activeKey ? ' active' : '' ?>" href="<?= e($i['url']) ?>"<?= $i['key'] === $activeKey ? ' aria-current="page"' : '' ?>><?= e($i['label']) ?></a><?php endforeach; ?>
+                    <?php foreach ($g['items'] as $i): ?><span class="nco-row"><a class="nco-subitem<?= $i['key'] === $activeKey ? ' active' : '' ?>" href="<?= e($i['url']) ?>"<?= $i['key'] === $activeKey ? ' aria-current="page"' : '' ?>><?= e($i['label']) ?></a><button class="nco-pin" type="button" data-nt-pin="<?= e($i['key']) ?>" data-label="<?= e($i['label']) ?>" data-path="<?= e(parse_url($i['url'], PHP_URL_PATH) ?: $i['url']) ?>" data-site="<?= (int) $site['id'] ?>" aria-label="Pin <?= e($i['label']) ?> to favourites" aria-pressed="false"><i class="bi bi-star" aria-hidden="true"></i></button></span><?php endforeach; ?>
                 </div>
             <?php endforeach; ?>
         <?php endif; ?>
