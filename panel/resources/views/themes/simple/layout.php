@@ -16,7 +16,7 @@ $overview = $menu === null || $menu['active'] === 'overview';
 <header class="nsi-top">
     <div class="nsi-wrap nsi-top-in">
         <a class="nt-brand" href="<?= e($this->url('websites')) ?>">
-            <img src="<?= e($this->asset('assets/img/logo-dark.png')) ?>" alt="" width="28" height="28">
+            <img src="<?= e($this->asset('assets/img/logo-dark.png')) ?>" alt="" width="30" height="30">
             <span><?= e($panel_name ?? 'NimVor') ?></span>
         </a>
         <?php if ($site !== null): ?>

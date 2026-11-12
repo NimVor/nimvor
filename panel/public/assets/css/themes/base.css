@@ -126,3 +126,6 @@ html[data-nim-theme]:not([data-nim-theme="modern"]) .nav-pills { --bs-nav-pills-
 .nt-body .form-control:focus, .nt-body .form-select:focus { border-color: var(--nim-accent); box-shadow: 0 0 0 3px var(--nim-accent-soft); }
 .nt-body .modal-content { border: 0; border-radius: 1rem; box-shadow: 0 16px 48px rgba(16, 24, 40, .25); }
 .nt-body .nim-empty-state { padding: 2.5rem 1rem; }
+
+/* The panel's own stylesheet colours links teal on :root; inside a theme they follow its accent. */
+.nt-body { --bs-link-color: var(--nim-accent-strong); --bs-link-hover-color: var(--nim-accent-strong); }
