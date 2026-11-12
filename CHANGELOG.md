@@ -8,11 +8,13 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Changed
 
-- **Simple theme: the website page is themed.** A website's overview is a friendly summary: status cards (SSL, backups, databases), its tools as big tiles by group, and plan usage rings.
+- **Classic theme: a website's own page is themed too.** Opening a website (`/sites/<id>`) now shows the Classic arrangement (General information panel and collapsible colour-coded tool groups) instead of the shared page. The other themes follow. The right sidebar also shows the hosting package (its name and limits) and the usage statistics, on the home page and on the website page.
+- **Workspace theme: the website page is themed.** A website's overview shows its tools as cards in groups with a Resources and Website side panel.
 - **Classic theme: a website's own page is themed too.** Opening a website (`/sites/<id>`) now shows the Classic arrangement (General information panel and collapsible colour-coded tool groups) instead of the shared page. The other themes follow.
 - **Classic theme redesigned.** A home built around the top-bar search (press `/` to focus it), collapsible colour-coded tool groups that remember whether they are open, *General information* and *Statistics* panels beside them, a tool icon on every page head, and restyled cards, tables and dialogs for the pages inside. Same tools, permissions and behaviour as before.
-- **Classic theme redesigned.** A search-first home (press `/` to search), collapsible colour-coded tool groups that remember whether they are open, *General information* and *Statistics* panels beside them, a tool icon on every page head, and restyled cards, tables and dialogs for the pages inside. Same tools, permissions and behaviour as before.
 - **Workspace theme redesigned.** A dark navigation rail listing the websites, summary tiles, website cards with a colour preview, status chips and quick actions, a website header with tabs for its tools, and shared polish for the pages inside every theme (cards, tables, forms, dialogs).
+- **Simple theme: the website page is themed.** A website's overview is a friendly summary: status cards (SSL, backups, databases), its tools as big tiles by group, and plan usage rings.
+- **Classic theme redesigned.** A search-first home (press `/` to search), collapsible colour-coded tool groups that remember whether they are open, *General information* and *Statistics* panels beside them, a tool icon on every page head, and restyled cards, tables and dialogs for the pages inside. Same tools, permissions and behaviour as before.
 - **Simple theme redesigned.** A coloured hero for the website with its status, status cards for SSL, PHP version and backups with a direct action, large quick-access tiles, usage rings for the plan's limits, and a floating tab bar on phones.
 
 ## [1.6.0] — 2026-11-11
