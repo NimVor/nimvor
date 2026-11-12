@@ -102,8 +102,9 @@ final class ThemesTest extends HttpTestCase
         self::assertStringContainsString('nt-' . $theme, $page);
         $view = $this->app->container->get(\NimVor\View\View::class);
         self::assertStringContainsString('/sites/' . $this->siteId . '/files', $page);
-        if ($theme === 'classic') {
-            self::assertStringContainsString('ncl-group', $page, 'the website page has the Classic arrangement, not the shared one');
+        $marker = ['classic' => 'ncl-group', 'workspace' => 'nws-tool'][$theme] ?? null;
+        if ($marker !== null) {
+            self::assertStringContainsString($marker, $page, 'the website page has the theme\'s own arrangement, not the shared one');
             self::assertStringNotContainsString('nim-site-hero', $page);
         }
         foreach (['files', 'databases', 'dns', 'ssl', 'backups', 'git', 'cron', 'logs', 'php', 'terminal', 'redirects'] as $tool) {
