@@ -8,6 +8,8 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Changed
 
+- **Per-theme page headings and home widgets.** A theme can now replace a shared component with its own markup (`themes/<theme>/components/<name>.php`, same data and logic). Every theme has its own page heading (Classic with a Home button, Workspace a titled bar, Simple a large lead title, Compact a single dense line). The home page shows what needs attention in each theme's own way: a panel (Workspace), a friendly to-do list (Simple) and a strip (Compact).
+- **Compact: favourite tools.** A star on a menu entry pins the tool to a Favourites block at the top of the menu (kept in the browser).
 - **Each theme gives the shared pages its own skin.** Files, databases, DNS, PHP and every other tool keep the same pages and logic, but their boxes, headings, controls and tables now follow the theme: Classic has accent-edged titled boxes, Workspace roomy panels with pill buttons, Simple airy flat cards with large controls, and Compact dense square boxes with dark title bars.
 - **Classic theme: a website's own page is themed too.** Opening a website (`/sites/<id>`) now shows the Classic arrangement (General information panel and collapsible colour-coded tool groups) instead of the shared page. The other themes follow. The right sidebar also shows the hosting package (its name and limits) and the usage statistics, on the home page and on the website page.
 - **Workspace theme: the website page is themed.** A website's overview shows its tools as cards in groups with a Resources and Website side panel.

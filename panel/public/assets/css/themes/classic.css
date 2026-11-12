@@ -112,3 +112,5 @@ html[data-nim-theme="classic"][data-bs-theme="dark"] {
 .nt-classic .card-header i { color: var(--nim-accent); }
 .nt-classic .btn-primary { border-radius: .4rem; }
 .nt-classic .table > :not(caption) > tr:nth-child(even) > * { background: color-mix(in srgb, var(--nt-bg) 45%, transparent); }
+.ncl-head { align-items: center; }
+.ncl-gohome { white-space: nowrap; }

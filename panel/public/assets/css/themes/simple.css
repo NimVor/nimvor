@@ -123,3 +123,13 @@ html[data-nim-theme="simple"][data-bs-theme="dark"] {
 .nt-simple .btn-sm { padding-block: .3rem; }
 .nt-simple .table thead th { background: transparent; text-transform: none; letter-spacing: 0; font-size: .8rem; }
 .nt-simple .table > :not(caption) > * > * { border-bottom-color: color-mix(in srgb, var(--nt-border) 60%, transparent); }
+.nsi-head { margin-bottom: 1.5rem; }
+.nsi-head h1 { font-size: 2rem; font-weight: 800; letter-spacing: -.025em; }
+.nsi-lead { font-size: 1.05rem; max-width: 42rem; }
+@media (max-width: 575.98px) { .nsi-head .nt-pagehead-actions { width: 100%; } .nsi-head .nt-pagehead-actions .btn { flex: 1 1 auto; } }
+.nsi-todo { list-style: none; margin: 0 0 1.5rem; padding: 0; display: grid; gap: .75rem; }
+.nsi-todo li { display: flex; align-items: center; gap: .9rem; padding: .9rem 1.1rem; margin: 0; }
+.nsi-todo-icon { width: 2.5rem; height: 2.5rem; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; background: color-mix(in srgb, var(--bs-warning, #f59e0b) 18%, transparent); color: var(--bs-warning-text-emphasis, #b45309); }
+.nsi-todo li.is-bad .nsi-todo-icon { background: color-mix(in srgb, var(--bs-danger, #dc3545) 15%, transparent); color: var(--bs-danger, #dc3545); }
+.nsi-todo-text { flex: 1; min-width: 0; }
+@media (max-width: 575.98px) { .nsi-todo li { flex-wrap: wrap; } .nsi-todo li .btn { width: 100%; } }

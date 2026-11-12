@@ -80,3 +80,13 @@ output with `e()`; do not add controllers, queries or routes for a theme.
 
 `POST /appearance/preview` keeps a theme in the session only (a bar at the top offers *Keep this theme* and *Go
 back*); nothing is saved or changed on the server until the customer keeps it.
+
+## Replacing a shared component per theme
+
+Components under `resources/views/themes/components/` are shared by every theme. A theme can replace one with its
+own markup by adding a file of the same name under `resources/views/themes/<theme>/components/`; `View::partial()`
+picks it up automatically (never for Modern). The data passed in and the logic behind it stay the same, so only the
+presentation differs. The page heading (`page_head`) is replaced this way by every theme.
+
+`ThemeInsights::attention()` computes what an account should look at (no HTTPS, no backup, a failed change, a
+suspension) from data the home page already has; each theme shows it in its own widget.

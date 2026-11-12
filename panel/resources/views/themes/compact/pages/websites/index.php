@@ -3,12 +3,14 @@
 /** @var list<array<string, mixed>> $managed */
 use NimVor\Security\Permissions as P;
 use NimVor\View\ThemeContext;
+use NimVor\View\ThemeInsights;
 use NimVor\View\ThemeNav;
 
 $nt = ThemeContext::build($this);
 $site = $nt['site'];
 $canCreate = $this->can(P::WEBSITES_MANAGE);
 $groups = ThemeNav::grouped($nt['items']);
+$attention = ThemeInsights::attention($this, $managed, $backups ?? []);
 ?>
 <?php $this->start(); ?>Home<?php $this->end('title'); ?>
 <?php $this->start(); ?><?= count($managed) ?> website<?= count($managed) === 1 ? '' : 's' ?><?php $this->end('subtitle'); ?>
@@ -22,6 +24,11 @@ $groups = ThemeNav::grouped($nt['items']);
         <?php if ($canCreate): ?><a class="btn btn-primary mt-3" href="<?= e($this->url('sites.create')) ?>"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Create site</a><?php endif; ?>
     </div></div>
 <?php else: ?>
+<?php if ($attention !== []): ?>
+<div class="nco-strip" role="status"><i class="bi bi-exclamation-circle" aria-hidden="true"></i><span><?= count($attention) ?> item<?= count($attention) === 1 ? '' : 's' ?> to check:</span>
+    <?php foreach (array_slice($attention, 0, 4) as $a): ?><a class="nco-strip-item is-<?= e($a['level']) ?>" href="<?= e($a['url']) ?>"><?= e($a['site']) ?> · <?= e($a['text']) ?></a><?php endforeach; ?>
+</div>
+<?php endif; ?>
 <section class="nt-box mb-3" aria-labelledby="nco-sites">
     <h2 class="nt-box-head h6 mb-0" id="nco-sites"><i class="bi bi-globe2" aria-hidden="true"></i>Your websites</h2>
     <div class="table-responsive">

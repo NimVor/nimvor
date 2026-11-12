@@ -109,4 +109,48 @@
         var s = e.target.closest('select[data-nt-jump]');
         if (s && s.value) { window.location.href = s.value; }
     });
+    // Favourite tools (Compact): a star on a menu entry pins it to a "Favourites" block at the top of the menu.
+    // Kept in this browser only; a pinned tool is remembered by its path, so it follows the website it was pinned on.
+    (function () {
+        var box = document.querySelector('[data-nt-favs]');
+        var pins = document.querySelectorAll('[data-nt-pin]');
+        if (!box || !pins.length) { return; }
+        var KEY = 'nt-favs';
+        function load() {
+            try { var v = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+        }
+        function save(list) { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) { /* storage unavailable */ } }
+        function render() {
+            var list = load();
+            var here = list.filter(function (f) { return String(f.site) === String(pins[0].getAttribute('data-site')); });
+            var target = box.querySelector('[data-nt-favs-list]');
+            target.textContent = '';
+            here.forEach(function (f) {
+                var a = document.createElement('a');
+                a.className = 'nco-subitem';
+                a.href = f.path;
+                a.textContent = f.label;
+                target.appendChild(a);
+            });
+            box.hidden = here.length === 0;
+            pins.forEach(function (p) {
+                var on = list.some(function (f) { return f.path === p.getAttribute('data-path'); });
+                p.setAttribute('aria-pressed', on ? 'true' : 'false');
+                var i = p.querySelector('i');
+                if (i) { i.className = on ? 'bi bi-star-fill' : 'bi bi-star'; }
+            });
+        }
+        document.addEventListener('click', function (e) {
+            var p = e.target.closest('[data-nt-pin]');
+            if (!p) { return; }
+            var list = load();
+            var path = p.getAttribute('data-path');
+            var at = -1;
+            list.forEach(function (f, n) { if (f.path === path) { at = n; } });
+            if (at >= 0) { list.splice(at, 1); } else { list.push({ path: path, label: p.getAttribute('data-label'), site: p.getAttribute('data-site') }); }
+            save(list);
+            render();
+        });
+        render();
+    })();
 })();

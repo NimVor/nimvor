@@ -136,3 +136,11 @@ html[data-nim-theme="workspace"][data-bs-theme="dark"] {
 .nt-workspace .btn { border-radius: 999px; padding-inline: 1rem; }
 .nt-workspace .btn-sm { padding-inline: .8rem; }
 .nt-workspace .table thead th { background: transparent; }
+.nws-head { padding-bottom: 1rem; border-bottom: 1px solid var(--nt-border); margin-bottom: 1.25rem; align-items: flex-end; }
+.nws-head h1 { font-weight: 700; letter-spacing: -.02em; }
+.nws-attn-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
+.nws-attn-list li { display: flex; align-items: center; gap: .65rem; padding: .55rem .65rem; border: 1px solid var(--nt-border); border-radius: .7rem; }
+.nws-attn-list li > i { font-size: 1.15rem; flex-shrink: 0; color: var(--bs-warning-text-emphasis, #b45309); }
+.nws-attn-list li.is-bad > i { color: var(--bs-danger, #dc3545); }
+.nws-attn-list li > div { flex: 1; min-width: 0; }
+.nws-attention { margin-bottom: 1.25rem; }

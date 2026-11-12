@@ -110,3 +110,18 @@ html[data-nim-theme="compact"][data-bs-theme="dark"] {
 .nt-compact .card-header i { color: #7fd4e8; }
 .nt-compact .table thead th { background: color-mix(in srgb, var(--nt-bg) 80%, transparent); }
 .nt-compact .table > :not(caption) > tr:hover > * { background: color-mix(in srgb, var(--nim-accent) 7%, transparent); }
+.nco-head { align-items: baseline; gap: .15rem .75rem; padding: .35rem .6rem; background: color-mix(in srgb, var(--nt-surface) 90%, transparent); border: 1px solid var(--nt-border); border-left: 3px solid var(--nim-accent); border-radius: .3rem; margin-bottom: .75rem; }
+.nco-head .nim-subtitle { font-size: .78rem; }
+.nco-strip { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .75rem; padding: .35rem .7rem; margin-bottom: .75rem; font-size: .8125rem; background: color-mix(in srgb, var(--bs-warning, #f59e0b) 12%, var(--nt-surface)); border: 1px solid color-mix(in srgb, var(--bs-warning, #f59e0b) 40%, var(--nt-border)); border-radius: .3rem; }
+.nco-strip > i { color: var(--bs-warning-text-emphasis, #b45309); }
+.nco-strip-item { text-decoration: none; padding: .05rem .45rem; border-radius: 1rem; background: color-mix(in srgb, var(--nt-surface) 85%, transparent); border: 1px solid var(--nt-border); white-space: nowrap; }
+.nco-strip-item.is-bad { border-color: var(--bs-danger, #dc3545); }
+.nco-row { display: flex; align-items: center; }
+.nco-row .nco-subitem { flex: 1; min-width: 0; }
+.nco-pin { border: 0; background: transparent; color: var(--nco-menu-muted); padding: .2rem .35rem; border-radius: .25rem; font-size: .75rem; opacity: 0; line-height: 1; }
+.nco-row:hover .nco-pin, .nco-pin:focus-visible, .nco-pin[aria-pressed="true"] { opacity: 1; }
+.nco-pin[aria-pressed="true"] { color: #f5c542; }
+.nco-favs { margin: .35rem 0 .15rem; padding: .3rem 0 .35rem; border-bottom: 1px solid rgba(148, 163, 184, .18); }
+.nco-favs-title { font-size: .66rem; letter-spacing: .07em; text-transform: uppercase; color: var(--nco-menu-muted); padding: .1rem .55rem .25rem; font-weight: 600; }
+.nco-favs-title i { color: #f5c542; margin-right: .35rem; }
+@media (hover: none) { .nco-pin { opacity: .7; } }
