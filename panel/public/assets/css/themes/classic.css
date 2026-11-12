@@ -48,7 +48,7 @@ html[data-nim-theme="classic"][data-bs-theme="dark"] {
 .ncl-find { position: relative; flex: 1 1 auto; max-width: 30rem; margin-inline: auto; }
 .ncl-find .form-control { border-radius: 2rem; background: var(--nt-bg); border-color: transparent; padding-right: 2.2rem; height: 2.3rem; }
 .ncl-find .form-control:focus { background: var(--nt-surface); border-color: var(--nim-accent); box-shadow: 0 0 0 3px var(--nim-accent-soft); }
-.ncl-kbd, .ncl-hero-search kbd { position: absolute; right: .7rem; top: 50%; transform: translateY(-50%); font-size: .7rem; padding: .05rem .4rem; border: 1px solid var(--nt-border); border-bottom-width: 2px; border-radius: .35rem; background: var(--nt-surface); color: var(--nt-muted); pointer-events: none; }
+.ncl-kbd { position: absolute; right: .7rem; top: 50%; transform: translateY(-50%); font-size: .7rem; padding: .05rem .4rem; border: 1px solid var(--nt-border); border-bottom-width: 2px; border-radius: .35rem; background: var(--nt-surface); color: var(--nt-muted); pointer-events: none; }
 .ncl-top-in .nt-actions { margin-left: auto; }
 .ncl-bar { border-bottom: 1px solid var(--nt-border); background: var(--nt-surface); }
 .ncl-bar-in { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-block: .5rem; }
@@ -60,16 +60,6 @@ html[data-nim-theme="classic"][data-bs-theme="dark"] {
 .ncl-pagehead .nt-pagehead { flex: 1; margin-bottom: 0; }
 .ncl-pagehead h1 { font-size: 1.45rem; font-weight: 700; letter-spacing: -.015em; }
 .ncl-pagehead-icon { width: 2.9rem; height: 2.9rem; display: grid; place-items: center; border-radius: .85rem; font-size: 1.4rem; color: var(--cat); background: color-mix(in srgb, var(--cat) 14%, transparent); flex-shrink: 0; }
-
-/* ---- Search hero ---- */
-.ncl-hero { background: linear-gradient(135deg, color-mix(in srgb, var(--nim-accent) 10%, var(--nt-surface)), var(--nt-surface) 60%); border: 1px solid var(--nt-border); border-radius: 1rem; padding: 1.1rem 1.25rem; margin-bottom: 1.5rem; box-shadow: var(--nt-shadow); display: grid; gap: .85rem; }
-.ncl-hero-search { position: relative; }
-.ncl-hero-search > i { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--nt-muted); font-size: 1.05rem; }
-.ncl-hero-search .form-control { height: 3.1rem; padding-left: 2.8rem; padding-right: 2.6rem; border-radius: .85rem; font-size: 1rem; box-shadow: var(--nt-shadow); }
-.ncl-hero-search .form-control:focus { border-color: var(--nim-accent); box-shadow: 0 0 0 3px var(--nim-accent-soft); }
-.ncl-hero-site { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
-.ncl-hero-label { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--nt-muted); font-weight: 600; }
-.ncl-hero-site select { width: auto; min-width: 12rem; }
 
 /* ---- Tool groups ---- */
 .ncl-group { margin-bottom: 1.5rem; }
@@ -115,5 +105,3 @@ html[data-nim-theme="classic"][data-bs-theme="dark"] {
     .ncl-grid { grid-template-columns: repeat(auto-fill, minmax(7.6rem, 1fr)); gap: .6rem; }
     .ncl-pagehead-icon { width: 2.4rem; height: 2.4rem; font-size: 1.15rem; }
 }
-/* The home page has its own big search box: on a phone the top bar's one would repeat it. */
-@media (max-width: 767.98px) { .nt-classic:has(.ncl-hero) .ncl-find { display: none; } }

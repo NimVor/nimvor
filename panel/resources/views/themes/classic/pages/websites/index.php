@@ -18,7 +18,7 @@ foreach ($nt['accountPages'] as $p) {
 ?>
 <?php $this->start(); ?>Home<?php $this->end('title'); ?>
 <?php $this->start(); ?><?= count($managed) ?> website<?= count($managed) === 1 ? '' : 's' ?> on this account<?php $this->end('subtitle'); ?>
-<?php $this->start(); ?><?php if ($canCreate): ?><a class="btn btn-sm btn-primary" href="<?= e($this->url('sites.create')) ?>"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Create site</a><?php endif; ?><?php $this->end('actions'); ?>
+<?php $this->start(); ?><?php if ($site !== null): ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('sites.show', ['id' => (int) $site['id']])) ?>"><i class="bi bi-speedometer2 me-1" aria-hidden="true"></i>Overview</a><?php if ($site['enabled']): ?> <a class="btn btn-sm btn-outline-secondary" href="<?= e(($site['https'] ? 'https://' : 'http://') . $site['domain']) ?>/" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>Visit</a><?php endif; ?><?php endif; ?><?php if ($canCreate): ?> <a class="btn btn-sm btn-primary" href="<?= e($this->url('sites.create')) ?>"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Create site</a><?php endif; ?><?php $this->end('actions'); ?>
 
 <?php if ($site === null): ?>
     <div class="ncl-card"><div class="nim-empty-state">
@@ -28,25 +28,6 @@ foreach ($nt['accountPages'] as $p) {
         <?php if ($canCreate): ?><a class="btn btn-primary mt-3" href="<?= e($this->url('sites.create')) ?>"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Create site</a><?php endif; ?>
     </div></div>
 <?php else: ?>
-<section class="ncl-hero" aria-label="Search tools">
-    <div class="ncl-hero-search">
-        <label class="visually-hidden" for="ncl-filter">Search tools</label>
-        <i class="bi bi-search" aria-hidden="true"></i>
-        <input class="form-control" id="ncl-filter" type="search" placeholder="Search tools: files, email, SSL, backups…" data-nt-filter="#ncl-tools" data-nt-focus-key="/" autocomplete="off">
-        <kbd aria-hidden="true">/</kbd>
-    </div>
-    <div class="ncl-hero-site">
-        <span class="ncl-hero-label">Managing</span>
-        <?php if (count($managed) > 1): ?>
-            <label class="visually-hidden" for="ncl-site">Website</label>
-            <select class="form-select form-select-sm" id="ncl-site" data-nt-jump>
-                <?php foreach ($managed as $m): ?><option value="<?= e($this->url('websites', [], ['site' => (int) $m['id']])) ?>"<?= (int) $m['id'] === (int) $site['id'] ? ' selected' : '' ?>><?= e($m['domain']) ?></option><?php endforeach; ?>
-            </select>
-        <?php else: ?><strong><?= e($site['domain']) ?></strong><?php endif; ?>
-        <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('sites.show', ['id' => (int) $site['id']])) ?>"><i class="bi bi-speedometer2 me-1" aria-hidden="true"></i>Overview</a>
-        <?php if ($site['enabled']): ?><a class="btn btn-sm btn-outline-secondary" href="<?= e(($site['https'] ? 'https://' : 'http://') . $site['domain']) ?>/" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>Visit</a><?php endif; ?>
-    </div>
-</section>
 
 <div class="row g-4">
     <div class="col-xl-9 order-2 order-xl-1">
@@ -84,6 +65,12 @@ foreach ($nt['accountPages'] as $p) {
         <section class="ncl-card ncl-info">
             <h2 class="ncl-card-title">General information</h2>
             <div class="ncl-user"><span class="ncl-avatar" aria-hidden="true"><?= e($initial) ?></span><div><div class="fw-semibold"><?= e($who) ?></div><div class="small text-body-secondary"><?= e($user['role_label'] ?? '') ?></div></div></div>
+            <?php if (count($managed) > 1): ?>
+                <label class="form-label small text-body-secondary mb-1" for="ncl-site">Website</label>
+                <select class="form-select form-select-sm mb-3" id="ncl-site" data-nt-jump>
+                    <?php foreach ($managed as $m): ?><option value="<?= e($this->url('websites', [], ['site' => (int) $m['id']])) ?>"<?= (int) $m['id'] === (int) $site['id'] ? ' selected' : '' ?>><?= e($m['domain']) ?></option><?php endforeach; ?>
+                </select>
+            <?php endif; ?>
             <dl class="nt-dl">
                 <dt>Primary domain</dt><dd class="fw-medium"><?= e($site['domain']) ?></dd>
                 <?php if ($nt['account']['plan'] !== ''): ?><dt>Package</dt><dd><?= e($nt['account']['plan']) ?></dd><?php endif; ?>
