@@ -56,7 +56,9 @@ func TestRealHostIntegrity(t *testing.T) {
 		t.Fatalf("baseline: %v", err)
 	}
 	os.WriteFile(probe, []byte("tampered\n"), 0o640)
-	r := CheckIntegrity(ctx, env, time.Now())
+	// Only the NimVor-owned files here: the package verification below reads
+	// every installed package (minutes), so it runs once, in step 2.
+	r := checkNimvorOwned(env, time.Now())
 	if f := findPath(r, probe); f == nil || f.Class != "nimvor" || f.Issue != "modified" {
 		t.Errorf("NimVor drift not detected: %+v", f)
 	}

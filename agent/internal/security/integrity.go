@@ -180,13 +180,12 @@ func agentBinaryPath() string {
 	return exe
 }
 
-// CheckIntegrity scans NimVor-owned files against the baseline and
-// package-owned files with the OS verification tool.
-func CheckIntegrity(ctx context.Context, env *host.Env, now time.Time) IntegrityReport {
+// checkNimvorOwned compares the NimVor-owned files with the baseline (no
+// package verification: that reads every installed package and takes minutes).
+func checkNimvorOwned(env *host.Env, now time.Time) IntegrityReport {
 	r := IntegrityReport{CheckedAt: now}
 	binary := agentBinaryPath()
 
-	// NimVor-owned files vs the baseline.
 	if base, err := loadIntegrityBaseline(env); err == nil {
 		r.HasBaseline = true
 		current := map[string]bool{}
@@ -225,6 +224,15 @@ func CheckIntegrity(ctx context.Context, env *host.Env, now time.Time) Integrity
 			}
 		}
 	}
+
+	return r
+}
+
+// CheckIntegrity scans NimVor-owned files against the baseline and
+// package-owned files with the OS verification tool.
+func CheckIntegrity(ctx context.Context, env *host.Env, now time.Time) IntegrityReport {
+	// NimVor-owned files vs the baseline.
+	r := checkNimvorOwned(env, now)
 
 	// Package-owned files with the OS tool.
 	r.PackageTool = "dpkg"
