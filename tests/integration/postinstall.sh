@@ -130,7 +130,8 @@ post "/sites/$SITE/cron" "schedule=0 0 1 1 *" "command=cd $ROOT && { id -u; grep
 JOB=$(php -r '$d = new PDO("sqlite:/var/lib/nimvor/nimvor.sqlite"); $s = $d->prepare("SELECT MAX(id) FROM cron_jobs WHERE website_id = ?"); $s->execute([$argv[1]]); echo (string) $s->fetchColumn();' "$SITE")
 [[ -n $JOB ]] || fail "cron job not created: $(flash /sites/$SITE/cron)"
 post "/sites/$SITE/cron/$JOB/run" >/dev/null
-waitfor 60 "cron job ran" test -s "$ROOT/cron-ran.txt"
+# The command writes the file line by line (uid, capabilities, sendmail): wait for the last line, not just a non-empty file.
+waitfor 60 "cron job ran" sh -c "[ -s '$ROOT/cron-ran.txt' ] && [ \$(wc -l < '$ROOT/cron-ran.txt') -ge 3 ]"
 [[ $(head -1 "$ROOT/cron-ran.txt") == "$(id -u "$OWNER")" ]] || fail "cron ran as uid $(head -1 "$ROOT/cron-ran.txt"), not $OWNER"
 [[ $(stat -c %U "$ROOT/cron-ran.txt") == "$OWNER" ]] || fail "cron output owned by $(stat -c %U "$ROOT/cron-ran.txt")"
 grep -q 'CapEff:[[:space:]]*0000000000000000' "$ROOT/cron-ran.txt" || fail "cron command had capabilities: $(cat "$ROOT/cron-ran.txt")"

@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Flaky real-host tests.** The SFTP and shell tests now reload sshd themselves on systemd hosts (their cleanup removed the drop-in without a reload, leaving a stale configuration for the next test), wait for sshd to accept connections again, and also retry on `Permission denied (publickey,password)`. The installer end-to-end test waits for the cron job's last output line instead of a non-empty file. The WordPress update test and the migration SSH test retry a dropped download or login.
+
 ## [1.7.0] — 2026-11-12
 
 Customer panel themes get their own structure. Each theme (Classic, Workspace, Simple, Compact) now has its own

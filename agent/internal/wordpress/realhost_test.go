@@ -451,7 +451,25 @@ func TestRealHostWordPressToolkit(t *testing.T) {
 		}
 		do("plugin_update", nil, "")
 		if in4.Core.Latest != in4.Version {
-			do("core_update", nil, "")
+			// Downloads from wordpress.org: a dropped connection is retried.
+			for try := 1; ; try++ {
+				_, job, err := manage(ctx, env, Operation{Target: target, Op: "core_update"})
+				if err == nil && job != nil {
+					var jl strings.Builder
+					_, err = job(ctx, &jl)
+					if err != nil {
+						err = fmt.Errorf("%v\n%s", err, jl.String())
+					}
+				}
+				if err == nil {
+					break
+				}
+				if try == 3 || !strings.Contains(err.Error(), "Failed to get url") {
+					t.Fatalf("core_update: %v", err)
+				}
+				t.Logf("core_update, try %d: %v", try, err)
+				time.Sleep(5 * time.Second)
+			}
 			if in5, _ := info(ctx, env, target, false); in5.Version != in4.Core.Latest {
 				t.Fatalf("core update: %s, want %s", in5.Version, in4.Core.Latest)
 			}
