@@ -105,6 +105,8 @@ final class ThemesTest extends HttpTestCase
         if ($theme === 'classic') {
             self::assertStringContainsString('ncl-group', $page, 'the website page has the Classic arrangement, not the shared one');
             self::assertStringNotContainsString('nim-site-hero', $page);
+            self::assertStringContainsString('Hosting package', $page, 'the package and its usage are in the sidebar');
+            self::assertStringContainsString('Statistics', $page);
         }
         foreach (['files', 'databases', 'dns', 'ssl', 'backups', 'git', 'cron', 'logs', 'php', 'terminal', 'redirects'] as $tool) {
             self::assertTrue(
