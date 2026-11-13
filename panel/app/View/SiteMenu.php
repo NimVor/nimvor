@@ -43,6 +43,7 @@ final class SiteMenu
         ['traffic', 'Traffic protection', 'speedometer2', 'sites.traffic', P::WEBSITES_MANAGE],
         ['accesslists', 'IP, browser & URL lists', 'slash-circle', 'sites.accesslists', P::WEBSITES_MANAGE],
         ['countries', 'Country restrictions', 'globe2', 'sites.countries', P::WEBSITES_MANAGE],
+        ['report', 'Traffic report', 'bar-chart-line', 'sites.report', P::WEBSITES_VIEW],
         ['headers', 'Headers & cache', 'shield-check', 'sites.web_policy', P::WEBSITES_MANAGE],
         ['env', 'Environment', 'braces', 'sites.env', P::WEBSITES_MANAGE],
         ['redis', 'Redis', 'lightning', 'sites.redis', P::WEBSITES_MANAGE],
