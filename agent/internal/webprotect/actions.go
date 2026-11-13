@@ -152,6 +152,38 @@ func Register(r *actions.Registry, e *host.Env) {
 		}
 		return Status(e, in.Domain), nil
 	}})
+	r.Register(actions.Action{Name: "protect.countries", Mutating: true, Description: "Set a website's country restriction: refuse visitors from the chosen countries (deny) or serve only visitors from them (allow_only; private addresses are always served). The panel sends each country's address ranges. An empty mode removes the restriction. Checked with nginx -t, rolled back on failure.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			Domain string                    `json:"domain"`
+			Mode   string                    `json:"mode"`
+			Codes  []string                  `json:"codes"`
+			Ranges map[string][]CountryRange `json:"ranges"`
+			Status int                       `json:"status"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if err := validate.Domain("domain", in.Domain); err != nil {
+			return nil, host.Invalid(err)
+		}
+		var c *Countries
+		if in.Mode != "" {
+			c = &Countries{Mode: in.Mode, Codes: in.Codes}
+			if err := c.Validate(); err != nil {
+				return nil, actions.InvalidParams(err.Error())
+			}
+			if in.Status == 0 {
+				in.Status = 403
+			}
+			if !ValidAccessStatus(in.Status) {
+				return nil, actions.InvalidParams("status: 403, 404 or 444")
+			}
+		}
+		if _, err := UpdateCountries(ctx, e, in.Domain, c, in.Ranges, in.Status); err != nil {
+			return nil, err
+		}
+		return Status(e, in.Domain), nil
+	}})
 	r.Register(actions.Action{Name: "protect.access_global_status", Description: "The server-wide allow and deny list that applies to every website.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		return GlobalStatus(e), nil
 	}})

@@ -33,6 +33,8 @@ type State struct {
 	// Global is the server-wide allow and deny list.
 	Global       []Access `json:"global,omitempty"`
 	GlobalStatus int      `json:"global_status,omitempty"`
+	// Geo is the networks of every country a website's restriction uses.
+	Geo map[string][]string `json:"geo,omitempty"`
 }
 
 // Site is one website's protection.
@@ -50,6 +52,8 @@ type Site struct {
 	// AccessStatus is what a refused request is answered with.
 	Access       []Access `json:"access,omitempty"`
 	AccessStatus int      `json:"access_status,omitempty"`
+	// Countries restricts the website by country (country.go).
+	Countries *Countries `json:"countries,omitempty"`
 }
 
 // Protected is a password-protected URL path.
@@ -166,7 +170,7 @@ func (st State) site(domain string) *Site {
 }
 
 func (s *Site) empty() bool {
-	return len(s.Password) == 0 && s.Hotlink == nil && len(s.WordPress) == 0 && len(s.Limits) == 0 && len(s.Access) == 0
+	return len(s.Password) == 0 && s.Hotlink == nil && len(s.WordPress) == 0 && len(s.Limits) == 0 && len(s.Access) == 0 && s.Countries == nil
 }
 
 // quoteRe escapes a URL path for a regular expression.
@@ -336,12 +340,17 @@ func apply(ctx context.Context, e *host.Env, st State, domain string) error {
 
 // Update changes one website's protection under the package lock.
 func Update(ctx context.Context, e *host.Env, domain string, change func(*Site) error) (*Site, error) {
+	return updateWith(ctx, e, domain, func(_ *State, s *Site) error { return change(s) })
+}
+
+// updateWith is Update with the whole state at hand.
+func updateWith(ctx context.Context, e *host.Env, domain string, change func(*State, *Site) error) (*Site, error) {
 	defer e.LockWebConfig()()
 	mu.Lock()
 	defer mu.Unlock()
 	st := Load(e)
 	s := st.site(domain)
-	if err := change(s); err != nil {
+	if err := change(&st, s); err != nil {
 		return nil, err
 	}
 	if err := apply(ctx, e, st, domain); err != nil {
@@ -396,6 +405,10 @@ func Status(e *host.Env, domain string) map[string]any {
 			wp[k] = v
 		}
 	}
+	var countries any
+	if s != nil && s.Countries != nil {
+		countries = s.Countries
+	}
 	access := []Access{}
 	accessStatus := 403
 	if s != nil {
@@ -404,7 +417,7 @@ func Status(e *host.Env, domain string) map[string]any {
 			accessStatus = s.AccessStatus
 		}
 	}
-	return map[string]any{"password": pw, "hotlink": hot, "wordpress": wp, "limits": limits, "limit_status": limitStatus, "access": access, "access_status": accessStatus}
+	return map[string]any{"password": pw, "hotlink": hot, "wordpress": wp, "limits": limits, "limit_status": limitStatus, "access": access, "access_status": accessStatus, "countries": countries}
 }
 
 // ValidUser, ValidRealm, ValidHost and ValidExtension check input.
