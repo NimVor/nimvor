@@ -1057,6 +1057,9 @@ All under **Security** in the sidebar (administrators).
   If you block yourself: `bin/nimvor hulk:unblock <ip|user|all>`. When
   protection is first turned on with an empty whitelist, your own address
   is added to it.
+- **Anti-Intrusion** (see [Anti-intrusion](#anti-intrusion)): logs the programs
+  service and website accounts start and refuses a blacklist of programs
+  to the accounts you protect.
 - **Compiler Access**: compilers and the assembler become mode 0750, group
   `nimvor-compiler`, with the accounts you allow as members (ModSecurity
   source builds keep working). Restored exactly when turned off.
@@ -1067,6 +1070,45 @@ All under **Security** in the sidebar (administrators).
   caps processes of accounts (UID 1000 and up) in login sessions.
 - **Traceroute Enable/Disable**: traceroute and tracepath for root only
   (mode 0700) or everyone.
+
+## Anti-intrusion
+
+Security → Anti-Intrusion (administrators) watches the accounts that run
+other people's code: the service accounts (`www-data`, `mysql`, `redis`,
+`nobody`, …) and the website accounts. Root is never listed. It has a master
+switch and, per account, two independent switches:
+
+- **Log** records every program the account starts, refused attempts
+  included. It uses the kernel audit system: NimVor writes
+  `/etc/audit/rules.d/nimvor-exec.rules` (one rule per logged account, key
+  `nimvor-exec`) and loads it with `augenrules --load`. The **Program log**
+  tab reads `/var/log/audit/audit.log`; command lines are shortened and
+  anything that looks like a password or key is hidden. The counts on the
+  Overview tab come from the audit log the server keeps (it is rotated), not
+  from lifetime totals. Needs the `auditd` package (Server → Components).
+- **Protection** refuses the programs on the **blacklist** to that account.
+  This is a blacklist on purpose: only the listed programs are affected, every
+  other program keeps working, so protecting an account does not break a
+  website that does not use a listed one. NimVor puts a POSIX ACL entry
+  (`setfacl -m u:ACCOUNT:--- PROGRAM`) on each listed program file; removing the
+  account or the program, or turning the master switch off, removes exactly the
+  entries NimVor added. Package updates replace program files and so drop the
+  entries; NimVor sets them again after package jobs and when the agent starts.
+  Needs the `acl` package.
+
+The **Program blacklist** tab takes names or full paths of programs in
+`/usr`, `/bin`, `/sbin` or `/opt` (links are followed, so `nc` and
+`/usr/bin/nc.openbsd` are one entry) and offers the programs sites rarely need
+and attackers often bring (`nc`, `ncat`, `socat`, `nmap`, `tcpdump`, `strace`,
+`gdb`, password crackers, …) that exist on the server. **Operation logs** keeps
+the agent's record of what was switched; the panel's audit log also names who
+did it.
+
+What it does not do: a blacklist raises the bar, it is not a wall. Someone who
+can write a file can still bring and run a program of their own, and a program
+that is not on the list is not stopped. It is a layer next to the PHP
+sandboxes, the outgoing-connection limits, the firewall, ModSecurity and the
+malware scan. Logging alone blocks nothing.
 
 ## Shell access
 

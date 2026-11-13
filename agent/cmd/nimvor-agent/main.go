@@ -29,6 +29,7 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/execx"
 	"github.com/NimVor/nimvor/agent/internal/filesystem"
 	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/intrusion"
 	"github.com/NimVor/nimvor/agent/internal/jobs"
 	"github.com/NimVor/nimvor/agent/internal/logging"
 	"github.com/NimVor/nimvor/agent/internal/mailrate"
@@ -204,6 +205,11 @@ func run() int {
 			// metadata blocked by default) for the current accounts.
 			if err := egress.Refresh(ctx, env); err != nil {
 				log.Warn("outgoing connection limits not applied", "error", err)
+			}
+			// Anti-intrusion: the audit rules and the program blacklist
+			// (package updates replace program files and drop the entries).
+			if err := intrusion.Reconcile(ctx, env); err != nil {
+				log.Warn("anti-intrusion protection not applied", "error", err)
 			}
 			// Certificates exist but nothing renews them (EPEL's certbot
 			// leaves its timer off).
