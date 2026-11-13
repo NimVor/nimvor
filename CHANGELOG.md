@@ -8,6 +8,7 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Added
 
+- **Traffic limits per website (Websites → Traffic protection).** Rules of requests per second or minute from one address (optionally address plus browser) to a folder, an exact URL or the whole website, with a burst, above which Nginx answers 429, 503 or closes the connection. Rendered with Nginx's `limit_req` (one zone and key map per rule in `nimvor-00-protect.conf`), checked with `nginx -t` and rolled back if refused; certificate renewal is never limited. New agent action `protect.limits`.
 - **Anti-intrusion (Security → Anti-Intrusion).** Choose service accounts (`www-data`, `mysql`, `redis`, …) and website accounts and, for each, turn on **Log** (every program it starts, and every refused start, recorded through the audit system and shown on a Program log tab) and **Protection** (a **blacklist** of programs the account may not run, enforced with an ACL entry on each program file; every other program keeps working, so protected sites do not break). A master switch, a program blacklist with a list of suggested tools (`nc`, `nmap`, `tcpdump`, `strace`, …) and an operation log complete it. Turning anything off removes exactly what NimVor added; package updates and agent restarts re-apply it. New agent actions `intrusion.status`, `intrusion.executions`, `intrusion.configure` and `intrusion.blacklist`; `auditd` and `acl` are offered as installable components. See the administration guide for what a blacklist does and does not stop.
 
 ### Fixed

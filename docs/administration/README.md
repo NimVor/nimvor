@@ -281,7 +281,7 @@ Administrators see the same cards through the cards/list switch on
 Opening a website shows its details (site user, root directory, IPv4,
 PHP handler and version, site and database size, SSL, last backup) and
 **Site managing**: tiles for FTP accounts, Files, Databases, Domains (DNS),
-SSL, Scheduler (cron), Mail, Backup copies, Site access (SFTP), Headers & cache, Settings,
+SSL, Scheduler (cron), Mail, Backup copies, Site access (SFTP), Traffic protection, Headers & cache, Settings,
 PHP settings, Redirects, Applications, Git, Workers, Redis, Logs, Statistics,
 Subdomains, Addon domains and Manual settings (Advanced), plus
 **Search…** (press `/`). *Delete the website* leads to the typed
@@ -469,6 +469,30 @@ such as `…/databases#new-database`, and again after a validation error).
   `<website>/.nimvor-quarantine/<time>/` with mode 0000, and the owner can
   delete them in the File manager. Owners can also scan their website
   from its Malware scan page.
+
+## Traffic protection (websites)
+
+A website's **Traffic protection** page limits how much one visitor can ask
+for. A **traffic limit** is a rule: more than N requests per second (or minute)
+from one address to this URL, or to the whole website, and Nginx answers with an
+error instead of loading the page. A rule can apply to a folder and everything
+below it or to one exact address (`/wp-login.php`), may allow a **burst** (a page
+and its files load together), and can count an address together with its
+browser. What a tripped limit answers is chosen per website: 429, 503, or closing
+the connection (444).
+
+The agent renders every rule with Nginx's own `limit_req` module: one zone and
+one key map per rule in `nimvor-00-protect.conf` (next to the other http-level
+NimVor files); the website's protection file switches the rules on. Rules are
+keyed on the requested URL, so they never count other websites or other URLs.
+Certificate renewal (`/.well-known/acme-challenge/`) is never limited. Every
+change is checked with `nginx -t` and rolled back if Nginx does not accept or
+reload it; deleting a website removes its rules.
+
+Visitors are counted by address. Behind a CDN or proxy every visitor has the
+proxy's address unless the real address is restored first, so a limit would hit
+all of them together. Nginx can only answer with an error; it cannot ban an
+address for a while (that is what Fail2ban and Brute Force Protection are for).
 
 ## Converting an addon domain into an account
 
