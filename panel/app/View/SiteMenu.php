@@ -41,6 +41,7 @@ final class SiteMenu
         ['firewall', 'Web firewall', 'shield-shaded', 'sites.firewall', P::WEBSITES_VIEW],
         ['access', 'Site access', 'person-lock', 'sites.access', P::WEBSITES_MANAGE],
         ['traffic', 'Traffic protection', 'speedometer2', 'sites.traffic', P::WEBSITES_MANAGE],
+        ['accesslists', 'IP, browser & URL lists', 'slash-circle', 'sites.accesslists', P::WEBSITES_MANAGE],
         ['headers', 'Headers & cache', 'shield-check', 'sites.web_policy', P::WEBSITES_MANAGE],
         ['env', 'Environment', 'braces', 'sites.env', P::WEBSITES_MANAGE],
         ['redis', 'Redis', 'lightning', 'sites.redis', P::WEBSITES_MANAGE],

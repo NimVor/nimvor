@@ -130,10 +130,19 @@ func renderLimitsHTTP(st State) string {
 			if l.PerUA {
 				key = "$binary_remote_addr$http_user_agent"
 			}
-			fmt.Fprintf(&b, "# %s: %s\nmap \"$server_name$uri\" $nvl_%s {\n    default \"\";\n", d, l.Name, id)
+			// Allow-listed addresses are never limited: their verdict is the
+			// first character of the key source.
+			src, pre := "$server_name$uri", ""
+			if v := allowVar(st, d); v != "" {
+				src, pre = "$"+v+"$server_name$uri", "0"
+			}
+			fmt.Fprintf(&b, "# %s: %s\nmap \"%s\" $nvl_%s {\n    default \"\";\n", d, l.Name, src, id)
+			if pre != "" {
+				b.WriteString("    \"~^1\" \"\";\n")
+			}
 			// Certificates keep renewing whatever the limit.
-			fmt.Fprintf(&b, "    \"~^%s/\\.well-known/acme-challenge/\" \"\";\n", quoteRe(d))
-			fmt.Fprintf(&b, "    \"~^%s%s\" \"%s\";\n}\n", quoteRe(d), l.pathRegex(), key)
+			fmt.Fprintf(&b, "    \"~^%s%s/\\.well-known/acme-challenge/\" \"\";\n", pre, quoteRe(d))
+			fmt.Fprintf(&b, "    \"~^%s%s%s\" \"%s\";\n}\n", pre, quoteRe(d), l.pathRegex(), key)
 			fmt.Fprintf(&b, "limit_req_zone $nvl_%s zone=nvl_%s:5m rate=%dr/%s;\n", id, id, l.Rate, l.Unit)
 		}
 	}
@@ -141,6 +150,9 @@ func renderLimitsHTTP(st State) string {
 }
 
 func hasEnabledLimit(s *Site) bool {
+	if s == nil {
+		return false
+	}
 	for _, l := range s.Limits {
 		if l.Enabled {
 			return true
