@@ -23,6 +23,7 @@ import (
 	"sync"
 
 	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/changeset"
 	"github.com/NimVor/nimvor/agent/internal/host"
 )
 
@@ -38,6 +39,10 @@ type Site struct {
 	Hotlink  *Hotlink    `json:"hotlink,omitempty"`
 	// WordPress holds hardening rules per installation URL path.
 	WordPress map[string][]string `json:"wordpress,omitempty"`
+	// Limits are traffic rules (limits.go); LimitStatus is what Nginx
+	// answers when one trips.
+	Limits      []Limit `json:"limits,omitempty"`
+	LimitStatus int     `json:"limit_status,omitempty"`
 }
 
 // Protected is a password-protected URL path.
@@ -115,7 +120,21 @@ func statePath(e *host.Env) string { return filepath.Join(e.Cfg.StateDir, "webpr
 
 // AllowPaths lets the agent write this package's files.
 func AllowPaths(e *host.Env) {
-	e.Writer.Policy.Patterns = append(e.Writer.Policy.Patterns, Dir(e)+"/**")
+	e.Writer.Policy.Patterns = append(e.Writer.Policy.Patterns, Dir(e)+"/**", HTTPPath(e))
+}
+
+// HTTPPath is the http-level file of the traffic rules.
+func HTTPPath(e *host.Env) string { return filepath.Join(e.M.NginxEnabled, LimitFile) }
+
+// writeHTTP puts the http-level file in line with the state.
+func writeHTTP(e *host.Env, set *changeset.Set, st State) {
+	body := renderLimitsHTTP(st)
+	switch {
+	case body != "":
+		set.Write(HTTPPath(e), []byte(body), 0o644, agentfs.RootOwner)
+	case e.Root.Exists(HTTPPath(e)):
+		set.Remove(HTTPPath(e))
+	}
 }
 
 // Load reads the state (empty when there is none).
@@ -140,7 +159,7 @@ func (st State) site(domain string) *Site {
 }
 
 func (s *Site) empty() bool {
-	return len(s.Password) == 0 && s.Hotlink == nil && len(s.WordPress) == 0
+	return len(s.Password) == 0 && s.Hotlink == nil && len(s.WordPress) == 0 && len(s.Limits) == 0
 }
 
 // quoteRe escapes a URL path for a regular expression.
@@ -212,6 +231,7 @@ func Render(e *host.Env, domain string, s *Site) string {
 		// this location comes first).
 		fmt.Fprintf(&b, "    location ~* ^(?!.*/\\.).*\\.(%s)$ {\n        valid_referers %s;\n        if ($invalid_referer) {\n            return 403;\n        }\n    }\n", strings.Join(exts, "|"), strings.Join(allowed, " "))
 	}
+	b.WriteString(renderLimitsServer(domain, s))
 	return b.String()
 }
 
@@ -278,6 +298,7 @@ func apply(ctx context.Context, e *host.Env, st State, domain string) error {
 	} else {
 		set.Write(SitePath(e, domain), []byte(body), 0o644, agentfs.RootOwner)
 	}
+	writeHTTP(e, set, st)
 	sb, _ := json.MarshalIndent(st, "", "  ")
 	set.Write(statePath(e), sb, 0o600, agentfs.RootOwner)
 	applied, err := set.Commit(func() error { return e.NginxTest(ctx) })
@@ -322,6 +343,7 @@ func Remove(e *host.Env, domain string) []string {
 	delete(st.Sites, domain)
 	b, _ := json.MarshalIndent(st, "", "  ")
 	set := e.Changes("webprotect-forget-" + domain)
+	writeHTTP(e, set, st)
 	set.Write(statePath(e), b, 0o600, agentfs.RootOwner)
 	set.Commit(nil)
 	out := []string{}
@@ -338,7 +360,13 @@ func Status(e *host.Env, domain string) map[string]any {
 	pw := []map[string]string{}
 	var hot any
 	wp := map[string][]string{}
+	limits := []Limit{}
+	limitStatus := 429
 	if s != nil {
+		limits = append(limits, s.Limits...)
+		if ValidLimitStatus(s.LimitStatus) {
+			limitStatus = s.LimitStatus
+		}
 		for _, p := range s.Password {
 			pw = append(pw, map[string]string{"path": p.Path, "user": p.User, "realm": p.Realm})
 		}
@@ -349,7 +377,7 @@ func Status(e *host.Env, domain string) map[string]any {
 			wp[k] = v
 		}
 	}
-	return map[string]any{"password": pw, "hotlink": hot, "wordpress": wp}
+	return map[string]any{"password": pw, "hotlink": hot, "wordpress": wp, "limits": limits, "limit_status": limitStatus}
 }
 
 // ValidUser, ValidRealm, ValidHost and ValidExtension check input.

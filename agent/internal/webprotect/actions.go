@@ -16,7 +16,7 @@ const maxProtected = 20
 // Register adds the protect.* actions.
 func Register(r *actions.Registry, e *host.Env) {
 	AllowPaths(e)
-	r.Register(actions.Action{Name: "protect.status", Description: "A website's protection: password-protected paths (user names only), hotlink protection and WordPress web server rules.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "protect.status", Description: "A website's protection: password-protected paths (user names only), hotlink protection, WordPress web server rules and traffic limits.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			Domain string `json:"domain"`
 		}
@@ -84,6 +84,46 @@ func Register(r *actions.Registry, e *host.Env) {
 			return nil, err
 		}
 		_ = s
+		return Status(e, in.Domain), nil
+	}})
+	r.Register(actions.Action{Name: "protect.limits", Mutating: true, Description: "Replace a website's traffic limits: rules of requests per second or minute from one address (optionally address plus browser) to a URL path or the whole website, above which Nginx answers with status 429, 503 or 444 (connection closed). Each rule has name, match (prefix or exact), path, rate, unit (s or m), burst, per_ua and enabled. Certificate renewal (/.well-known/acme-challenge/) is never limited. At most 20 rules.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			Domain string  `json:"domain"`
+			Status int     `json:"status"`
+			Limits []Limit `json:"limits"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if err := validate.Domain("domain", in.Domain); err != nil {
+			return nil, host.Invalid(err)
+		}
+		if in.Status == 0 {
+			in.Status = 429
+		}
+		if !ValidLimitStatus(in.Status) {
+			return nil, actions.InvalidParams("status: 429, 503 or 444")
+		}
+		if len(in.Limits) > MaxLimits {
+			return nil, actions.InvalidParams("A website can have at most 20 traffic limits.")
+		}
+		seen := map[string]bool{}
+		for i := range in.Limits {
+			if err := in.Limits[i].Validate(); err != nil {
+				return nil, actions.InvalidParams("limits[" + in.Limits[i].Name + "]: " + err.Error())
+			}
+			if seen[in.Limits[i].Name] {
+				return nil, actions.InvalidParams("limits: two rules are called " + in.Limits[i].Name)
+			}
+			seen[in.Limits[i].Name] = true
+		}
+		if _, err := Update(ctx, e, in.Domain, func(s *Site) error {
+			s.Limits = append([]Limit{}, in.Limits...)
+			s.LimitStatus = in.Status
+			return nil
+		}); err != nil {
+			return nil, err
+		}
 		return Status(e, in.Domain), nil
 	}})
 	r.Register(actions.Action{Name: "protect.hotlink", Mutating: true, Description: "Turn hotlink protection of a website on or off: its images and media are only served to its own pages, direct visits and the allowed sites. Checked with nginx -t, rolled back on failure.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {

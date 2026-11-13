@@ -29,7 +29,7 @@ final class ThemeNav
         'databases' => 'databases', 'mongo' => 'databases', 'redis' => 'databases', 'memcached' => 'databases',
         'dns' => 'domains', 'subdomains' => 'domains', 'addons' => 'domains', 'redirects' => 'domains', 'cloudflare' => 'domains',
         'mail' => 'email',
-        'ssl' => 'security', 'security' => 'security', 'malware' => 'security', 'firewall' => 'security', 'access' => 'security', 'headers' => 'security',
+        'ssl' => 'security', 'security' => 'security', 'malware' => 'security', 'firewall' => 'security', 'access' => 'security', 'traffic' => 'security', 'headers' => 'security',
         'apps' => 'software', 'wordpress' => 'software', 'php' => 'software', 'nodejs' => 'software', 'python' => 'software', 'git' => 'software',
     ];
 
