@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Traffic limits per website (Websites → Traffic protection).** Rules of requests per second or minute from one address (optionally address plus browser) to a folder, an exact URL or the whole website, with a burst, above which Nginx answers 429, 503 or closes the connection. Rendered with Nginx's `limit_req` (one zone and key map per rule in `nimvor-00-protect.conf`), checked with `nginx -t` and rolled back if refused; certificate renewal is never limited. New agent action `protect.limits`.
+
 ### Fixed
 
 - **Flaky real-host tests.** The SFTP and shell tests now reload sshd themselves on systemd hosts (their cleanup removed the drop-in without a reload, leaving a stale configuration for the next test), wait for sshd to accept connections again, and also retry on `Permission denied (publickey,password)`. The installer end-to-end test waits for the cron job's last output line instead of a non-empty file. The WordPress update test and the migration SSH test retry a dropped download or login. The integrity test no longer runs the slow whole-system package verification twice (it could take 23 minutes on a slow runner and hit the 30-minute limit); the real-host job's timeouts have more headroom.
