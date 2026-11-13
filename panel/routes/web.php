@@ -612,6 +612,18 @@ return static function (Router $r): void {
     $r->post('/sites/{id}/traffic/limit/remove', [\NimVor\Http\Controllers\SiteTrafficController::class, 'removeLimit'], ['name' => 'sites.traffic.limit.remove', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/traffic/limit/toggle', [\NimVor\Http\Controllers\SiteTrafficController::class, 'toggleLimit'], ['name' => 'sites.traffic.limit.toggle', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/traffic/status', [\NimVor\Http\Controllers\SiteTrafficController::class, 'saveStatus'], ['name' => 'sites.traffic.status', 'permission' => P::WEBSITES_MANAGE]);
+    $r->get('/sites/{id}/access-lists', [\NimVor\Http\Controllers\AccessListController::class, 'showSite'], ['name' => 'sites.accesslists', 'permission' => P::WEBSITES_MANAGE]);
+    $r->get('/sites/{id}/access-lists/export', [\NimVor\Http\Controllers\AccessListController::class, 'exportSite'], ['name' => 'sites.accesslists.export', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/access-lists/add', [\NimVor\Http\Controllers\AccessListController::class, 'addSite'], ['name' => 'sites.accesslists.add', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/access-lists/remove', [\NimVor\Http\Controllers\AccessListController::class, 'removeSite'], ['name' => 'sites.accesslists.remove', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/access-lists/status', [\NimVor\Http\Controllers\AccessListController::class, 'statusSite'], ['name' => 'sites.accesslists.status', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/access-lists/import', [\NimVor\Http\Controllers\AccessListController::class, 'importSite'], ['name' => 'sites.accesslists.import', 'permission' => P::WEBSITES_MANAGE]);
+    $r->get('/security/access-lists', [\NimVor\Http\Controllers\AccessListController::class, 'showGlobal'], ['name' => 'security.access_lists', 'permission' => P::SECURITY_VIEW]);
+    $r->get('/security/access-lists/export', [\NimVor\Http\Controllers\AccessListController::class, 'exportGlobal'], ['name' => 'security.access_lists.export', 'permission' => P::SECURITY_VIEW]);
+    $r->post('/security/access-lists/add', [\NimVor\Http\Controllers\AccessListController::class, 'addGlobal'], ['name' => 'security.access_lists.add', 'permission' => P::SECURITY_MANAGE]);
+    $r->post('/security/access-lists/remove', [\NimVor\Http\Controllers\AccessListController::class, 'removeGlobal'], ['name' => 'security.access_lists.remove', 'permission' => P::SECURITY_MANAGE]);
+    $r->post('/security/access-lists/status', [\NimVor\Http\Controllers\AccessListController::class, 'statusGlobal'], ['name' => 'security.access_lists.status', 'permission' => P::SECURITY_MANAGE]);
+    $r->post('/security/access-lists/import', [\NimVor\Http\Controllers\AccessListController::class, 'importGlobal'], ['name' => 'security.access_lists.import', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/sites/{id}/access', [\NimVor\Http\Controllers\SiteAccessController::class, 'show'], ['name' => 'sites.access', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/access', [\NimVor\Http\Controllers\SiteAccessController::class, 'protect'], ['name' => 'sites.access.protect', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/access/remove', [\NimVor\Http\Controllers\SiteAccessController::class, 'remove'], ['name' => 'sites.access.remove', 'permission' => P::WEBSITES_MANAGE]);

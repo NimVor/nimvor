@@ -30,6 +30,9 @@ import (
 // State is every website's protection.
 type State struct {
 	Sites map[string]*Site `json:"sites"`
+	// Global is the server-wide allow and deny list.
+	Global       []Access `json:"global,omitempty"`
+	GlobalStatus int      `json:"global_status,omitempty"`
 }
 
 // Site is one website's protection.
@@ -43,6 +46,10 @@ type Site struct {
 	// answers when one trips.
 	Limits      []Limit `json:"limits,omitempty"`
 	LimitStatus int     `json:"limit_status,omitempty"`
+	// Access is the website's allow and deny list (access.go);
+	// AccessStatus is what a refused request is answered with.
+	Access       []Access `json:"access,omitempty"`
+	AccessStatus int      `json:"access_status,omitempty"`
 }
 
 // Protected is a password-protected URL path.
@@ -128,7 +135,7 @@ func HTTPPath(e *host.Env) string { return filepath.Join(e.M.NginxEnabled, Limit
 
 // writeHTTP puts the http-level file in line with the state.
 func writeHTTP(e *host.Env, set *changeset.Set, st State) {
-	body := renderLimitsHTTP(st)
+	body := renderAccessHTTP(st) + renderLimitsHTTP(st)
 	switch {
 	case body != "":
 		set.Write(HTTPPath(e), []byte(body), 0o644, agentfs.RootOwner)
@@ -159,7 +166,7 @@ func (st State) site(domain string) *Site {
 }
 
 func (s *Site) empty() bool {
-	return len(s.Password) == 0 && s.Hotlink == nil && len(s.WordPress) == 0 && len(s.Limits) == 0
+	return len(s.Password) == 0 && s.Hotlink == nil && len(s.WordPress) == 0 && len(s.Limits) == 0 && len(s.Access) == 0
 }
 
 // quoteRe escapes a URL path for a regular expression.
@@ -167,8 +174,19 @@ func quoteRe(p string) string { return regexp.QuoteMeta(p) }
 
 // Render is a website's file ("" when it has no protection).
 func Render(e *host.Env, domain string, s *Site) string {
-	if s == nil || s.empty() {
+	return renderFor(e, domain, s, State{})
+}
+
+// renderFor is a website's file given the whole state (the server-wide list).
+func renderFor(e *host.Env, domain string, s *Site, st State) string {
+	if (s == nil || s.empty()) && blockVar(st, domain) == "" {
 		return ""
+	}
+	if s == nil {
+		s = &Site{}
+	}
+	if st.Sites == nil {
+		st.Sites = map[string]*Site{domain: s}
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "    # Managed by NimVor (website protection of %s). Do not edit.\n", domain)
@@ -231,6 +249,7 @@ func Render(e *host.Env, domain string, s *Site) string {
 		// this location comes first).
 		fmt.Fprintf(&b, "    location ~* ^(?!.*/\\.).*\\.(%s)$ {\n        valid_referers %s;\n        if ($invalid_referer) {\n            return 403;\n        }\n    }\n", strings.Join(exts, "|"), strings.Join(allowed, " "))
 	}
+	b.WriteString(renderAccessServer(st, domain))
 	b.WriteString(renderLimitsServer(domain, s))
 	return b.String()
 }
@@ -263,7 +282,7 @@ func apply(ctx context.Context, e *host.Env, st State, domain string) error {
 	set := e.Changes("webprotect-" + domain)
 	set.Mkdir(Dir(e), 0o755, agentfs.RootOwner)
 	s := st.Sites[domain]
-	body := Render(e, domain, s)
+	body := renderFor(e, domain, s, st)
 	if inc := SiteInclude(e, domain); !strings.Contains(string(b), inc) {
 		if !strings.Contains(string(b), vhostMarker) {
 			return fmt.Errorf("the web server configuration of %s was changed outside NimVor; save the website in the panel first", domain)
@@ -377,7 +396,15 @@ func Status(e *host.Env, domain string) map[string]any {
 			wp[k] = v
 		}
 	}
-	return map[string]any{"password": pw, "hotlink": hot, "wordpress": wp, "limits": limits, "limit_status": limitStatus}
+	access := []Access{}
+	accessStatus := 403
+	if s != nil {
+		access = append(access, s.Access...)
+		if ValidAccessStatus(s.AccessStatus) {
+			accessStatus = s.AccessStatus
+		}
+	}
+	return map[string]any{"password": pw, "hotlink": hot, "wordpress": wp, "limits": limits, "limit_status": limitStatus, "access": access, "access_status": accessStatus}
 }
 
 // ValidUser, ValidRealm, ValidHost and ValidExtension check input.
@@ -386,4 +413,77 @@ func ValidRealm(r string) bool { return realmRe.MatchString(r) }
 func ValidHost(h string) bool  { return hostRe.MatchString(h) }
 func ValidExtension(x string) bool {
 	return extRe.MatchString(x)
+}
+
+// vhostDomains are the websites NimVor manages on this server.
+func vhostDomains(e *host.Env) []string {
+	entries, err := e.Root.ReadDir(e.M.NginxEnabled)
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, ent := range entries {
+		n := ent.Name()
+		if !strings.HasPrefix(n, "nimvor-") || !strings.HasSuffix(n, ".conf") || strings.HasPrefix(n, "nimvor-00-") {
+			continue
+		}
+		out = append(out, strings.TrimSuffix(strings.TrimPrefix(n, "nimvor-"), ".conf"))
+	}
+	sort.Strings(out)
+	return out
+}
+
+// UpdateGlobal replaces the server-wide list and puts every website's file in
+// line with it. Websites whose configuration was changed outside NimVor are
+// returned (they are skipped); a website's own failure stops with an error
+// and the previous files of that website are restored.
+func UpdateGlobal(ctx context.Context, e *host.Env, list []Access, status int) ([]string, error) {
+	defer e.LockWebConfig()()
+	mu.Lock()
+	defer mu.Unlock()
+	st := Load(e)
+	st.Global = append([]Access{}, list...)
+	st.GlobalStatus = status
+	seen := map[string]bool{}
+	domains := vhostDomains(e)
+	for _, d := range domains {
+		seen[d] = true
+	}
+	for d := range st.Sites {
+		if !seen[d] {
+			domains = append(domains, d)
+		}
+	}
+	var skipped []string
+	for _, d := range domains {
+		if err := apply(ctx, e, st, d); err != nil {
+			if strings.Contains(err.Error(), "changed outside NimVor") || strings.Contains(err.Error(), "has no NimVor web server configuration") {
+				skipped = append(skipped, d)
+				continue
+			}
+			return skipped, err
+		}
+	}
+	// With no website at all the list is still remembered.
+	if len(domains) == 0 {
+		set := e.Changes("webprotect-global")
+		writeHTTP(e, set, st)
+		sb, _ := json.MarshalIndent(st, "", "  ")
+		set.Write(statePath(e), sb, 0o600, agentfs.RootOwner)
+		if _, err := set.Commit(func() error { return e.NginxTest(ctx) }); err != nil {
+			return nil, host.FailWithValidation("The list was not changed", err)
+		}
+	}
+	return skipped, nil
+}
+
+// GlobalStatus is the server-wide list.
+func GlobalStatus(e *host.Env) map[string]any {
+	st := Load(e)
+	list := append([]Access{}, st.Global...)
+	status := 403
+	if ValidAccessStatus(st.GlobalStatus) {
+		status = st.GlobalStatus
+	}
+	return map[string]any{"access": list, "access_status": status}
 }

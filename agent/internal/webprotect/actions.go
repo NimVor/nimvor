@@ -3,6 +3,7 @@ package webprotect
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/NimVor/nimvor/agent/internal/actions"
@@ -126,6 +127,54 @@ func Register(r *actions.Registry, e *host.Env) {
 		}
 		return Status(e, in.Domain), nil
 	}})
+	r.Register(actions.Action{Name: "protect.access", Mutating: true, Description: "Replace a website's allow and deny list of addresses, browsers (User-Agent) and URLs, and the status a refused request is answered with. An allow entry always wins. Checked with nginx -t, rolled back on failure.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			Domain string   `json:"domain"`
+			Rules  []Access `json:"rules"`
+			Status int      `json:"status"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		if err := validate.Domain("domain", in.Domain); err != nil {
+			return nil, host.Invalid(err)
+		}
+		list, status, err := cleanAccess(in.Rules, in.Status, MaxAccess)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := Update(ctx, e, in.Domain, func(s *Site) error {
+			s.Access = list
+			s.AccessStatus = status
+			return nil
+		}); err != nil {
+			return nil, err
+		}
+		return Status(e, in.Domain), nil
+	}})
+	r.Register(actions.Action{Name: "protect.access_global_status", Description: "The server-wide allow and deny list that applies to every website.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		return GlobalStatus(e), nil
+	}})
+	r.Register(actions.Action{Name: "protect.access_global", Mutating: true, Description: "Replace the server-wide allow and deny list that applies to every NimVor website. Every website's configuration is checked with nginx -t and rolled back on failure.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			Rules  []Access `json:"rules"`
+			Status int      `json:"status"`
+		}
+		if err := host.Decode(p, &in); err != nil {
+			return nil, err
+		}
+		list, status, err := cleanAccess(in.Rules, in.Status, MaxGlobalAccess)
+		if err != nil {
+			return nil, err
+		}
+		skipped, err := UpdateGlobal(ctx, e, list, status)
+		if err != nil {
+			return nil, err
+		}
+		out := GlobalStatus(e)
+		out["skipped"] = skipped
+		return out, nil
+	}})
 	r.Register(actions.Action{Name: "protect.hotlink", Mutating: true, Description: "Turn hotlink protection of a website on or off: its images and media are only served to its own pages, direct visits and the allowed sites. Checked with nginx -t, rolled back on failure.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			Domain     string   `json:"domain"`
@@ -174,4 +223,32 @@ func Register(r *actions.Registry, e *host.Env) {
 		}
 		return Status(e, in.Domain), nil
 	}})
+}
+
+// cleanAccess validates a submitted list: each entry, duplicates and the size.
+func cleanAccess(in []Access, status, max int) ([]Access, int, error) {
+	if len(in) > max {
+		return nil, 0, actions.InvalidParams(fmt.Sprintf("rules: at most %d entries", max))
+	}
+	if status == 0 {
+		status = 403
+	}
+	if !ValidAccessStatus(status) {
+		return nil, 0, actions.InvalidParams("status: 403, 404 or 444")
+	}
+	out := make([]Access, 0, len(in))
+	seen := map[string]bool{}
+	for i, a := range in {
+		c, err := a.Validate()
+		if err != nil {
+			return nil, 0, actions.InvalidParams(fmt.Sprintf("rule %d: %v", i+1, err))
+		}
+		key := c.Kind + "\x00" + c.Action + "\x00" + strings.ToLower(c.Value)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, c)
+	}
+	return out, status, nil
 }

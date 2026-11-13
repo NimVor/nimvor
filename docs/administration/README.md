@@ -281,7 +281,7 @@ Administrators see the same cards through the cards/list switch on
 Opening a website shows its details (site user, root directory, IPv4,
 PHP handler and version, site and database size, SSL, last backup) and
 **Site managing**: tiles for FTP accounts, Files, Databases, Domains (DNS),
-SSL, Scheduler (cron), Mail, Backup copies, Site access (SFTP), Traffic protection, Headers & cache, Settings,
+SSL, Scheduler (cron), Mail, Backup copies, Site access (SFTP), Traffic protection, IP, browser & URL lists, Headers & cache, Settings,
 PHP settings, Redirects, Applications, Git, Workers, Redis, Logs, Statistics,
 Subdomains, Addon domains and Manual settings (Advanced), plus
 **Search…** (press `/`). *Delete the website* leads to the typed
@@ -493,6 +493,40 @@ Visitors are counted by address. Behind a CDN or proxy every visitor has the
 proxy's address unless the real address is restored first, so a limit would hit
 all of them together. Nginx can only answer with an error; it cannot ban an
 address for a while (that is what Fail2ban and Brute Force Protection are for).
+
+## IP, browser and URL lists (websites and server)
+
+A website's **IP, browser & URL lists** page (Websites → the website) and the
+server-wide **Website Access Lists** page (Security) refuse or always serve
+visitors by **address** (one address, a network such as `10.0.0.0/8`, or a range
+like `10.0.0.1-10.0.0.99`, IPv4 and IPv6), by **browser** (the User-Agent
+contains the text, any case) or by **URL** (the path starts with it). Each entry
+is *allow* or *deny*, with an optional note. What a refused visitor gets is chosen
+per list: 403, 404, or closing the connection (444).
+
+**An allow entry always wins** over a deny entry, whatever its type: an allowed
+address is served even if its browser is denied, an allowed URL even to a denied
+address. Where a network and an address inside it disagree, the more specific
+network decides (deny `10.0.0.0/8` and allow `10.0.0.5` lets that address in).
+Certificate renewal (`/.well-known/acme-challenge/`) is never refused, and an
+allowed address is never counted by the website's traffic limits. The
+server-wide list applies to every website; a website's own list is added to it.
+
+Lists can be imported and exported as text, one entry per line
+(`deny ip 203.0.113.0/24  # scanner`, `allow url /api/`, `deny ua SemrushBot`).
+A bad line stops the whole import. At most 200 entries per website and 1000
+server-wide.
+
+The agent renders the lists with Nginx's `geo` (addresses) and `map` (browsers
+and URLs) variables in the http-level `nimvor-00-protect.conf`, and the website's
+protection file refuses what they flag. Every change is checked with `nginx -t`
+and rolled back if Nginx does not accept or reload it (the server-wide list is
+applied website by website, each checked on its own). Websites whose
+configuration was changed outside NimVor are skipped and listed; a website
+created later receives the server-wide list when it is next saved.
+
+Visitors are matched by their address: behind a CDN or proxy every visitor has
+the proxy's address unless the real address is restored first.
 
 ## Converting an addon domain into an account
 
