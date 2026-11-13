@@ -207,6 +207,10 @@ paths:
               - hulk.failures
               - hulk.status
               - hulk.sync
+              - intrusion.blacklist
+              - intrusion.configure
+              - intrusion.executions
+              - intrusion.status
               - jobs.get
               - jobs.list
               - jobs.log
@@ -785,6 +789,10 @@ x-nimvor-actions:
   hulk.failures: { mutating: false, description: "Brute force protection: login attempts since a Unix time (at most a day back) from the SSH server, Dovecot, Postfix SMTP AUTH, pure-ftpd (journal) and webmail (Roundcube log). Failures, plus successful SSH logins (for root login notifications)." }
   hulk.status: { mutating: false, description: "Brute force protection: whether nftables is available and the table is loaded." }
   hulk.sync: { mutating: true, description: "Brute force protection: enforce the blocked addresses (login services only, or every port), blacklisted countries' address ranges (login services) and the whitelist with the nftables table inet nimvor_hulk; or remove the table." }
+  intrusion.blacklist: { mutating: true, description: "Replace the program blacklist (names or full paths of programs in the system's program directories). Protected accounts may not run the listed programs; nothing else is restricted." }
+  intrusion.configure: { mutating: true, description: "Turn anti-intrusion on or off and set, per account, whether its program starts are logged (audit rules, key nimvor-exec) and whether it is protected (execution of the blacklisted programs denied with ACL entries). Accounts not listed have both off." }
+  intrusion.executions: { mutating: false, description: "Programs started by logged accounts (from the audit log), newest first; optionally for one account." }
+  intrusion.status: { mutating: false, description: "Anti-intrusion: the master switch, the accounts that can be logged or protected (with their switches and counts of programs started and refused), the program blacklist, suggested programs, the operation log and whether the audit system and ACL tools are installed." }
   jobs.get: { mutating: false, description: "Status of a background job." }
   jobs.list: { mutating: false, description: "Recent background jobs, optionally for one target." }
   jobs.log: { mutating: false, description: "Log output of a background job from an offset." }

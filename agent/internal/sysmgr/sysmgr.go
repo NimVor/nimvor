@@ -25,6 +25,7 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/ffmpegmgr"
 	"github.com/NimVor/nimvor/agent/internal/hardening"
 	"github.com/NimVor/nimvor/agent/internal/host"
+	"github.com/NimVor/nimvor/agent/internal/intrusion"
 	"github.com/NimVor/nimvor/agent/internal/pkgs"
 	"github.com/NimVor/nimvor/agent/internal/shacrypt"
 )
@@ -63,6 +64,8 @@ var Components = map[string]string{
 	"rsync":               "File synchronisation",
 	"htop":                "Process viewer",
 	"strace":              "System call tracer (Process Manager → Trace)",
+	"auditd":              "Audit system (Anti-intrusion logging)",
+	"acl":                 "Access control list tools (Anti-intrusion protection)",
 	"openssh-server":      "SSH server",
 	"mariadb-client":      "MariaDB command-line client",
 	"imagemagick":         "Image processing",
@@ -617,5 +620,8 @@ func restrictAgain(ctx context.Context, env *host.Env, log io.Writer) {
 	}
 	if err := hardening.Reapply(ctx, env); err != nil {
 		fmt.Fprintf(log, "Compiler or traceroute restrictions could not be applied again: %v\n", err)
+	}
+	if err := intrusion.Reconcile(ctx, env); err != nil {
+		fmt.Fprintf(log, "Anti-intrusion protection could not be applied again: %v\n", err)
 	}
 }

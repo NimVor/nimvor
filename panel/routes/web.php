@@ -576,6 +576,10 @@ return static function (Router $r): void {
     $r->post('/security/hulk/geo', [\NimVor\Http\Controllers\HulkController::class, 'geoUpload'], ['name' => 'security.hulk.geo', 'permission' => P::SECURITY_MANAGE]);
     $r->post('/security/hulk/unblock', [\NimVor\Http\Controllers\HulkController::class, 'unblock'], ['name' => 'security.hulk.unblock', 'permission' => P::SECURITY_MANAGE]);
     $r->post('/security/hulk/clear', [\NimVor\Http\Controllers\HulkController::class, 'clear'], ['name' => 'security.hulk.clear', 'permission' => P::SECURITY_MANAGE]);
+    $r->get('/security/intrusion', [\NimVor\Http\Controllers\IntrusionController::class, 'show'], ['name' => 'security.intrusion', 'permission' => P::SECURITY_VIEW]);
+    $r->post('/security/intrusion/accounts', [\NimVor\Http\Controllers\IntrusionController::class, 'saveAccounts'], ['name' => 'security.intrusion.accounts', 'permission' => P::SECURITY_MANAGE]);
+    $r->post('/security/intrusion/blacklist', [\NimVor\Http\Controllers\IntrusionController::class, 'addProgram'], ['name' => 'security.intrusion.blacklist', 'permission' => P::SECURITY_MANAGE]);
+    $r->post('/security/intrusion/blacklist/remove', [\NimVor\Http\Controllers\IntrusionController::class, 'removeProgram'], ['name' => 'security.intrusion.blacklist.remove', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/security/compilers', [\NimVor\Http\Controllers\HardeningController::class, 'compilers'], ['name' => 'security.compilers', 'permission' => P::SECURITY_VIEW]);
     $r->post('/security/compilers', [\NimVor\Http\Controllers\HardeningController::class, 'saveCompilers'], ['name' => 'security.compilers.save', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/security/smtp', [\NimVor\Http\Controllers\HardeningController::class, 'smtp'], ['name' => 'security.smtp', 'permission' => P::SECURITY_VIEW]);

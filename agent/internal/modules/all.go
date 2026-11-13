@@ -15,6 +15,7 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/ftpmgr"
 	"github.com/NimVor/nimvor/agent/internal/hardening"
 	"github.com/NimVor/nimvor/agent/internal/hulk"
+	"github.com/NimVor/nimvor/agent/internal/intrusion"
 	"github.com/NimVor/nimvor/agent/internal/limits"
 	"github.com/NimVor/nimvor/agent/internal/logs"
 	"github.com/NimVor/nimvor/agent/internal/mailmgr"
@@ -60,6 +61,7 @@ func All() []Module {
 		components.Register,
 		ffmpegmgr.Register,
 		hardening.Register,
+		intrusion.Register,
 		hulk.Register,
 		netmgr.Register,
 		limits.Register,
