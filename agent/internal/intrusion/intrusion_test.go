@@ -26,7 +26,19 @@ func setup(t *testing.T) (*testhost.Host, *actions.Registry) {
 	w("etc/not-a-program", 0o755)
 	os.Symlink("nc.openbsd", filepath.Join(h.Base, "usr/bin/nc"))
 	os.Symlink("../../etc/not-a-program", filepath.Join(h.Base, "usr/bin/escape"))
-	f, _ := os.OpenFile(filepath.Join(h.Base, "etc/passwd"), os.O_APPEND|os.O_WRONLY, 0o644)
+	// The fixture gives www-data the test user's UID when the tests run
+	// unprivileged (CI); service accounts have a low UID.
+	pw := filepath.Join(h.Base, "etc/passwd")
+	b, _ := os.ReadFile(pw)
+	var keep []string
+	for _, l := range strings.Split(strings.TrimRight(string(b), "\n"), "\n") {
+		if !strings.HasPrefix(l, "www-data:") {
+			keep = append(keep, l)
+		}
+	}
+	keep = append(keep, "www-data:x:33:33:www-data:/var/www:/usr/sbin/nologin")
+	os.WriteFile(pw, []byte(strings.Join(keep, "\n")+"\n"), 0o644)
+	f, _ := os.OpenFile(pw, os.O_APPEND|os.O_WRONLY, 0o644)
 	f.WriteString("shop:x:1600:1600::/home/nimvor/shop.test:/bin/bash\nmysql:x:110:110:MySQL Server:/nonexistent:/bin/false\nalice:x:1700:1700::/home/alice:/bin/bash\n")
 	f.Close()
 	r := actions.NewRegistry(true)
