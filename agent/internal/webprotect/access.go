@@ -289,7 +289,7 @@ func (v accessVars) parts(list []Access, withACME bool) []string {
 func accessSites(st State) []string {
 	var out []string
 	for d, s := range st.Sites {
-		if s != nil && len(s.Access) > 0 {
+		if siteHasList(s) {
 			out = append(out, d)
 		}
 	}
@@ -297,12 +297,16 @@ func accessSites(st State) []string {
 	return out
 }
 
+// siteHasList reports whether a website has an access list or a country
+// restriction of its own.
+func siteHasList(s *Site) bool { return s != nil && (len(s.Access) > 0 || s.Countries != nil) }
+
 // hasGlobal reports whether a server-wide list is in force.
 func (st State) hasGlobal() bool { return len(st.Global) > 0 }
 
 // blockVar is the variable a website's server block tests ("" for none).
 func blockVar(st State, domain string) string {
-	if s := st.Sites[domain]; s != nil && len(s.Access) > 0 {
+	if siteHasList(st.Sites[domain]) {
 		return varsFor(accessID(domain)).block
 	}
 	if st.hasGlobal() {
@@ -319,6 +323,7 @@ func renderAccessHTTP(st State) string {
 	}
 	var b strings.Builder
 	b.WriteString("# Managed by NimVor (website access lists). Do not edit.\n")
+	b.WriteString(renderCountries(st))
 	var gparts []string
 	if st.hasGlobal() {
 		renderAccessOne(&b, globalAccessID, "server-wide", st.Global, true)
@@ -330,6 +335,9 @@ func renderAccessHTTP(st State) string {
 		id := accessID(d)
 		renderAccessOne(&b, id, d, s.Access, !st.hasGlobal())
 		parts := append(append([]string{}, gparts...), varsFor(id).parts(s.Access, !st.hasGlobal())...)
+		if s.Countries != nil {
+			parts = append(parts, "$"+countryVar(s.Countries))
+		}
 		combine(&b, id, parts)
 	}
 	// The allow-listed addresses, for the traffic limits.

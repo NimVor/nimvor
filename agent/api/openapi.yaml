@@ -430,6 +430,7 @@ paths:
               - protect.access
               - protect.access_global
               - protect.access_global_status
+              - protect.countries
               - protect.hotlink
               - protect.limits
               - protect.password
@@ -1015,6 +1016,7 @@ x-nimvor-actions:
   protect.access: { mutating: true, description: "Replace a website's allow and deny list of addresses, browsers (User-Agent) and URLs, and the status a refused request is answered with. An allow entry always wins. Checked with nginx -t, rolled back on failure." }
   protect.access_global: { mutating: true, description: "Replace the server-wide allow and deny list that applies to every NimVor website. Every website's configuration is checked with nginx -t and rolled back on failure." }
   protect.access_global_status: { mutating: false, description: "The server-wide allow and deny list that applies to every website." }
+  protect.countries: { mutating: true, description: "Set a website's country restriction: refuse visitors from the chosen countries (deny) or serve only visitors from them (allow_only; private addresses are always served). The panel sends each country's address ranges. An empty mode removes the restriction. Checked with nginx -t, rolled back on failure." }
   protect.hotlink: { mutating: true, description: "Turn hotlink protection of a website on or off: its images and media are only served to its own pages, direct visits and the allowed sites. Checked with nginx -t, rolled back on failure." }
   protect.limits: { mutating: true, description: "Replace a website's traffic limits: rules of requests per second or minute from one address (optionally address plus browser) to a URL path or the whole website, above which Nginx answers with status 429, 503 or 444 (connection closed). Each rule has name, match (prefix or exact), path, rate, unit (s or m), burst, per_ua and enabled. Certificate renewal (/.well-known/acme-challenge/) is never limited. At most 20 rules." }
   protect.password: { mutating: true, description: "Turn password protection (HTTP basic authentication) of a website path on or off. The password is stored only as a SHA-512 crypt hash. Checked with nginx -t, rolled back on failure." }
