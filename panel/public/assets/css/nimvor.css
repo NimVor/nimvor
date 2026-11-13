@@ -1050,3 +1050,11 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 .nim-preview-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; padding: .5rem 1rem; background: #fff7ed; border-bottom: 1px solid #fed7aa; color: #7c2d12; font-size: .875rem; }
 [data-bs-theme="dark"] .nim-preview-bar { background: #3b2412; border-color: #7c2d12; color: #fed7aa; }
 .nim-preview-bar form { display: inline; margin: 0; }
+
+/* Website traffic report: bars drawn as inline SVG. */
+.nim-chart { width: 100%; height: auto; display: block; }
+.nim-chart .nim-bar-req { fill: var(--bs-primary); opacity: .75; }
+.nim-chart .nim-bar-ref { fill: var(--bs-danger); }
+.nim-chart .nim-axis { fill: var(--bs-secondary-color); font-size: 9px; }
+.nim-chart .nim-track { fill: var(--bs-tertiary-bg); }
+.nim-rank { width: 8rem; height: .6rem; }

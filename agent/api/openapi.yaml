@@ -528,6 +528,7 @@ paths:
               - terminal.open
               - terminal.status
               - tls.audit
+              - webreport.site
               - wordpress.copy
               - wordpress.info
               - wordpress.login
@@ -1114,6 +1115,7 @@ x-nimvor-actions:
   terminal.open: { mutating: true, description: "Prepare a web terminal session for a website account (its shell access must be jailed or normal) or, when terminal_root is on, a root shell. Returns a single-use ticket valid for a minute, which the browser sends over the WebSocket together with the account's Linux password (checked by the agent with PAM's unix_chkpwd; the panel never sees it). Accounts in privileged groups are refused." }
   terminal.status: { mutating: false, description: "Web terminal: whether it is enabled, whether root shells are allowed (terminal_root), and the open sessions." }
   tls.audit: { mutating: false, description: "Probe this server's own TLS endpoints and report weak protocols (TLS 1.0/1.1 accepted), weak cipher suites, and certificate problems (SHA-1, expired, untrusted chain, host-name mismatch). Read-only; it never changes any configuration. The panel passes the website and mail endpoints to check; each is dialed on this server (loopback), with the given name used for SNI and host-name verification." }
+  webreport.site: { mutating: false, description: "Summary of a website's access log for a window of up to 7 days: requests over time, status classes, refused requests (403, 429, 444), the busiest and most refused addresses and URLs (without query strings) and the browsers most refused. Reads the website's own access log only." }
   wordpress.copy: { mutating: true, description: "Staging and cloning (job): clone an installation to another folder with its own database, sync files and/or the database from one installation to another, or put back a restore point. Files are copied by tar as the source and target accounts; a restore point of the target is saved before anything is replaced." }
   wordpress.info: { mutating: true, description: "Overview of a WordPress installation: versions, updates, plugins, themes, settings (WP-CLI as the website account)." }
   wordpress.login: { mutating: true, description: "One-time sign-in link for a WordPress administrator (a file that deletes itself on first use and expires after a minute)." }

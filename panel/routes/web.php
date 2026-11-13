@@ -618,6 +618,7 @@ return static function (Router $r): void {
     $r->post('/sites/{id}/access-lists/remove', [\NimVor\Http\Controllers\AccessListController::class, 'removeSite'], ['name' => 'sites.accesslists.remove', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/access-lists/status', [\NimVor\Http\Controllers\AccessListController::class, 'statusSite'], ['name' => 'sites.accesslists.status', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/access-lists/import', [\NimVor\Http\Controllers\AccessListController::class, 'importSite'], ['name' => 'sites.accesslists.import', 'permission' => P::WEBSITES_MANAGE]);
+    $r->get('/sites/{id}/report', [\NimVor\Http\Controllers\SiteReportController::class, 'show'], ['name' => 'sites.report', 'permission' => P::WEBSITES_VIEW]);
     $r->get('/sites/{id}/countries', [\NimVor\Http\Controllers\SiteCountryController::class, 'show'], ['name' => 'sites.countries', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/countries', [\NimVor\Http\Controllers\SiteCountryController::class, 'save'], ['name' => 'sites.countries.save', 'permission' => P::WEBSITES_MANAGE]);
     $r->get('/security/access-lists', [\NimVor\Http\Controllers\AccessListController::class, 'showGlobal'], ['name' => 'security.access_lists', 'permission' => P::SECURITY_VIEW]);

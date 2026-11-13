@@ -40,6 +40,7 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/terminal"
 	"github.com/NimVor/nimvor/agent/internal/usage"
 	"github.com/NimVor/nimvor/agent/internal/webprotect"
+	"github.com/NimVor/nimvor/agent/internal/webreport"
 	"github.com/NimVor/nimvor/agent/internal/wordpress"
 	"github.com/NimVor/nimvor/agent/internal/workers"
 )
@@ -53,6 +54,7 @@ func All() []Module {
 		sslmgr.Register,
 		modsec.Register,
 		webprotect.Register,
+		webreport.Register,
 		files.Register,
 		logs.Register,
 		cronmgr.Register,
