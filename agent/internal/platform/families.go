@@ -274,6 +274,7 @@ func (r rhelFamily) PackageManager() string { return "dnf" }
 // same on both; "" means there is no equivalent.
 var rhelPackages = map[string]string{
 	"redis-server":        "redis",
+	"auditd":              "audit",
 	"mariadb-client":      "mariadb",
 	"bind9":               "bind",
 	"bind9utils":          "bind-utils",

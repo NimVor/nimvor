@@ -77,7 +77,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
     step('databases: Users tab (also from #db-users) and the user form');
 
     // ---- Security and FTP
-    for (const p of ['/security', '/security/firewall', '/security/ssh', '/security/fail2ban', '/security/policies', '/security/hulk', '/security/compilers', '/security/smtp', '/security/password-strength', '/security/forkbomb', '/security/traceroute', '/ftp']) {
+    for (const p of ['/security', '/security/firewall', '/security/ssh', '/security/fail2ban', '/security/policies', '/security/hulk', '/security/intrusion', '/security/compilers', '/security/smtp', '/security/password-strength', '/security/forkbomb', '/security/traceroute', '/ftp']) {
       const res = await page.goto(BASE + p);
       if (res.status() !== 200) { throw new Error(p + ' ' + res.status()); }
       if (p.startsWith('/security') && !(await page.$('[data-nim-section-menu="security"] a.active'))) { throw new Error(p + ': security menu'); }
@@ -93,7 +93,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
       await page.screenshot({ path: OUT + '/adminlists-' + shot + '.png', fullPage: true });
     }
     const items = await page.$$eval('[data-nim-section-menu="security"] a', (as) => as.map((a) => a.textContent.trim()));
-    const want = ['Overview', 'Firewall', 'SSH', 'Brute-force protection', 'Malware scan', 'File integrity', 'TLS audit', 'Vulnerability advisories', 'Shell access', 'ModSecurity', 'Configure Security Policies', 'Compiler Access', 'SMTP Restrictions', 'Outgoing Connections', 'Brute Force Protection', 'Password Strength Configuration', 'Shell Fork Bomb Protection', 'Traceroute Enable/Disable'];
+    const want = ['Overview', 'Firewall', 'SSH', 'Brute-force protection', 'Malware scan', 'File integrity', 'TLS audit', 'Vulnerability advisories', 'Shell access', 'ModSecurity', 'Configure Security Policies', 'Anti-Intrusion', 'Compiler Access', 'SMTP Restrictions', 'Outgoing Connections', 'Brute Force Protection', 'Password Strength Configuration', 'Shell Fork Bomb Protection', 'Traceroute Enable/Disable'];
     if (want.some((w, i) => items[i] !== w)) { throw new Error('security menu order: ' + items.join(', ')); }
     step('security menu in order: ' + items.join(', '));
     await page.goto(BASE + '/security/hulk#countries');

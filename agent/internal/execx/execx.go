@@ -254,6 +254,10 @@ var defaultCandidates = map[string][]string{
 	"make": {"/usr/bin/make"},
 	// SMTP restrictions: only NimVor's own table and rules file (checkArgs).
 	"nft": {"/usr/sbin/nft", "/sbin/nft"},
+	// Anti-intrusion: ACL entries that deny a program to an account, and
+	// loading NimVor's audit rules (checkArgs).
+	"setfacl":    {"/usr/bin/setfacl"},
+	"augenrules": {"/usr/sbin/augenrules", "/sbin/augenrules"},
 }
 
 // NftRulesFile, NftHulkFile and NftEgressFile are the only files nft may
@@ -276,6 +280,42 @@ func nftAllowed(args []string) bool {
 		"-c -f " + NftEgressFile, "-f " + NftEgressFile, "list table inet nimvor_egress", "delete table inet nimvor_egress",
 		"-c -f " + NftFloodFile, "list table inet nimvor_flood":
 		return true
+	}
+	return false
+}
+
+var setfaclUser = regexp.MustCompile(`^[a-z_][a-z0-9_.-]{0,31}\$?$`)
+
+// setfaclAllowed are the only setfacl command lines NimVor runs: deny one
+// account the use of one program ("-m u:NAME:--- /path"), or take that entry
+// away again ("-x u:NAME /path"). The path is absolute, without "..", and
+// in a system program directory.
+func setfaclAllowed(args []string) bool {
+	if len(args) != 3 || !strings.HasPrefix(args[1], "u:") {
+		return false
+	}
+	spec := strings.TrimPrefix(args[1], "u:")
+	switch args[0] {
+	case "-m":
+		if !strings.HasSuffix(spec, ":---") {
+			return false
+		}
+		spec = strings.TrimSuffix(spec, ":---")
+	case "-x":
+	default:
+		return false
+	}
+	if !setfaclUser.MatchString(spec) || spec == "root" {
+		return false
+	}
+	p := args[2]
+	if !filepath.IsAbs(p) || filepath.Clean(p) != p || strings.ContainsAny(p, "\x00\n\r") {
+		return false
+	}
+	for _, d := range []string{"/usr/", "/bin/", "/sbin/", "/opt/"} {
+		if strings.HasPrefix(p, d) {
+			return true
+		}
 	}
 	return false
 }
@@ -884,6 +924,12 @@ func checkArgs(id string, o Opts, args []string) error {
 	}
 	if id == "nft" && !nftAllowed(args) {
 		return fmt.Errorf("%w: nft %s", ErrNotAllowed, strings.Join(args, " "))
+	}
+	if id == "setfacl" && !setfaclAllowed(args) {
+		return fmt.Errorf("%w: setfacl %s", ErrNotAllowed, strings.Join(args, " "))
+	}
+	if id == "augenrules" && strings.Join(args, " ") != "--load" {
+		return fmt.Errorf("%w: augenrules %s", ErrNotAllowed, strings.Join(args, " "))
 	}
 	if len(o.Capabilities) > 0 {
 		if !PrivilegedCommands[id] || o.As != nil {

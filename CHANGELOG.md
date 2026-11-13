@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Anti-intrusion (Security → Anti-Intrusion).** Choose service accounts (`www-data`, `mysql`, `redis`, …) and website accounts and, for each, turn on **Log** (every program it starts, and every refused start, recorded through the audit system and shown on a Program log tab) and **Protection** (a **blacklist** of programs the account may not run, enforced with an ACL entry on each program file; every other program keeps working, so protected sites do not break). A master switch, a program blacklist with a list of suggested tools (`nc`, `nmap`, `tcpdump`, `strace`, …) and an operation log complete it. Turning anything off removes exactly what NimVor added; package updates and agent restarts re-apply it. New agent actions `intrusion.status`, `intrusion.executions`, `intrusion.configure` and `intrusion.blacklist`; `auditd` and `acl` are offered as installable components. See the administration guide for what a blacklist does and does not stop.
+
 ### Fixed
 
 - **Flaky real-host tests.** The SFTP and shell tests now reload sshd themselves on systemd hosts (their cleanup removed the drop-in without a reload, leaving a stale configuration for the next test), wait for sshd to accept connections again, and also retry on `Permission denied (publickey,password)`. The installer end-to-end test waits for the cron job's last output line instead of a non-empty file. The WordPress update test and the migration SSH test retry a dropped download or login. The integrity test no longer runs the slow whole-system package verification twice (it could take 23 minutes on a slow runner and hit the 30-minute limit); the real-host job's timeouts have more headroom.
