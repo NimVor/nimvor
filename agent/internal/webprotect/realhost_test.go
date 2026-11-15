@@ -370,6 +370,30 @@ http {
 		check(get, "limit with an allowed address", "/index.html", "a", 200)
 	}
 
+	// Countries: a denied one, an "allow only" one (private addresses are
+	// always served) and an allowed address beating a denied country.
+	countries := func(mode, from, to string) State {
+		site := &Site{AccessStatus: 404, Countries: &Countries{Mode: mode, Codes: []string{"XX"}}}
+		ps, err := RangePrefixes(from, to)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return State{Sites: map[string]*Site{"shop.test": site}, Geo: map[string][]string{"XX": ps}}
+	}
+	st = countries(CountryDeny, "127.0.0.0", "127.255.255.255")
+	get = run(st, 404)
+	check(get, "denied country", "/index.html", "a", 404)
+	check(get, "denied country: certificates", "/.well-known/acme-challenge/tok", "a", 200)
+	st.Sites["shop.test"].Access = []Access{{Kind: KindIP, Action: ActionAllow, Value: "127.0.0.1"}}
+	get = run(st, 404)
+	check(get, "allowed address in a denied country", "/index.html", "a", 200)
+	st = countries(CountryAllowOnly, "203.0.113.0", "203.0.113.255")
+	get = run(st, 404)
+	check(get, "allow only another country: private address", "/index.html", "a", 200)
+	st = countries(CountryAllowOnly, "127.0.0.0", "127.255.255.255")
+	get = run(st, 404)
+	check(get, "allow only this country", "/index.html", "a", 200)
+
 	// Only the server-wide list: a website with nothing of its own.
 	st = State{Global: []Access{{Kind: KindUA, Action: ActionDeny, Value: "scrapy"}}, Sites: map[string]*Site{}}
 	get = run(st, 403)

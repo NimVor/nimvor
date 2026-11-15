@@ -281,7 +281,7 @@ Administrators see the same cards through the cards/list switch on
 Opening a website shows its details (site user, root directory, IPv4,
 PHP handler and version, site and database size, SSL, last backup) and
 **Site managing**: tiles for FTP accounts, Files, Databases, Domains (DNS),
-SSL, Scheduler (cron), Mail, Backup copies, Site access (SFTP), Traffic protection, IP, browser & URL lists, Headers & cache, Settings,
+SSL, Scheduler (cron), Mail, Backup copies, Site access (SFTP), Traffic protection, IP, browser & URL lists, Country restrictions, Headers & cache, Settings,
 PHP settings, Redirects, Applications, Git, Workers, Redis, Logs, Statistics,
 Subdomains, Addon domains and Manual settings (Advanced), plus
 **Search…** (press `/`). *Delete the website* leads to the typed
@@ -527,6 +527,29 @@ created later receives the server-wide list when it is next saved.
 
 Visitors are matched by their address: behind a CDN or proxy every visitor has
 the proxy's address unless the real address is restored first.
+
+## Country restrictions (websites)
+
+A website's **Country restrictions** page refuses visitors from the countries you
+select, or serves only visitors from them. The country of an address comes from
+the DB-IP country database that Brute Force Protection keeps (monthly, CC BY 4.0;
+an administrator loads it under Security → Brute Force Protection → Countries
+Management). It is approximate: use it to cut unwanted traffic, not as a legal
+barrier.
+
+The panel sends each selected country's address ranges to the agent, which turns
+them into networks and an Nginx `geo` variable in the http-level
+`nimvor-00-protect.conf` (one variable for each distinct set of countries, shared
+by the websites that use it). It joins the website's lists: private and loopback
+addresses are always served, an address you *allow* in the IP, browser & URL
+lists is never refused, certificate renewal is never refused, and a refused
+visitor gets the answer chosen on the lists page (403, 404 or no answer). Every
+change is checked with `nginx -t` and rolled back if Nginx does not accept or
+reload it.
+
+"Serve only" also refuses addresses the database does not place in a selected
+country, crawlers from other countries included. The ranges are those of the
+database when you save: save again after it is updated to refresh them.
 
 ## Converting an addon domain into an account
 

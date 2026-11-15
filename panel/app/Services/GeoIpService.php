@@ -79,6 +79,27 @@ final class GeoIpService
     }
 
     /**
+     * Address ranges of each country, by code.
+     *
+     * @param list<string> $codes
+     * @return array<string, list<array{from: string, to: string}>>
+     */
+    public function rangesByCountry(array $codes): array
+    {
+        $out = [];
+        foreach ($codes as $c) {
+            $out[$c] = [];
+        }
+        if ($codes === []) {
+            return $out;
+        }
+        foreach ($this->db->fetchAll('SELECT start, end, country FROM geo_ranges WHERE country IN (' . implode(',', array_fill(0, count($codes), '?')) . ') ORDER BY start', $codes) as $r) {
+            $out[(string) $r['country']][] = ['from' => self::ip((string) $r['start']), 'to' => self::ip((string) $r['end'])];
+        }
+        return $out;
+    }
+
+    /**
      * Replace the database from a DB-IP CSV (optionally gzip-compressed):
      * "first,last,CC" per line. Returns the number of ranges.
      */
