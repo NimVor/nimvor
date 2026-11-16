@@ -6,6 +6,15 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Website: **step-by-step guides** in the blog, with a screenshot of the panel for each step: accounts and websites, DNS,
+  SSL and TLS, email, WordPress, backups, firewall, ModSecurity, Node.js and Python, cron jobs and workers, components,
+  server management and moving accounts from another panel. Blog posts can now show pictures from the site's own
+  `assets/blog` folder (nothing from other sites). The guides ship in `website/content/blog/` and are loaded with
+  `bin/site blog:import` or Admin → Blog → Load the guides; posts written or edited by hand are never overwritten.
+  Migration `0004_post_source` (with its SQL file for sites without a terminal).
+
 ## [1.8.0] — 2026-11-16
 
 Website protection grows: traffic limits, IP, browser and URL lists, country restrictions and a traffic report for every website, and Anti-Intrusion for the programs service and website accounts may run. Every change to the web server is checked with `nginx -t` and rolled back if Nginx refuses it.

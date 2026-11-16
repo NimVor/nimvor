@@ -160,6 +160,15 @@ final class AdminController extends Controller
         return $ctx->redirect('/admin/posts');
     }
 
+    /** Loads the guides that ship with the site (content/blog) into the blog. */
+    public function postImport(Ctx $ctx): Response
+    {
+        $r = $this->app->blogImporter->import(($ctx->req->post['replace'] ?? '') === '1');
+        $this->app->cache->delete('blog:list');
+        $ctx->flash('success', 'Guides loaded: ' . $r['added'] . ' added, ' . $r['updated'] . ' updated, ' . $r['kept'] . ' unchanged or kept as you edited them.');
+        return $ctx->redirect('/admin/posts');
+    }
+
     public function sponsors(Ctx $ctx): Response
     {
         return $ctx->render('admin/sponsors', ['sponsors' => $this->app->sponsors->all(), 'tiers' => Sponsors::TIERS, 'hasToken' => $this->app->github->hasToken()]);

@@ -18,6 +18,7 @@ use NimVorSite\Repositories\Installs;
 use NimVorSite\Repositories\Messages;
 use NimVorSite\Repositories\Posts;
 use NimVorSite\Repositories\Sponsors;
+use NimVorSite\Services\BlogImporter;
 use NimVorSite\Repositories\State;
 use NimVorSite\Repositories\Users;
 use NimVorSite\Repositories\Visits;
@@ -39,6 +40,7 @@ final class App
     public readonly Messages $messages;
     public readonly BuildRequests $requests;
     public readonly Sponsors $sponsors;
+    public readonly BlogImporter $blogImporter;
     public readonly Visits $visits;
     public readonly RateLimiter $limiter;
     public readonly Reports $reports;
@@ -60,6 +62,7 @@ final class App
         $this->users = new Users($db);
         $this->posts = new Posts($db);
         $this->messages = new Messages($db);
+        $this->blogImporter = new BlogImporter($this->posts, $root . '/content/blog');
         $this->requests = new BuildRequests($db);
         $this->sponsors = new Sponsors($db);
         $this->visits = new Visits($db);
@@ -170,6 +173,7 @@ final class App
         $r->add('GET', '/admin/requests', [$m, 'requests'], 'admin');
         $r->add('POST', '/admin/requests/{id}/status', [$m, 'requestStatus'], 'admin');
         $r->add('GET', '/admin/posts', [$m, 'posts'], 'admin');
+        $r->add('POST', '/admin/posts/import', [$m, 'postImport'], 'admin');
         $r->add('GET', '/admin/posts/new', [$m, 'postForm'], 'admin');
         $r->add('POST', '/admin/posts/new', [$m, 'postSave'], 'admin');
         $r->add('GET', '/admin/posts/{id}/edit', [$m, 'postForm'], 'admin');

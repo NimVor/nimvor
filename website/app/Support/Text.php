@@ -7,7 +7,10 @@ namespace NimVorSite\Support;
 /**
  * Turns an author's plain text into safe HTML. Everything is escaped first; the
  * only markup is "## " and "### " headings, "- " lists, `code`, **bold** and
- * [text](https://…) links.
+ * [text](https://…) links, and a picture on a line of its own:
+ * ![what it shows](/assets/blog/<folder>/<name>.jpg). Only pictures kept in the
+ * site's own assets/blog folder are accepted, so a post can never load an image
+ * from another site.
  */
 final class Text
 {
@@ -20,7 +23,9 @@ final class Text
             if ($block === '') {
                 continue;
             }
-            if (str_starts_with($block, '### ')) {
+            if (preg_match('#^!\[([^\]\n]{1,200})\]\((/assets/blog/[a-z0-9][a-z0-9/_-]*\.(?:jpg|png|webp))\)$#', $block, $m) === 1) {
+                $out .= '<figure class="shot"><img src="' . e($m[2]) . '" alt="' . e($m[1]) . '" width="1280" height="720" loading="lazy"><figcaption>' . e($m[1]) . '</figcaption></figure>';
+            } elseif (str_starts_with($block, '### ')) {
                 $out .= '<h3>' . self::inline(substr($block, 4)) . '</h3>';
             } elseif (str_starts_with($block, '## ')) {
                 $out .= '<h2>' . self::inline(substr($block, 3)) . '</h2>';

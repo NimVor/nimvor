@@ -571,3 +571,8 @@ a.row-cell:hover .arrow { transform: translateX(6px); }
 .section-sage a.link-arrow { color: var(--ink); }
 .hero .eyebrow, .page-head .eyebrow { color: var(--ink); }
 .prose-card .install code, .install code { background: none; color: #bff2d2; }
+
+/* Pictures in blog posts */
+.prose figure.shot { margin: 1.4em 0; border: 1px solid var(--line); background: #fff; }
+.prose figure.shot img { display: block; width: 100%; height: auto; }
+.prose figure.shot figcaption { padding: 8px 14px; font-size: .85rem; color: var(--muted); border-top: 1px solid var(--line); }
