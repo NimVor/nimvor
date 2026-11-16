@@ -964,6 +964,12 @@ final class MigrationsTest extends HttpTestCase
         self::assertSame(0, $this->calls('migrate.archive_extract'));
 
         $this->agent->succeed('migrate.archive_extract', ['job_id' => 'aaaaaaaaaaaaaaaa']);
+        // DirectAdmin and HestiaCP / VestaCP backups have their own file names.
+        foreach (['/root/user.admin.alice.tar.gz', '/home/backup/alice.2026-01-02_03-04-05.tar'] as $other) {
+            $this->post("/migrations/{$id}/archive", ['path' => $other]);
+            self::assertSame($other, $this->lastCall('migrate.archive_extract')['path']);
+            $this->db->run("UPDATE site_migrations SET status = 'draft', job_id = '' WHERE id = ?", [$id]);
+        }
         $this->post("/migrations/{$id}/archive", ['archive' => '/root/cpmove-alice.tar.gz']);
         self::assertSame('/root/cpmove-alice.tar.gz', $this->lastCall('migrate.archive_extract')['path']);
         self::assertSame('discovering', $this->db->scalar('SELECT status FROM site_migrations WHERE id = ?', [$id]));
