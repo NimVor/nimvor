@@ -35,6 +35,12 @@ $config = [
     ],
     // Fetch the documentation from GitHub on a visit when it is missing or older than six hours.
     'docs_auto_sync' => $env('DOCS_AUTO_SYNC', '1') === '1',
+    // Uploaded videos live outside the web root. PHP's own upload_max_filesize and post_max_size
+    // must be at least as large as max_mb (see the README).
+    'videos' => [
+        'dir' => $env('VIDEO_DIR', dirname(__DIR__) . '/storage/videos'),
+        'max_mb' => (int) $env('VIDEO_MAX_MB', '500'),
+    ],
     'session_ttl' => (int) $env('SESSION_TTL', '7200'),
     'trusted_proxy' => $env('TRUSTED_PROXY', '127.0.0.1'),
 ];

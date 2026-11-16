@@ -20,6 +20,8 @@ final class Request
         public readonly array $cookies = [],
         public readonly array $server = [],
         public readonly string $body = '',
+        /** @var array<string, mixed> uploaded files ($_FILES) */
+        public readonly array $files = [],
     ) {
     }
 
@@ -27,7 +29,7 @@ final class Request
     {
         $uri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
         $path = rawurldecode((string) parse_url($uri, PHP_URL_PATH));
-        return new self(strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')), $path === '' ? '/' : $path, $_GET, $_POST, $_COOKIE, array_map('strval', array_filter($_SERVER, 'is_scalar')), (string) file_get_contents('php://input', false, null, 0, 4097));
+        return new self(strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')), $path === '' ? '/' : $path, $_GET, $_POST, $_COOKIE, array_map('strval', array_filter($_SERVER, 'is_scalar')), (string) file_get_contents('php://input', false, null, 0, 4097), $_FILES);
     }
 
     public function input(string $key, string $default = ''): string
