@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.8.0] — 2026-11-16
+
+Website protection grows: traffic limits, IP, browser and URL lists, country restrictions and a traffic report for every website, and Anti-Intrusion for the programs service and website accounts may run. Every change to the web server is checked with `nginx -t` and rolled back if Nginx refuses it.
+
 ### Added
 
 - **Traffic report per website (Websites → Traffic report).** Requests per hour, refused or limited requests (403, 429, 444), the busiest and most refused addresses and URLs, browsers most refused, a country ranking and ModSecurity's latest events, for 24 hours, 3 or 7 days, with a Deny button for an address. New read-only agent action `webreport.site` (the website's own access log, query strings dropped).
@@ -16,6 +20,7 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Fixed
 
+- **A built agent binary was in the repository.** `agent/nimvor-agent` (27 MB) was committed with 1.7.0 by mistake; it is removed and ignored. Release builds are unchanged (`make build` writes `dist/`).
 - **Flaky real-host tests.** The SFTP and shell tests now reload sshd themselves on systemd hosts (their cleanup removed the drop-in without a reload, leaving a stale configuration for the next test), wait for sshd to accept connections again, and also retry on `Permission denied (publickey,password)`. The installer end-to-end test waits for the cron job's last output line instead of a non-empty file. The WordPress update test and the migration SSH test retry a dropped download or login. The integrity test no longer runs the slow whole-system package verification twice (it could take 23 minutes on a slow runner and hit the 30-minute limit); the real-host job's timeouts have more headroom.
 
 ## [1.7.0] — 2026-11-12
