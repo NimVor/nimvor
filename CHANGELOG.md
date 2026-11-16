@@ -8,6 +8,13 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Added
 
+- Website: **step-by-step guides** in the blog, with a screenshot of the panel for each step: accounts and websites, DNS,
+  SSL and TLS, email, WordPress, backups, firewall, ModSecurity, Node.js and Python, cron jobs and workers, components,
+  server management and moving accounts from another panel. Blog posts can now show pictures from the site's own
+  `assets/blog` folder (nothing from other sites). The guides ship in `website/content/blog/` and are loaded with
+  `bin/site blog:import` or Admin → Blog → Load the guides; posts written or edited by hand are never overwritten.
+  Migration `0004_post_source` (with its SQL file for sites without a terminal).
+
 - Website: a **Videos** section. Administrators add videos under Admin → Videos, either as a YouTube link (embedded with
   `youtube-nocookie.com`, the only frame host the Content-Security-Policy allows) or as an uploaded MP4/WebM with an
   optional cover picture (checked by content, stored outside the web root, served with range support). Public list by

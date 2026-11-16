@@ -5,7 +5,7 @@ $v->layout('layouts/app');
 $v->share('area', 'admin');
 $v->set('title', 'Blog');
 ?>
-<div class="app-top"><div><h1>Blog</h1><p class="muted mb-0">Posts appear on the public blog once they are published.</p></div><a class="btn btn-primary" href="/admin/posts/new">New post</a></div>
+<div class="app-top"><div><h1>Blog</h1><p class="muted mb-0">Posts appear on the public blog once they are published.</p></div><div class="cta-row"><form class="inline-form" method="post" action="/admin/posts/import" data-once><?= $v->csrf() ?><button class="btn btn-outline" type="submit" title="Adds or updates the step-by-step guides that come with the site. Posts you wrote or edited are left alone.">Load the guides</button></form><a class="btn btn-primary" href="/admin/posts/new">New post</a></div></div>
 <?php if ($posts === []): ?><div class="panel empty">No posts yet.</div><?php else: ?>
 <div class="table-wrap"><table class="data"><thead><tr><th>Title</th><th>Status</th><th>Published</th><th>Updated</th><th></th></tr></thead><tbody>
     <?php foreach ($posts as $p): ?>

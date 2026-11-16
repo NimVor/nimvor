@@ -16,6 +16,7 @@ server with neither). No framework, no build step, no external fonts or scripts.
 |------|--------------|
 | Public pages | Server-rendered, original editorial design (cream and sage paper, a deep-green section, one orange accent, oversized headlines, hairline rules), works on phones. Fonts (Inter, Inter Tight, IBM Plex Mono, SIL OFL) are served from `public/assets/fonts`, with their licences. Pages that do not depend on who you are are cacheable and set no cookie. |
 | Blog | Posts in the database, written under Admin, drafts, a small safe text format (headings, lists, bold, code, https links). |
+| Step-by-step guides | Blog posts with screenshots of the panel for each step (DNS, SSL, email, WordPress, backups, firewall, ModSecurity, runtimes, cron and workers, components, server management, migrations, accounts and websites). They ship with the site in `content/blog/` and are loaded with `php bin/site blog:import` or **Admin → Blog → Load the guides**. |
 | Contact and build services | Forms stored in the database, with a hidden field for bots and a per-address limit. |
 | Sponsors | Added and removed by an administrator. |
 | Accounts | Register, sign in, sign out, change name and password. Argon2id, sign-in throttling, session id renewed at sign-in. |
@@ -60,6 +61,23 @@ php -S 127.0.0.1:8099 -t public public/index.php
 | `SESSION_TTL` | `7200` | Seconds a session lasts |
 | `TRUSTED_PROXY` | `127.0.0.1` | The only address whose `X-Forwarded-For` and `X-Forwarded-Proto` are believed |
 | `SITE_CONFIG` | none | A PHP file (outside the web root) returning an array that overrides the settings |
+
+## Guides in the blog
+
+The blog can show pictures. A post puts one on a line of its own, `![what it shows](/assets/blog/<folder>/<name>.jpg)`, and only files in the site's own `public/assets/blog/` folder are accepted (never another site: the Content-Security-Policy would block it, and the text formatter refuses it first). Each picture is shown with its description as a caption.
+
+The step-by-step guides live in `content/blog/*.md`, one file per post, starting with a small header:
+
+```
+---
+title: Configure the firewall
+slug: configure-the-firewall
+excerpt: One sentence for the blog list and search results.
+date: 2026-11-10
+---
+```
+
+`php bin/site blog:import` (or **Admin → Blog → Load the guides**, for a site without a terminal) adds the posts that are missing and updates the ones whose file changed. A post you wrote or edited under Admin is never overwritten (`--replace` does that on purpose). The pictures are screenshots of the panel on a demo server with sample data; to retake them, run the panel in development mode (`scripts/dev.sh`) and replace the files, keeping their names. A site upgraded without a terminal imports `database/sql/0004_post_source.sql`.
 
 ## Videos
 
