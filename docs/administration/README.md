@@ -281,7 +281,7 @@ Administrators see the same cards through the cards/list switch on
 Opening a website shows its details (site user, root directory, IPv4,
 PHP handler and version, site and database size, SSL, last backup) and
 **Site managing**: tiles for FTP accounts, Files, Databases, Domains (DNS),
-SSL, Scheduler (cron), Mail, Backup copies, Site access (SFTP), Traffic protection, IP, browser & URL lists, Country restrictions, Headers & cache, Settings,
+SSL, Scheduler (cron), Mail, Backup copies, Site access (SFTP), Traffic protection, IP, browser & URL lists, Country restrictions, Traffic report, Headers & cache, Settings,
 PHP settings, Redirects, Applications, Git, Workers, Redis, Logs, Statistics,
 Subdomains, Addon domains and Manual settings (Advanced), plus
 **Search…** (press `/`). *Delete the website* leads to the typed
@@ -550,6 +550,27 @@ reload it.
 "Serve only" also refuses addresses the database does not place in a selected
 country, crawlers from other countries included. The ranges are those of the
 database when you save: save again after it is updated to refresh them.
+
+## Traffic report (websites)
+
+A website's **Traffic report** page summarises its access log for the last 24
+hours, 3 days or 7 days: requests per hour (with the refused ones in red), the
+number of refused or limited requests (answers 403, 429 and 444, shown apart:
+traffic limit, connection closed, forbidden), the busiest and the most refused
+addresses and URLs, the browsers most refused, a country ranking of the
+addresses (from the DB-IP database Brute Force Protection keeps) and what
+ModSecurity caught for the website (its latest 500 events: addresses, rules and
+URLs). A **Deny** button next to a refused address adds it to the website's
+IP, browser & URL lists.
+
+The agent action `webreport.site` only reads the website's own
+`logs/access.log` (the newest 48 MiB of it; a larger log is flagged as
+partial), never writes, drops query strings (they can carry tokens) and keeps
+the lists bounded. A 403 can also be a file the web server may not read, so a
+surprising number deserves a look at the URL list. Addresses are those Nginx
+sees: behind a CDN or proxy every visitor has the proxy's address unless the
+real address is restored first. There is no world map; countries are ranked
+in a table.
 
 ## Converting an addon domain into an account
 
