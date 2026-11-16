@@ -89,4 +89,25 @@ final class BlogGuidesTest extends SiteTestCase
         $this->cookies = [];
         self::assertContains($this->post('/admin/posts/import')->status, [303, 403, 419]);
     }
+
+    public function testEveryShippedGuideIsValidAndItsPicturesExist(): void
+    {
+        $files = glob(dirname(__DIR__, 2) . '/content/blog/*.md') ?: [];
+        self::assertGreaterThanOrEqual(13, count($files));
+        $slugs = [];
+        foreach ($files as $f) {
+            $g = BlogImporter::parse((string) file_get_contents($f));
+            self::assertNotNull($g, basename($f));
+            self::assertSame(basename($f, '.md'), $g['slug'], 'the file name is the slug');
+            self::assertArrayNotHasKey($g['slug'], $slugs);
+            $slugs[$g['slug']] = true;
+            self::assertMatchesRegularExpression('/\n## Step 1/', $g['body'], $g['slug']);
+            preg_match_all('#!\[[^\]]+\]\((/assets/blog/[^)]+)\)#', $g['body'], $m);
+            self::assertNotSame([], $m[1], $g['slug'] . ' has no pictures');
+            foreach ($m[1] as $img) {
+                self::assertFileExists(dirname(__DIR__, 2) . '/public' . $img, $g['slug']);
+            }
+            self::assertStringContainsString('<img', Text::html($g['body']));
+        }
+    }
 }
