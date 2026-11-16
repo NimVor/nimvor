@@ -1,5 +1,6 @@
 # Build output
 /dist/
+/agent/nimvor-agent
 /.dev/
 
 # PHP
