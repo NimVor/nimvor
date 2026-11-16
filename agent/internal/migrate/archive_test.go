@@ -255,7 +255,7 @@ func TestArchivePathsAndSourcesAreValidated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := DiscoverArchive(h.Env, id, nil); err == nil || !strings.Contains(err.Error(), "not a cPanel account backup") {
+	if _, err := DiscoverArchive(h.Env, id, nil); err == nil || !strings.Contains(err.Error(), "not a backup NimVor can read") {
 		t.Errorf("err = %v", err)
 	}
 	for _, s := range []Source{{Archive: "../x"}, {Archive: "0123456789abcdef", Host: "x.example.com"}, {Archive: "0123456789abcdef", Password: "p"}} {
@@ -269,5 +269,188 @@ func TestArchivePathsAndSourcesAreValidated(t *testing.T) {
 	}
 	if _, err := Lookup("cpmove"); err != nil {
 		t.Error(err)
+	}
+}
+
+func gzText(t *testing.T, s string) string {
+	t.Helper()
+	var b bytes.Buffer
+	zw := gzip.NewWriter(&b)
+	zw.Write([]byte(s))
+	zw.Close()
+	return b.String()
+}
+
+// tarGzBytes builds an inner archive for a HestiaCP-style backup.
+func tarGzBytes(t *testing.T, entries []tarEntry) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "inner.tar.gz")
+	writeTarGz(t, p, entries)
+	b, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+
+func TestADirectAdminBackupIsUnpackedAndDescribed(t *testing.T) {
+	h := testhost.New(t)
+	real, _ := h.Env.Root.Path("/root/user.admin.shop.tar.gz")
+	writeTarGz(t, real, []tarEntry{
+		{name: "backup/user.conf", body: "username=shop\ndomain=shop-site.com\n"},
+		{name: "backup/shop-site.com/subdomain.list", body: "blog\nBad_Name\n"},
+		{name: "backup/shop-site.com/email/passwd", body: "info:$1$hash\n"},
+		{name: "backup/shop-site.com/email/aliases", body: "sales: info@shop-site.com, x@example.org\n"},
+		{name: "backup/shop-site.com/shop-site.com.db", body: "$ORIGIN shop-site.com.\n@ 3600 IN MX 10 mail.shop-site.com.\n"},
+		{name: "backup/shop_wp.sql", body: cpmoveDump},
+		{name: "backup/mysql.sql", body: "grants"},
+		{name: "backup/crontab.conf", body: "*/10 * * * * php /home/shop/domains/shop-site.com/public_html/c.php\n"},
+		{name: "domains/shop-site.com/public_html/index.php", body: "<?php echo 1;"},
+		{name: "domains/shop-site.com/public_html/blog/index.php", body: "<?php echo 2;"},
+		{name: "imap/shop-site.com/info/Maildir/cur/1.msg", body: "Subject: hi\n"},
+	})
+	list := ListArchives(h.Env)
+	if len(list) != 1 || list[0].Name != "user.admin.shop.tar.gz" {
+		t.Fatalf("list = %+v", list)
+	}
+	id, err := ExtractArchive(context.Background(), h.Env, "/root/user.admin.shop.tar.gz", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := DiscoverArchive(h.Env, id, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir, _ := archiveDir(h.Env, id)
+	a := d.Accounts[0]
+	if a.ID != "shop" || len(a.Domains) != 2 || a.Domains[0].Name != "shop-site.com" || a.Domains[0].Kind != "main" || a.Domains[1].Name != "blog.shop-site.com" || a.Domains[1].Kind != "sub" {
+		t.Fatalf("domains = %+v", a.Domains)
+	}
+	if want := filepath.Join(dir, "domains", "shop-site.com", "public_html"); a.Domains[0].DocRoot != want {
+		t.Errorf("docroot = %q", a.Domains[0].DocRoot)
+	}
+	if len(a.Databases) != 1 || a.Databases[0].Name != "shop_wp" {
+		t.Errorf("databases = %+v", a.Databases)
+	}
+	if len(a.Email) != 1 || a.Email[0].Address != "info@shop-site.com" || !strings.HasSuffix(a.Email[0].Maildir, "info/Maildir") || a.Email[0].SizeKB < 1 {
+		t.Errorf("mail = %+v", a.Email)
+	}
+	if len(a.Forwarders) != 1 || a.Forwarders[0].Source != "sales@shop-site.com" || len(a.Forwarders[0].Destinations) != 2 {
+		t.Errorf("forwarders = %+v", a.Forwarders)
+	}
+	if len(a.Cron) != 1 {
+		t.Errorf("cron = %+v", a.Cron)
+	}
+	if z, err := ArchiveZone(h.Env, id, "shop-site.com"); err != nil || !strings.Contains(z, "MX 10") {
+		t.Errorf("zone = %q %v", z, err)
+	}
+	p, err := newArchivePuller(h.Env, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	if _, err := p.Exec(context.Background(), "sh -c "+Shq("mysqldump -- 'shop_wp' | gzip -c"), &out); err != nil {
+		t.Fatal(err)
+	}
+	zr, _ := gzip.NewReader(&out)
+	if body, _ := io.ReadAll(zr); string(body) != cpmoveDump {
+		t.Errorf("dump = %q", body)
+	}
+	if _, err := p.Exec(context.Background(), "sh -c "+Shq("mysqldump -- 'mysql' | gzip -c"), io.Discard); err != nil {
+		t.Logf("the grants dump is not offered as a database, as expected: %v", err)
+	}
+}
+
+func hestiaEntries(t *testing.T) []tarEntry {
+	return []tarEntry{
+		{name: "./pam/passwd", body: "kate:x:1001:1001::/home/kate:/bin/bash\n"},
+		{name: "./user.conf", body: "USER='kate'\n"},
+		{name: "./web/kate-shop.com/domain_data.tar.gz", body: tarGzBytes(t, []tarEntry{
+			{name: "public_html/index.php", body: "<?php echo 1;"},
+			{name: "public_html/../../evil", body: "x"},
+		})},
+		{name: "./mail/kate-shop.com/mail_data.tar.gz", body: tarGzBytes(t, []tarEntry{
+			{name: "hello/cur/1.msg", body: "Subject: hi\n"},
+			{name: "bob/cur/1.msg", body: "Subject: yo\n"},
+		})},
+		{name: "./mail/kate-shop.com/hestia/mail.conf", body: "ACCOUNT='hello' FWD='kate@example.org' ALIAS='hi'\n"},
+		{name: "./db/kate_wp/kate_wp.mysql.sql.gz", body: gzText(t, cpmoveDump)},
+		{name: "./db/kate_pg/kate_pg.pgsql.sql.gz", body: gzText(t, "x")},
+		{name: "./cron/cron.conf", body: "JOB='1' MIN='*/5' HOUR='*' DAY='*' MONTH='*' WDAY='*' CMD='php /home/kate/web/kate-shop.com/public_html/c.php' SUSPENDED='no'\nJOB='2' MIN='0' HOUR='3' DAY='*' MONTH='*' WDAY='*' CMD='off' SUSPENDED='yes'\n"},
+	}
+}
+
+func TestAHestiaBackupIsUnpackedAndDescribed(t *testing.T) {
+	h := testhost.New(t)
+	// The inner archive with a path that leaves its folder must stop the unpacking.
+	real, _ := h.Env.Root.Path("/root/kate.2026-01-02_03-04-05.tar")
+	entries := hestiaEntries(t)
+	writeTarGz(t, real, entries)
+	if _, err := ExtractArchive(context.Background(), h.Env, "/root/kate.2026-01-02_03-04-05.tar", nil); err == nil {
+		t.Fatal("an inner archive that leaves its folder was unpacked")
+	}
+	// Without the hostile entry it is unpacked and described.
+	entries[2].body = tarGzBytes(t, []tarEntry{{name: "public_html/index.php", body: "<?php echo 1;"}})
+	writeTarGz(t, real, entries)
+	if l := ListArchives(h.Env); len(l) != 1 {
+		t.Fatalf("list = %+v", l)
+	}
+	id, err := ExtractArchive(context.Background(), h.Env, "/root/kate.2026-01-02_03-04-05.tar", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := DiscoverArchive(h.Env, id, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir, _ := archiveDir(h.Env, id)
+	a := d.Accounts[0]
+	if a.ID != "kate" || len(a.Domains) != 1 || a.Domains[0].DocRoot != filepath.Join(dir, "web", "kate-shop.com", "data", "public_html") || a.Domains[0].SizeKB < 1 {
+		t.Fatalf("domains = %+v", a.Domains)
+	}
+	if len(a.Databases) != 1 || a.Databases[0].Name != "kate_wp" {
+		t.Errorf("databases = %+v", a.Databases)
+	}
+	if len(a.Email) != 2 {
+		t.Fatalf("mail = %+v", a.Email)
+	}
+	for _, m := range a.Email {
+		if !strings.HasPrefix(m.Maildir, filepath.Join(dir, "mail", "kate-shop.com", "data")) || m.SizeKB < 1 {
+			t.Errorf("mailbox = %+v", m)
+		}
+	}
+	if len(a.Forwarders) != 2 {
+		t.Errorf("forwarders = %+v", a.Forwarders)
+	}
+	if len(a.Cron) != 1 || a.Cron[0].Schedule != "*/5 * * * *" {
+		t.Errorf("cron = %+v", a.Cron)
+	}
+	var warned bool
+	for _, w := range d.Warnings {
+		warned = warned || strings.Contains(w, "kate_pg")
+	}
+	if !warned {
+		t.Errorf("warnings = %v", d.Warnings)
+	}
+	p, err := newArchivePuller(h.Env, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	if _, err := p.Exec(context.Background(), "sh -c "+Shq("mysqldump -- 'kate_wp' | gzip -c"), &out); err != nil {
+		t.Fatal(err)
+	}
+	zr, err := gzip.NewReader(&out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if body, _ := io.ReadAll(zr); string(body) != cpmoveDump {
+		t.Errorf("dump = %q", body)
+	}
+	if n, err := p.Exec(context.Background(), "sh -c "+Shq("mysql -N -e "+Shq("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'kate_wp'")), nil); err != nil || strings.TrimSpace(n) != "2" {
+		t.Errorf("tables = %q %v", n, err)
+	}
+	if _, err := ArchiveZone(h.Env, id, "kate-shop.com"); err == nil {
+		t.Error("a zone was returned from a backup that keeps none as a zone file")
 	}
 }

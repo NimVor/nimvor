@@ -19,9 +19,15 @@ func readCrontab(ctx context.Context, t Transport, user string) []CronJob {
 	if err != nil {
 		return nil
 	}
+	return crontabJobs(out)
+}
+
+// crontabJobs reads the customer's jobs from the text of a crontab: comments, settings and the panel's own
+// housekeeping lines are left out.
+func crontabJobs(text string) []CronJob {
 	var jobs []CronJob
 	seen := map[CronJob]bool{}
-	for _, l := range strings.Split(strings.ReplaceAll(out, "\r", ""), "\n") {
+	for _, l := range strings.Split(strings.ReplaceAll(text, "\r", ""), "\n") {
 		j, ok := parseCron(l)
 		if !ok || seen[j] || len(j.Command) > 2000 {
 			continue

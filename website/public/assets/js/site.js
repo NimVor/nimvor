@@ -33,6 +33,20 @@
         }
     });
 
+    // Add-video form: show the YouTube field or the file fields, whichever is chosen.
+    var sources = document.querySelectorAll('[data-video-source]');
+    if (sources.length) {
+        var showPane = function () {
+            var chosen = document.querySelector('[data-video-source]:checked');
+            var which = chosen ? chosen.value : 'youtube';
+            document.querySelectorAll('[data-video-pane]').forEach(function (pane) {
+                pane.hidden = pane.getAttribute('data-video-pane') !== which;
+            });
+        };
+        sources.forEach(function (r) { r.addEventListener('change', showPane); });
+        showPane();
+    }
+
     // Copy buttons: data-copy holds the text, or data-copy-target names the element to copy.
     document.querySelectorAll('[data-copy]').forEach(function (btn) {
         btn.addEventListener('click', function () {

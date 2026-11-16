@@ -15,6 +15,18 @@ All notable changes to NimVor are documented here. The format follows
   `bin/site blog:import` or Admin → Blog → Load the guides; posts written or edited by hand are never overwritten.
   Migration `0004_post_source` (with its SQL file for sites without a terminal).
 
+- Website: a **Videos** section. Administrators add videos under Admin → Videos, either as a YouTube link (embedded with
+  `youtube-nocookie.com`, the only frame host the Content-Security-Policy allows) or as an uploaded MP4/WebM with an
+  optional cover picture (checked by content, stored outside the web root, served with range support). Public list by
+  category at `/resources/videos`, one page per video, drafts, edit, hide and delete (which deletes the files), sitemap
+  entries and a privacy-policy paragraph. Migration `0003_videos` (with its SQL file for sites without a terminal).
+
+- Migration: backup archives of **DirectAdmin** (`user.RESELLER.USER.tar.gz`) and **HestiaCP / VestaCP**
+  (`USER.DATE.tar`) can be imported like the cPanel `cpmove` file, without any SSH login. The panel that made the
+  backup is recognised after unpacking; websites, databases, mailboxes, forwarders and cron jobs are described and
+  copied by the same engine. Inner archives (Hestia's per-domain files and mail) are opened with the same path
+  confinement. Experimental, tested on synthetic backups.
+
 ## [1.8.0] — 2026-11-16
 
 Website protection grows: traffic limits, IP, browser and URL lists, country restrictions and a traffic report for every website, and Anti-Intrusion for the programs service and website accounts may run. Every change to the web server is checked with `nginx -t` and rolled back if Nginx refuses it.

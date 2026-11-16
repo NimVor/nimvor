@@ -32,7 +32,7 @@ final class SetupTest extends TestCase
         $this->cookies = [];
         $db = new \NimVorSite\Core\Db($this->dbConfig());
         $db->run('SET FOREIGN_KEY_CHECKS = 0');
-        foreach (['visits', 'sponsors', 'build_requests', 'contact_messages', 'posts', 'users', 'docs_pages', 'installs', 'site_state', 'migrations'] as $t) {
+        foreach (['videos', 'visits', 'sponsors', 'build_requests', 'contact_messages', 'posts', 'users', 'docs_pages', 'installs', 'site_state', 'migrations'] as $t) {
             $db->run("DROP TABLE IF EXISTS {$t}");
         }
         $db->run('SET FOREIGN_KEY_CHECKS = 1');

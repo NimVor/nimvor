@@ -113,6 +113,51 @@ final class PageController extends Controller
         return $ctx->redirect($ctx->user() === null ? '/resources/build-services' : '/account/requests');
     }
 
+    public function videos(Ctx $ctx): Response
+    {
+        $list = $this->app->cache->get('videos:list');
+        if (!is_array($list)) {
+            $list = $this->app->videos->published();
+            $this->app->cache->set('videos:list', $list, 300);
+        }
+        $groups = [];
+        foreach ($list as $row) {
+            $groups[(string) $row['category']][] = $row;
+        }
+        return $ctx->render('pages/videos', ['groups' => $groups, 'total' => count($list)]);
+    }
+
+    /** @param array<string, string> $params */
+    public function video(Ctx $ctx, array $params): Response
+    {
+        $video = $this->app->videos->bySlug($params['slug'] ?? '');
+        if ($video === null) {
+            return $this->app->error($ctx, 404);
+        }
+        $more = array_values(array_filter($this->app->videos->published(), static fn (array $r): bool => $r['id'] !== $video['id']));
+        usort($more, static fn (array $a, array $b): int => [$a['category'] !== $video['category'], $a['sort_order']] <=> [$b['category'] !== $video['category'], $b['sort_order']]);
+        return $ctx->render('pages/video', ['video' => $video, 'more' => array_slice($more, 0, 4)]);
+    }
+
+    /**
+     * An uploaded video or cover picture. Only files that belong to a video are served, an unpublished
+     * video's only to an administrator, and a browser can ask for part of a file (seeking).
+     *
+     * @param array<string, string> $params
+     */
+    public function videoFile(Ctx $ctx, array $params): Response
+    {
+        $name = $params['file'] ?? '';
+        $path = $this->app->videoStore->path($name);
+        $row = $path === null ? null : $this->app->videos->byFile($name);
+        if ($path === null || $row === null || ((int) $row['published'] !== 1 && !$ctx->auth->isAdmin())) {
+            return $this->app->error($ctx, 404);
+        }
+        $types = ['mp4' => 'video/mp4', 'webm' => 'video/webm', 'jpg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp'];
+        $unpublished = (int) $row['published'] !== 1;
+        return Response::file($path, $types[pathinfo($name, PATHINFO_EXTENSION)], $ctx->req->server['HTTP_RANGE'] ?? '', $unpublished ? 'private, no-store' : 'public, max-age=86400');
+    }
+
     public function sponsors(Ctx $ctx): Response
     {
         $list = $this->app->cache->get('sponsors:list');
@@ -175,9 +220,12 @@ final class PageController extends Controller
     public function sitemap(Ctx $ctx): Response
     {
         $base = (string) $this->app->config['url'];
-        $paths = ['/', '/features', '/get-started', '/resources', '/resources/documentation', '/resources/blog', '/resources/community', '/resources/build-services', '/resources/sponsors', '/resources/problems', '/resources/stats', '/docs', '/resources/about', '/support', '/support/contact', '/support/privacy'];
+        $paths = ['/', '/features', '/get-started', '/resources', '/resources/documentation', '/resources/blog', '/resources/community', '/resources/build-services', '/resources/sponsors', '/resources/videos', '/resources/problems', '/resources/stats', '/docs', '/resources/about', '/support', '/support/contact', '/support/privacy'];
         foreach ($this->posts() as $p) {
             $paths[] = '/resources/blog/' . $p['slug'];
+        }
+        foreach ($this->app->videos->published() as $vid) {
+            $paths[] = '/resources/videos/' . $vid['slug'];
         }
         foreach ($this->app->docs->menu() as $d) {
             if ($d['slug'] !== 'index') {

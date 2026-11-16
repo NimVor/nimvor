@@ -38,6 +38,7 @@ abstract class SiteTestCase extends TestCase
                 'memcached' => ['host' => '127.0.0.1', 'port' => 11211],
                 'file_dir' => sys_get_temp_dir() . '/nimvor-site-test-' . bin2hex(random_bytes(4)),
             ],
+            'videos' => ['dir' => sys_get_temp_dir() . '/nimvor-videos-' . bin2hex(random_bytes(4)), 'max_mb' => 1, 'move' => static fn (string $from, string $to): bool => copy($from, $to)],
             'session_ttl' => 600,
             'trusted_proxy' => '127.0.0.1',
         ];
@@ -45,14 +46,14 @@ abstract class SiteTestCase extends TestCase
         $this->app = App::boot($config, dirname(__DIR__, 2), $this->http);
         $db = $this->app->db;
         if (!self::$schema) {
-            foreach (['visits', 'sponsors', 'build_requests', 'contact_messages', 'posts', 'users', 'docs_pages', 'installs', 'site_state', 'migrations'] as $t) {
+            foreach (['videos', 'visits', 'sponsors', 'build_requests', 'contact_messages', 'posts', 'users', 'docs_pages', 'installs', 'site_state', 'migrations'] as $t) {
                 $db->run("DROP TABLE IF EXISTS {$t}");
             }
             $db->migrate(dirname(__DIR__, 2) . '/database/migrations');
             self::$schema = true;
         }
         $db->run('SET FOREIGN_KEY_CHECKS = 0');
-        foreach (['visits', 'sponsors', 'build_requests', 'contact_messages', 'posts', 'users', 'docs_pages', 'installs', 'site_state'] as $t) {
+        foreach (['videos', 'visits', 'sponsors', 'build_requests', 'contact_messages', 'posts', 'users', 'docs_pages', 'installs', 'site_state'] as $t) {
             $db->run("TRUNCATE TABLE {$t}");
         }
         $db->run('SET FOREIGN_KEY_CHECKS = 1');
@@ -64,14 +65,14 @@ abstract class SiteTestCase extends TestCase
      * @param array<string, string> $post
      * @param array<string, string> $server
      */
-    protected function request(string $method, string $path, array $post = [], array $server = []): Response
+    protected function request(string $method, string $path, array $post = [], array $server = [], array $files = []): Response
     {
         $query = [];
         if (str_contains($path, '?')) {
             [$path, $qs] = explode('?', $path, 2);
             parse_str($qs, $query);
         }
-        $req = new Request($method, $path, $query, $post, $this->cookies, $server + ['REMOTE_ADDR' => $this->ip]);
+        $req = new Request($method, $path, $query, $post, $this->cookies, $server + ['REMOTE_ADDR' => $this->ip], '', $files);
         $res = $this->app->handle($req);
         foreach ($res->cookies() as $c) {
             [$pair] = explode(';', $c, 2);
@@ -91,12 +92,12 @@ abstract class SiteTestCase extends TestCase
     }
 
     /** @param array<string, string> $data */
-    protected function post(string $path, array $data = [], bool $withToken = true): Response
+    protected function post(string $path, array $data = [], bool $withToken = true, array $files = []): Response
     {
         if ($withToken && !isset($data['_token'])) {
             $data['_token'] = $this->token();
         }
-        return $this->request('POST', $path, $data);
+        return $this->request('POST', $path, $data, [], $files);
     }
 
     /** A CSRF token for the current session, read from a page that has a form. */

@@ -15,7 +15,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/NimVor/nimvor/agent/internal/execx"
@@ -32,9 +31,13 @@ import (
 var archiveRoots = []string{"/root", "/home", "/var/backups", "/tmp", "/var/tmp"}
 
 var (
-	archiveName   = regexp.MustCompile(`(?i)^(cpmove|backup)-[A-Za-z0-9._-]+\.(tar\.gz|tgz|tar)$`)
-	archiveIDRe   = regexp.MustCompile(`^[0-9a-f]{16}$`)
-	archiveDBName = regexp.MustCompile(`^[A-Za-z0-9_$-]{1,64}$`)
+	// archiveName is what the list recognises: cPanel (cpmove-USER, backup-…), DirectAdmin
+	// (user.RESELLER.USER.tar.gz, backup-…) and HestiaCP/VestaCP (USER.YYYY-MM-DD_HH-MM-SS.tar).
+	archiveName = regexp.MustCompile(`(?i)^((cpmove|backup)-[A-Za-z0-9._-]+\.(tar\.gz|tgz|tar)|user\.[a-z0-9_]+\.[a-z0-9_]+\.(tar\.gz|tgz)|[a-z0-9_][a-z0-9_.-]*\.\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.tar)$`)
+	// archiveAnyName is what a person may type: any plain tar file name.
+	archiveAnyName = regexp.MustCompile(`(?i)^[A-Za-z0-9_][A-Za-z0-9._-]{0,200}\.(tar\.gz|tgz|tar)$`)
+	archiveIDRe    = regexp.MustCompile(`^[0-9a-f]{16}$`)
+	archiveDBName  = regexp.MustCompile(`^[A-Za-z0-9_$-]{1,64}$`)
 )
 
 const maxArchiveFiles = 3_000_000
@@ -102,8 +105,8 @@ func checkArchivePath(env *host.Env, p string) (string, error) {
 	if !strings.HasPrefix(p, "/") || !ValidRemotePath(p) {
 		return "", fmt.Errorf("give the full path of the archive, for example /root/cpmove-user.tar.gz")
 	}
-	if !archiveName.MatchString(filepath.Base(p)) {
-		return "", fmt.Errorf("the file name must look like cpmove-USER.tar.gz or backup-…tar.gz")
+	if !archiveAnyName.MatchString(filepath.Base(p)) {
+		return "", fmt.Errorf("the file name must end in .tar.gz, .tgz or .tar, for example cpmove-USER.tar.gz")
 	}
 	ok := false
 	for _, r := range archiveRoots {
@@ -186,91 +189,25 @@ func ExtractArchive(ctx context.Context, env *host.Env, p string, log io.Writer)
 		defer zr.Close()
 		r = zr
 	}
+	st := &untarState{}
 	quota := (free - reserveKB) * 1024
-	var written int64
-	files, skipped := 0, 0
-	tr := tar.NewReader(r)
-	for {
-		if err := ctx.Err(); err != nil {
-			return fail(err)
-		}
-		h, err := tr.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return fail(fmt.Errorf("the archive is damaged: %v", err))
-		}
-		name := strings.TrimPrefix(filepath.ToSlash(h.Name), "./")
-		if name == "" || name == "." {
-			continue
-		}
-		if strings.HasPrefix(name, "/") || name == ".." || strings.HasPrefix(name, "../") || strings.Contains(name, "/../") || strings.HasSuffix(name, "/..") || len(name) > 4000 {
-			return fail(fmt.Errorf("the archive holds a path that leaves its folder (%q); it was not unpacked", truncate(name, 80)))
-		}
-		target := filepath.Join(dest, filepath.FromSlash(name))
-		if !inside(dest, target) {
-			return fail(fmt.Errorf("the archive holds a path that leaves its folder; it was not unpacked"))
-		}
-		files++
-		if files > maxArchiveFiles {
-			return fail(fmt.Errorf("the archive holds more than %d entries", maxArchiveFiles))
-		}
-		switch h.Typeflag {
-		case tar.TypeDir:
-			if err := os.MkdirAll(target, 0o755); err != nil {
-				return fail(err)
-			}
-		case tar.TypeReg, tar.TypeRegA:
-			if h.Size > quota-written {
-				return fail(fmt.Errorf("the disk would be full: stopped after %s (NimVor keeps %s free)", kb(written/1024), kb(reserveKB)))
-			}
-			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-				return fail(err)
-			}
-			if real, err := filepath.EvalSymlinks(filepath.Dir(target)); err != nil || !inside(dest, real) {
-				return fail(fmt.Errorf("the archive writes through a link that leaves its folder; it was not unpacked"))
-			}
-			mode := os.FileMode(h.Mode&0o755) | 0o600
-			out, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC|syscall.O_NOFOLLOW, mode)
-			if err != nil {
-				return fail(err)
-			}
-			n, err := io.CopyN(out, tr, h.Size)
-			written += n
-			if cerr := out.Close(); err == nil {
-				err = cerr
-			}
-			if err != nil {
-				return fail(fmt.Errorf("a file could not be unpacked: %v", err))
-			}
-		case tar.TypeSymlink:
-			link := filepath.ToSlash(h.Linkname)
-			resolved := filepath.Join(filepath.Dir(target), filepath.FromSlash(link))
-			if strings.HasPrefix(link, "/") || !inside(dest, resolved) {
-				skipped++ // a link to somewhere else is never recreated
-				continue
-			}
-			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-				return fail(err)
-			}
-			os.Remove(target)
-			if err := os.Symlink(h.Linkname, target); err != nil {
-				return fail(err)
-			}
-		default:
-			skipped++ // hard links, devices, fifos
-		}
-		if files%5000 == 0 && log != nil {
-			fmt.Fprintf(log, "Unpacked %d entries, %s…\n", files, kb(written/1024))
-		}
+	if err := untarInto(ctx, tar.NewReader(r), dest, quota, st, log); err != nil {
+		return fail(err)
 	}
 	if log != nil {
-		fmt.Fprintf(log, "Unpacked %d entries, %s", files, kb(written/1024))
-		if skipped > 0 {
-			fmt.Fprintf(log, " (%d links and special files were left out)", skipped)
+		fmt.Fprintf(log, "Unpacked %d entries, %s", st.files, kb(st.written/1024))
+		if st.skipped > 0 {
+			fmt.Fprintf(log, " (%d links and special files were left out)", st.skipped)
 		}
 		fmt.Fprintln(log, ".")
+	}
+	// Backups that hold archives inside the archive (HestiaCP, VestaCP) are opened one level further, with
+	// the same confinement; the remaining space is what is left of the quota.
+	if err := expandNested(ctx, dest, quota-st.written, st, log); err != nil {
+		return fail(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, id+".name"), []byte(filepath.Base(p)), 0o600); err != nil {
+		return fail(err)
 	}
 	return id, nil
 }
@@ -288,6 +225,7 @@ func ForgetArchive(env *host.Env, id string) error {
 	if fi, err := os.Lstat(dir); err != nil || !fi.IsDir() {
 		return nil
 	}
+	os.Remove(dir + ".name")
 	return os.RemoveAll(dir)
 }
 
@@ -365,9 +303,15 @@ func DiscoverArchive(env *host.Env, id string, progress func(string)) (*Discover
 	if err != nil {
 		return nil, err
 	}
-	top, err := archiveTop(dir)
+	kind, top, err := archiveLayout(dir)
 	if err != nil {
 		return nil, err
+	}
+	switch kind {
+	case "directadmin":
+		return discoverDirectAdminArchive(env, dir, top, progress)
+	case "hestia":
+		return discoverHestiaArchive(env, dir, top, progress)
 	}
 	user := ""
 	if ents, err := os.ReadDir(filepath.Join(top, "cp")); err == nil {
@@ -500,11 +444,17 @@ func ArchiveZone(env *host.Env, id, domain string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	top, err := archiveTop(dir)
+	kind, top, err := archiveLayout(dir)
 	if err != nil {
 		return "", err
 	}
-	text := readCapped(filepath.Join(top, "dnszones", domain+".db"), maxZoneBytes+1)
+	zone := filepath.Join(top, "dnszones", domain+".db")
+	if kind == "directadmin" {
+		zone = daZoneFile(top, domain)
+	} else if kind == "hestia" {
+		return "", fmt.Errorf("the zone of %s is kept in a format NimVor does not read in this kind of backup", domain)
+	}
+	text := readCapped(zone, maxZoneBytes+1)
 	if text == "" {
 		return "", fmt.Errorf("the zone file of %s is not in the backup", domain)
 	}
@@ -528,7 +478,7 @@ func newArchivePuller(env *host.Env, id string) (*archivePuller, error) {
 	if err != nil {
 		return nil, err
 	}
-	top, err := archiveTop(dir)
+	_, top, err := archiveLayout(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -542,16 +492,49 @@ var (
 	apCount = regexp.MustCompile(`table_schema = ([A-Za-z0-9_$-]{1,64})\b`)
 )
 
+// sqlFile finds the dump of a database in whichever layout the backup has: cPanel keeps mysql/<db>.sql,
+// DirectAdmin backup/<db>.sql, HestiaCP and VestaCP db/<db>/<db>.mysql.sql.gz.
 func (a *archivePuller) sqlFile(name string) (string, error) {
 	if !archiveDBName.MatchString(name) {
 		return "", fmt.Errorf("the database name %q cannot be used", name)
 	}
-	p := filepath.Join(a.top, "mysql", name+".sql")
-	if real, err := filepath.EvalSymlinks(p); err != nil || !inside(a.top, real) {
-		return "", fmt.Errorf("the backup holds no dump of %s", name)
+	for _, p := range []string{
+		filepath.Join(a.top, "mysql", name+".sql"),
+		filepath.Join(a.top, "backup", name+".sql"),
+		filepath.Join(a.top, "db", name, name+".mysql.sql.gz"),
+		filepath.Join(a.top, "db", name, name+".sql.gz"),
+		filepath.Join(a.top, "db", name, name+".mysql.sql"),
+	} {
+		if real, err := filepath.EvalSymlinks(p); err == nil && inside(a.top, real) {
+			return p, nil
+		}
 	}
-	return p, nil
+	return "", fmt.Errorf("the backup holds no dump of %s", name)
 }
+
+// openSQL opens a dump; a gzip-compressed one is read through a decompressor, so the caller always sees SQL.
+func openSQL(p string) (io.ReadCloser, error) {
+	f, err := os.Open(p)
+	if err != nil {
+		return nil, err
+	}
+	if !strings.HasSuffix(p, ".gz") {
+		return f, nil
+	}
+	zr, err := gzip.NewReader(f)
+	if err != nil {
+		f.Close()
+		return nil, fmt.Errorf("the dump is damaged: %v", err)
+	}
+	return struct {
+		io.Reader
+		io.Closer
+	}{zr, closerFunc(func() error { zr.Close(); return f.Close() })}, nil
+}
+
+type closerFunc func() error
+
+func (c closerFunc) Close() error { return c() }
 
 func (a *archivePuller) Exec(ctx context.Context, cmd string, stdout io.Writer) (string, error) {
 	// The engine quotes a quoted command; only the two names it asks about matter, so quotes are dropped.
@@ -564,7 +547,7 @@ func (a *archivePuller) Exec(ctx context.Context, cmd string, stdout io.Writer) 
 		if err != nil {
 			return "", err
 		}
-		f, err := os.Open(p)
+		f, err := openSQL(p)
 		if err != nil {
 			return "", err
 		}
@@ -580,7 +563,7 @@ func (a *archivePuller) Exec(ctx context.Context, cmd string, stdout io.Writer) 
 		if err != nil {
 			return "", err
 		}
-		f, err := os.Open(p)
+		f, err := openSQL(p)
 		if err != nil {
 			return "", err
 		}
@@ -620,7 +603,7 @@ func (a *archivePuller) Rsync(ctx context.Context, extra []string, remote, local
 type cpmoveAdapter struct{}
 
 func (cpmoveAdapter) ID() string       { return "cpmove" }
-func (cpmoveAdapter) Name() string     { return "cPanel backup archive (cpmove)" }
+func (cpmoveAdapter) Name() string     { return "Backup archive (cPanel, DirectAdmin, HestiaCP, VestaCP)" }
 func (cpmoveAdapter) Support() Support { return Experimental }
 func (cpmoveAdapter) Detect(ctx context.Context, t Transport) (Detection, bool, error) {
 	return Detection{}, false, nil

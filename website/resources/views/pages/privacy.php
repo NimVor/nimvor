@@ -17,6 +17,8 @@ $v->set('description', 'What the NimVor website stores about you, why, and for h
                 <li><strong>Installation reports.</strong> When NimVor is installed or upgraded, the installer sends one report: a random identifier it made up, the NimVor version, the operating system's name and version (such as <code>ubuntu 24.04</code>) and the processor type. It contains no host name, address, user name, website or setting, and we do not keep the sender's address (it is counted for an hour only, to limit abuse). It feeds the public <a href="/resources/stats">statistics</a> and is part of installing and upgrading NimVor.</li>
                 <li><strong>Server logs.</strong> The web server keeps ordinary access and error logs (including addresses) for security and fixing faults.</li>
             </ul>
+            <h2>Videos</h2>
+            <p>Videos shown from YouTube are loaded from <code>youtube-nocookie.com</code>, YouTube's privacy-enhanced address, and only on the page of that video. YouTube then sees your address, as any site you open would. Uploaded videos are served by this site and nothing is sent to anyone else.</p>
             <h2>Cookies</h2>
             <p>One cookie, <code>nimvor_sid</code>, is set only when you sign in or send a form. It identifies your session, is not readable by scripts and is deleted when you log out or after a few hours. We use no advertising or tracking cookies.</p>
             <h2>How we use it</h2>
