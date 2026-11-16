@@ -36,6 +36,11 @@ dnf install -y -q ffmpeg-free || echo 'ffmpeg-free is not available'
 # notes that it is not packaged).
 dnf install -y -q awstats || echo 'awstats is not available'
 command -v composer >/dev/null || dnf install -y -q composer || true
+# The cloud images install packages without the rpm SELinux plugin applying the policy's labels, so the
+# directories the packages created (Postfix's /var/lib/postfix, Rspamd's, Dovecot's ...) carry the parent's
+# label and the daemons are refused (Postfix: "cannot create file exclusively: master.lock"). A real server
+# labels them during installation; the test VM does it here.
+restorecon -R /var/lib /var/spool /var/log /etc /usr/sbin /usr/libexec /usr/lib/systemd 2>/dev/null || true
 systemctl enable --now mariadb "$redis" memcached nginx php83-php-fpm named firewalld fail2ban
 firewall-cmd --permanent --add-service=ssh >/dev/null
 firewall-cmd --reload >/dev/null
