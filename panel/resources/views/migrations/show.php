@@ -36,7 +36,7 @@ if ($isArchive) {
 }
 ?>
 <?php $this->start(); ?>Migration #<?= $id ?><?php $this->end('title'); ?>
-<?php $this->start(); ?><?= $isArchive ? 'cPanel backup archive' . (!empty($m['info']['archive_path']) ? ' · ' . e(basename((string) $m['info']['archive_path'])) : '') : e((string) $m['panel']) . ($m['source_host'] !== '' ? ' · ' . e($m['source_user'] . '@' . $m['source_host']) : '') ?><?php $this->end('subtitle'); ?>
+<?php $this->start(); ?><?= $isArchive ? 'Backup archive' . (!empty($m['info']['archive_path']) ? ' · ' . e(basename((string) $m['info']['archive_path'])) : '') : e((string) $m['panel']) . ($m['source_host'] !== '' ? ' · ' . e($m['source_user'] . '@' . $m['source_host']) : '') ?><?php $this->end('subtitle'); ?>
 
 <div class="nim-subtabs mb-3" aria-label="Steps">
     <?php foreach ($steps as $k => $label):
@@ -79,7 +79,7 @@ if ($isArchive) {
                     <?php endforeach; ?>
                 </div>
                 <?php endif; ?>
-                <div class="mb-3"><label class="form-label" for="mg-ar-path"><?= $archives !== [] ? 'Or the full path of another file' : 'The full path of the archive on this server' ?></label><input class="form-control font-monospace<?= $err('path') ?>" id="mg-ar-path" name="path" placeholder="/root/cpmove-username.tar.gz" maxlength="300" autocomplete="off"><?= $fb('path') ?></div>
+                <div class="mb-3"><label class="form-label" for="mg-ar-path"><?= $archives !== [] ? 'Or the full path of another file' : 'The full path of the archive on this server' ?></label><input class="form-control font-monospace<?= $err('path') ?>" id="mg-ar-path" name="path" placeholder="/root/cpmove-username.tar.gz or /root/user.admin.username.tar.gz" maxlength="300" autocomplete="off"><?= $fb('path') ?></div>
                 <button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Unpack and read the archive</button>
             </form>
             <?php endif; ?>
@@ -88,7 +88,7 @@ if ($isArchive) {
     <div class="col-lg-5">
         <div class="card"><div class="card-header"><i class="bi bi-info-circle me-1"></i>About backup archives</div><div class="card-body small">
             <ul class="mb-0">
-                <li>Make the backup in cPanel (Backup → Download a Full Account Backup, or <code>/scripts/pkgacct USER</code> on the old server) and copy the <code>cpmove-USER.tar.gz</code> or <code>backup-…tar.gz</code> file onto this server under <code>/root</code>, <code>/home</code>, <code>/var/backups</code> or <code>/tmp</code> (for example with <code>scp</code>).</li>
+                <li>Make the account backup in the old panel and copy the file onto this server. cPanel: Backup → Download a Full Account Backup, or <code>/scripts/pkgacct USER</code> (<code>cpmove-USER.tar.gz</code>, <code>backup-…tar.gz</code>). DirectAdmin: Create/Restore Backups, with files, databases and e-mail (<code>user.reseller.USER.tar.gz</code>). HestiaCP / VestaCP: Backups, gzip compression (<code>USER.DATE.tar</code>). Put it under <code>/root</code>, <code>/home</code>, <code>/var/backups</code> or <code>/tmp</code> (for example with <code>scp</code>).</li>
                 <li>The archive is unpacked into a private folder of the NimVor agent, never next to your sites. This needs about twice the archive's size in free disk space.</li>
                 <li>The file itself is only read. Delete the unpacked copy when you are done.</li>
                 <li>A backup is a snapshot: there is nothing to synchronise later, and database users, passwords and SSL certificates are not restored.</li>

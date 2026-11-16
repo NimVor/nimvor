@@ -287,15 +287,18 @@ database created this way is not removed by a rollback; delete it under Database
 
 ## Importing a backup archive
 
-Besides copying live from a running server, NimVor can import a cPanel account backup (`cpmove-USER.tar.gz`, or a
-full `backup-…tar.gz`) that has been copied onto this server under `/root`, `/home`, `/var/backups` or `/tmp`.
-Choose **cPanel backup archive (cpmove)** on the first page of the wizard. The first step lists archives found
+Besides copying live from a running server, NimVor can import an account backup that has been copied onto this
+server under `/root`, `/home`, `/var/backups` or `/tmp`: cPanel (`cpmove-USER.tar.gz`, or a full `backup-…tar.gz`),
+DirectAdmin (`user.RESELLER.USER.tar.gz`) or HestiaCP / VestaCP (`USER.DATE.tar`). Choose **Backup archive** on
+the first page of the wizard; NimVor recognises which panel made the file after unpacking it. The first step lists archives found
 on this server (or takes the full path of a file), unpacks it and reads what it holds; the rest of the wizard
 is the same as for a live copy: choose what to move and where it goes, run the compatibility check, start.
 No SSH connection or login is involved, and the "Synchronise before switching DNS" step does not apply.
 
-To get the file here, make the backup in cPanel (Backup → Download a Full Account Backup, or `/scripts/pkgacct USER`
-on the old server) and copy it to this server, for example with `scp`. When you are done, use **Delete the unpacked
+To get the file here, make the backup in the old panel and copy it to this server, for example with `scp`:
+cPanel: Backup → Download a Full Account Backup, or `/scripts/pkgacct USER`; DirectAdmin: Create/Restore Backups
+with the website files, databases and e-mail included; HestiaCP / VestaCP: Backups, with gzip compression
+(the panel's zstd compression is not opened yet; NimVor says so and asks for a gzip backup). When you are done, use **Delete the unpacked
 copy** on the report page; cancelling the migration deletes it too.
 
 - The archive is unpacked into the agent's private folder, never next to your sites. Every entry is confined to
@@ -305,10 +308,15 @@ copy** on the report page; cancelling the migration deletes it too.
 - What is found is described like a live source (websites with their document roots, databases from `mysql/*.sql`,
   mailboxes, forwarders, cron jobs, FTP accounts, DNS zones) and copied by the same engine, with a local copy
   instead of SSH. The archive file itself is only read.
+- What each kind of backup gives: cPanel – websites, databases, mailboxes, forwarders, cron jobs, FTP accounts, DNS
+  zones. DirectAdmin – websites and subdomains, databases (`backup/*.sql`), mailboxes, forwarders, cron jobs, DNS
+  zone file where the backup has one. HestiaCP / VestaCP – websites, MySQL databases, mailboxes (with their
+  forwarders and aliases), cron jobs; the panel keeps each domain's files and mail in archives inside the backup,
+  which are opened with the same confinement as the outer one. PostgreSQL databases are not moved from a backup.
 - A backup is a snapshot: there is nothing to synchronise afterwards, and database users, passwords and SSL
   certificates are not restored.
-- Written from cPanel's documented backup layout and tested on a synthetic archive only (experimental): try it
-  with a real `cpmove` file and report anything that does not unpack or describe correctly.
+- Written from each panel's documented backup layout and tested on synthetic archives only (experimental): try it
+  with a real backup and report anything that does not unpack or describe correctly.
 
 ## Known limitations
 

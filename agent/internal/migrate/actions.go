@@ -125,10 +125,10 @@ func Register(r *actions.Registry, env *host.Env) {
 		return map[string]any{"domain": strings.ToLower(in.Domain), "text": text}, nil
 	}})
 
-	r.Register(actions.Action{Name: "migrate.archive_list", Description: "List cPanel backup archives (cpmove-*.tar.gz, backup-*.tar.gz) found in /root, /home, /var/backups and /tmp. Only file names are read.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "migrate.archive_list", Description: "List account backup archives of cPanel (cpmove-*, backup-*), DirectAdmin (user.*.*.tar.gz) and HestiaCP/VestaCP (USER.DATE.tar) found in /root, /home, /var/backups and /tmp. Only file names are read.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		return map[string]any{"archives": ListArchives(env)}, nil
 	}})
-	r.Register(actions.Action{Name: "migrate.archive_extract", Mutating: true, Description: "Unpack a cPanel backup archive into the agent's private folder and describe what it holds (job). The archive file is only read; every path is confined to the private folder.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "migrate.archive_extract", Mutating: true, Description: "Unpack an account backup archive (cPanel, DirectAdmin, HestiaCP or VestaCP) into the agent's private folder and describe what it holds (job). The archive file is only read; every path is confined to the private folder.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
 			Path string `json:"path"`
 		}
