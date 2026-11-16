@@ -41,6 +41,9 @@ command -v composer >/dev/null || dnf install -y -q composer || true
 # label and the daemons are refused (Postfix: "cannot create file exclusively: master.lock"). A real server
 # labels them during installation; the test VM does it here.
 restorecon -R /var/lib /var/spool /var/log /etc /usr/sbin /usr/libexec /usr/lib/systemd 2>/dev/null || true
+restorecon -Rv /var/lib/postfix /var/spool/postfix 2>&1 | tail -3 || true
+ls -dZ /var/lib/postfix
+matchpathcon /var/lib/postfix 2>/dev/null || true
 systemctl enable --now mariadb "$redis" memcached nginx php83-php-fpm named firewalld fail2ban
 firewall-cmd --permanent --add-service=ssh >/dev/null
 firewall-cmd --reload >/dev/null

@@ -388,6 +388,13 @@ func Register(r *actions.Registry, he *host.Env) {
 			b, err := he.Root.ReadFile(p)
 			snaps = append(snaps, snap{p, b, err == nil})
 		}
+		// Packages installed without SELinux's rpm plugin leave Postfix's folders with the parent's label;
+		// put the policy's labels back so Postfix can write its lock and queue files.
+		for _, d := range []string{"/var/lib/postfix", "/var/spool/postfix", "/var/lib/dovecot"} {
+			if err := selinux.Restore(ctx, he, d); err != nil {
+				he.Log.Warn("selinux: restore labels", "dir", d, "err", err)
+			}
+		}
 		restorePostfix := func() {
 			for _, s := range snaps {
 				if s.ok {
