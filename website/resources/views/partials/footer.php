@@ -21,6 +21,7 @@
                     <li><a href="/resources/blog">Blog</a></li>
                     <li><a href="/resources/community">Community &amp; source</a></li>
                     <li><a href="/resources/build-services">Build services</a></li>
+                    <li><a href="/resources/videos">Videos</a></li>
                     <li><a href="/resources/sponsors">Sponsors</a></li>
                     <li><a href="/resources/problems">Problems</a></li>
                     <li><a href="/resources/stats">Statistics</a></li>

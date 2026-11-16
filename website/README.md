@@ -20,7 +20,8 @@ server with neither). No framework, no build step, no external fonts or scripts.
 | Sponsors | Added and removed by an administrator. |
 | Accounts | Register, sign in, sign out, change name and password. Argon2id, sign-in throttling, session id renewed at sign-in. |
 | Client dashboard | Only the signed-in client's own build requests and messages. |
-| Admin dashboard | Overview, reports (sign-ups, visits, status counts, most visited pages), users (deactivate and reactivate), messages and build requests (set status), blog, sponsors, CSV exports. |
+| Videos | A public Videos page (`/resources/videos`) of walkthroughs, grouped by category, one page per video. Each is a **YouTube link** (played from `youtube-nocookie.com`) or a **file uploaded under Admin → Videos**. |
+| Admin dashboard | Overview, reports (sign-ups, visits, status counts, most visited pages), users (deactivate and reactivate), messages and build requests (set status), blog, videos, sponsors, CSV exports. |
 
 ## Security
 
@@ -59,6 +60,20 @@ php -S 127.0.0.1:8099 -t public public/index.php
 | `SESSION_TTL` | `7200` | Seconds a session lasts |
 | `TRUSTED_PROXY` | `127.0.0.1` | The only address whose `X-Forwarded-For` and `X-Forwarded-Proto` are believed |
 | `SITE_CONFIG` | none | A PHP file (outside the web root) returning an array that overrides the settings |
+
+## Videos
+
+**Admin → Videos** adds a video in one of two ways, and shows it on `/resources/videos` (grouped by category, ordered by the number you give) when it is published. A draft is only visible to administrators.
+
+- **YouTube.** Paste the link (watch, `youtu.be`, embed, shorts and live links work). Only the 11-character id is stored. The page embeds it with `youtube-nocookie.com`, so YouTube only learns about a visitor when the player is on the page; the Content-Security-Policy allows exactly that one frame host (`frame-src https://www.youtube-nocookie.com`) and nothing else. No thumbnail is fetched from YouTube for the list.
+- **Upload.** An MP4 (H.264/AAC plays everywhere) or WebM, with an optional JPEG, PNG or WebP cover picture. The file's first bytes are checked, not its name or the type the browser sent, and it is stored under a random name in `storage/videos/` (outside the web root, never listed). `/media/videos/<name>` serves it only while it belongs to a published video (to an administrator also while it is a draft), with HTTP range support so players can seek.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `VIDEO_DIR` | `storage/videos` | Where uploaded files are kept (must be writable by the web server user) |
+| `VIDEO_MAX_MB` | `500` | Largest video the site accepts |
+
+PHP has its own limits: raise `upload_max_filesize` and `post_max_size` to at least `VIDEO_MAX_MB`, and on Nginx `client_max_body_size` (see `deploy/nginx.conf`). Admin → Videos shows the limit PHP has now and says so when a file is refused for it. Deleting a video deletes its files. Back up `storage/videos/` together with the database. A site upgraded without a terminal imports `database/sql/0003_videos.sql`.
 
 ## Documentation, problems, sponsors and statistics
 

@@ -12,6 +12,7 @@ use NimVorSite\Repositories\Sponsors;
 use NimVorSite\Services\GitHubException;
 use NimVorSite\Support\Text;
 use NimVorSite\Support\Validator;
+use NimVorSite\Support\YouTube;
 
 /** Administrators only (the route table enforces it); every change is a POST with a CSRF token. */
 final class AdminController extends Controller
@@ -228,5 +229,162 @@ final class AdminController extends Controller
         $this->app->cache->delete('sponsors:list');
         $this->app->cache->delete('report:overview');
         return $ctx->redirect('/admin/sponsors');
+    }
+
+    private function videoPage(Ctx $ctx): array
+    {
+        $all = $this->app->videos->all();
+        return ['videos' => $all, 'categories' => array_values(array_unique(array_map(static fn (array $r): string => (string) $r['category'], $all))), 'maxMb' => intdiv($this->app->videoStore->maxVideoBytes(), 1048576), 'phpMax' => (string) ini_get('upload_max_filesize')];
+    }
+
+    public function videos(Ctx $ctx): Response
+    {
+        return $ctx->render('admin/videos', $this->videoPage($ctx));
+    }
+
+    /** Checks the fields both forms share; returns [slug, sortOrder]. */
+    private function videoFields(Validator $v, ?int $id): array
+    {
+        $v->text('title', 1, 160, 'title')->text('category', 1, 40, 'category');
+        if (mb_strlen($v->value('description')) > 2000) {
+            $v->fail('description', 'The description can have at most 2000 characters.');
+        }
+        if ($v->value('duration') !== '' && preg_match('/^\d{1,2}:\d{2}(:\d{2})?$/', $v->value('duration')) !== 1) {
+            $v->fail('duration', 'Write the length as 4:30 or 1:02:30, or leave it empty.');
+        }
+        $order = $v->value('sort_order') === '' ? 100 : (ctype_digit($v->value('sort_order')) && (int) $v->value('sort_order') <= 9999 ? (int) $v->value('sort_order') : -1);
+        if ($order < 0) {
+            $v->fail('sort_order', 'Use a whole number from 0 to 9999.');
+        }
+        $slug = Text::slug($v->value('slug') !== '' ? $v->value('slug') : $v->value('title'));
+        if ($this->app->videos->slugTaken($slug, $id)) {
+            $v->fail('slug', 'Another video already uses this address. Change it.');
+        }
+        return [$slug, $order];
+    }
+
+    private function videoChanged(): void
+    {
+        $this->app->cache->delete('videos:list');
+        $this->app->cache->delete('report:overview');
+    }
+
+    public function videoAdd(Ctx $ctx): Response
+    {
+        $v = new Validator($ctx->req->post);
+        $v->in('source', ['youtube', 'upload'], 'Choose YouTube or an uploaded file.');
+        [$slug, $order] = $this->videoFields($v, null);
+        $ytId = null;
+        $files = $ctx->req->files;
+        if ($v->value('source') === 'youtube') {
+            $ytId = YouTube::id($v->value('youtube_url'));
+            if ($ytId === null) {
+                $v->fail('youtube_url', 'Paste a YouTube link, such as https://www.youtube.com/watch?v=… or https://youtu.be/…');
+            }
+        } elseif ($v->value('source') === 'upload' && (int) ($files['video']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+            $v->fail('video', 'Choose the video file to upload.');
+        }
+        if ($v->fails()) {
+            return $this->invalid($ctx, 'admin/videos', $v->errors(), $this->videoPage($ctx));
+        }
+        $stored = null;
+        $poster = null;
+        try {
+            if ($v->value('source') === 'upload') {
+                $stored = $this->app->videoStore->saveVideo($files['video']);
+                if ((int) ($files['poster']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+                    $poster = $this->app->videoStore->savePoster($files['poster']);
+                }
+            }
+        } catch (\RuntimeException $e) {
+            $this->app->videoStore->delete($stored['name'] ?? null);
+            return $this->invalid($ctx, 'admin/videos', ['video' => $e->getMessage()], $this->videoPage($ctx));
+        }
+        $this->app->videos->create([
+            'slug' => $slug, 'title' => $v->value('title'), 'description' => $v->value('description'), 'category' => $v->value('category'),
+            'source' => $v->value('source'), 'youtube_id' => $ytId, 'file' => $stored['name'] ?? null, 'mime' => $stored['mime'] ?? null,
+            'size_bytes' => $stored['size'] ?? null, 'poster' => $poster, 'duration' => $v->value('duration'), 'sort_order' => $order,
+            'published' => ($ctx->req->post['published'] ?? '') === '1' ? 1 : 0,
+        ]);
+        $this->videoChanged();
+        $ctx->flash('success', 'The video was added' . (($ctx->req->post['published'] ?? '') === '1' ? ' and is on the Videos page.' : ' as a draft. Publish it when it is ready.'));
+        return $ctx->redirect('/admin/videos');
+    }
+
+    /** @param array<string, string> $params */
+    public function videoEditForm(Ctx $ctx, array $params): Response
+    {
+        $id = $this->intParam($params, 'id');
+        $video = $id === null ? null : $this->app->videos->find($id);
+        if ($video === null) {
+            return $this->app->error($ctx, 404);
+        }
+        return $ctx->render('admin/video-edit', ['video' => $video, 'old' => $video, 'categories' => array_values(array_unique(array_map(static fn (array $r): string => (string) $r['category'], $this->app->videos->all())))]);
+    }
+
+    /** @param array<string, string> $params */
+    public function videoEdit(Ctx $ctx, array $params): Response
+    {
+        $id = $this->intParam($params, 'id');
+        $video = $id === null ? null : $this->app->videos->find($id);
+        if ($video === null) {
+            return $this->app->error($ctx, 404);
+        }
+        $v = new Validator($ctx->req->post);
+        [$slug, $order] = $this->videoFields($v, $id);
+        $files = $ctx->req->files;
+        $newPoster = null;
+        $oldPoster = $video['poster'];
+        if (!$v->fails() && (int) ($files['poster']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+            try {
+                $newPoster = $this->app->videoStore->savePoster($files['poster']);
+            } catch (\RuntimeException $e) {
+                $v->fail('poster', $e->getMessage());
+            }
+        }
+        if ($v->fails()) {
+            return $this->invalid($ctx, 'admin/video-edit', $v->errors(), ['video' => $video, 'categories' => array_values(array_unique(array_map(static fn (array $r): string => (string) $r['category'], $this->app->videos->all())))]);
+        }
+        $this->app->videos->update($id, $slug, $v->value('title'), $v->value('description'), $v->value('category'), $v->value('duration'), $order, ($ctx->req->post['published'] ?? '') === '1');
+        if ($newPoster !== null) {
+            $this->app->videos->setPoster($id, $newPoster);
+            $this->app->videoStore->delete($oldPoster);
+        } elseif (($ctx->req->post['remove_poster'] ?? '') === '1' && $oldPoster !== null) {
+            $this->app->videos->setPoster($id, null);
+            $this->app->videoStore->delete($oldPoster);
+        }
+        $this->videoChanged();
+        $ctx->flash('success', 'The video was saved.');
+        return $ctx->redirect('/admin/videos');
+    }
+
+    /** @param array<string, string> $params */
+    public function videoPublish(Ctx $ctx, array $params): Response
+    {
+        $id = $this->intParam($params, 'id');
+        $video = $id === null ? null : $this->app->videos->find($id);
+        if ($video === null) {
+            return $this->app->error($ctx, 404);
+        }
+        $this->app->videos->setPublished($id, (int) $video['published'] !== 1);
+        $this->videoChanged();
+        $ctx->flash('success', (int) $video['published'] !== 1 ? 'The video is on the Videos page.' : 'The video is hidden from the Videos page.');
+        return $ctx->redirect('/admin/videos');
+    }
+
+    /** @param array<string, string> $params */
+    public function videoDelete(Ctx $ctx, array $params): Response
+    {
+        $id = $this->intParam($params, 'id');
+        $video = $id === null ? null : $this->app->videos->find($id);
+        if ($video === null) {
+            return $this->app->error($ctx, 404);
+        }
+        $this->app->videos->delete($id);
+        $this->app->videoStore->delete($video['file']);
+        $this->app->videoStore->delete($video['poster']);
+        $this->videoChanged();
+        $ctx->flash('success', 'The video was deleted.');
+        return $ctx->redirect('/admin/videos');
     }
 }

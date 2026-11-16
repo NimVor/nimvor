@@ -18,6 +18,8 @@ use NimVorSite\Repositories\Installs;
 use NimVorSite\Repositories\Messages;
 use NimVorSite\Repositories\Posts;
 use NimVorSite\Repositories\Sponsors;
+use NimVorSite\Repositories\Videos;
+use NimVorSite\Services\VideoStore;
 use NimVorSite\Repositories\State;
 use NimVorSite\Repositories\Users;
 use NimVorSite\Repositories\Visits;
@@ -39,6 +41,8 @@ final class App
     public readonly Messages $messages;
     public readonly BuildRequests $requests;
     public readonly Sponsors $sponsors;
+    public readonly Videos $videos;
+    public readonly VideoStore $videoStore;
     public readonly Visits $visits;
     public readonly RateLimiter $limiter;
     public readonly Reports $reports;
@@ -62,6 +66,9 @@ final class App
         $this->messages = new Messages($db);
         $this->requests = new BuildRequests($db);
         $this->sponsors = new Sponsors($db);
+        $this->videos = new Videos($db);
+        $vcfg = (array) ($config['videos'] ?? []);
+        $this->videoStore = new VideoStore((string) ($vcfg['dir'] ?? $root . '/storage/videos'), (int) ($vcfg['max_mb'] ?? 500) * 1048576, $vcfg['move'] ?? null);
         $this->visits = new Visits($db);
         $this->limiter = new RateLimiter($cache);
         $this->reports = new Reports($db, $cache, $this->visits);
@@ -131,6 +138,9 @@ final class App
         $r->add('GET', '/resources/build-services', [$p, 'buildServices']);
         $r->add('POST', '/resources/build-services', [$p, 'buildServicesSubmit']);
         $r->add('GET', '/resources/sponsors', [$p, 'sponsors']);
+        $r->add('GET', '/resources/videos', [$p, 'videos']);
+        $r->add('GET', '/resources/videos/{slug}', [$p, 'video']);
+        $r->add('GET', '/media/videos/{file}', [$p, 'videoFile']);
         $r->add('GET', '/resources/problems', [$p, 'problems']);
         $r->add('GET', '/resources/stats', [$p, 'stats']);
         $r->add('GET', '/docs', [$d, 'show']);
@@ -178,6 +188,12 @@ final class App
         $r->add('GET', '/admin/sponsors', [$m, 'sponsors'], 'admin');
         $r->add('POST', '/admin/sponsors', [$m, 'sponsorAdd'], 'admin');
         $r->add('POST', '/admin/sponsors/sync', [$m, 'sponsorSync'], 'admin');
+        $r->add('GET', '/admin/videos', [$m, 'videos'], 'admin');
+        $r->add('POST', '/admin/videos', [$m, 'videoAdd'], 'admin');
+        $r->add('GET', '/admin/videos/{id}/edit', [$m, 'videoEditForm'], 'admin');
+        $r->add('POST', '/admin/videos/{id}/edit', [$m, 'videoEdit'], 'admin');
+        $r->add('POST', '/admin/videos/{id}/publish', [$m, 'videoPublish'], 'admin');
+        $r->add('POST', '/admin/videos/{id}/delete', [$m, 'videoDelete'], 'admin');
         $r->add('GET', '/admin/content', [$m, 'content'], 'admin');
         $r->add('POST', '/admin/content/docs-sync', [$m, 'docsSync'], 'admin');
         $r->add('POST', '/admin/sponsors/{id}/delete', [$m, 'sponsorDelete'], 'admin');
@@ -202,7 +218,7 @@ final class App
             $resp = $this->error($ctx, 500);
         }
 
-        if ($resp->status === 200 && $req->method === 'GET' && $route !== null && $route['auth'] === null && !str_starts_with($route['pattern'], '/health') && !in_array($route['pattern'], ['/robots.txt', '/sitemap.xml', '/login', '/register'], true)) {
+        if ($resp->status === 200 && $req->method === 'GET' && $route !== null && $route['auth'] === null && !str_starts_with($route['pattern'], '/health') && !str_starts_with($route['pattern'], '/media/') && !in_array($route['pattern'], ['/robots.txt', '/sitemap.xml', '/login', '/register'], true)) {
             try {
                 $this->visits->record($route['pattern']);
             } catch (\Throwable) {
@@ -256,7 +272,7 @@ final class App
 
     private function secure(Response $r, Request $req, bool $https, bool $private): Response
     {
-        $r->header('Content-Security-Policy', "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
+        $r->header('Content-Security-Policy', "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-src https://www.youtube-nocookie.com; frame-ancestors 'none'");
         $r->header('X-Content-Type-Options', 'nosniff');
         $r->header('X-Frame-Options', 'DENY');
         $r->header('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -266,7 +282,9 @@ final class App
             $r->header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
         }
         // Pages that depend on who is signed in, or that set a cookie, are never shared or stored.
-        $r->header('Cache-Control', $private ? 'private, no-store' : 'public, max-age=60');
+        if (!isset($r->headers['Cache-Control']) || $private) {
+            $r->header('Cache-Control', $private ? 'private, no-store' : 'public, max-age=60');
+        }
         return $r;
     }
 }

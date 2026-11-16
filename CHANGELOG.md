@@ -6,6 +6,14 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Website: a **Videos** section. Administrators add videos under Admin → Videos, either as a YouTube link (embedded with
+  `youtube-nocookie.com`, the only frame host the Content-Security-Policy allows) or as an uploaded MP4/WebM with an
+  optional cover picture (checked by content, stored outside the web root, served with range support). Public list by
+  category at `/resources/videos`, one page per video, drafts, edit, hide and delete (which deletes the files), sitemap
+  entries and a privacy-policy paragraph. Migration `0003_videos` (with its SQL file for sites without a terminal).
+
 ## [1.8.0] — 2026-11-16
 
 Website protection grows: traffic limits, IP, browser and URL lists, country restrictions and a traffic report for every website, and Anti-Intrusion for the programs service and website accounts may run. Every change to the web server is checked with `nginx -t` and rolled back if Nginx refuses it.
