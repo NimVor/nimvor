@@ -46,6 +46,17 @@ restorecon -R /var/lib /var/spool /var/log /etc /usr/sbin /usr/libexec /usr/lib/
 mkdir -p /var/lib/postfix /var/spool/postfix
 restorecon -R /var/lib/postfix /var/spool/postfix 2>&1 | tail -3 || true
 ls -dZ /var/lib/postfix /var/spool/postfix || true
+# Rspamd's service account: its package creates it with systemd-sysusers or a scriptlet; make sure it exists
+# (the unit fails with "Failed to determine user credentials" otherwise) and show what the unit expects.
+systemd-sysusers 2>&1 | tail -2 || true
+rsp=$(systemctl show -p User --value rspamd.service 2>/dev/null)
+echo "rspamd.service runs as: ${rsp:-root}"
+if [[ -n $rsp ]] && ! getent passwd "$rsp" >/dev/null; then
+    useradd --system --user-group --home-dir /var/lib/rspamd --shell /sbin/nologin "$rsp" || true
+fi
+getent passwd "${rsp:-root}" || true
+install -d -o "${rsp:-root}" -g "${rsp:-root}" /var/lib/rspamd /var/log/rspamd 2>/dev/null || true
+restorecon -R /var/lib/rspamd /var/log/rspamd 2>/dev/null || true
 systemctl enable --now mariadb "$redis" memcached nginx php83-php-fpm named firewalld fail2ban
 firewall-cmd --permanent --add-service=ssh >/dev/null
 firewall-cmd --reload >/dev/null
