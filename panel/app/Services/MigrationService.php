@@ -82,7 +82,7 @@ final class MigrationService
         return $m;
     }
 
-    /** A cPanel backup archive on this server instead of a live source. */
+    /** A backup archive (cPanel, DirectAdmin, HestiaCP or VestaCP) on this server instead of a live source. */
     public static function isArchive(array $m): bool
     {
         return ($m['panel'] ?? '') === 'cpmove';
@@ -106,7 +106,7 @@ final class MigrationService
             throw new UserFacingException('A backup archive can only be chosen at the first step of an archive migration.');
         }
         $path = trim($path);
-        if (!preg_match('~^/(root|home|var/backups|var/tmp|tmp)/[A-Za-z0-9._/-]{1,300}$~', $path) || str_contains($path, '..') || !preg_match('~/(cpmove|backup)-[A-Za-z0-9._-]+\.(tar\.gz|tgz|tar)$~i', $path)) {
+        if (!preg_match('~^/(root|home|var/backups|var/tmp|tmp)/[A-Za-z0-9._/-]{1,300}$~', $path) || str_contains($path, '..') || !preg_match('~/[A-Za-z0-9_][A-Za-z0-9._-]{0,200}\.(tar\.gz|tgz|tar)$~i', $path)) {
             throw new ValidationException(['path' => 'Give the full path of the archive on this server, for example /root/cpmove-user.tar.gz (under /root, /home, /var/backups or /tmp).']);
         }
         if (!empty($m['info']['archive'])) {

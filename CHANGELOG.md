@@ -6,6 +6,14 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Migration: backup archives of **DirectAdmin** (`user.RESELLER.USER.tar.gz`) and **HestiaCP / VestaCP**
+  (`USER.DATE.tar`) can be imported like the cPanel `cpmove` file, without any SSH login. The panel that made the
+  backup is recognised after unpacking; websites, databases, mailboxes, forwarders and cron jobs are described and
+  copied by the same engine. Inner archives (Hestia's per-domain files and mail) are opened with the same path
+  confinement. Experimental, tested on synthetic backups.
+
 ## [1.8.0] — 2026-11-16
 
 Website protection grows: traffic limits, IP, browser and URL lists, country restrictions and a traffic report for every website, and Anti-Intrusion for the programs service and website accounts may run. Every change to the web server is checked with `nginx -t` and rolled back if Nginx refuses it.
