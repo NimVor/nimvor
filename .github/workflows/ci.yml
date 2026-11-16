@@ -236,7 +236,8 @@ jobs:
       - name: Service logs
         if: always()
         run: |
-          for u in postfix nimvor-opendkim named dovecot nimvor-agent; do tests/vm.sh ssh "echo '--- $u'; journalctl --no-pager -o cat -n 25 -u $u | grep -iv 'connect from\|disconnect from' || true"; done
+          for u in postfix nimvor-opendkim named dovecot nimvor-agent rspamd; do tests/vm.sh ssh "echo '--- $u'; journalctl --no-pager -o cat -n 40 -u $u | grep -iv 'connect from\|disconnect from' || true"; done
+          tests/vm.sh ssh 'echo "--- rspamd listening"; rpm -q rspamd 2>/dev/null || dpkg -s rspamd 2>/dev/null | grep ^Version; ss -ltnp | grep -i rspamd || echo "nothing"; ls /etc/rspamd/local.d /etc/rspamd/override.d 2>&1 | head -30; rspamadm configdump -j worker 2>&1 | head -60 || true'
 
   # Browser tests (Playwright/Chromium) against a write-mode dev instance.
   e2e:

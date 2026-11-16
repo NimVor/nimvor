@@ -161,7 +161,8 @@ func registerSpam(r *actions.Registry, e env) {
 			}
 			if !e.Cfg.SimulateCommands {
 				var derr error
-				for i := 0; i < 60; i++ {
+				// A newly installed Rspamd can take a while to load its rules and open the port.
+				for i := 0; i < 240; i++ {
 					var c net.Conn
 					if c, derr = net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", rspamdPort), 2*time.Second); derr == nil {
 						c.Close()
@@ -170,7 +171,7 @@ func registerSpam(r *actions.Registry, e env) {
 					time.Sleep(250 * time.Millisecond)
 				}
 				if derr != nil {
-					return fail("Rspamd does not listen for Postfix.", derr)
+					return fail("Rspamd does not listen for Postfix.", fmt.Errorf("%v\n%s", derr, e.rspamdState(ctx)))
 				}
 			}
 		}
@@ -187,4 +188,17 @@ func registerSpam(r *actions.Registry, e env) {
 		}
 		return map[string]any{"spam": s}, nil
 	}})
+}
+
+// rspamdState describes why Rspamd may not be answering: whether the unit is running and what it last said.
+// It only reads, and is shown to the administrator with the failure.
+func (e env) rspamdState(ctx context.Context) string {
+	var b strings.Builder
+	if out, _ := e.Runner.Run(ctx, "systemctl", "is-active", rspamdUnit); len(out) > 0 {
+		b.WriteString("rspamd.service is " + strings.TrimSpace(host.Output(out)) + ".\n")
+	}
+	if out, err := e.Runner.Run(ctx, "journalctl", "--no-pager", "-o", "cat", "-n", "15", "-u", rspamdUnit); err == nil && len(out) > 0 {
+		b.WriteString("Last lines of its log:\n" + strings.TrimSpace(host.Output(out)))
+	}
+	return b.String()
 }
