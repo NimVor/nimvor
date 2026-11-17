@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.8.1] — 2026-11-17
+
+Importing backups from DirectAdmin, HestiaCP and VestaCP, a Videos section and step-by-step guides on the website, and fixes that make the AlmaLinux and Rocky test servers pass the whole real-host suite (1.8.0 never published because they did not).
+
 ### Added
 
 - Website: **step-by-step guides** in the blog, with a screenshot of the panel for each step: accounts and websites, DNS,
@@ -26,6 +30,12 @@ All notable changes to NimVor are documented here. The format follows
   backup is recognised after unpacking; websites, databases, mailboxes, forwarders and cron jobs are described and
   copied by the same engine. Inner archives (Hestia's per-domain files and mail) are opened with the same path
   confinement. Experimental, tested on synthetic backups.
+
+### Fixed
+
+- **Spam filter (Email → Spam filter).** Turning it on now waits up to a minute for Rspamd to listen (it was 15 seconds), and when it still does not answer the message says whether the Rspamd service is running and shows the last lines of its log.
+- **Mail configuration on SELinux servers.** Before configuring, NimVor restores the policy's SELinux labels on Postfix's and Dovecot's own folders, so Postfix can create its lock and queue files where a package left them with the wrong label.
+- **Tests.** The AlmaLinux 9/10 and Rocky 9/10 test servers create and label Postfix's folders and Rspamd's service account before the services start, and the SSH migration real-host tests make sure the local sshd accepts password logins (and print its settings when a login is refused).
 
 ## [1.8.0] — 2026-11-16
 
