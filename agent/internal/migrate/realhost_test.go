@@ -41,6 +41,37 @@ func realEnv(t *testing.T) *host.Env {
 	return host.New(cfg, fsroot, platform.Detect(fsroot), execx.NewSystemRunner(60*time.Second), jm, log)
 }
 
+// passwordLogin makes sure the local sshd accepts password logins for the test accounts, whatever an image or
+// an earlier test left in its configuration: a drop-in read first (sshd keeps the first value it sees), removed
+// and reloaded again afterwards. The failure message of a refused login then says what sshd was doing.
+func passwordLogin(t *testing.T, user string) {
+	t.Helper()
+	const dir = "/etc/ssh/sshd_config.d"
+	if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
+		return
+	}
+	file := dir + "/00-nimvor-migrate-test.conf"
+	if err := os.WriteFile(file, []byte("PasswordAuthentication yes\nKbdInteractiveAuthentication no\n"), 0o644); err != nil {
+		return
+	}
+	reload := func() {
+		for _, c := range [][]string{{"systemctl", "reload", "ssh"}, {"systemctl", "reload", "sshd"}, {"pkill", "-HUP", "-x", "sshd"}} {
+			if exec.Command(c[0], c[1:]...).Run() == nil {
+				break
+			}
+		}
+		time.Sleep(time.Second)
+	}
+	t.Cleanup(func() { os.Remove(file); reload() })
+	reload()
+	t.Cleanup(func() {
+		if t.Failed() {
+			out, _ := exec.Command("sh", "-c", "sshd -T -C user="+user+",host=localhost,addr=127.0.0.1 2>&1 | grep -iE '^(passwordauthentication|kbdinteractiveauthentication|pubkeyauthentication|usepam|authenticationmethods|allowusers|denyusers|allowgroups|denygroups|authorizedkeysfile) '; journalctl --no-pager -n 20 -t sshd -t sshd-session --since -3min 2>&1 | tail -20").CombinedOutput()
+			t.Logf("sshd for %s:\n%s", user, out)
+		}
+	})
+}
+
 // The real transport against the local sshd: a password login through the
 // askpass helper, a key login, the pinned host key, and an rsync pull into a
 // NimVor website folder that belongs to its account.
@@ -59,6 +90,7 @@ func TestRealHostMigrateFilesOverSSH(t *testing.T) {
 		}
 	}
 	const pw = "Mig-Src-Pa55word-1"
+	passwordLogin(t, "nimvormsrc")
 	exec.Command("useradd", "-m", "-s", "/bin/sh", "nimvormsrc").Run()
 	t.Cleanup(func() { exec.Command("userdel", "-r", "nimvormsrc").Run() })
 	exec.Command("sh", "-c", "echo 'nimvormsrc:"+pw+"' | chpasswd").Run()
@@ -449,6 +481,7 @@ func TestRealHostMigrateMailOverSSH(t *testing.T) {
 		}
 	}
 	const pw = "Mig-Src-Pa55word-2"
+	passwordLogin(t, "nimvormail")
 	exec.Command("useradd", "-m", "-s", "/bin/sh", "nimvormail").Run()
 	t.Cleanup(func() { exec.Command("userdel", "-r", "nimvormail").Run() })
 	exec.Command("sh", "-c", "echo 'nimvormail:"+pw+"' | chpasswd").Run()
