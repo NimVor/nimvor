@@ -88,6 +88,36 @@ final class GitHub
     }
 
     /**
+     * The repository's published releases with their downloads (the notes come from CHANGELOG.md).
+     *
+     * @return list<array{version: string, url: string, published_at: string, prerelease: bool, assets: list<array{name: string, size: int, url: string}>}>
+     */
+    public function releases(): array
+    {
+        $out = [];
+        foreach ($this->json('GET', 'https://api.github.com/repos/' . $this->cfg['repo'] . '/releases?per_page=100') as $r) {
+            if (!is_array($r) || ($r['draft'] ?? false) || !is_string($r['tag_name'] ?? null)) {
+                continue;
+            }
+            $assets = [];
+            foreach ((array) ($r['assets'] ?? []) as $a) {
+                $url = (string) ($a['browser_download_url'] ?? '');
+                if (is_array($a) && is_string($a['name'] ?? null) && str_starts_with($url, 'https://github.com/')) {
+                    $assets[] = ['name' => mb_substr($a['name'], 0, 120), 'size' => (int) ($a['size'] ?? 0), 'url' => $url];
+                }
+            }
+            $out[] = [
+                'version' => ltrim($r['tag_name'], 'vV'),
+                'url' => 'https://github.com/' . $this->cfg['repo'] . '/releases/tag/' . rawurlencode($r['tag_name']),
+                'published_at' => (string) ($r['published_at'] ?? ''),
+                'prerelease' => (bool) ($r['prerelease'] ?? false),
+                'assets' => $assets,
+            ];
+        }
+        return $out;
+    }
+
+    /**
      * The public, active sponsors of an organisation or user (needs a token that can read them).
      *
      * @return list<array{login: string, name: string, url: string, monthly_usd: int, one_time: bool}>

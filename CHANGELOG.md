@@ -6,6 +6,15 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Website: the site's own **Releases** page (`/resources/releases`) instead of a link to GitHub's. It is written from `CHANGELOG.md` and the GitHub releases: the latest release with its downloads and highlights, a timeline of every version with what was added, changed, fixed and secured, a filter by version series, a page for each version (every change in full, downloads, an install command for that version, the code changes since the previous release) and the upcoming changes. The last good copy is kept when GitHub cannot be reached.
+
+### Changed
+
+- Website: the **Features** page covers what has been added since it was written (website protection, PostgreSQL and the database browsers, moving to NimVor from other panels and backups, DNS name server choice and DNSSEC, customer panel themes, page cache) and announces the latest release.
+- Website: the footer reads "© Copyright <current year> NimVor" with "Powered by TPLix · Hosted on NimVor", and its Releases link goes to the new page.
+
 ## [1.8.1] — 2026-11-17
 
 Importing backups from DirectAdmin, HestiaCP and VestaCP, a Videos section and step-by-step guides on the website, and fixes that make the AlmaLinux and Rocky test servers pass the whole real-host suite (1.8.0 never published because they did not).

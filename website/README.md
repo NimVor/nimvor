@@ -22,6 +22,7 @@ server with neither). No framework, no build step, no external fonts or scripts.
 | Accounts | Register, sign in, sign out, change name and password. Argon2id, sign-in throttling, session id renewed at sign-in. |
 | Client dashboard | Only the signed-in client's own build requests and messages. |
 | Videos | A public Videos page (`/resources/videos`) of walkthroughs, grouped by category, one page per video. Each is a **YouTube link** (played from `youtube-nocookie.com`) or a **file uploaded under Admin → Videos**. |
+| Releases | The site's own release history (`/resources/releases`, one page per version at `/resources/releases/<version>`): the notes come from the project's `CHANGELOG.md`, the downloads from the GitHub releases. Read at most every fifteen minutes; the last good copy is shown (marked as old) when GitHub cannot be reached. |
 | Admin dashboard | Overview, reports (sign-ups, visits, status counts, most visited pages), users (deactivate and reactivate), messages and build requests (set status), blog, videos, sponsors, CSV exports. |
 
 ## Security
@@ -92,6 +93,12 @@ date: 2026-11-10
 | `VIDEO_MAX_MB` | `500` | Largest video the site accepts |
 
 PHP has its own limits: raise `upload_max_filesize` and `post_max_size` to at least `VIDEO_MAX_MB`, and on Nginx `client_max_body_size` (see `deploy/nginx.conf`). Admin → Videos shows the limit PHP has now and says so when a file is refused for it. Deleting a video deletes its files. Back up `storage/videos/` together with the database. A site upgraded without a terminal imports `database/sql/0003_videos.sql`.
+
+## Releases
+
+`/resources/releases` shows every version with its date, kind (major, minor, patch or pre-release), a summary, what was added, changed, fixed and secured, and the downloads. It has no content of its own: it reads `CHANGELOG.md` from the repository (the [Keep a Changelog](https://keepachangelog.com/) layout the project already uses: `## [1.8.1] — 2026-11-17`, a summary paragraph, then `### Added`, `### Changed`, `### Fixed`, `### Security` lists) and the repository's published GitHub releases (for the download files; only links on `github.com` are kept). Write the changelog entry as part of a release and the page follows. A version in the changelog with no GitHub release is shown as "included in the next release"; `## [Unreleased]` appears as "Coming next" while it has entries.
+
+The list shows one line per change; each version's own page shows every change in full, its downloads, an install command for that exact version and a link to the code changes since the previous release. The Features page announces the latest release. Change text is escaped, links are limited to `http(s)` and files in the repository.
 
 ## Documentation, problems, sponsors and statistics
 
