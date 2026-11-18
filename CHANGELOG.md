@@ -8,6 +8,8 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Added
 
+- **Visitor addresses behind Cloudflare (Server → Cloudflare).** Websites whose DNS is on Cloudflare with the orange cloud see every visitor at one of Cloudflare's addresses, so traffic limits, IP and country lists, the access log and PHP's `REMOTE_ADDR` treated visitors as a handful of proxies (all of them counted together). A new switch makes Nginx take the visitor's own address from the `CF-Connecting-IP` header, trusted only when the connection comes from one of Cloudflare's published networks (a built-in list, which *Update Cloudflare's networks* replaces with Cloudflare's current one). Written once at http level in `nimvor-00-realip.conf`, checked with `nginx -t` and rolled back if Nginx refuses it, for example because real_ip settings were added by hand. Networks wider than /8 (IPv4) or /16 (IPv6) are refused. New agent actions `realip.status` and `realip.set`.
+
 - Website: the site's own **Releases** page (`/resources/releases`) instead of a link to GitHub's. It is written from `CHANGELOG.md` and the GitHub releases: the latest release with its downloads and highlights, a timeline of every version with what was added, changed, fixed and secured, a filter by version series, a page for each version (every change in full, downloads, an install command for that version, the code changes since the previous release) and the upcoming changes. The last good copy is kept when GitHub cannot be reached.
 
 ### Changed

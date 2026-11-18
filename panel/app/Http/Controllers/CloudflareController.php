@@ -7,7 +7,9 @@ namespace NimVor\Http\Controllers;
 use NimVor\Http\Request;
 use NimVor\Http\Response;
 use NimVor\Http\Session\SessionInterface;
+use NimVor\Agent\AgentException;
 use NimVor\Services\CloudflareService;
+use NimVor\Services\RealIpService;
 use NimVor\Support\UserFacingException;
 use NimVor\View\View;
 
@@ -21,6 +23,7 @@ final class CloudflareController extends Controller
         View $view,
         SessionInterface $session,
         private readonly CloudflareService $cf,
+        private readonly RealIpService $realIp,
     ) {
         parent::__construct($view, $session);
     }
@@ -42,9 +45,17 @@ final class CloudflareController extends Controller
                 $error = $e->getMessage();
             }
         }
+        $realIp = null;
+        $realIpError = null;
+        try {
+            $realIp = $this->realIp->status();
+        } catch (AgentException $e) {
+            $realIpError = $e;
+        }
         return $this->render('server/cloudflare', [
             'tab' => 'cloudflare', 'account' => $account, 'zones' => $zones, 'zone' => $zone,
             'cfError' => $error, 'sslModes' => CloudflareService::SSL_MODES,
+            'realIp' => $realIp, 'realIpError' => $realIpError,
         ]);
     }
 
@@ -62,6 +73,29 @@ final class CloudflareController extends Controller
     {
         $this->cf->disconnect($this->userId($request));
         return $this->redirectWithSuccess('/cloudflare', 'Cloudflare disconnected.');
+    }
+
+    public function realIp(Request $request): Response
+    {
+        $on = $request->input('enabled') === '1';
+        try {
+            $this->realIp->setEnabled($on, $this->userId($request));
+        } catch (AgentException $e) {
+            return $this->redirectWithFailure('/cloudflare', $e);
+        }
+        return $this->redirectWithSuccess('/cloudflare', $on ? 'Visitors\' own addresses are now restored behind Cloudflare.' : 'Visitor addresses are no longer taken from Cloudflare.');
+    }
+
+    public function realIpRefresh(Request $request): Response
+    {
+        try {
+            $n = $this->realIp->refresh($this->userId($request));
+        } catch (UserFacingException $e) {
+            return $this->redirectWithError('/cloudflare', $e->getMessage());
+        } catch (AgentException $e) {
+            return $this->redirectWithFailure('/cloudflare', $e);
+        }
+        return $this->redirectWithSuccess('/cloudflare', 'Cloudflare\'s ' . $n . ' networks were applied.');
     }
 
     public function proxy(Request $request): Response

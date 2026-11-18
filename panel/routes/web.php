@@ -447,6 +447,8 @@ return static function (Router $r): void {
     $r->get('/cloudflare', [\NimVor\Http\Controllers\CloudflareController::class, 'index'], ['name' => 'cloudflare', 'permission' => P::SERVER_VIEW]);
     $r->post('/cloudflare/connect', [\NimVor\Http\Controllers\CloudflareController::class, 'connect'], ['name' => 'cloudflare.connect', 'permission' => P::SERVER_MANAGE]);
     $r->post('/cloudflare/disconnect', [\NimVor\Http\Controllers\CloudflareController::class, 'disconnect'], ['name' => 'cloudflare.disconnect', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/cloudflare/real-ip', [\NimVor\Http\Controllers\CloudflareController::class, 'realIp'], ['name' => 'cloudflare.real_ip', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/cloudflare/real-ip/refresh', [\NimVor\Http\Controllers\CloudflareController::class, 'realIpRefresh'], ['name' => 'cloudflare.real_ip_refresh', 'permission' => P::SERVER_MANAGE]);
     $r->post('/cloudflare/proxy', [\NimVor\Http\Controllers\CloudflareController::class, 'proxy'], ['name' => 'cloudflare.proxy', 'permission' => P::SERVER_MANAGE]);
     $r->post('/cloudflare/ssl', [\NimVor\Http\Controllers\CloudflareController::class, 'ssl'], ['name' => 'cloudflare.ssl', 'permission' => P::SERVER_MANAGE]);
     $r->post('/cloudflare/always-https', [\NimVor\Http\Controllers\CloudflareController::class, 'alwaysHttps'], ['name' => 'cloudflare.always_https', 'permission' => P::SERVER_MANAGE]);

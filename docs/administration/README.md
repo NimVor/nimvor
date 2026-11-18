@@ -572,6 +572,34 @@ sees: behind a CDN or proxy every visitor has the proxy's address unless the
 real address is restored first. There is no world map; countries are ranked
 in a table.
 
+## Visitor addresses behind Cloudflare (server)
+
+A website whose DNS is on Cloudflare with the orange cloud (proxied) is reached
+through Cloudflare, so Nginx sees Cloudflare's address instead of the
+visitor's. Traffic limits, the IP, browser and URL lists, country
+restrictions, the traffic report, the access log and PHP's `REMOTE_ADDR` all
+use the address Nginx sees: without a fix every visitor shares a few
+addresses, one limit hits them all and a country list judges Cloudflare's
+location.
+
+**Server → Cloudflare → Visitor addresses behind Cloudflare** (administrators;
+it does not need a connected Cloudflare account) switches on Nginx's `real_ip`
+handling for the whole server: the visitor's address is taken from the
+`CF-Connecting-IP` header, but only when the connection comes from one of
+Cloudflare's published networks (a list built into the agent;
+**Update Cloudflare's networks** replaces it with the current one from
+`api.cloudflare.com/client/v4/ips`). A request from anywhere else that carries
+the header is ignored, so nobody can choose their own address. Networks wider
+than /8 (IPv4) or /16 (IPv6) are refused.
+
+The agent writes `nimvor-00-realip.conf` once, at http level, checks the
+configuration with `nginx -t` and restores the previous state if Nginx refuses
+or cannot reload it. If `real_ip_header` or `set_real_ip_from` already exist
+in your Nginx configuration (added by hand), Nginx refuses the duplicate and
+nothing changes: remove yours first. Turn it on only when your websites are
+proxied through Cloudflare. Firewall and Brute Force Protection work on the
+connection and keep seeing Cloudflare's addresses, as they should.
+
 ## Converting an addon domain into an account
 
 On a website's *Subdomains & addons* page, administrators and resellers

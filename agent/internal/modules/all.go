@@ -29,6 +29,7 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/phpmgr"
 	"github.com/NimVor/nimvor/agent/internal/procmgr"
 	"github.com/NimVor/nimvor/agent/internal/quota"
+	"github.com/NimVor/nimvor/agent/internal/realip"
 	"github.com/NimVor/nimvor/agent/internal/redismgr"
 	"github.com/NimVor/nimvor/agent/internal/runtimemgr"
 	"github.com/NimVor/nimvor/agent/internal/security"
@@ -54,6 +55,7 @@ func All() []Module {
 		sslmgr.Register,
 		modsec.Register,
 		webprotect.Register,
+		realip.Register,
 		webreport.Register,
 		files.Register,
 		logs.Register,
