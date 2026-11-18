@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Restarting Nginx from the panel ended with "Failed to fetch".** The panel is served through Nginx, so restarting it cut the connection that was carrying the answer to the restart. The configuration is still tested first (and a bad one refused at once); the restart now follows the answer by two seconds, the panel says so, and the agent starts Nginx again if the restart fails. A reload (which keeps connections) is unchanged.
+
 ### Added
 
 - **Visitor addresses behind Cloudflare (Server → Cloudflare).** Websites whose DNS is on Cloudflare with the orange cloud see every visitor at one of Cloudflare's addresses, so traffic limits, IP and country lists, the access log and PHP's `REMOTE_ADDR` treated visitors as a handful of proxies (all of them counted together). A new switch makes Nginx take the visitor's own address from the `CF-Connecting-IP` header, trusted only when the connection comes from one of Cloudflare's published networks (a built-in list, which *Update Cloudflare's networks* replaces with Cloudflare's current one). Written once at http level in `nimvor-00-realip.conf`, checked with `nginx -t` and rolled back if Nginx refuses it. Nginx accepts `real_ip_header` only once, so real_ip settings added by hand (or by another tool) conflict: the card lists them with their file and line before you press the switch, and the error names them if Nginx refuses. Networks wider than /8 (IPv4) or /16 (IPv6) are refused. New agent actions `realip.status` and `realip.set`.

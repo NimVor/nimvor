@@ -34,13 +34,16 @@ final class ServicesController extends Controller
             return $json ? Response::json(['success' => false, 'error' => ['message' => 'Invalid service operation.']], 422) : $this->redirectWithError($back, 'Invalid service operation.');
         }
         try {
-            $this->agent->call('services.control', ['unit' => $unit, 'op' => $op]);
+            $res = (array) $this->agent->call('services.control', ['unit' => $unit, 'op' => $op]);
         } catch (AgentException $e) {
             $this->audit->record('service.' . $op, 'service', $unit, AuditLogger::FAILURE, ['error' => $e->getMessage()]);
             return $json ? Response::json(['success' => false, 'error' => $e->toArray()], 502) : $this->redirectWithFailure($back, $e);
         }
         $this->audit->record('service.' . $op, 'service', $unit);
-        $message = ucfirst($op) . ' of ' . $unit . ' completed.';
+        // Nginx carries the panel itself: its restart follows the answer by a moment.
+        $message = !empty($res['scheduled'])
+            ? $unit . ' restarts in a few seconds; the panel may not answer for a moment.'
+            : ucfirst($op) . ' of ' . $unit . ' completed.';
         return $json ? Response::json(['success' => true, 'message' => $message]) : $this->redirectWithSuccess($back, $message);
     }
 
