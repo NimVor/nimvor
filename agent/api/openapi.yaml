@@ -439,6 +439,8 @@ paths:
               - quota.report
               - quota.set
               - quota.status
+              - realip.set
+              - realip.status
               - redis.acl_del
               - redis.acl_set
               - redis.configure
@@ -1026,6 +1028,8 @@ x-nimvor-actions:
   quota.report: { mutating: false, description: "Disk use and limit (KiB) of website system users on the websites' file system, from the quota records (read-only)." }
   quota.set: { mutating: true, description: "Set website system users' disk space limits (KiB, hard limit; 0 removes the limit) on the websites' file system. Writing beyond the limit fails with \"Disk quota exceeded\"." }
   quota.status: { mutating: false, description: "Whether disk quotas are on for the file system holding the websites (ext4 or XFS), with its mount point, device and type." }
+  realip.set: { mutating: true, description: "Switch on or off the restoring of the visitor's address behind Cloudflare, optionally replacing the trusted networks (Cloudflare's published list). Checked with nginx -t, rolled back on failure." }
+  realip.status: { mutating: false, description: "Whether Nginx restores the visitor's address behind Cloudflare (from the CF-Connecting-IP header, trusted only from Cloudflare's networks) and the networks it trusts." }
   redis.acl_del: { mutating: true, description: "Remove a Redis ACL user." }
   redis.acl_set: { mutating: true, description: "Create or update a Redis user limited to a key prefix (per-website isolation)." }
   redis.configure: { mutating: true, description: "Set maxmemory and eviction policy (persisted with CONFIG REWRITE)." }

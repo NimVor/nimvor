@@ -7,6 +7,7 @@
  * @var list<array<string, mixed>> $zones
  * @var array<string, mixed>|null $zone
  * @var array<string, string> $sslModes
+ * @var array<string, mixed>|null $realIp
  */
 use NimVor\Security\Permissions as P;
 
@@ -28,6 +29,37 @@ $canManage = $this->can(P::SERVER_MANAGE);
 <?php if (($cfError ?? null) !== null): ?>
     <div class="nim-infobar is-error mb-3"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i><span><?= e((string) $cfError) ?></span></div>
 <?php endif; ?>
+
+<?php $realIp ??= null; ?>
+<div class="card mb-3" id="real-ip">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Visitor addresses behind Cloudflare</span>
+        <?php if ($realIp !== null): ?><span class="nim-state <?= $realIp['enabled'] ? 'is-ok' : '' ?>"><?= $realIp['enabled'] ? 'Restored' : 'Off' ?></span><?php endif; ?>
+    </div>
+    <div class="card-body">
+        <p class="small text-body-secondary">Websites whose DNS is on Cloudflare with the orange cloud (proxied) see every visitor at one of <em>Cloudflare&rsquo;s</em> addresses. Traffic limits, IP and country lists, the access log and PHP&rsquo;s <code>REMOTE_ADDR</code> then treat visitors as a few proxies. Switch this on to take the visitor&rsquo;s own address from the <code>CF-Connecting-IP</code> header. It is trusted only when the connection comes from one of Cloudflare&rsquo;s published networks, so nobody else can set it. Turn it on only if your websites are proxied through Cloudflare; the setting applies to every website on this server.</p>
+        <?php if ($realIp === null): ?>
+            <?php if (($realIpError ?? null) !== null): ?><div class="nim-infobar is-error"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i><span>The server did not answer: <?= e($realIpError->getMessage()) ?></span></div><?php endif; ?>
+        <?php else: ?>
+            <?php if ($realIp['existing'] !== []): ?>
+                <div class="nim-infobar mb-3"><i class="bi bi-info-circle" aria-hidden="true"></i><span>Nginx already has <code>real_ip</code> settings that NimVor did not write. Nginx accepts them only once, so this switch cannot be turned on while they exist. If they trust Cloudflare&rsquo;s networks, visitor addresses are already restored and you need nothing here; otherwise remove or comment them out first.<br><span class="font-monospace small text-break"><?= e(implode("\n", $realIp['existing'])) ?></span></span></div>
+            <?php endif; ?>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <?php if ($canManage): ?>
+                <form method="post" action="<?= e($this->url('cloudflare.real_ip')) ?>" data-nim-busy>
+                    <?= $this->csrfField() ?><input type="hidden" name="enabled" value="<?= $realIp['enabled'] ? '0' : '1' ?>">
+                    <button class="btn btn-sm <?= $realIp['enabled'] ? 'btn-outline-secondary' : 'btn-primary' ?>"><?= $realIp['enabled'] ? 'Switch off' : 'Restore visitor addresses' ?></button>
+                </form>
+                <form method="post" action="<?= e($this->url('cloudflare.real_ip_refresh')) ?>" data-nim-busy>
+                    <?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary">Update Cloudflare&rsquo;s networks</button>
+                </form>
+                <?php endif; ?>
+                <span class="small text-body-secondary"><?= count($realIp['ranges']) ?> Cloudflare networks trusted<?= $realIp['custom'] ? ' (list updated from Cloudflare)' : ' (built-in list)' ?>.</span>
+            </div>
+            <details class="mt-2"><summary class="small">Show the networks</summary><p class="small font-monospace text-break mt-2 mb-0"><?= e(implode('  ', $realIp['ranges'])) ?></p></details>
+        <?php endif; ?>
+    </div>
+</div>
 
 <?php if ($account === null): ?>
     <div class="card">

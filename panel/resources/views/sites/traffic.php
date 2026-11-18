@@ -123,7 +123,7 @@ $tabs = ['limits' => 'Traffic limits'];
     </div>
 </div>
 <ul class="small text-body-secondary mt-3">
-    <li>Visitors are counted by their address. Behind a CDN or proxy (Cloudflare, for example) every visitor has the proxy's address unless the real address is restored first, so a limit would hit all of them together.</li>
+    <li>Visitors are counted by their address. Behind a CDN or proxy every visitor has the proxy's address unless the real address is restored first, so a limit would hit all of them together. For Cloudflare, turn on <em>Visitor addresses behind Cloudflare</em> under Server → Cloudflare.</li>
     <li>Use limits for login pages, search and APIs. A limit on the whole website also counts images and scripts; allow a generous rate and burst.</li>
     <li>Several limits can apply to one request; the first to trip answers. Each limit counts on its own.</li>
 </ul>
