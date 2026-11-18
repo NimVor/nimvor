@@ -41,6 +41,9 @@ $canManage = $this->can(P::SERVER_MANAGE);
         <?php if ($realIp === null): ?>
             <?php if (($realIpError ?? null) !== null): ?><div class="nim-infobar is-error"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i><span>The server did not answer: <?= e($realIpError->getMessage()) ?></span></div><?php endif; ?>
         <?php else: ?>
+            <?php if ($realIp['existing'] !== []): ?>
+                <div class="nim-infobar mb-3"><i class="bi bi-info-circle" aria-hidden="true"></i><span>Nginx already has <code>real_ip</code> settings that NimVor did not write. Nginx accepts them only once, so this switch cannot be turned on while they exist. If they trust Cloudflare&rsquo;s networks, visitor addresses are already restored and you need nothing here; otherwise remove or comment them out first.<br><span class="font-monospace small text-break"><?= e(implode("\n", $realIp['existing'])) ?></span></span></div>
+            <?php endif; ?>
             <div class="d-flex flex-wrap gap-2 align-items-center">
                 <?php if ($canManage): ?>
                 <form method="post" action="<?= e($this->url('cloudflare.real_ip')) ?>" data-nim-busy>

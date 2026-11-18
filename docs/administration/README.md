@@ -595,8 +595,11 @@ than /8 (IPv4) or /16 (IPv6) are refused.
 The agent writes `nimvor-00-realip.conf` once, at http level, checks the
 configuration with `nginx -t` and restores the previous state if Nginx refuses
 or cannot reload it. If `real_ip_header` or `set_real_ip_from` already exist
-in your Nginx configuration (added by hand), Nginx refuses the duplicate and
-nothing changes: remove yours first. Turn it on only when your websites are
+in your Nginx configuration (added by hand or by another tool), Nginx refuses
+the duplicate and nothing changes. The card lists those settings with their
+file and line; if they already trust Cloudflare's networks, visitor addresses
+are restored and you need nothing here, otherwise remove or comment them out
+first. Turn it on only when your websites are
 proxied through Cloudflare. Firewall and Brute Force Protection work on the
 connection and keep seeing Cloudflare's addresses, as they should.
 

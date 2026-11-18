@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -125,6 +126,46 @@ func Render(st State) string {
 	return b.String()
 }
 
+var realIPDirective = regexp.MustCompile(`^\s*(real_ip_header|set_real_ip_from|real_ip_recursive)\b`)
+
+// Existing lists real_ip directives that were not written by NimVor (added by hand or by another tool) in
+// Nginx's configuration, as "file:line: text". Nginx accepts real_ip_header only once, so they conflict with
+// this setting; where they already trust Cloudflare the visitor's address is already restored.
+func Existing(e *host.Env) []string {
+	base := filepath.Dir(e.M.NginxAvailable)
+	var files []string
+	for _, pat := range []string{"nginx.conf", "conf.d/*.conf", "sites-enabled/*", "sites-available/*", "snippets/*.conf", "modules-enabled/*.conf"} {
+		found, _ := e.Root.Glob(filepath.Join(base, pat))
+		files = append(files, found...)
+	}
+	if e.M.NginxEnabled != "" {
+		found, _ := e.Root.Glob(filepath.Join(e.M.NginxEnabled, "*"))
+		files = append(files, found...)
+	}
+	sort.Strings(files)
+	seen := map[string]bool{}
+	var out []string
+	for _, f := range files {
+		if f == Path(e) || seen[f] {
+			continue
+		}
+		seen[f] = true
+		b, err := e.Root.ReadFile(f)
+		if err != nil || len(b) > 2<<20 {
+			continue
+		}
+		for i, line := range strings.Split(string(b), "\n") {
+			if realIPDirective.MatchString(line) {
+				out = append(out, fmt.Sprintf("%s:%d: %s", f, i+1, strings.TrimSpace(line)))
+				if len(out) >= 10 {
+					return out
+				}
+			}
+		}
+	}
+	return out
+}
+
 // Status is what the panel shows.
 func Status(e *host.Env) map[string]any {
 	st := Load(e)
@@ -136,6 +177,7 @@ func Status(e *host.Env) map[string]any {
 		"file":          Path(e),
 		"file_present":  e.Root.Exists(Path(e)),
 		"default_count": len(Defaults),
+		"existing":      Existing(e),
 	}
 }
 
@@ -160,7 +202,10 @@ func Set(ctx context.Context, e *host.Env, enabled bool, ranges []string) error 
 	set.Write(statePath(e), sb, 0o600, agentfs.RootOwner)
 	applied, err := set.Commit(func() error { return e.NginxTest(ctx) })
 	if err != nil {
-		return host.FailWithValidation("The visitor address setting was not changed. If Nginx already has real_ip settings (for example added by hand), remove them first", err)
+		if ex := Existing(e); len(ex) > 0 {
+			return host.FailWithValidation("The visitor address setting was not changed: Nginx already has real_ip settings that NimVor did not write ("+strings.Join(ex, "; ")+"). Nginx accepts them only once. If they already trust Cloudflare, visitor addresses are restored and nothing needs to be switched on; otherwise remove or comment them out first", err)
+		}
+		return host.FailWithValidation("The visitor address setting was not changed: Nginx did not accept it", err)
 	}
 	if len(applied.Changed) > 0 {
 		if err := e.ReloadNginx(ctx); err != nil {

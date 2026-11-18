@@ -43,7 +43,7 @@ final class RealIpService
         $this->fetch = $fetch;
     }
 
-    /** @return array{enabled: bool, custom: bool, ranges: list<string>, header: string, file_present: bool} */
+    /** @return array{enabled: bool, custom: bool, ranges: list<string>, header: string, file_present: bool, existing: list<string>} */
     public function status(): array
     {
         $s = (array) $this->agent->call('realip.status');
@@ -53,6 +53,7 @@ final class RealIpService
             'ranges' => array_values(array_map('strval', (array) ($s['ranges'] ?? []))),
             'header' => (string) ($s['header'] ?? 'CF-Connecting-IP'),
             'file_present' => !empty($s['file_present']),
+            'existing' => array_values(array_map('strval', (array) ($s['existing'] ?? []))),
         ];
     }
 

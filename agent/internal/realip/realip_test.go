@@ -164,3 +164,31 @@ func TestNginxRefusingTheFileRollsBack(t *testing.T) {
 		t.Errorf("the state says enabled after a rollback: %v", st)
 	}
 }
+
+func TestExistingRealIPSettingsAreFoundAndNamedInTheError(t *testing.T) {
+	f := setup(t)
+	os.MkdirAll(filepath.Join(f.h.Base, "etc/nginx/conf.d"), 0o755)
+	os.WriteFile(filepath.Join(f.h.Base, "etc/nginx/conf.d/cloudflare.conf"), []byte("# Cloudflare\nset_real_ip_from 103.21.244.0/22;\n  real_ip_header CF-Connecting-IP;\n#real_ip_recursive on;\n"), 0o644)
+	os.WriteFile(filepath.Join(f.h.Base, "etc/nginx/nginx.conf"), []byte("http {\n    include conf.d/*.conf;\n}\n"), 0o644)
+	st, _ := f.call(t, "realip.status", map[string]any{})
+	ex, _ := st["existing"].([]any)
+	if len(ex) != 2 || !strings.Contains(ex[0].(string), "cloudflare.conf:2: set_real_ip_from 103.21.244.0/22;") || !strings.Contains(ex[1].(string), "cloudflare.conf:3: real_ip_header CF-Connecting-IP;") {
+		t.Fatalf("existing = %v (a commented line is not a setting)", ex)
+	}
+	f.h.Fail["nginx -t"] = "nginx: [emerg] \"real_ip_header\" directive is duplicate"
+	_, err := f.call(t, "realip.set", map[string]any{"enabled": true})
+	if err == nil || !strings.Contains(err.Error(), "conf.d/cloudflare.conf:3") {
+		t.Fatalf("the error should name the file and line: %v", err)
+	}
+	// Our own file is never reported as foreign.
+	f.h.Fail = map[string]string{}
+	if _, err := f.call(t, "realip.set", map[string]any{"enabled": true}); err != nil {
+		t.Fatal(err)
+	}
+	st, _ = f.call(t, "realip.status", map[string]any{})
+	for _, e := range st["existing"].([]any) {
+		if strings.Contains(e.(string), File) {
+			t.Errorf("own file listed: %v", e)
+		}
+	}
+}

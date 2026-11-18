@@ -25,6 +25,18 @@ final class CloudflareRealIpTest extends HttpTestCase
         self::assertStringContainsString('Restore visitor addresses', $body);
         self::assertStringContainsString('2 Cloudflare networks trusted (built-in list)', $body);
         self::assertStringContainsString('Connect Cloudflare', $body, 'the account form is still there');
+        self::assertStringNotContainsString('did not write', $body);
+    }
+
+    public function testExistingRealIpSettingsAreShownWithTheirFileAndLine(): void
+    {
+        $this->seedUser('admin', 'admin');
+        $this->login('admin');
+        $this->agent->succeed('realip.status', ['enabled' => false, 'custom' => false, 'ranges' => ['173.245.48.0/20'], 'header' => 'CF-Connecting-IP', 'file_present' => false, 'existing' => ['/etc/nginx/conf.d/cloudflare.conf:3: real_ip_header CF-Connecting-IP;', '/etc/nginx/nginx.conf:9: set_real_ip_from <b>x</b>;']]);
+        $body = $this->request('GET', '/cloudflare')->body();
+        self::assertStringContainsString('did not write', $body);
+        self::assertStringContainsString('/etc/nginx/conf.d/cloudflare.conf:3: real_ip_header CF-Connecting-IP;', $body);
+        self::assertStringContainsString('set_real_ip_from &lt;b&gt;x&lt;/b&gt;;', $body, 'escaped');
     }
 
     public function testTurningItOnAndOffCallsTheAgentAndIsAudited(): void
