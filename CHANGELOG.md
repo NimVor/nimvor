@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.8.2] — 2026-11-18
+
+Visitors' own addresses behind Cloudflare, Nginx restarts from the panel that no longer end in "Failed to fetch", and the website's own Releases page and an updated Features page.
+
 ### Fixed
 
 - **Restarting Nginx from the panel ended with "Failed to fetch".** The panel is served through Nginx, so restarting it cut the connection that was carrying the answer to the restart. The configuration is still tested first (and a bad one refused at once); the restart now follows the answer by two seconds, the panel says so, and the agent starts Nginx again if the restart fails. A reload (which keeps connections) is unchanged.
