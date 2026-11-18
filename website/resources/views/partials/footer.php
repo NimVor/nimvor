@@ -12,7 +12,7 @@
                     <li><a href="/features">Features</a></li>
                     <li><a href="/docs">Documentation</a></li>
                     <li><a href="/get-started">Install</a></li>
-                    <li><a href="https://github.com/NimVor/nimvor/releases" rel="noopener">Releases</a></li>
+                    <li><a href="/resources/releases">Releases</a></li>
                 </ul>
             </div>
             <div>
@@ -39,8 +39,8 @@
             </div>
         </div>
         <div class="footer-bottom">
-            <span>&copy; <?= gmdate('Y') ?> The NimVor authors. NimVor is released under the MIT licence.</span>
-            <span>A product of <a href="https://whasys.com" rel="noopener">WhaSys</a></span>
+            <span>&copy; Copyright <?= gmdate('Y') ?> NimVor</span>
+            <span>Powered by <a href="https://tplix.dev" target="_blank" rel="noopener noreferrer">TPLix</a> &middot; Hosted on <a href="https://nimvor.com" target="_blank" rel="noopener noreferrer">NimVor</a></span>
         </div>
     </div>
 </footer>

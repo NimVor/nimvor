@@ -158,7 +158,7 @@ final class PagesTest extends SiteTestCase
         self::assertStringContainsString('/get-started', $this->get('/')->body, 'the home page links to the install page');
         self::assertStringContainsString('/get-started', $this->get('/features')->body);
         $home = $this->get('/')->body;
-        self::assertStringContainsString('<a href="https://whasys.com" rel="noopener">WhaSys</a>', $home, 'the footer credits WhaSys');
+        self::assertStringContainsString('Copyright ' . gmdate('Y') . ' NimVor', $home, 'the footer carries the copyright line with the current year');
         self::assertStringContainsString('data-tagline', $home, 'the tagline is shown above the footer');
         self::assertStringNotContainsString('Not affiliated with any other control panel', $home);
         self::assertStringNotContainsStringIgnoringCase('whacp', $this->get('/about')->body, 'the old project name is not mentioned');

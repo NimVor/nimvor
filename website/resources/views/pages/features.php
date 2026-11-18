@@ -2,7 +2,7 @@
 /** @var \NimVorSite\Core\View $v */
 $v->layout('layouts/site');
 $v->set('title', 'Features');
-$v->set('description', 'Everything NimVor manages: websites, PHP versions, WordPress and apps, email, DNS, SSL, databases, files, backups, security, monitoring, hosting plans, automation and an API.');
+$v->set('description', 'Everything NimVor manages: websites and their protection, PHP versions, WordPress and apps, email, DNS and DNSSEC, SSL, MySQL, PostgreSQL and MongoDB, files, backups, moving from another panel, security, monitoring, hosting plans, customer themes, automation and an API.');
 $groups = [
     ['websites', 'globe', 'Websites and domains', 'Host PHP, static and reverse-proxy sites without hand-editing Nginx.', [
         'Nginx virtual hosts with aliases, redirects and subdomains, and a validated reload (`nginx -t`) with automatic rollback',
@@ -11,6 +11,16 @@ $groups = [
         'Take over an existing site: files are copied, Nginx switches in one reload, and the import can be undone',
         'Discovery finds websites that already run on the server so you can adopt them',
         'Git deployment with webhooks, and an IP address overview showing which sites use which address',
+        'A page cache for PHP websites and Brotli compression, switched on per website, with a purge button',
+        'Environment variables per website, and quick PHP-FPM and Nginx settings from the websites list',
+    ]],
+    ['protection', 'shield', 'Website protection', 'Decide who may reach a site, how fast, and what its accounts may run.', [
+        'Traffic limits per website: requests per second or minute from one address to a folder, a URL or the whole site, answered with 429, 503 or a closed connection',
+        'IP, browser and URL lists, per website and server-wide: allow and deny by address, network or range, by User-Agent and by path, with import and export',
+        'Country restrictions: refuse visitors from chosen countries, or serve only visitors from them',
+        'A traffic report per website: requests per hour, refused requests, the busiest addresses, URLs and browsers, a country ranking and ModSecurity events, with a Deny button',
+        'Anti-Intrusion: a log of every program a service or website account starts, and a blacklist of programs it may not run',
+        'Every change to Nginx is checked with `nginx -t` and rolled back if it is refused; certificate renewal is never blocked',
     ]],
     ['php', 'code', 'PHP Manager', 'Choose exactly which PHP versions and extensions a server has.', [
         'Install PHP 8.0 to the newest release side by side, then review and apply the whole change at once',
@@ -30,9 +40,13 @@ $groups = [
         'DKIM keys, with the MX, SPF, DKIM and DMARC records added to the DNS zone in one click',
         'Greylisting with a report, sending limits per account, and a mail queue you can inspect',
         'Delivery reports and statistics, mail tools for testing, and Roundcube webmail',
+        'Webmail and mail host names on the domain itself (webmail.example.com), answering over HTTPS with the domain\'s certificate',
+        'An administrator\'s switch for sending on port 465 as well as 587, for networks that block submission',
     ]],
     ['dns-ssl', 'lock', 'DNS and SSL', 'Zones and certificates that are checked before they go live.', [
-        'Authoritative zones on BIND: A, AAAA, CNAME, MX, TXT, NS, SRV and CAA, with templates and secondaries',
+        'Authoritative zones: A, AAAA, CNAME, MX, TXT, NS, SRV and CAA, with templates and secondaries',
+        'Choose the name server software: BIND, NSD, Knot DNS or PowerDNS, all serving the same zone files, with the trade-offs shown and the previous server put back if the switch fails',
+        'DNSSEC: sign zones served by BIND, Knot DNS or PowerDNS and hand the DS record to your registrar',
         'Every zone is validated with `named-checkzone` and the serial is verified after each reload',
         "AutoSSL: Let's Encrypt for every website with renewals and a log, plus custom certificates, keys and CSRs",
         'HTTPS redirect, HSTS, TLS protocol and cipher settings, and certificates for the panel, mail server and host name',
@@ -40,7 +54,8 @@ $groups = [
     ]],
     ['data', 'db', 'Databases and data stores', 'The databases your sites use, with sensible limits.', [
         'MySQL and MariaDB databases, users and grants, with server settings, connections and logs',
-        'A web database browser (rows, structure, SQL console) confined to a single database',
+        'PostgreSQL: databases, roles and grants kept apart per customer, a table browser, an SQL editor with history, backups with schedules and retention, and remote PostgreSQL servers',
+        'Web database browsers for MySQL, PostgreSQL and MongoDB: an overview with sizes, rows, structure, indexes, constraints and bulk actions, each confined to one customer\'s database',
         'MongoDB databases and users',
         'Redis with per-site users and a key browser, and Memcached with stats and settings',
     ]],
@@ -55,6 +70,13 @@ $groups = [
         'S3-compatible storage, SFTP, FTPS, Google Drive or local disk',
         'Schedules and retention; server configuration is restored by component, with rollback',
         'Backups run as background tasks you can follow, and keep going if you close the window',
+    ]],
+    ['migration', 'cloud', 'Moving to NimVor', 'Bring websites, databases and mail from another server or panel.', [
+        'Copy websites, databases and mailboxes from another server over SSH: files with rsync, databases streamed, mail kept intact, with checkpoints so a stopped copy resumes',
+        'Sources: cPanel, DirectAdmin, Plesk, HestiaCP, VestaCP, CyberPanel, CloudPanel, aaPanel, ISPConfig, FASTPANEL, Froxlor, InterWorx, Enhance, CentOS Web Panel, another NimVor server and plain Linux servers (most are marked experimental)',
+        'Or import a backup file: a cPanel cpmove archive, a DirectAdmin user backup or a HestiaCP / VestaCP backup, with no login to the old server',
+        'Creates the destination databases, accounts, forwarders, cron jobs and DNS records for you, and reports what could not be moved',
+        'A validation pass compares what arrived, a printable report is kept, and what was created can be rolled back',
     ]],
     ['security', 'shield', 'Security', 'Hardening that does not lock you out.', [
         'A security overview with a safety rating and one-click fixes',
@@ -86,6 +108,7 @@ $groups = [
         'Roles (administrator, operator, viewer, reseller, customer) and custom roles',
         'One form creates a customer, their login and their first website',
         'Basic WebHost settings and a Tweak Settings page where every setting shows its default, with search and reset',
+        'Four themes for the customer panel (Classic, Workspace, Simple and Compact), each customer\'s choice of light or dark and an accent colour, with the themes on offer set by the administrator',
     ]],
     ['api', 'tool', 'Automation and extension', 'Script it or extend it.', [
         'A REST API with personal access tokens, described by an OpenAPI file',
@@ -95,6 +118,17 @@ $groups = [
 ];?>
 <?= $v->partial('partials/page-head', ['title' => 'Features', 'intro' => 'What NimVor manages today, and how it keeps each change safe.', 'crumbs' => [['Features', '']]]) ?>
 
+<?php if (!empty($latest)): ?>
+<section class="section feature-new">
+    <div class="container">
+        <a class="rel-banner" href="/resources/releases/<?= e(rawurlencode($latest['version'])) ?>">
+            <span class="badge badge-ok">New in <?= e($latest['version']) ?></span>
+            <span class="rel-banner-text"><?= $latest['summary'] !== '' ? strip_tags($inline($latest['summary'])) : e(count($latest['sections']) > 0 ? $latest['count'] . ' changes in this release.' : 'The latest release.') ?></span>
+            <span class="link-arrow">Release notes <?= $v->icon('arrow', 16) ?></span>
+        </a>
+    </div>
+</section>
+<?php endif; ?>
 <section class="section">
     <div class="container">
         <div class="grid grid-2">

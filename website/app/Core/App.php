@@ -30,6 +30,7 @@ use NimVorSite\Services\DocsService;
 use NimVorSite\Services\GitHub;
 use NimVorSite\Services\Http;
 use NimVorSite\Services\Problems;
+use NimVorSite\Services\Releases;
 use NimVorSite\Services\RateLimiter;
 use NimVorSite\Services\Reports;
 use NimVorSite\Services\SponsorSync;
@@ -54,6 +55,7 @@ final class App
     public readonly GitHub $github;
     public readonly DocsService $docsService;
     public readonly Problems $problems;
+    public readonly Releases $releases;
     public readonly SponsorSync $sponsorSync;
     public readonly Stats $stats;
     /** Work to do after the answer has been sent (a documentation refresh). */
@@ -83,6 +85,7 @@ final class App
         $this->github = new GitHub($http ?? new CurlHttp(), $ghConfig);
         $this->docsService = new DocsService($this->docs, $this->state, $this->github, $ghConfig['branch']);
         $this->problems = new Problems($this->github, $cache);
+        $this->releases = new Releases($this->github, $cache);
         $this->sponsorSync = new SponsorSync($this->github, $this->sponsors, $cache, (string) ($gh['sponsorable'] ?? 'NimVor'));
         $this->stats = new Stats($this->installs, $cache);
         $this->router = new Router();
@@ -144,6 +147,8 @@ final class App
         $r->add('GET', '/resources/videos', [$p, 'videos']);
         $r->add('GET', '/resources/videos/{slug}', [$p, 'video']);
         $r->add('GET', '/media/videos/{file}', [$p, 'videoFile']);
+        $r->add('GET', '/resources/releases', [$p, 'releases']);
+        $r->add('GET', '/resources/releases/{version}', [$p, 'release']);
         $r->add('GET', '/resources/problems', [$p, 'problems']);
         $r->add('GET', '/resources/stats', [$p, 'stats']);
         $r->add('GET', '/docs', [$d, 'show']);

@@ -5,7 +5,8 @@ $v->set('title', 'Resources');
 $items = [
     ['/resources/documentation', 'book', 'Documentation', 'Install, administer and extend NimVor, with the commands you will actually use.'],
     ['/resources/videos', 'play', 'Videos', 'Walkthroughs of the panel: install, websites, email, DNS, SSL, backups, security and migrations.'],
-    ['/resources/blog', 'pen', 'Blog', 'News, releases and how-tos from the project.'],
+    ['/resources/releases', 'bolt', 'Releases', 'Every version of NimVor with what was added, changed and fixed, and its downloads.'],
+    ['/resources/blog', 'pen', 'Blog', 'News and how-tos from the project.'],
     ['/resources/community', 'git', 'Community & source', 'The code on GitHub, how to report a problem and how to contribute.'],
     ['/resources/build-services', 'tool', 'Build services', 'Paid help: migrations, installs, reviews and custom features.'],
     ['/resources/sponsors', 'heart', 'Sponsors', 'The people and companies that keep NimVor free.'],

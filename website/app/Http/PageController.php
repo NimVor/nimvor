@@ -33,6 +33,49 @@ final class PageController extends Controller
         return $ctx->render('pages/home', ['install' => self::INSTALL, 'posts' => array_slice($this->posts(), 0, 3), 'servers' => $this->app->stats->headline()]);
     }
 
+    public function releases(Ctx $ctx): Response
+    {
+        $history = $this->app->releases->history();
+        $series = (string) $ctx->req->input('series');
+        $known = [];
+        foreach ($history['releases'] as $r) {
+            $known[(string) preg_replace('/^(\d+\.\d+).*$/', '$1', $r['version'])] = true;
+        }
+        return $ctx->render('pages/releases', [
+            'history' => $history,
+            'series' => isset($known[$series]) ? $series : '',
+            'seriesList' => array_keys($known),
+            'inline' => fn (string $md): string => $this->app->releases->inline($md),
+            'brief' => fn (string $md): string => $this->app->releases->brief($md),
+            'repo' => $this->app->github->repoUrl(),
+            'install' => self::INSTALL,
+        ]);
+    }
+
+    public function release(Ctx $ctx, array $params): Response
+    {
+        $history = $this->app->releases->history();
+        $list = $history['releases'];
+        $at = null;
+        foreach ($list as $i => $r) {
+            if ($r['version'] === ($params['version'] ?? '')) {
+                $at = $i;
+                break;
+            }
+        }
+        if ($at === null) {
+            return $this->app->error($ctx, 404);
+        }
+        return $ctx->render('pages/release', [
+            'r' => $list[$at],
+            'newer' => $list[$at - 1] ?? null,
+            'older' => $list[$at + 1] ?? null,
+            'inline' => fn (string $md): string => $this->app->releases->inline($md),
+            'repo' => $this->app->github->repoUrl(),
+            'install' => self::INSTALL,
+        ]);
+    }
+
     public function problems(Ctx $ctx): Response
     {
         $status = $ctx->req->input('status');
@@ -50,7 +93,14 @@ final class PageController extends Controller
 
     public function features(Ctx $ctx): Response
     {
-        return $ctx->render('pages/features');
+        $latest = null;
+        foreach ($this->app->releases->history()['releases'] as $r) {
+            if ($r['kind'] !== 'pre') {
+                $latest = $r;
+                break;
+            }
+        }
+        return $ctx->render('pages/features', ['latest' => $latest, 'inline' => fn (string $md): string => $this->app->releases->inline($md)]);
     }
 
     public function resources(Ctx $ctx): Response
@@ -220,12 +270,15 @@ final class PageController extends Controller
     public function sitemap(Ctx $ctx): Response
     {
         $base = (string) $this->app->config['url'];
-        $paths = ['/', '/features', '/get-started', '/resources', '/resources/documentation', '/resources/blog', '/resources/community', '/resources/build-services', '/resources/sponsors', '/resources/videos', '/resources/problems', '/resources/stats', '/docs', '/resources/about', '/support', '/support/contact', '/support/privacy'];
+        $paths = ['/', '/features', '/get-started', '/resources', '/resources/documentation', '/resources/blog', '/resources/community', '/resources/build-services', '/resources/sponsors', '/resources/videos', '/resources/releases', '/resources/problems', '/resources/stats', '/docs', '/resources/about', '/support', '/support/contact', '/support/privacy'];
         foreach ($this->posts() as $p) {
             $paths[] = '/resources/blog/' . $p['slug'];
         }
         foreach ($this->app->videos->published() as $vid) {
             $paths[] = '/resources/videos/' . $vid['slug'];
+        }
+        foreach ($this->app->releases->history()['releases'] as $rel) {
+            $paths[] = '/resources/releases/' . $rel['version'];
         }
         foreach ($this->app->docs->menu() as $d) {
             if ($d['slug'] !== 'index') {
