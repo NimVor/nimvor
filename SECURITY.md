@@ -13,7 +13,8 @@ mitigation within 30 days, coordinating disclosure with the reporter.
 
 | Version | Supported |
 |---|---|
-| 1.8.1 | yes — latest release |
+| 1.8.2 | yes — latest release |
+| 1.8.1 | no — upgrade with `installer/upgrade.sh` |
 | 1.8.0 | no — upgrade with `installer/upgrade.sh` |
 | 1.7.0 | no — upgrade with `installer/upgrade.sh` |
 | 1.6.0 | no — upgrade with `installer/upgrade.sh` |
