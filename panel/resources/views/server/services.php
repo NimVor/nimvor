@@ -67,5 +67,5 @@
             </table>
         </div>
     <?php endif; ?>
-    <div class="card-footer small text-body-secondary">Nginx is always tested with <code>nginx -t</code> before it is reloaded or restarted. SSH can be reloaded and restarted (its configuration is tested first) but not stopped, and the agent and panel cannot be stopped from here.</div>
+    <div class="card-footer small text-body-secondary">Nginx is always tested with <code>nginx -t</code> before it is reloaded or restarted. A restart follows the answer by a couple of seconds, because the panel is served through Nginx and the page would otherwise lose its connection. SSH can be reloaded and restarted (its configuration is tested first) but not stopped, and the agent and panel cannot be stopped from here.</div>
 </div>

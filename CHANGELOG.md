@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Restarting Nginx from the panel ended with "Failed to fetch".** The panel is served through Nginx, so restarting it cut the connection that was carrying the answer to the restart. The configuration is still tested first (and a bad one refused at once); the restart now follows the answer by two seconds, the panel says so, and the agent starts Nginx again if the restart fails. A reload (which keeps connections) is unchanged.
+
 ### Added
 
 - Website: the site's own **Releases** page (`/resources/releases`) instead of a link to GitHub's. It is written from `CHANGELOG.md` and the GitHub releases: the latest release with its downloads and highlights, a timeline of every version with what was added, changed, fixed and secured, a filter by version series, a page for each version (every change in full, downloads, an install command for that version, the code changes since the previous release) and the upcoming changes. The last good copy is kept when GitHub cannot be reached.

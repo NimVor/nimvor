@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/NimVor/nimvor/agent/internal/actions"
 	"github.com/NimVor/nimvor/agent/internal/host"
@@ -78,9 +79,32 @@ func Register(r *actions.Registry, env *host.Env) {
 		if st, err := (systemd.Client{Runner: env.Runner}).Status(ctx, []string{in.Unit}); err == nil && len(st) > 0 && st[0].LoadState == "not-found" {
 			return nil, actions.Conflict(in.Unit + " is not installed on this server (or, for NimVor's own services, not set up yet).")
 		}
+		if in.Unit == env.M.NginxUnit && in.Op == "restart" {
+			// The panel is served through Nginx: restarting it now would cut the connection that carries this
+			// very answer ("Failed to fetch" in the browser). The configuration has just passed its test, so
+			// answer first and restart a moment later, as for the panel and the agent.
+			unit := in.Unit
+			go restartNginxLater(env, unit)
+			return map[string]any{"unit": unit, "op": in.Op, "scheduled": true}, nil
+		}
 		if err := env.Systemctl(ctx, in.Op, in.Unit); err != nil {
 			return nil, actions.Failed("The service operation failed.", err.Error())
 		}
 		return map[string]any{"unit": in.Unit, "op": in.Op, "active": env.UnitActive(ctx, in.Unit)}, nil
 	}})
+}
+
+// restartNginxLater restarts Nginx after restartDelay and makes sure it is running afterwards: a stopped
+// Nginx would take the panel down with it.
+func restartNginxLater(env *host.Env, unit string) {
+	time.Sleep(restartDelay)
+	ctx := context.Background()
+	if err := env.Systemctl(ctx, "restart", unit); err != nil {
+		env.Log.Error("nginx restart", "unit", unit, "err", err)
+		if !env.UnitActive(ctx, unit) {
+			if err := env.Systemctl(ctx, "start", unit); err != nil {
+				env.Log.Error("nginx start after a failed restart", "unit", unit, "err", err)
+			}
+		}
+	}
 }

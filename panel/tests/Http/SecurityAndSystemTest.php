@@ -181,6 +181,17 @@ final class SecurityAndSystemTest extends HttpTestCase
         self::assertStringContainsString('data-services-control="/services/control"', $this->request('GET', '/')->body());
     }
 
+    public function testNginxRestartIsAnnouncedBecauseItCarriesThePanel(): void
+    {
+        $json = ['accept' => 'application/json', 'content-type' => 'application/json', 'x-csrf-token' => $this->app->container->get(\NimVor\Security\Csrf::class)->token()];
+        $this->agent->succeed('services.control', ['unit' => 'nginx.service', 'op' => 'restart', 'scheduled' => true]);
+        $res = $this->request('POST', '/services/control', [], $json, '{"unit":"nginx.service","op":"restart"}');
+        self::assertSame(200, $res->status());
+        $body = json_decode($res->body(), true);
+        self::assertTrue($body['success']);
+        self::assertStringContainsString('restarts in a few seconds', $body['message']);
+    }
+
     public function testSshAndFail2ban(): void
     {
         $this->agent->succeed('security.pending', ['pending' => null]);
