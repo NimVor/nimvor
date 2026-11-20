@@ -88,7 +88,7 @@ func InstallNative(ctx context.Context, env *host.Env, log io.Writer, pkgs []str
 		})
 	}
 	if err := transact(ctx, env, log, "refresh the package index", nil, func(ctx context.Context) ([]byte, error) {
-		return env.Runner.RunWith(ctx, "apt-get", opts, append([]string{"update", "-q"}, aptLockWait...)...)
+		return env.Runner.RunWith(ctx, "apt-get", opts, aptUpdateArgs()...)
 	}); err != nil {
 		return err
 	}
@@ -258,7 +258,7 @@ func Refresh(ctx context.Context, env *host.Env, log io.Writer) error {
 		if dnf(env) {
 			return env.Runner.RunWith(ctx, "dnf", opts, "-q", "makecache")
 		}
-		return env.Runner.RunWith(ctx, "apt-get", opts, append([]string{"update", "-q"}, aptLockWait...)...)
+		return env.Runner.RunWith(ctx, "apt-get", opts, aptUpdateArgs()...)
 	})
 }
 

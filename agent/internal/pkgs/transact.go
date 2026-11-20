@@ -37,6 +37,15 @@ var retryDelays = []time.Duration{10 * time.Second, 30 * time.Second}
 // aptLockWait makes apt wait for the dpkg lock instead of failing at once.
 var aptLockWait = []string{"-o", "DPkg::Lock::Timeout=300"}
 
+// aptUpdateArgs is the "apt-get update" command line. --allow-releaseinfo-change
+// accepts a repository's changed Label, Version, Suite or Codename (for
+// example the Ondřej PHP PPA being relabelled "(deprecated)"), which apt
+// otherwise refuses outright in unattended runs. Signatures are still
+// verified; only the descriptive release fields may change.
+func aptUpdateArgs() []string {
+	return append([]string{"update", "-q", "--allow-releaseinfo-change"}, aptLockWait...)
+}
+
 // packageEnv: needrestart (Ubuntu) only lists services to restart; it must
 // not restart services (NimVor's own agent among them) during a job.
 var packageEnv = []string{"NEEDRESTART_MODE=l", "NEEDRESTART_SUSPEND=1", "APT_LISTCHANGES_FRONTEND=none"}
@@ -163,7 +172,7 @@ func refreshIndex(ctx context.Context, env *host.Env, log io.Writer) error {
 		_, err := env.Runner.RunWith(ctx, "dnf", opts, "-q", "makecache", "--refresh")
 		return err
 	}
-	_, err := env.Runner.RunWith(ctx, "apt-get", opts, append([]string{"update", "-q"}, aptLockWait...)...)
+	_, err := env.Runner.RunWith(ctx, "apt-get", opts, aptUpdateArgs()...)
 	return err
 }
 

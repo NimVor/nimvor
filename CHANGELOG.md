@@ -8,6 +8,7 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Fixed
 
+- **Package index refresh failed when a repository changed its description (webmail and other installs).** `apt-get update` refuses, in unattended runs, a repository whose Label, Version, Suite or Codename changed. The Ondřej PHP PPA's label became "PPA for PHP (deprecated)", so installing webmail (and anything else that refreshes the index) stopped with "the package manager failed [UNKNOWN]". The agent now runs `apt-get update --allow-releaseinfo-change`. Signatures are still checked; only the descriptive release fields may change.
 - **Website: the step-by-step guides did not appear after a deploy.** They had to be loaded into the blog by hand. They now load by themselves when the blog is first opened after a deploy (new or changed guides only; posts written or edited under Admin are never replaced).
 
 ## [1.8.2] — 2026-11-18
