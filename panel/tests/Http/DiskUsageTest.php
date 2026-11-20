@@ -34,6 +34,8 @@ final class DiskUsageTest extends HttpTestCase
         $this->post('/sites/' . $this->site . '/disk-usage', ['path' => '']);
         self::assertSame(['domain' => 'shop.test', 'path' => ''], $this->lastCall('sites.disk_usage'));
         self::assertSame('abcdef0123456789', $this->session->pullFlash('job'));
+        // The progress window only follows jobs the panel knows ("Job not found" otherwise).
+        self::assertSame(1, (int) $this->app->container->get(\NimVor\Database\Connection::class)->scalar("SELECT COUNT(*) FROM agent_jobs WHERE job_id = 'abcdef0123456789' AND kind = 'Measure disk usage'"));
         $this->agent->succeed('jobs.get', ['id' => 'abcdef0123456789', 'status' => 'running']);
         self::assertStringContainsString('Measuring', $this->request('GET', '/sites/' . $this->site . '/disk-usage')->body());
         $this->post('/sites/' . $this->site . '/disk-usage', ['path' => '']);

@@ -10,6 +10,7 @@ use NimVor\Http\Response;
 use NimVor\Http\Session\SessionInterface;
 use NimVor\Repositories\WebsiteRepository;
 use NimVor\Services\DiskUsageService;
+use NimVor\Services\JobTracker;
 use NimVor\Services\ServerContext;
 use NimVor\Support\UserFacingException;
 use NimVor\View\View;
@@ -23,6 +24,7 @@ final class DiskUsageController extends Controller
         private readonly DiskUsageService $usage,
         private readonly WebsiteRepository $sites,
         private readonly ServerContext $server,
+        private readonly JobTracker $jobs,
     ) {
         parent::__construct($view, $session);
     }
@@ -70,6 +72,8 @@ final class DiskUsageController extends Controller
         } catch (UserFacingException $e) {
             return $this->redirectWithFailure($to, $e);
         }
+        // The progress window follows jobs the panel knows: register this one.
+        $this->jobs->track($job, 'Measure disk usage', 'website', (string) $site['id'], $this->userId($request));
         $this->flashJob($job);
         return $this->redirectWithSuccess($to, 'Measuring the folders. Large websites take a while; reload the page when the task has finished.');
     }
