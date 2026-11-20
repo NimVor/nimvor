@@ -336,6 +336,7 @@ install -m 0755 "$AGENT_SRC" "$BIN.new" && mv -f "$BIN.new" "$BIN"
 install -m 0755 "$SRC_DIR/installer/config/nimvor-cli" "$(dirname "$BIN")/nimvor" # the short command (sudo nimvor ...), next to the agent binary
 port=$(sed -n 's/.*-S 127\.0\.0\.1:\([0-9]*\).*/\1/p' "$UNIT_DIR/nimvor-panel.service" | head -1)
 install -m 0644 "$SRC_DIR/installer/systemd/nimvor-agent.service" "$UNIT_DIR/nimvor-agent.service"
+install -m 0644 "$SRC_DIR/installer/systemd/nimvor-sysctl.service" "$UNIT_DIR/nimvor-sysctl.service"
 sed "s/127.0.0.1:8090/127.0.0.1:${port:-8090}/" "$SRC_DIR/installer/systemd/nimvor-panel.service" > "$UNIT_DIR/nimvor-panel.service"
 install -m 0644 "$SRC_DIR/installer/systemd/nimvor-scheduler.service" "$UNIT_DIR/nimvor-scheduler.service"
 install -m 0644 "$SRC_DIR/installer/systemd/nimvor-scheduler.timer" "$UNIT_DIR/nimvor-scheduler.timer"
@@ -351,6 +352,7 @@ ok "files installed"
 log "Migrating the panel database"
 panel_cli migrate || rollback_and_die "database migration failed"
 systemctl enable nimvor-scheduler.timer >/dev/null 2>&1 || true
+systemctl enable nimvor-sysctl.service >/dev/null 2>&1 || true
 start_services || rollback_and_die "services did not start"
 
 log "Health checks"

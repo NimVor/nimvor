@@ -73,6 +73,17 @@ final class Application
             // Protected from the start: the website firewall (ModSecurity) is "On (block attacks)" where it is usable.
             $c->get(\NimVor\Services\ModSecurityService::class)->protectNewSite((array) $p['website']);
             $c->get(\NimVor\Services\AutoSslService::class)->mark((array) $p['website']);
+            // Statistics (AWStats) and Anti-intrusion are on from the start where they are installed / switched on.
+            foreach ([
+                static fn () => $c->get(\NimVor\Services\StatsService::class)->enableForNewSite((array) $p['website']),
+                static fn () => $c->get(\NimVor\Services\IntrusionService::class)->enrollAccount((string) ((array) $p['website'])['system_user']),
+            ] as $step) {
+                try {
+                    $step();
+                } catch (\NimVor\Agent\AgentException $e) {
+                    $c->get(Logger::class)->warning('new website: a default was not applied', ['domain' => ((array) $p['website'])['domain'] ?? '', 'error' => $e->getMessage()]);
+                }
+            }
         });
         // Resource limits follow the account's websites (its system users).
         $limits = static function () use ($c): void {

@@ -38,14 +38,25 @@ final class ServerSetupService
 
     public const PROFILE_NAMES = ['full' => 'Full hosting server', 'web' => 'Web hosting only', 'minimal' => 'Minimal'];
 
+    /**
+     * Small packages the panel's own features use (Server → Packages names):
+     * zip and unzip for the file manager and backups, awstats for website
+     * statistics, acl and auditd for Anti-intrusion.
+     */
+    public const TOOLS = ['acl', 'auditd', 'awstats', 'unzip', 'zip'];
+
     /** PHP versions installed by default; more can be chosen. */
     public const PHP_DEFAULT = ['8.3', '8.4'];
 
     public const STEPS = [
         'packages' => 'Install the components',
+        'tools' => 'Helper tools',
+        'hostname' => 'Host name',
         'php_repository' => 'PHP repository',
         'php' => 'PHP versions and extensions',
         'mail' => 'Email',
+        'webmail' => 'Webmail',
+        'mail_extras' => 'Spam filter, port 465 and greylisting',
         'dns' => 'DNS server',
         'ftp' => 'FTP server',
         'caches' => 'Redis memory limit',
@@ -55,6 +66,7 @@ final class ServerSetupService
         'protection' => 'Firewall protections',
         'fail2ban' => 'Fail2ban',
         'hardening' => 'Server hardening',
+        'intrusion' => 'Anti-intrusion',
         'security_defaults' => 'Recommended security settings',
         'auto_updates' => 'Automatic security updates',
         'plans' => 'Hosting plans and feature lists',
@@ -64,8 +76,8 @@ final class ServerSetupService
 
     /** Steps that do not apply to every profile. */
     private const STEP_PROFILES = [
-        'mail' => ['full'], 'dns' => ['full'], 'ftp' => ['web', 'full'], 'caches' => ['web', 'full'],
-        'protection' => ['web', 'full'],
+        'mail' => ['full'], 'webmail' => ['full'], 'mail_extras' => ['full'], 'dns' => ['full'], 'ftp' => ['web', 'full'], 'caches' => ['web', 'full'],
+        'protection' => ['web', 'full'], 'tools' => ['web', 'full'], 'intrusion' => ['web', 'full'],
     ];
 
     /** Feature lists: name => [description, features turned on]. */
@@ -558,6 +570,172 @@ final class ServerSetupService
         // Postfix's and Dovecot's configuration (backups are kept).
         $this->agent->call('mail.configure', ['hostname' => $hostname, 'confirm_edit_package_config' => true], 300);
         return ['ok', 'Postfix, Dovecot and OpenDKIM set up for ' . $hostname . '.'];
+    }
+
+    /** @param array<string, mixed> $opts @return array{0: string, 1: string} */
+    private function stepTools(string $profile, array $opts): array
+    {
+        $missing = [];
+        foreach ((array) $this->agent->call('packages.list', [], 60) as $p) {
+            $p = (array) $p;
+            if (in_array($p['name'] ?? '', self::TOOLS, true) && empty($p['installed']) && ($p['package'] ?? '') !== '') {
+                $missing[] = (string) $p['name'];
+            }
+        }
+        if ($missing === []) {
+            return ['skip', 'The helper tools (' . implode(', ', self::TOOLS) . ') are installed.'];
+        }
+        $left = array_values(array_diff($missing, $this->attempted));
+        if ($left === []) {
+            return ['fail', 'Still not installed after their job: ' . implode(', ', $missing) . '. See the job log, or install them under Server → Packages.'];
+        }
+        $this->say('   Installing: ' . implode(', ', $left));
+        $this->attempted = array_values(array_unique(array_merge($this->attempted, $left)));
+        $job = (string) ((array) $this->agent->call('packages.install', ['names' => $left]))['job_id'];
+        $this->wait($job, 'Install ' . implode(', ', $left));
+        return ['ok', 'Installed ' . implode(', ', $left) . '.'];
+    }
+
+    /**
+     * The host name given to the installer (--hostname) becomes the server's
+     * host name; it used to be used only for the mail server's name.
+     *
+     * @param array<string, mixed> $opts
+     * @return array{0: string, 1: string}
+     */
+    private function stepHostname(string $profile, array $opts): array
+    {
+        $want = (string) $opts['hostname'];
+        if ($want === '') {
+            return ['skip', 'No host name was given; the server keeps its own (change it under Server → Server settings).'];
+        }
+        $info = (array) $this->agent->call('system.info', [], 60);
+        $have = strtolower((string) (((array) ($info['system'] ?? []))['hostname'] ?? ''));
+        if ($have === $want) {
+            return ['skip', 'The host name is ' . $want . ' already.'];
+        }
+        $this->agent->call('server.set_hostname', ['hostname' => $want], 60);
+        return ['ok', 'The server\'s host name is now ' . $want . ' (was ' . ($have !== '' ? $have : 'unknown') . ').'];
+    }
+
+    /** The name the server's own services (webmail) answer on. @param array<string, mixed> $opts */
+    private function serverName(array $opts): string
+    {
+        if ($opts['hostname'] !== '') {
+            return (string) $opts['hostname'];
+        }
+        $info = (array) $this->agent->call('system.info', [], 60);
+        return strtolower((string) (((array) ($info['system'] ?? []))['hostname'] ?? ''));
+    }
+
+    /** @return array<string, mixed>|null mail.status, null while email is not set up */
+    private function mailState(): ?array
+    {
+        $st = (array) $this->agent->call('mail.status', [], 60);
+        return empty($st['configured']) ? null : $st;
+    }
+
+    /** @param array<string, mixed> $opts @return array{0: string, 1: string} */
+    private function stepWebmail(string $profile, array $opts): array
+    {
+        $st = $this->mailState();
+        if ($st === null) {
+            return ['skip', 'Email is not set up, so webmail is not either (see the Email step).'];
+        }
+        $w = (array) ($st['webmail'] ?? []);
+        if (!empty($w['enabled'])) {
+            return ['skip', 'Webmail is on at ' . (string) ($w['hostname'] ?? '') . ' already.'];
+        }
+        $name = $this->serverName($opts);
+        if (!str_contains($name, '.')) {
+            return ['fail', 'Webmail needs a full host name (' . $name . ' is not). Run again with --hostname=server.example.com.'];
+        }
+        if (empty($w['installed'])) {
+            $job = (string) ((array) $this->agent->call('mail.webmail_install', []))['job_id'];
+            $this->wait($job, 'Install webmail (Roundcube)');
+        }
+        $this->agent->call('mail.webmail_configure', ['enabled' => true, 'hostname' => $name], 180);
+        return ['ok', 'Webmail (Roundcube) is on at ' . $name . '.'];
+    }
+
+    /**
+     * The spam filter (Rspamd), sending on port 465 and greylisting: part of
+     * a full server, each left alone when already set up.
+     *
+     * @param array<string, mixed> $opts
+     * @return array{0: string, 1: string}
+     */
+    private function stepMailExtras(string $profile, array $opts): array
+    {
+        $st = $this->mailState();
+        if ($st === null) {
+            return ['skip', 'Email is not set up (see the Email step).'];
+        }
+        $done = [];
+        $spam = (array) ($st['spam'] ?? []);
+        if (empty($spam['enabled'])) {
+            if (empty($st['spam_installed'])) {
+                throw new UserFacingException('The spam filter (Rspamd) is not installed: install it on the Email page.');
+            }
+            $this->agent->call('mail.spam_configure', ['enabled' => true, 'add_header' => (float) ($spam['add_header'] ?? 6), 'reject' => (float) ($spam['reject'] ?? 15)], 120);
+            $done[] = 'spam filter on';
+        }
+        if (empty($st['smtps'])) {
+            $this->agent->call('mail.smtps_set', ['enabled' => true], 120);
+            $done[] = 'sending on port 465 on';
+        }
+        $grey = (array) ((array) $this->agent->call('mail.greylist_get', [], 60))['config'];
+        if (empty($grey['enabled'])) {
+            $providers = [];
+            foreach ((array) ($grey['providers'] ?? []) as $id => $p) {
+                $providers[(string) $id] = ['trust' => !empty(((array) $p)['trust']), 'auto_update' => !empty(((array) $p)['auto_update'])];
+            }
+            $this->agent->call('mail.greylist_set', [
+                'enabled' => true,
+                'deferral' => (int) ($grey['deferral'] ?? 5),
+                'resend' => (int) ($grey['resend'] ?? 240),
+                'expire' => (int) ($grey['expire'] ?? 4320),
+                'spf_bypass' => !empty($grey['spf_bypass']),
+                'auto_trust_new' => !empty($grey['auto_trust_new']),
+                'trusted' => array_values(array_map(static fn ($t): array => ['range' => (string) ((array) $t)['range'], 'comment' => (string) (((array) $t)['comment'] ?? '')], (array) ($grey['trusted'] ?? []))),
+                'providers' => (object) $providers,
+            ], 180);
+            $done[] = 'greylisting on';
+        }
+        return $done === [] ? ['skip', 'The spam filter, port 465 and greylisting are on already.'] : ['ok', ucfirst(implode(', ', $done)) . '.'];
+    }
+
+    /**
+     * Anti-intrusion: the master switch, every website account logged and
+     * protected, and the recommended programs blacklisted. Accounts created
+     * later join when the website is created.
+     *
+     * @param array<string, mixed> $opts
+     * @return array{0: string, 1: string}
+     */
+    private function stepIntrusion(string $profile, array $opts): array
+    {
+        $st = (array) $this->agent->call('intrusion.status', [], 60);
+        if (!empty($st['enabled'])) {
+            return ['skip', 'Anti-intrusion is on already (its settings are left as they are).'];
+        }
+        if (empty(((array) ($st['auditd'] ?? []))['installed']) || empty(((array) ($st['acl'] ?? []))['installed'])) {
+            return ['fail', 'Anti-intrusion needs auditd and acl: install them under Server → Packages (the Helper tools step does it).'];
+        }
+        $suggested = array_values(array_map('strval', (array) ($st['suggested'] ?? [])));
+        if ($suggested !== []) {
+            $current = array_map('strval', array_column((array) ($st['blacklist'] ?? []), 'path'));
+            $this->agent->call('intrusion.blacklist', ['programs' => array_values(array_unique(array_merge($current, $suggested)))], 180);
+        }
+        $accounts = [];
+        foreach ((array) ($st['accounts'] ?? []) as $a) {
+            $a = (array) $a;
+            if (($a['kind'] ?? '') === 'website') {
+                $accounts[(string) $a['name']] = ['log' => true, 'protect' => true];
+            }
+        }
+        $this->agent->call('intrusion.configure', ['enabled' => true, 'accounts' => (object) $accounts], 180);
+        return ['ok', 'Anti-intrusion is on: ' . count($accounts) . ' website account(s) logged and protected, ' . count($suggested) . ' program(s) blacklisted.'];
     }
 
     /** @param array<string, mixed> $c */

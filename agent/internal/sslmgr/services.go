@@ -209,7 +209,8 @@ func registerServices(r *actions.Registry, env *host.Env) {
 				fmt.Fprintf(log, "%s did not issue the certificate. The host name must point to this server (its A record) and port 80 must be reachable from the internet.\n", p.Label)
 				return nil, err
 			}
-			fmt.Fprintf(log, "Certificate issued: %s\nUse it for the panel or the mail server on SSL/TLS → Services SSL.\n", res["cert_file"])
+			fmt.Fprintf(log, "Certificate issued: %s\n", res["cert_file"])
+			useHostnameCert(ctx, env, name, log)
 			return res, nil
 		})
 		return map[string]any{"job_id": j.ID, "hostname": name}, nil
@@ -250,6 +251,32 @@ func registerServices(r *actions.Registry, env *host.Env) {
 		}
 		return map[string]any{"results": results, "high": n["high"], "medium": n["medium"]}, nil
 	}})
+}
+
+// useHostnameCert puts the host name's new certificate on the panel's HTTPS
+// site and on the mail server, so nobody has to press "Use" for each. A
+// service whose certificate an administrator already chose is left alone,
+// and a failure is only reported: the certificate itself was issued.
+func useHostnameCert(ctx context.Context, env *host.Env, name string, log io.Writer) {
+	cert, key, err := lineage(env, name)
+	if err != nil {
+		fmt.Fprintf(log, "The new certificate could not be located (%v); choose it on SSL/TLS → Services SSL.\n", err)
+		return
+	}
+	if _, _, _, ok := panelCert(env); ok && tlsprofile.LoadServiceCerts(env)["panel"].Cert == "" {
+		if _, err := installPanelCert(ctx, env, tlsprofile.LoadServiceCerts(env), cert, key, false); err != nil {
+			fmt.Fprintf(log, "The panel keeps its certificate (%v); choose the new one on SSL/TLS → Services SSL.\n", err)
+		} else {
+			fmt.Fprintf(log, "The panel now uses it.\n")
+		}
+	}
+	if mailConfigured(env) && tlsprofile.LoadServiceCerts(env)["mail"].Cert == "" {
+		if _, err := installMailCert(ctx, env, tlsprofile.LoadServiceCerts(env), cert, key, false); err != nil {
+			fmt.Fprintf(log, "The mail server keeps its certificate (%v); choose the new one on SSL/TLS → Services SSL.\n", err)
+		} else {
+			fmt.Fprintf(log, "The mail server (Postfix and Dovecot) now uses it.\n")
+		}
+	}
 }
 
 // hostnameRe accepts a DNS host name for SNI (letters, digits, hyphen, dots).
