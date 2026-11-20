@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **"A NimVor update is available" stayed on after updating.** The answer is kept for six hours, so a server updated to the newest version kept showing the update button until the next refresh. The scheduler now notices that the installed version changed and checks again at once (within a minute).
+
 ### Added
 
 - **Disk usage page (Server → Disk usage).** The filesystems with their space and inode use, a scan of where the space goes (websites, mailboxes, NimVor backups, logs, databases, caches, temporary files), each website's size and share, and the largest files with a size limit you choose (10 MB to 1 GB). Files can be deleted in bulk from a website's folder, NimVor's backups, logs and temporary files (never from mailboxes, databases or system folders); active logs are emptied instead of removed so their service keeps writing. The panel only deletes files listed in the latest scan and the agent checks every path again (inside an allowed place, a regular file, no link leading out), and each removal is audited. New agent actions `disk.filesystems`, `disk.scan` (a background job) and `disk.remove`.
