@@ -2530,6 +2530,25 @@ Administrators and resellers keep the server-management layout; their light/dark
 choices. To build another theme, see `docs/development/themes.md`.
 
 
+## Site health
+
+**Websites → Site health** shows, for every website you manage, what needs
+attention, worst first, and links each problem to its fix:
+
+| Check | Problem when |
+|---|---|
+| Switched off | the website is disabled |
+| HTTPS | HTTPS is off (or only not forced) |
+| Backups | there is no completed backup, or the latest is over 7 days old |
+| Malware | the latest scan found infected files |
+| PHP version | the website uses PHP older than 8.1 |
+| Email DNS | MX, SPF, DKIM or DMARC is missing, duplicated, out of date (DKIM key differs from the one the server signs with) or too permissive (`+all`) |
+
+Missing email records of a domain whose zone is hosted on this panel are added
+with **Add records** (only records that are not there yet; nothing is
+replaced). Domains whose DNS is elsewhere are not checked: the panel cannot read
+their records. The administrator dashboard shows the counts per kind in a
+"Websites needing attention" card.
 ## Disk usage
 
 **Server → Disk usage** shows where the disk space goes:
