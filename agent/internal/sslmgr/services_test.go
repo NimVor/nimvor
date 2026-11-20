@@ -174,3 +174,33 @@ func TestMailNamesCertificateIsInUse(t *testing.T) {
 		t.Fatalf("a certificate the mail names use was deleted or refused without saying why: %v", err)
 	}
 }
+
+// A host name certificate that was just issued is put on the panel without
+// pressing "Use"; one an administrator chose earlier is left alone.
+func TestHostnameCertificateIsUsedByThePanelAutomatically(t *testing.T) {
+	h := testhost.New(t)
+	os.WriteFile(filepath.Join(h.Base, "etc/nginx/sites-available/nimvor-panel.conf"), []byte(panelConf), 0o644)
+	os.WriteFile(filepath.Join(h.Base, "etc/letsencrypt/live/example.com/privkey.pem"), []byte("key"), 0o600)
+	var log strings.Builder
+	useHostnameCert(context.Background(), h.Env, "example.com", &log)
+	got := h.Read("etc/nginx/sites-available/nimvor-panel.conf")
+	if !strings.Contains(got, "/etc/letsencrypt/live/example.com/fullchain.pem;") {
+		t.Fatalf("panel not switched:\n%s\nlog: %s", got, log.String())
+	}
+	if !strings.Contains(log.String(), "The panel now uses it.") {
+		t.Errorf("log: %s", log.String())
+	}
+	// Another certificate chosen by hand stays.
+	os.MkdirAll(filepath.Join(h.Base, "etc/letsencrypt/live/other.com"), 0o755)
+	os.WriteFile(filepath.Join(h.Base, "etc/letsencrypt/live/other.com/privkey.pem"), []byte("key"), 0o600)
+	os.WriteFile(filepath.Join(h.Base, "etc/letsencrypt/live/other.com/fullchain.pem"), []byte("cert"), 0o644)
+	r := actions.NewRegistry(true)
+	Register(r, h.Env)
+	if _, err := call(t, r, "ssl.service_cert", `{"service":"panel","cert_name":"other.com"}`); err != nil {
+		t.Fatal(err)
+	}
+	useHostnameCert(context.Background(), h.Env, "example.com", &log)
+	if got := h.Read("etc/nginx/sites-available/nimvor-panel.conf"); !strings.Contains(got, "live/other.com/fullchain.pem") {
+		t.Fatalf("the chosen certificate was replaced:\n%s", got)
+	}
+}

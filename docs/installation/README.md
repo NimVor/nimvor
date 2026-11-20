@@ -148,8 +148,8 @@ applied):
 
 | Profile | Sets up |
 |---|---|
-| `full` (4 GB of memory or more) | Nginx, PHP 8.3 + 8.4 with the default extensions, MariaDB, email (Postfix, Dovecot, OpenDKIM, Rspamd), DNS (BIND, authoritative only), FTP (TLS required), Redis (256 MB limit), Memcached, ClamAV, Let's Encrypt, firewall with the components' ports and protections, Fail2ban, kernel hardening, SMTP restrictions, automatic security updates |
-| `web` (2 GB or more) | the same without email, DNS, ClamAV and SMTP restrictions |
+| `full` (4 GB of memory or more) | Nginx, PHP 8.3 + 8.4 with the default extensions, MariaDB, email (Postfix, Dovecot, OpenDKIM, Rspamd) with webmail (Roundcube), the spam filter, sending on port 465 and greylisting, DNS (BIND, authoritative only), FTP (TLS required), Redis (256 MB limit), Memcached, ClamAV, Let's Encrypt, the helper tools (zip, unzip, acl, auditd, AWStats), firewall with the components' ports and protections, Fail2ban, kernel hardening, SMTP restrictions, Anti-intrusion, automatic security updates |
+| `web` (2 GB or more) | the same without email (and so webmail, spam filter, port 465, greylisting), DNS, ClamAV and SMTP restrictions |
 | `minimal` (less) | Nginx, PHP, MariaDB, Let's Encrypt, firewall, Fail2ban, kernel hardening, automatic security updates |
 | `none` | nothing (the behaviour before profiles) |
 
@@ -164,10 +164,20 @@ sudo ./installer/install.sh --profile=full --hostname=server.example.com \
      --admin-user=admin --admin-email=you@example.com
 ```
 
-Options: `--profile=full|web|minimal|none`, `--hostname=` (the mail
-server's name; default the system's full host name), `--php=8.2,8.3,8.4`
+Options: `--profile=full|web|minimal|none`, `--hostname=` (the server's
+host name, which the setup applies when it differs from the current one,
+and the name of the mail server and webmail; default the system's full
+host name), `--php=8.2,8.3,8.4`
 (default 8.3,8.4), `--no-third-party-repos`.
 
+- **New websites.** With a profile that has them, a new website starts
+  with its statistics (AWStats) on, its email domain with DKIM (where the
+  server hosts email) and its account logged and protected by
+  Anti-intrusion (while that is switched on).
+- **Host name certificate.** When Let's Encrypt issues the certificate for
+  the server's host name (SSL/TLS → Services SSL), the panel and the mail
+  server start using it at once; a certificate you chose earlier for one of
+  them is not replaced.
 - **Default.** By memory as in the table, but only on a fresh server: when
   Nginx, Apache, Postfix, Exim, BIND or MariaDB/MySQL already runs, with
   `--reinstall`, `--agent-only`, or over an existing installation, the

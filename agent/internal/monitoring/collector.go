@@ -256,14 +256,17 @@ func ReadSystemInfo(procDir, etcRoot string) SystemInfo {
 	return si
 }
 
+// readTimezone: /etc/localtime (a link into zoneinfo) is what systemd's
+// timedatectl changes, so it is the truth; Debian's /etc/timezone is only
+// a copy that timedatectl does not always update, so it is the fallback.
 func readTimezone(root string) string {
-	if b, err := os.ReadFile(filepath.Join(root, "etc/timezone")); err == nil {
-		if tz := strings.TrimSpace(string(b)); tz != "" {
+	if target, err := os.Readlink(filepath.Join(root, "etc/localtime")); err == nil {
+		if _, tz, ok := strings.Cut(target, "zoneinfo/"); ok && tz != "" {
 			return tz
 		}
 	}
-	if target, err := os.Readlink(filepath.Join(root, "etc/localtime")); err == nil {
-		if _, tz, ok := strings.Cut(target, "zoneinfo/"); ok {
+	if b, err := os.ReadFile(filepath.Join(root, "etc/timezone")); err == nil {
+		if tz := strings.TrimSpace(string(b)); tz != "" {
 			return tz
 		}
 	}

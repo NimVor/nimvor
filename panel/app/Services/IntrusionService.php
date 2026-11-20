@@ -66,6 +66,40 @@ final class IntrusionService
     }
 
     /**
+     * A new website's account joins Anti-intrusion (logged and protected)
+     * when the master switch is on and the account is not set up yet.
+     */
+    public function enrollAccount(string $user): bool
+    {
+        $st = $this->status();
+        if (empty($st['enabled'])) {
+            return false;
+        }
+        $accounts = [];
+        $found = false;
+        foreach ((array) ($st['accounts'] ?? []) as $a) {
+            $a = (array) $a;
+            $log = !empty($a['log']);
+            $protect = !empty($a['protect']);
+            if ((string) ($a['name'] ?? '') === $user) {
+                $found = true;
+                if ($log || $protect) {
+                    return false;
+                }
+                $log = $protect = true;
+            }
+            if ($log || $protect) {
+                $accounts[(string) $a['name']] = ['log' => $log, 'protect' => $protect];
+            }
+        }
+        if (!$found) {
+            return false;
+        }
+        $this->agent->call('intrusion.configure', ['enabled' => true, 'accounts' => (object) $accounts], 180);
+        return true;
+    }
+
+    /**
      * Adds programs (names or full paths) to the blacklist.
      *
      * @param list<string> $programs

@@ -53,6 +53,21 @@ final class StatsService
     }
 
     /**
+     * A new website gets its statistics (AWStats) turned on where AWStats is
+     * installed; nothing happens without it.
+     *
+     * @param array<string, mixed> $site
+     */
+    public function enableForNewSite(array $site): bool
+    {
+        if (!$this->status($site)['installed']) {
+            return false;
+        }
+        $this->setEnabled($site, true, false);
+        return true;
+    }
+
+    /**
      * @param array<string, mixed> $site
      * @return string job id
      */

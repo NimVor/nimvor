@@ -801,6 +801,7 @@ ok "$CONF_DIR"
 # --------------------------------------------------------- 7. services ----
 log "Installing systemd services"
 run install -m 0644 "$SRC_DIR/installer/systemd/nimvor-agent.service" /etc/systemd/system/nimvor-agent.service
+run install -m 0644 "$SRC_DIR/installer/systemd/nimvor-sysctl.service" /etc/systemd/system/nimvor-sysctl.service
 if [[ $DRY_RUN -eq 1 ]]; then
     echo "    [dry-run] /etc/systemd/system/nimvor-scheduler.service (PHP $PHP_BIN)"
 else
@@ -840,6 +841,7 @@ if [[ $PKG == dnf && $SELINUX_MODE != none && $SELINUX_MODE != Disabled ]] && co
 fi
 
 run systemctl enable --now nimvor-agent.service
+run systemctl enable nimvor-sysctl.service
 if [[ $AGENT_ONLY -eq 0 ]]; then
     log "Initialising the panel database"
     run runuser -u nimvor -- env NIMVOR_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/nimvor" migrate
