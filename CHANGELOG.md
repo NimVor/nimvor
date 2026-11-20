@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Site health (Websites → Site health) and a dashboard widget.** One page lists every website with what needs attention, worst first: switched off, no HTTPS, no recent backup, malware found, old PHP, and email DNS records (MX, SPF, DKIM, DMARC) that are missing, duplicated, out of date or too permissive. Each problem links to where it is fixed, and missing email records of a zone hosted on this panel can be added with one button. The administrator dashboard shows a "Websites needing attention" card with the counts per kind. Domains whose DNS is hosted elsewhere (for example Cloudflare) are not checked, because their records cannot be read from the panel.
+
 ### Fixed
 
 - **Package index refresh failed when a repository changed its description (webmail and other installs).** `apt-get update` refuses, in unattended runs, a repository whose Label, Version, Suite or Codename changed. The Ondřej PHP PPA's label became "PPA for PHP (deprecated)", so installing webmail (and anything else that refreshes the index) stopped with "the package manager failed [UNKNOWN]". The agent now runs `apt-get update --allow-releaseinfo-change`. Signatures are still checked; only the descriptive release fields may change.

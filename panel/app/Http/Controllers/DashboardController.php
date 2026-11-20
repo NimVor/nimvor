@@ -30,6 +30,7 @@ final class DashboardController extends Controller
         private readonly ?\NimVor\Repositories\WebsiteRepository $websites = null,
         private readonly ?\NimVor\Services\PlanLimits $plans = null,
         private readonly ?\NimVor\Services\ServerContext $server = null,
+        private readonly ?\NimVor\Services\SitesHealthService $siteHealth = null,
     ) {
         parent::__construct($view, $session);
     }
@@ -66,7 +67,16 @@ final class DashboardController extends Controller
         } catch (AgentException $e) {
             $agentError = $e;
         }
+        $needs = null;
+        if ($this->siteHealth !== null && $this->view->can(Permissions::WEBSITES_VIEW)) {
+            try {
+                $needs = $this->siteHealth->overview($this->user($request));
+            } catch (\Throwable) {
+                $needs = null; // the dashboard still opens
+            }
+        }
         return $this->render('dashboard/index', [
+            'needs' => $needs,
             'info' => is_array($info) ? $info : null,
             'summary' => $summary,
             'agentError' => $agentError,

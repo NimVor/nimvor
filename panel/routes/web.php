@@ -75,6 +75,8 @@ return static function (Router $r): void {
 
     // Hosting inventory (read-only discovery)
     $r->get('/websites', [WebsitesController::class, 'index'], ['name' => 'websites', 'permission' => P::WEBSITES_VIEW]);
+    $r->get('/sites-health', [\NimVor\Http\Controllers\SitesHealthController::class, 'index'], ['name' => 'sites.healthcheck', 'permission' => P::WEBSITES_VIEW]);
+    $r->post('/sites-health/fix-email', [\NimVor\Http\Controllers\SitesHealthController::class, 'fixEmail'], ['name' => 'sites.healthcheck.fix_email', 'permission' => P::MAIL_MANAGE]);
     $r->get('/websites/new', [SitesController::class, 'create'], ['name' => 'sites.create', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/websites/new', [SitesController::class, 'store'], ['name' => 'sites.store', 'permission' => P::WEBSITES_MANAGE]);
     $r->get('/sites/{id}', [SitesController::class, 'show'], ['name' => 'sites.show', 'permission' => P::WEBSITES_VIEW]);

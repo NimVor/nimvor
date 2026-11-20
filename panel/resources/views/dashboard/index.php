@@ -66,6 +66,20 @@ foreach ([
     </div>
 <?php endif; ?>
 
+<?php if (!empty($needs) && array_sum($needs['counts']) > 0): ?>
+    <div class="card mb-3" data-widget="sites-needing-attention">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-heart-pulse me-1" aria-hidden="true"></i>Websites needing attention <span class="badge text-bg-warning"><?= (int) ($needs['total'] - $needs['healthy']) ?> of <?= (int) $needs['total'] ?></span></span>
+            <a class="btn btn-sm btn-outline-primary" href="<?= e($this->url('sites.healthcheck')) ?>">Open Site health</a>
+        </div>
+        <div class="card-body d-flex flex-wrap gap-2">
+            <?php foreach (\NimVor\Services\SitesHealthService::CATEGORIES as $key => [$label]): $n = (int) ($needs['counts'][$key] ?? 0); if ($n === 0) { continue; } ?>
+                <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('sites.healthcheck')) ?>?category=<?= e($key) ?>"><?= e($label) ?> <span class="badge text-bg-warning"><?= $n ?></span></a>
+            <?php endforeach; ?>
+        </div>
+    </div>
+<?php endif; ?>
+
 <?php if ($agentError !== null): ?>
     <?= $this->partial('partials/agent_error', ['error' => $agentError]) ?>
 <?php endif; ?>
