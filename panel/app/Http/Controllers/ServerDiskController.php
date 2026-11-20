@@ -10,6 +10,7 @@ use NimVor\Http\Response;
 use NimVor\Http\Session\SessionInterface;
 use NimVor\Repositories\WebsiteRepository;
 use NimVor\Services\AuditLogger;
+use NimVor\Services\JobTracker;
 use NimVor\Services\ServerContext;
 use NimVor\Services\ServerDiskService;
 use NimVor\Support\UserFacingException;
@@ -25,6 +26,7 @@ final class ServerDiskController extends Controller
         private readonly AuditLogger $audit,
         private readonly WebsiteRepository $sites,
         private readonly ServerContext $server,
+        private readonly JobTracker $jobs,
     ) {
         parent::__construct($view, $session);
     }
@@ -53,10 +55,12 @@ final class ServerDiskController extends Controller
     public function scan(Request $request): Response
     {
         try {
-            $this->disk->scan((int) $request->input('min_mb', 50));
+            $job = $this->disk->scan((int) $request->input('min_mb', 50));
         } catch (UserFacingException $e) {
             return $this->redirectWithFailure('/server/disk', $e);
         }
+        $this->jobs->track($job, 'Measure the server disk', 'server', (string) $this->server->id(), $this->userId($request));
+        $this->flashJob($job);
         return $this->redirectWithSuccess('/server/disk', 'Measuring the disk. This can take a few minutes on a big server; the page shows the result when it is done.');
     }
 

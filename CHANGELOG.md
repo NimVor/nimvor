@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Measuring a website's disk usage showed "Job not found" in the task window.** The measurement ran and its result appeared, but the panel did not register the job it started, so the progress window could not follow it. It is registered now (also for the new Server → Disk usage scan, which opens the window too).
+
 ### Added
 
 - **A picture of each website's home page on its card.** The first letter on a website's card (and on its page) is replaced by a picture of its home page, with a refresh icon that takes a new one without leaving the page. A headless browser opens the site's own address mapped to this server (no DNS or CDN involved) as the website's own account inside the same service sandbox used for its other commands, so a hostile page can do no more than the site's PHP already can; only a fixed command line is allowed (`execx` checks every flag, the one host and the private `/tmp` names). The picture is scaled to 640 px and kept as a small JPEG; the panel only remembers which websites have one. One picture per website every 30 seconds. The browser is Google Chrome from Google's own signed repository (the distributions ship Chromium as a snap, which cannot run in a service's sandbox); an administrator installs it with one button on the Websites page (about 300 MB; 64-bit Intel/AMD servers only). New agent actions `screenshot.status`, `screenshot.install`, `screenshot.capture` and `screenshot.get`.
