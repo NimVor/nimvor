@@ -60,6 +60,13 @@ $showOwner = $this->can(P::USERS_VIEW);
         <?php if ($canCreate): ?><a class="btn btn-primary mt-3" href="<?= e($this->url('sites.create')) ?>"><i class="bi bi-plus-lg me-1"></i>Create site</a><?php endif; ?>
     </div></div>
 <?php elseif ($layout === 'grid'): ?>
+    <?php if (empty($shotBrowser) && $this->routeAllowed('server.screenshots.install')): ?>
+        <div class="nim-infobar mb-3">
+            <i class="bi bi-image" aria-hidden="true"></i>
+            <span class="me-auto">Show a picture of each website's home page on its card: this needs a browser on the server (Google Chrome, about 300 MB, from Google's own repository).</span>
+            <form method="post" action="<?= e($this->url('server.screenshots.install')) ?>" data-nim-confirm="Install Google Chrome from Google's repository so the websites' cards can show their home pages?"><?= $this->csrfField() ?><button class="btn btn-sm btn-primary">Install the browser</button></form>
+        </div>
+    <?php endif; ?>
     <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xxl-4 g-3 mb-4" id="nim-sites" data-nim-cards>
         <?php foreach ($managed as $m): ?>
             <?php
@@ -68,8 +75,9 @@ $showOwner = $this->can(P::USERS_VIEW);
             ?>
             <div class="col" data-nim-card data-name="<?= e(strtolower((string) $m['domain'])) ?>" data-created="<?= e((string) ($m['created_at'] ?? '')) ?>" data-status="<?= $m['enabled'] ? 'active' : 'disabled' ?>" data-search="<?= e(strtolower($m['domain'] . ' ' . implode(' ', $m['aliases']))) ?>">
                 <a class="card h-100 nim-site-card text-decoration-none" href="<?= e($this->url('sites.show', ['id' => (int) $m['id']])) ?>">
-                    <div class="nim-site-thumb nim-tint-<?= (int) $tint ?><?= $active ? '' : ' is-off' ?>">
+                    <div class="nim-site-thumb nim-tint-<?= (int) $tint ?><?= $active ? '' : ' is-off' ?><?= isset($shots[(int) $m['id']]) ? ' has-shot' : '' ?>">
                         <span class="nim-site-initial" aria-hidden="true"><?= e(strtoupper(substr((string) $m['domain'], 0, 1))) ?></span>
+                        <?= $this->partial('partials/site_thumb', ['siteId' => (int) $m['id'], 'takenAt' => $shots[(int) $m['id']] ?? null]) ?>
                         <span class="nim-site-badges">
                             <span class="nim-site-badge <?= $m['https'] ? 'is-ok' : 'is-muted' ?>" title="<?= $m['https'] ? 'HTTPS on' : 'HTTPS off' ?>"><i class="bi bi-<?= $m['https'] ? 'lock-fill' : 'unlock' ?>" aria-hidden="true"></i></span>
                             <?php if ($m['kind'] === 'php'): ?><span class="nim-site-badge" title="PHP <?= e($m['php_version']) ?>">PHP <?= e($m['php_version']) ?></span><?php endif; ?>

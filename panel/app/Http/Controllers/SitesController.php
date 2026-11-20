@@ -43,6 +43,7 @@ final class SitesController extends Controller
         private readonly \NimVor\Services\SiteHealthService $health,
         private readonly \NimVor\Services\RuntimeService $runtimes,
         private readonly \NimVor\Services\WorkerService $workers,
+        private readonly ?\NimVor\Services\ScreenshotService $shots = null,
     ) {
         parent::__construct($view, $session);
     }
@@ -154,6 +155,7 @@ final class SitesController extends Controller
             'dbBytes' => $this->overview->databaseBytes($site, $this->user($request)),
             'tab' => 'overview',
             'import' => $this->imports->importOf((int) $site['id']),
+            'shot' => $this->shots?->takenAt([(int) $site['id']])[(int) $site['id']] ?? null,
         ]);
     }
 

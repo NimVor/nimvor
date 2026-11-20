@@ -2570,3 +2570,19 @@ accepts files listed in the latest scan and the agent checks each path again
 (a regular file inside an allowed place, no link leading out). An active log
 file is emptied rather than removed, so its service keeps writing to it.
 Every removal is recorded in the audit log.
+
+
+## Pictures of the websites' home pages
+
+The website cards (Websites, grid view) and each website's page show a picture
+of its home page instead of the first letter of its name. The refresh icon on
+the picture takes a new one (at most one every 30 seconds per website).
+
+An administrator installs the browser once: on the Websites page, **Install the
+browser** adds Google's signed Chrome repository (the key is fetched over TLS
+and trusted for that repository only) and installs `google-chrome-stable`
+(about 300 MB; 64-bit Intel/AMD servers only, because that is what Google
+offers). The browser runs as the website's own account in a sandboxed service
+unit, opens only the website's address (mapped to this server) and is stopped
+after 80 seconds. If a picture cannot be taken, the refresh icon says why and the
+letter stays.

@@ -458,6 +458,10 @@ paths:
               - runtime.install
               - runtime.remove
               - runtime.status
+              - screenshot.capture
+              - screenshot.get
+              - screenshot.install
+              - screenshot.status
               - security.audit
               - security.auto_updates
               - security.confirm
@@ -1050,6 +1054,10 @@ x-nimvor-actions:
   runtime.install: { mutating: true, description: "Install a Node.js (nodejs.org) or Python (python-build-standalone) runtime, verified against published checksums, side by side under the runtimes directory (job)." }
   runtime.remove: { mutating: true, description: "Remove a NimVor-managed runtime." }
   runtime.status: { mutating: false, description: "List the Node.js and Python runtimes available on the server (NimVor-managed and the system's own)." }
+  screenshot.capture: { mutating: true, description: "Take a picture of a website's home page with a headless browser run as the website's own account in the service sandbox, scaled down and kept for the panel." }
+  screenshot.get: { mutating: false, description: "The kept picture of a website's home page (JPEG, base64) and when it was taken; exists is false when there is none (read-only)." }
+  screenshot.install: { mutating: true, description: "Install a browser for website pictures: add Google's signed Chrome repository (key fetched over TLS, trusted for it only) and install google-chrome-stable (job)." }
+  screenshot.status: { mutating: false, description: "Whether a browser is installed for website pictures (read-only)." }
   security.audit: { mutating: false, description: "Security checks with findings and remedies (read-only)." }
   security.auto_updates: { mutating: true, description: "Turn automatic security updates on (unattended-upgrades, or dnf-automatic with security updates only and no reboot; installed when missing) or off (job)." }
   security.confirm: { mutating: true, description: "Keep a firewall/SSH change (otherwise it is rolled back automatically)." }
