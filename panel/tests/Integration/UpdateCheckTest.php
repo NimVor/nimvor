@@ -66,6 +66,22 @@ final class UpdateCheckTest extends TestCase
         self::assertFalse($same->available());
     }
 
+    public function testTheUpdateFlagIsRefreshedOnceNimvorWasUpdated(): void
+    {
+        $old = str_repeat('a', 40);
+        $new = str_repeat('b', 40);
+        $this->transport->succeed('nimvor.update_status', ['git' => true, 'commit' => $old, 'branch' => 'main', 'remote' => 'https://github.com/acme/nimvor.git', 'updatable' => true]);
+        $svc = $this->service(fn (string $url): array => [200, $new]);
+        self::assertTrue($svc->check()['available']);
+        self::assertFalse($svc->stale(), 'the same version is installed that was checked');
+        // NimVor is updated to the newest commit: the cached answer is stale at once, and the next check says current.
+        $this->transport->succeed('nimvor.update_status', ['git' => true, 'commit' => $new, 'branch' => 'main', 'remote' => 'https://github.com/acme/nimvor.git', 'updatable' => true]);
+        self::assertTrue($svc->stale());
+        self::assertFalse($svc->due(), 'the six-hour timer alone would have kept the old answer');
+        self::assertFalse($svc->check()['available']);
+        self::assertFalse($svc->stale());
+    }
+
     public function testPrivateRepositoryIsUnknownNotCurrent(): void
     {
         $this->transport->succeed('nimvor.update_status', ['git' => true, 'commit' => str_repeat('a', 40), 'branch' => 'main', 'remote' => 'https://github.com/acme/private.git']);

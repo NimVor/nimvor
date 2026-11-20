@@ -478,7 +478,7 @@ switch ($command) {
             // A newer NimVor for this server (the top bar's update button).
             if ((int) $srv['id'] === 1) {
                 $updates = $c->get(\NimVor\Services\UpdateCheckService::class);
-                if ($updates->due()) {
+                if ($updates->due() || $updates->stale()) {
                     $u = $updates->check();
                     if (!empty($u['available'])) {
                         out('[' . $srv['name'] . '] a NimVor update is available');
