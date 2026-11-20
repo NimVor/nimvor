@@ -6,8 +6,16 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **A full server is set up completely by the installer.** The *full* profile now also installs the helper tools (zip, unzip, acl, auditd, AWStats), applies the host name given with `--hostname`, installs and turns on webmail (Roundcube), the spam filter, sending on port 465 and greylisting, and turns on Anti-intrusion (website accounts logged and protected, the recommended programs blacklisted). The *web* profile gets the helper tools and Anti-intrusion. Each step leaves what is already set up alone, so running the setup again is safe.
+- **New websites start with statistics and Anti-intrusion on.** AWStats is turned on where it is installed, and the website's account joins Anti-intrusion while that is switched on (email with DKIM was already added where the server hosts email).
+- **The host name certificate is used at once.** When Let's Encrypt issues the certificate for the server's host name, the panel and the mail server switch to it; no need to press *Use* for each. A certificate chosen earlier for one of them stays.
+
 ### Fixed
 
+- **The System page showed the old time zone after it was changed.** It read Debian's `/etc/timezone`, which `timedatectl` does not update; it now reads `/etc/localtime` first (the Server settings tab already showed the right zone).
+- **Kernel security settings went back after a restart.** Some services change a setting after the system applied its files (Ubuntu's apport sets `fs.suid_dumpable = 2`), so the recommended value was undone at every boot. A small unit, `nimvor-sysctl.service`, applies NimVor's saved settings once more after boot (installed by the installer and the upgrade).
 - **Package index refresh failed when a repository changed its description (webmail and other installs).** `apt-get update` refuses, in unattended runs, a repository whose Label, Version, Suite or Codename changed. The Ondřej PHP PPA's label became "PPA for PHP (deprecated)", so installing webmail (and anything else that refreshes the index) stopped with "the package manager failed [UNKNOWN]". The agent now runs `apt-get update --allow-releaseinfo-change`. Signatures are still checked; only the descriptive release fields may change.
 - **Website: the step-by-step guides did not appear after a deploy.** They had to be loaded into the blog by hand. They now load by themselves when the blog is first opened after a deploy (new or changed guides only; posts written or edited under Admin are never replaced).
 

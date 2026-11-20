@@ -1,0 +1,16 @@
+# Applies the kernel settings NimVor saved (Security -> Kernel security
+# settings) once more after boot. Some services change a setting after
+# systemd-sysctl has run (Ubuntu's apport sets fs.suid_dumpable = 2), which
+# would otherwise undo the recommended value at every restart.
+[Unit]
+Description=NimVor kernel security settings
+ConditionPathExists=/etc/sysctl.d/90-nimvor-hardening.conf
+After=systemd-sysctl.service apport.service network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/sysctl -q -p /etc/sysctl.d/90-nimvor-hardening.conf
+
+[Install]
+WantedBy=multi-user.target
