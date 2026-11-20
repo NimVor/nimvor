@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Measuring a website's disk usage showed "Job not found" in the task window.** The measurement ran and its result appeared, but the panel did not register the job it started, so the progress window could not follow it. It is registered now (also for the new Server → Disk usage scan, which opens the window too).
+
 ### Added
 
 - **Site health (Websites → Site health) and a dashboard widget.** One page lists every website with what needs attention, worst first: switched off, no HTTPS, no recent backup, malware found, old PHP, and email DNS records (MX, SPF, DKIM, DMARC) that are missing, duplicated, out of date or too permissive. Each problem links to where it is fixed, and missing email records of a zone hosted on this panel can be added with one button. The administrator dashboard shows a "Websites needing attention" card with the counts per kind. Domains whose DNS is hosted elsewhere (for example Cloudflare) are not checked, because their records cannot be read from the panel.
