@@ -317,3 +317,12 @@ func TestDependencyEnablesCRB(t *testing.T) {
 		t.Errorf("retried an unchanged dependency problem: %d attempts", pe.Attempts)
 	}
 }
+
+func TestAptUpdateAcceptsChangedReleaseInfo(t *testing.T) {
+	args := strings.Join(aptUpdateArgs(), " ")
+	for _, want := range []string{"update", "--allow-releaseinfo-change", "DPkg::Lock::Timeout=300"} {
+		if !strings.Contains(args, want) {
+			t.Errorf("apt-get update args %q lack %q", args, want)
+		}
+	}
+}

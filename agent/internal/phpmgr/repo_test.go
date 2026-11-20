@@ -42,7 +42,7 @@ func TestEnableOndrejPPAWritesPinnedSource(t *testing.T) {
 	if !strings.Contains(h.Read(ondrejKeyring), "BEGIN PGP PUBLIC KEY BLOCK") {
 		t.Fatal("pinned key not written")
 	}
-	if !h.Runner.Called("apt-get update -q -o DPkg::Lock::Timeout=300") {
+	if !h.Runner.Called("apt-get update -q --allow-releaseinfo-change -o DPkg::Lock::Timeout=300") {
 		t.Fatalf("index not refreshed: %v", h.Runner.Calls)
 	}
 	if repo := RepositoryOf(context.Background(), h.Env); !repo.Enabled {
