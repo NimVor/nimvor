@@ -9,6 +9,7 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/cronmgr"
 	"github.com/NimVor/nimvor/agent/internal/dbmgr"
 	"github.com/NimVor/nimvor/agent/internal/deploy"
+	"github.com/NimVor/nimvor/agent/internal/diskmgr"
 	"github.com/NimVor/nimvor/agent/internal/dnsmgr"
 	"github.com/NimVor/nimvor/agent/internal/ffmpegmgr"
 	"github.com/NimVor/nimvor/agent/internal/files"
@@ -82,6 +83,7 @@ func All() []Module {
 		sysmgr.Register,
 		terminal.Register,
 		usage.Register,
+		diskmgr.Register,
 		apps.Register,
 		wordpress.Register,
 		adopt.Register,
