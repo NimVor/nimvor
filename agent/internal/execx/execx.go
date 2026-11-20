@@ -160,6 +160,9 @@ var defaultCandidates = map[string][]string{
 	"mysql":       {"/usr/bin/mariadb", "/usr/bin/mysql"},
 	"mysqldump":   {"/usr/bin/mariadb-dump", "/usr/bin/mysqldump"},
 	"mongosh":     {"/usr/bin/mongosh", "/usr/local/bin/mongosh"},
+	// A headless browser that takes the picture of a website's home page (shotmgr). Not Ubuntu's chromium-browser:
+	// that is a shim for a snap, which cannot run in a service's sandbox.
+	"chrome": {"/usr/bin/google-chrome-stable", "/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/lib64/chromium-browser/chromium-browser"},
 	// PostgreSQL: the client (the postgres account's bootstrap), readiness probe and the RHEL cluster initialiser.
 	"psql":             {"/usr/bin/psql", "/usr/pgsql-16/bin/psql", "/usr/pgsql-15/bin/psql", "/usr/pgsql-14/bin/psql"},
 	"pg_isready":       {"/usr/bin/pg_isready", "/usr/pgsql-16/bin/pg_isready", "/usr/pgsql-15/bin/pg_isready", "/usr/pgsql-14/bin/pg_isready"},
@@ -919,7 +922,7 @@ func checkArgs(id string, o Opts, args []string) error {
 	// A shell, perl (AWStats), tar (which reads and writes website files)
 	// and clamscan (which reads untrusted files) only ever run as an
 	// unprivileged account.
-	if (id == "sh" || id == "perl" || id == "tar" || id == "clamscan" || id == "make") && (o.As == nil || o.As.UID < 1000 || o.As.GID < 1000) {
+	if (id == "sh" || id == "perl" || id == "tar" || id == "clamscan" || id == "make" || id == "chrome") && (o.As == nil || o.As.UID < 1000 || o.As.GID < 1000) {
 		return fmt.Errorf("%w: %s may only run as an unprivileged account", ErrNotAllowed, id)
 	}
 	if id == "nft" && !nftAllowed(args) {
@@ -927,6 +930,9 @@ func checkArgs(id string, o Opts, args []string) error {
 	}
 	if id == "setfacl" && !setfaclAllowed(args) {
 		return fmt.Errorf("%w: setfacl %s", ErrNotAllowed, strings.Join(args, " "))
+	}
+	if id == "chrome" && !chromeAllowed(args) {
+		return fmt.Errorf("%w: chrome %s", ErrNotAllowed, strings.Join(args, " "))
 	}
 	if id == "augenrules" && strings.Join(args, " ") != "--load" {
 		return fmt.Errorf("%w: augenrules %s", ErrNotAllowed, strings.Join(args, " "))
@@ -1075,4 +1081,41 @@ func (f *FakeRunner) Called(key string) bool {
 func ExitCode(err error, code int) bool {
 	var ee *exec.ExitError
 	return errors.As(err, &ee) && ee.ExitCode() == code
+}
+
+// chromeFlags are the only browser options NimVor passes (exact, or "name=" prefixes whose values are checked).
+var chromeFlags = map[string]bool{
+	"--headless=new": true, "--disable-gpu": true, "--hide-scrollbars": true, "--no-first-run": true, "--no-default-browser-check": true,
+	"--disable-extensions": true, "--disable-dev-shm-usage": true, "--mute-audio": true, "--ignore-certificate-errors": true,
+	"--no-sandbox": true, "--disable-crash-reporter": true, "--disable-background-networking": true,
+}
+
+var (
+	chromeSizeRe   = regexp.MustCompile(`^--window-size=[0-9]{3,4},[0-9]{3,4}$`)
+	chromeBudgetRe = regexp.MustCompile(`^--virtual-time-budget=[0-9]{3,5}$`)
+	chromePathRe   = regexp.MustCompile(`^--(screenshot|user-data-dir)=/tmp/nimvor-shot-[a-f0-9]{16}(/[A-Za-z0-9._-]+)?$`)
+	chromeHostRe   = regexp.MustCompile(`^--host-resolver-rules=MAP ([a-z0-9][a-z0-9.-]{0,251}[a-z0-9]) 127\.0\.0\.1$`)
+	chromeURLRe    = regexp.MustCompile(`^https://([a-z0-9][a-z0-9.-]{0,251}[a-z0-9])/$`)
+)
+
+// chromeAllowed accepts only the browser command line NimVor builds to photograph a website's home page: fixed
+// flags, a screenshot file and profile folder in a private /tmp name, the one host mapped to this server, and
+// that host's address as the single page to open.
+func chromeAllowed(args []string) bool {
+	mapped, page := "", ""
+	for _, a := range args {
+		switch {
+		case chromeFlags[a], chromeSizeRe.MatchString(a), chromeBudgetRe.MatchString(a), chromePathRe.MatchString(a):
+		case chromeHostRe.MatchString(a):
+			mapped = chromeHostRe.FindStringSubmatch(a)[1]
+		case chromeURLRe.MatchString(a):
+			if page != "" {
+				return false
+			}
+			page = chromeURLRe.FindStringSubmatch(a)[1]
+		default:
+			return false
+		}
+	}
+	return page != "" && page == mapped
 }

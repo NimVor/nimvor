@@ -35,6 +35,7 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/runtimemgr"
 	"github.com/NimVor/nimvor/agent/internal/security"
 	"github.com/NimVor/nimvor/agent/internal/services"
+	"github.com/NimVor/nimvor/agent/internal/shotmgr"
 	"github.com/NimVor/nimvor/agent/internal/sites"
 	"github.com/NimVor/nimvor/agent/internal/sslmgr"
 	"github.com/NimVor/nimvor/agent/internal/statsmgr"
@@ -84,6 +85,7 @@ func All() []Module {
 		terminal.Register,
 		usage.Register,
 		diskmgr.Register,
+		shotmgr.Register,
 		apps.Register,
 		wordpress.Register,
 		adopt.Register,

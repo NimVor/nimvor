@@ -113,8 +113,9 @@ foreach ([
     <div class="card-body">
         <div class="row g-4 align-items-center">
             <div class="col-md-5 col-lg-4 d-none d-md-block">
-                <a class="nim-site-thumb nim-site-thumb-lg nim-tint-<?= (int) $tint ?><?= $site['enabled'] ? '' : ' is-off' ?>" href="<?= e(($site['https'] ? 'https://' : 'http://') . $site['domain']) ?>/" target="_blank" rel="noopener noreferrer" aria-label="Visit <?= e($site['domain']) ?>">
+                <a class="nim-site-thumb nim-site-thumb-lg nim-tint-<?= (int) $tint ?><?= $site['enabled'] ? '' : ' is-off' ?><?= !empty($shot) ? ' has-shot' : '' ?>" href="<?= e(($site['https'] ? 'https://' : 'http://') . $site['domain']) ?>/" target="_blank" rel="noopener noreferrer" aria-label="Visit <?= e($site['domain']) ?>">
                     <span class="nim-site-initial" aria-hidden="true"><?= e(strtoupper(substr((string) $site['domain'], 0, 1))) ?></span>
+                    <?= $this->partial('partials/site_thumb', ['siteId' => $id, 'takenAt' => $shot ?? null]) ?>
                     <span class="nim-site-badges">
                         <span class="nim-site-badge <?= $site['https'] ? 'is-ok' : 'is-muted' ?>"><i class="bi bi-<?= $site['https'] ? 'lock-fill' : 'unlock' ?>" aria-hidden="true"></i> <?= $site['https'] ? 'HTTPS' : 'HTTP' ?></span>
                     </span>

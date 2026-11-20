@@ -27,6 +27,7 @@ final class WebsitesController extends Controller
         private readonly \NimVor\Database\Connection $db,
         private readonly \NimVor\Services\PlanLimits $limits,
         private readonly \NimVor\Services\FtpUsage $ftp,
+        private readonly ?\NimVor\Services\ScreenshotService $shots = null,
     ) {
         parent::__construct($view, $session);
     }
@@ -42,6 +43,9 @@ final class WebsitesController extends Controller
         // Cards (the customers' default) or the table.
         $layout = $request->query('view', '') === 'list' || ($request->query('view', '') !== 'grid' && !$this->view->simpleLayout()) ? 'list' : 'grid';
         $list = ['backups' => $this->backupCounts(array_column($managed, 'id')), 'ssl' => [], 'nginxVersion' => null, 'planUsage' => null];
+        // The pictures of the websites' home pages (cards) and, for administrators, whether the browser they need is installed.
+        $list['shots'] = $this->shots?->takenAt(array_map('intval', array_column($managed, 'id'))) ?? [];
+        $list['shotBrowser'] = $layout === 'grid' && $this->shots !== null && $this->view->can(\NimVor\Security\Permissions::SERVER_MANAGE) ? $this->shots->installed() : true;
         // Hosting customers see their plan's limits and what they use.
         if ($this->view->simpleLayout() && ($plan = $this->limits->planFor((int) $user['id'])) !== null) {
             $external = [];

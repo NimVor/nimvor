@@ -77,6 +77,9 @@ return static function (Router $r): void {
     $r->get('/websites', [WebsitesController::class, 'index'], ['name' => 'websites', 'permission' => P::WEBSITES_VIEW]);
     $r->get('/sites-health', [\NimVor\Http\Controllers\SitesHealthController::class, 'index'], ['name' => 'sites.healthcheck', 'permission' => P::WEBSITES_VIEW]);
     $r->post('/sites-health/fix-email', [\NimVor\Http\Controllers\SitesHealthController::class, 'fixEmail'], ['name' => 'sites.healthcheck.fix_email', 'permission' => P::MAIL_MANAGE]);
+    $r->get('/sites/{id}/thumbnail', [\NimVor\Http\Controllers\SiteThumbnailController::class, 'show'], ['name' => 'sites.thumbnail', 'permission' => P::WEBSITES_VIEW]);
+    $r->post('/sites/{id}/thumbnail', [\NimVor\Http\Controllers\SiteThumbnailController::class, 'refresh'], ['name' => 'sites.thumbnail.refresh', 'permission' => P::WEBSITES_VIEW]);
+    $r->post('/server/screenshots/install', [\NimVor\Http\Controllers\SiteThumbnailController::class, 'install'], ['name' => 'server.screenshots.install', 'permission' => P::SERVER_MANAGE]);
     $r->get('/websites/new', [SitesController::class, 'create'], ['name' => 'sites.create', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/websites/new', [SitesController::class, 'store'], ['name' => 'sites.store', 'permission' => P::WEBSITES_MANAGE]);
     $r->get('/sites/{id}', [SitesController::class, 'show'], ['name' => 'sites.show', 'permission' => P::WEBSITES_VIEW]);
