@@ -31,6 +31,7 @@ final class DashboardController extends Controller
         private readonly ?\NimVor\Services\PlanLimits $plans = null,
         private readonly ?\NimVor\Services\ServerContext $server = null,
         private readonly ?\NimVor\Services\SitesHealthService $siteHealth = null,
+        private readonly ?\NimVor\Services\DashboardWidgetsService $widgets = null,
     ) {
         parent::__construct($view, $session);
     }
@@ -75,7 +76,18 @@ final class DashboardController extends Controller
                 $needs = null; // the dashboard still opens
             }
         }
+        $backups = null;
+        $disk = null;
+        if ($this->widgets !== null) {
+            try {
+                $backups = $this->view->can(Permissions::BACKUPS_VIEW) ? $this->widgets->backups() : null;
+                $disk = $this->view->can(Permissions::SERVER_VIEW) ? $this->widgets->disk() : null;
+            } catch (\Throwable) {
+                // widgets without data show an empty state; the dashboard still opens
+            }
+        }
         return $this->render('dashboard/index', [
+            'backups' => $backups, 'disk' => $disk,
             'needs' => $needs,
             'info' => is_array($info) ? $info : null,
             'summary' => $summary,

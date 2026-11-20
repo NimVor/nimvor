@@ -59,6 +59,16 @@ $tiles = array_values(array_filter([
     ['Manual settings', 'code-slash', $u('advanced'), null],
 ], static fn (array $t): bool => $t[2] !== null));
 
+// Every page in the website menu gets a tile: the list above carries the notes and
+// shortcuts, and whatever it does not name (pages added to the menu later: Site health,
+// Traffic protection, Environment …) is added here, so the dashboard never falls behind the sidebar.
+$covered = ['overview', 'files', 'ftp', 'databases', 'mongo', 'dns', 'ssl', 'cron', 'mail', 'backups', 'access', 'headers', 'terminal', 'firewall', 'settings', 'php', 'redirects', 'apps', 'wordpress', 'git', 'workers', 'redis', 'logs', 'stats', 'subdomains', 'addons', 'advanced'];
+foreach (SiteMenu::items($this, $site) as $item) {
+    if (!in_array($item['key'], $covered, true)) {
+        $tiles[] = [$item['label'], $item['icon'], $item['url'], null];
+    }
+}
+
 // Searchable actions: the tiles plus common phrasings.
 $search = [];
 foreach ($tiles as [$label, $icon, $url]) {

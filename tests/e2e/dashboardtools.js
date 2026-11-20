@@ -1,5 +1,5 @@
-// End-to-end test of the dashboard's tools and service widget:
-// - "Tools & settings" lists each Security page as its own card
+// End-to-end test of the dashboard's widgets and service widget:
+// - the dashboard shows the Disk and Backups widgets and no longer has the tools grid
 // - the Services widget has start/stop and restart buttons that work
 //   without leaving the page (one row per service)
 // No script or CSP errors.
@@ -20,14 +20,11 @@ const OUT = process.env.E2E_OUT || '/tmp';
     await page.fill('#username', 'admin'); await page.fill('#password', 'dev-password-change-me');
     await Promise.all([page.waitForNavigation(), page.click('button[type=submit]')]);
 
-    const security = await page.evaluate(() => {
-      const head = [...document.querySelectorAll('.nim-tools-group')].find(h => h.textContent.trim() === 'Security');
-      return head ? [...head.nextElementSibling.querySelectorAll('.nim-tool-card .fw-semibold')].map(e => e.textContent.trim()) : [];
-    });
-    for (const want of ['Security overview', 'Firewall', 'SSH', 'ModSecurity', 'SMTP Restrictions', 'Outgoing Connections', 'Traceroute Enable/Disable']) {
-      if (!security.includes(want)) { throw new Error('Security cards: ' + want + ' missing in ' + JSON.stringify(security)); }
+    if (await page.locator('.nim-tools, .nim-tool-card').count() !== 0) { throw new Error('the tools grid is still on the dashboard'); }
+    for (const w of ['disk', 'backups']) {
+      if (await page.locator('[data-widget="' + w + '"]').count() === 0) { throw new Error('widget ' + w + ' missing'); }
     }
-    step('tools: one card per Security page (' + security.length + ')');
+    step('widgets: disk and backups, no tools grid');
 
     await page.waitForSelector('[data-services] > li:not(:has(.placeholder))', { timeout: 20000 });
     if (await page.locator('[data-services] .nim-service-btn').count() === 0) {

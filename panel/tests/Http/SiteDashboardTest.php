@@ -39,6 +39,22 @@ final class SiteDashboardTest extends HttpTestCase
         $this->login($user);
     }
 
+    /** Every page of the website menu has a tile, so the dashboard never falls behind the sidebar. */
+    public function testEveryMenuPageHasATile(): void
+    {
+        $this->login('admin');
+        $page = $this->request('GET', '/sites/' . $this->siteId)->body();
+        foreach (\NimVor\View\SiteMenu::items($this->app->container->get(\NimVor\View\View::class), (array) $this->app->container->get(\NimVor\Repositories\WebsiteRepository::class)->find(1, $this->siteId, null)) as $item) {
+            if ($item['key'] === 'overview') {
+                continue;
+            }
+            self::assertStringContainsString('href="' . $item['url'] . '"', $page, 'no tile for ' . $item['label']);
+        }
+        foreach (['Site health', 'Traffic protection', 'Country restrictions', 'Environment', 'Disk usage'] as $label) {
+            self::assertStringContainsString($label, $page, $label);
+        }
+    }
+
     public function testSitePageShowsDetailsAndTiles(): void
     {
         $this->login('admin');
@@ -90,7 +106,8 @@ final class SiteDashboardTest extends HttpTestCase
         self::assertStringNotContainsString('data-nim-site-menu-button', $page, 'no menu button without a sidebar');
         self::assertStringContainsString('class="nim-crumbs"', $page);
         self::assertStringContainsString('/sites/' . $this->siteId . '/advanced', $page, 'customers manage their own website');
-        foreach (['Server security', 'Audit log', 'Memcached', 'Spam filter', 'Backup destinations', '/security"', '/audit"'] as $s) {
+        // (A website's own Memcached page is in its menu, so it has a tile; the server-level pages do not.)
+        foreach (['Server security', 'Audit log', 'Spam filter', 'Backup destinations', 'href="/security"', 'href="/audit"'] as $s) {
             self::assertStringNotContainsString($s, $page, $s);
         }
         self::assertSame(200, $this->request('GET', '/sites/' . $this->siteId . '/advanced')->status());
