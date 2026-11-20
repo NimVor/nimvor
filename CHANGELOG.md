@@ -6,15 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
-### Fixed
+## [1.8.3] — 2026-11-20
 
-- **A website's dashboard did not show tiles for newer pages.** Pages added to the website menu later (Site health, Security, Malware scan, Traffic protection, IP, browser & URL lists, Country restrictions, Traffic report, Environment, Disk usage, Memcached, Cloudflare, the Node.js/Python runtime) were in the sidebar but had no tile. Every menu page now has a tile; the other themes already built theirs from the menu.
-
-### Changed
-
-- **The dashboard shows widgets instead of the "Tools & settings" icon grid.** The grid repeated the sidebar and filled the page; the sidebar and Ctrl+K still reach every page, and the quick-actions strip stays. New widgets: **Needs attention** (Site health counts and expiring certificates), **Disk** (filesystems with a red bar when nearly full, and the biggest places from the latest Disk usage scan) and **Backups** (completed, failed in the last 7 days, running, last completed, websites without a recent backup).
-- **"A NimVor update is available" stayed on after updating.** The answer is kept for six hours, so a server updated to the newest version kept showing the update button until the next refresh. The scheduler now notices that the installed version changed and checks again at its next run (within five minutes).
-- **Measuring a website's disk usage showed "Job not found" in the task window.** The measurement ran and its result appeared, but the panel did not register the job it started, so the progress window could not follow it. It is registered now (also for the new Server → Disk usage scan, which opens the window too).
+Dashboard widgets and a tile for every website page, pictures of each website's home page, Site health and Disk usage pages, a more complete full-server install, and several fixes (time zone, kernel settings after reboot, update flag, package index).
 
 ### Added
 
@@ -25,8 +19,15 @@ All notable changes to NimVor are documented here. The format follows
 - **New websites start with statistics and Anti-intrusion on.** AWStats is turned on where it is installed, and the website's account joins Anti-intrusion while that is switched on (email with DKIM was already added where the server hosts email).
 - **The host name certificate is used at once.** When Let's Encrypt issues the certificate for the server's host name, the panel and the mail server switch to it; no need to press *Use* for each. A certificate chosen earlier for one of them stays.
 
+### Changed
+
+- **The dashboard shows widgets instead of the "Tools & settings" icon grid.** The grid repeated the sidebar and filled the page; the sidebar and Ctrl+K still reach every page, and the quick-actions strip stays. New widgets: **Needs attention** (Site health counts and expiring certificates), **Disk** (filesystems with a red bar when nearly full, and the biggest places from the latest Disk usage scan) and **Backups** (completed, failed in the last 7 days, running, last completed, websites without a recent backup).
+- **"A NimVor update is available" stayed on after updating.** The answer is kept for six hours, so a server updated to the newest version kept showing the update button until the next refresh. The scheduler now notices that the installed version changed and checks again at its next run (within five minutes).
+- **Measuring a website's disk usage showed "Job not found" in the task window.** The measurement ran and its result appeared, but the panel did not register the job it started, so the progress window could not follow it. It is registered now (also for the new Server → Disk usage scan, which opens the window too).
+
 ### Fixed
 
+- **A website's dashboard did not show tiles for newer pages.** Pages added to the website menu later (Site health, Security, Malware scan, Traffic protection, IP, browser & URL lists, Country restrictions, Traffic report, Environment, Disk usage, Memcached, Cloudflare, the Node.js/Python runtime) were in the sidebar but had no tile. Every menu page now has a tile; the other themes already built theirs from the menu.
 - **The System page showed the old time zone after it was changed.** It read Debian's `/etc/timezone`, which `timedatectl` does not update; it now reads `/etc/localtime` first (the Server settings tab already showed the right zone).
 - **Kernel security settings went back after a restart.** Some services change a setting after the system applied its files (Ubuntu's apport sets `fs.suid_dumpable = 2`), so the recommended value was undone at every boot. A small unit, `nimvor-sysctl.service`, applies NimVor's saved settings once more after boot (installed by the installer and the upgrade).
 - **Package index refresh failed when a repository changed its description (webmail and other installs).** `apt-get update` refuses, in unattended runs, a repository whose Label, Version, Suite or Codename changed. The Ondřej PHP PPA's label became "PPA for PHP (deprecated)", so installing webmail (and anything else that refreshes the index) stopped with "the package manager failed [UNKNOWN]". The agent now runs `apt-get update --allow-releaseinfo-change`. Signatures are still checked; only the descriptive release fields may change.
