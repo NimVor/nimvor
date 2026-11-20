@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Disk usage page (Server → Disk usage).** The filesystems with their space and inode use, a scan of where the space goes (websites, mailboxes, NimVor backups, logs, databases, caches, temporary files), each website's size and share, and the largest files with a size limit you choose (10 MB to 1 GB). Files can be deleted in bulk from a website's folder, NimVor's backups, logs and temporary files (never from mailboxes, databases or system folders); active logs are emptied instead of removed so their service keeps writing. The panel only deletes files listed in the latest scan and the agent checks every path again (inside an allowed place, a regular file, no link leading out), and each removal is audited. New agent actions `disk.filesystems`, `disk.scan` (a background job) and `disk.remove`.
+
 ### Fixed
 
 - **Package index refresh failed when a repository changed its description (webmail and other installs).** `apt-get update` refuses, in unattended runs, a repository whose Label, Version, Suite or Codename changed. The Ondřej PHP PPA's label became "PPA for PHP (deprecated)", so installing webmail (and anything else that refreshes the index) stopped with "the package manager failed [UNKNOWN]". The agent now runs `apt-get update --allow-releaseinfo-change`. Signatures are still checked; only the descriptive release fields may change.
