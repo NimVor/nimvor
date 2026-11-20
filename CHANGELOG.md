@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Website: the step-by-step guides did not appear after a deploy.** They had to be loaded into the blog by hand. They now load by themselves when the blog is first opened after a deploy (new or changed guides only; posts written or edited under Admin are never replaced).
+
 ## [1.8.2] — 2026-11-18
 
 Visitors' own addresses behind Cloudflare, Nginx restarts from the panel that no longer end in "Failed to fetch", and the website's own Releases page and an updated Features page.

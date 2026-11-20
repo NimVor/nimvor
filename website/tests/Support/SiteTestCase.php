@@ -29,6 +29,7 @@ abstract class SiteTestCase extends TestCase
         $env = static fn (string $k, string $d): string => getenv($k) !== false && getenv($k) !== '' ? (string) getenv($k) : $d;
         $config = [
             'env' => 'test',
+            'blog_autoload' => false, // tests start with an empty blog
             'url' => 'https://nimvor.test',
             'db' => ['host' => $env('DB_HOST', '127.0.0.1'), 'port' => (int) $env('DB_PORT', '3306'), 'name' => $env('DB_NAME', 'nimvor_site_test'), 'user' => $env('DB_USER', 'site'), 'pass' => $env('DB_PASS', 'site-test-pw')],
             'cache' => [

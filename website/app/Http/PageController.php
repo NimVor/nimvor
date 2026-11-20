@@ -128,6 +128,10 @@ final class PageController extends Controller
     {
         $post = $this->app->posts->bySlug($params['slug'] ?? '');
         if ($post === null) {
+            $this->app->blogImporter->auto();
+            $post = $this->app->posts->bySlug($params['slug'] ?? '');
+        }
+        if ($post === null) {
             return $this->app->error($ctx, 404);
         }
         return $ctx->render('pages/post', ['post' => $post, 'bodyHtml' => Text::html((string) $post['body'])]);
@@ -309,6 +313,7 @@ final class PageController extends Controller
     {
         $posts = $this->app->cache->get('blog:list');
         if (!is_array($posts)) {
+            $this->app->blogImporter->auto();
             $posts = $this->app->posts->published();
             $this->app->cache->set('blog:list', $posts, 120);
         }
