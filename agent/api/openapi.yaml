@@ -149,6 +149,9 @@ paths:
               - discovery.redis
               - discovery.users
               - discovery.websites
+              - disk.filesystems
+              - disk.remove
+              - disk.scan
               - dns.backend_select
               - dns.backends
               - dns.configure
@@ -738,6 +741,9 @@ x-nimvor-actions:
   discovery.redis: { mutating: false, description: "Redis installation and configuration summary." }
   discovery.users: { mutating: false, description: "Local system accounts." }
   discovery.websites: { mutating: false, description: "Existing websites correlated from Nginx, PHP-FPM and certificates." }
+  disk.filesystems: { mutating: false, description: "Mounted data filesystems with their space and inode use (read-only)." }
+  disk.remove: { mutating: true, description: "Delete the given large files, from a website's folder, NimVor's backups, logs or temporary files only; active logs are emptied instead. Each path is checked; a file that is not allowed is reported and left alone." }
+  disk.scan: { mutating: false, description: "Start a background job measuring where the disk space goes: the big places, each website and the largest files (read-only)." }
   dns.backend_select: { mutating: true, description: "Switch the nameserver NimVor runs the zones with (PowerDNS, NSD, Knot DNS or BIND), as a job: installs it when needed, writes its configuration for the same zone files, checks it, stops the previous nameserver, starts the new one and verifies every zone is served. Restores the previous nameserver when anything fails. Signed zones get new keys on the new nameserver (the DS record at the registrar must be updated) or become unsigned (NSD)." }
   dns.backends: { mutating: false, description: "The nameservers NimVor can run the zones with (PowerDNS, NSD, Knot DNS, BIND): which is in use, which are installed or running, what each offers and whether it can sign zones (DNSSEC). Nothing is changed." }
   dns.configure: { mutating: true, description: "Set up the chosen nameserver for NimVor's zones: the zone list and one change to its configuration (BIND: an include line, requires confirm_edit_package_config), checked before it is kept; the daemon is started or reloaded and port 53 opened when the firewall is active. Restores the previous files when the daemon does not take them." }

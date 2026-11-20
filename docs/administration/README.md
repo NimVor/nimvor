@@ -2549,3 +2549,24 @@ with **Add records** (only records that are not there yet; nothing is
 replaced). Domains whose DNS is elsewhere are not checked: the panel cannot read
 their records. The administrator dashboard shows the counts per kind in a
 "Websites needing attention" card.
+## Disk usage
+
+**Server → Disk usage** shows where the disk space goes:
+
+- **Overview:** each data filesystem with its space and inode (file count)
+  use, and, after a scan, the size of the places that usually fill a server:
+  websites, mailboxes, NimVor's backups, logs, databases, caches and
+  temporary files.
+- **Websites:** each website's size and its share of the websites folder,
+  with a link to the folder view of that website.
+- **Large files:** the biggest files from the size you chose (10 MB to 1 GB).
+  Tick files and press **Delete selected**.
+
+*Scan the disk* starts a background job (a big server can take several
+minutes); the page shows the result when it is done. Deleting is limited to a
+website's folder, NimVor's backups, `/var/log` and `/tmp`, `/var/tmp`:
+mailboxes, databases and system files cannot be selected. The panel only
+accepts files listed in the latest scan and the agent checks each path again
+(a regular file inside an allowed place, no link leading out). An active log
+file is emptied rather than removed, so its service keeps writing to it.
+Every removal is recorded in the audit log.
