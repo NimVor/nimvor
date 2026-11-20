@@ -58,6 +58,25 @@ final class UpdateCheckService
         return $c === null || (int) ($c['checked_at'] ?? 0) < time() - self::MAX_AGE;
     }
 
+    /**
+     * The cached answer was for another installed version than the one that
+     * runs now (NimVor was updated since): its "update available" is old news.
+     */
+    public function stale(): bool
+    {
+        $c = $this->cached();
+        if ($c === null || (string) ($c['current'] ?? '') === '') {
+            return false;
+        }
+        try {
+            $src = (array) json_decode((string) json_encode($this->agent->call('nimvor.update_status')), true);
+        } catch (AgentException) {
+            return false;
+        }
+        $now = (string) ($src['commit'] ?? '');
+        return $now !== '' && $now !== (string) $c['current'];
+    }
+
     /** "owner/repo" of a GitHub remote URL, or null. */
     public static function githubRepo(string $remote): ?string
     {

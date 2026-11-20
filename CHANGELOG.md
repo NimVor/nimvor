@@ -8,6 +8,7 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Fixed
 
+- **"A NimVor update is available" stayed on after updating.** The answer is kept for six hours, so a server updated to the newest version kept showing the update button until the next refresh. The scheduler now notices that the installed version changed and checks again at its next run (within five minutes).
 - **Measuring a website's disk usage showed "Job not found" in the task window.** The measurement ran and its result appeared, but the panel did not register the job it started, so the progress window could not follow it. It is registered now (also for the new Server → Disk usage scan, which opens the window too).
 
 ### Added
