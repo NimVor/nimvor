@@ -69,7 +69,7 @@ final class App
         $this->posts = new Posts($db);
         $this->messages = new Messages($db);
         $this->state = new State($db);
-        $this->blogImporter = new BlogImporter($this->posts, $root . '/content/blog', $this->state);
+        $this->blogImporter = new BlogImporter($this->posts, $root . '/content/blog', ($config['blog_autoload'] ?? true) === false ? null : $this->state);
         $this->requests = new BuildRequests($db);
         $this->sponsors = new Sponsors($db);
         $this->videos = new Videos($db);
