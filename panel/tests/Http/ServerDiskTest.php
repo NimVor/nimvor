@@ -50,6 +50,8 @@ final class ServerDiskTest extends HttpTestCase
     {
         $this->post('/server/disk/scan', ['min_mb' => '50']);
         self::assertSame(['min_mb' => 50], $this->lastCall('disk.scan'));
+        self::assertSame(self::JOB, $this->session->pullFlash('job'), 'the progress window opens');
+        self::assertSame(1, (int) $this->app->container->get(Connection::class)->scalar('SELECT COUNT(*) FROM agent_jobs WHERE job_id = ?', [self::JOB]));
         $this->post('/server/disk/scan', ['min_mb' => '50']);
         self::assertStringContainsString('already', (string) $this->flash('error'), 'one scan at a time');
 

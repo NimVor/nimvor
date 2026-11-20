@@ -13,6 +13,7 @@ All notable changes to NimVor are documented here. The format follows
 ### Changed
 
 - **The dashboard shows widgets instead of the "Tools & settings" icon grid.** The grid repeated the sidebar and filled the page; the sidebar and Ctrl+K still reach every page, and the quick-actions strip stays. New widgets: **Needs attention** (Site health counts and expiring certificates), **Disk** (filesystems with a red bar when nearly full, and the biggest places from the latest Disk usage scan) and **Backups** (completed, failed in the last 7 days, running, last completed, websites without a recent backup).
+- **Measuring a website's disk usage showed "Job not found" in the task window.** The measurement ran and its result appeared, but the panel did not register the job it started, so the progress window could not follow it. It is registered now (also for the new Server → Disk usage scan, which opens the window too).
 
 ### Added
 
