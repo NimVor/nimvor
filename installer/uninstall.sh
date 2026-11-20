@@ -22,7 +22,7 @@ read -r -p "Remove NimVor from this server$([[ $PURGE -eq 1 ]] && echo ' includi
 
 systemctl disable --now nimvor-scheduler.timer 2>/dev/null || true
 rm -f /etc/systemd/system/nimvor-scheduler.timer
-for svc in nimvor-scheduler nimvor-panel nimvor-agent; do
+for svc in nimvor-sysctl nimvor-scheduler nimvor-panel nimvor-agent; do
     systemctl disable --now "$svc.service" 2>/dev/null || true
     rm -f "/etc/systemd/system/$svc.service"
 done

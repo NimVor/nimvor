@@ -71,6 +71,26 @@ final class ServerSetupTest extends HttpTestCase
         $this->agent->succeed('hulk.sync', ['ok' => true]);
         $this->agent->succeed('modsec.status', ['module_loaded' => false, 'active' => false]);
         $this->agent->succeed('security.auto_updates', ['job_id' => self::JOB]);
+        // Helper tools, host name, webmail and the mail extras, Anti-intrusion.
+        $this->agent->succeed('packages.list', [
+            ['name' => 'acl', 'package' => 'acl', 'installed' => false], ['name' => 'auditd', 'package' => 'auditd', 'installed' => false],
+            ['name' => 'awstats', 'package' => 'awstats', 'installed' => false], ['name' => 'unzip', 'package' => 'unzip', 'installed' => true], ['name' => 'zip', 'package' => 'zip', 'installed' => true],
+        ]);
+        $this->agent->succeed('system.info', ['system' => ['hostname' => 'old.local']]);
+        $this->agent->succeed('server.set_hostname', ['hostname' => 'server.example.com']);
+        $this->agent->succeed('mail.status', ['configured' => true, 'smtps' => false, 'spam_installed' => true, 'spam' => ['enabled' => false, 'add_header' => 6, 'reject' => 15], 'webmail' => ['installed' => false, 'enabled' => false]]);
+        $this->agent->succeed('mail.webmail_install', ['job_id' => self::JOB]);
+        $this->agent->succeed('mail.webmail_configure', ['url' => 'https://server.example.com/']);
+        $this->agent->succeed('mail.spam_configure', ['ok' => true]);
+        $this->agent->succeed('mail.smtps_set', ['ok' => true]);
+        $this->agent->succeed('mail.greylist_get', ['config' => ['enabled' => false, 'deferral' => 5, 'resend' => 240, 'expire' => 4320, 'spf_bypass' => true, 'trusted' => [], 'providers' => []]]);
+        $this->agent->succeed('mail.greylist_set', ['ok' => true]);
+        $this->agent->succeed('intrusion.status', [
+            'enabled' => false, 'auditd' => ['installed' => true], 'acl' => ['installed' => true], 'suggested' => ['/usr/bin/nmap'], 'blacklist' => [],
+            'accounts' => [['name' => 'nv100', 'kind' => 'website'], ['name' => 'daemon', 'kind' => 'system']],
+        ]);
+        $this->agent->succeed('intrusion.blacklist', ['ok' => true]);
+        $this->agent->succeed('intrusion.configure', ['ok' => true]);
     }
 
     private function service(): ServerSetupService
@@ -133,7 +153,7 @@ final class ServerSetupTest extends HttpTestCase
         self::assertSame(array_keys(ServerSetupService::STEPS), array_keys($st), 'every step of the full profile');
         self::assertNotContains('fail', $st, json_encode($res));
         // Missing packages of the profile's components only.
-        self::assertSame(['names' => ['rspamd', 'clamav', 'clamav-freshclam', 'memcached']], $this->lastCall('packages.install'));
+        self::assertSame(['names' => ['rspamd', 'clamav', 'clamav-freshclam', 'memcached']], $this->bodies('packages.install')[0]);
         self::assertContains('   | working', $lines, 'job logs are shown');
         // 8.4 is offered: no third-party repository.
         self::assertSame(0, $this->calls('php.repository.enable'));
@@ -143,6 +163,21 @@ final class ServerSetupTest extends HttpTestCase
         self::assertSame(['curl', 'mbstring', 'intl'], $php['extensions']);
         self::assertFalse($php['confirm_removals']);
         self::assertSame(['hostname' => 'server.example.com', 'confirm_edit_package_config' => true], $this->lastCall('mail.configure'));
+        // The helper tools that are missing (not zip and unzip), installed in one job.
+        self::assertSame(['names' => ['acl', 'auditd', 'awstats']], $this->bodies('packages.install')[1]);
+        // The host name given to the installer becomes the server's host name.
+        self::assertSame(['hostname' => 'server.example.com'], $this->lastCall('server.set_hostname'));
+        // Webmail, the spam filter, port 465 and greylisting are part of a full server.
+        self::assertSame(['enabled' => true, 'hostname' => 'server.example.com'], $this->lastCall('mail.webmail_configure'));
+        self::assertSame(1, $this->calls('mail.webmail_install'));
+        self::assertTrue($this->lastCall('mail.spam_configure')['enabled']);
+        self::assertSame(['enabled' => true], $this->lastCall('mail.smtps_set'));
+        self::assertTrue($this->lastCall('mail.greylist_set')['enabled']);
+        // Anti-intrusion: website accounts only, with the recommended programs.
+        self::assertSame(['programs' => ['/usr/bin/nmap']], $this->lastCall('intrusion.blacklist'));
+        $ai = $this->lastCall('intrusion.configure');
+        self::assertTrue($ai['enabled']);
+        self::assertSame(['nv100' => ['log' => true, 'protect' => true]], $ai['accounts']);
         // The package's own pure-ftpd service, started by the install, may be replaced while it has no accounts.
         self::assertSame(['replace_unused_stock' => true], $this->lastCall('ftp.configure'));
         self::assertSame(['confirm_edit_package_config' => true], $this->lastCall('dns.configure'));

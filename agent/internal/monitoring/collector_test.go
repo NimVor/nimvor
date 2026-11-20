@@ -22,3 +22,24 @@ func TestSystemInfoHostnameFollowsEtcHostname(t *testing.T) {
 		t.Error("no fallback hostname")
 	}
 }
+
+func TestReadTimezonePrefersTheLocaltimeLinkOverAStaleEtcTimezone(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "etc"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// timedatectl set-timezone moved the link; /etc/timezone still has the old name.
+	if err := os.WriteFile(filepath.Join(root, "etc/timezone"), []byte("Europe/Berlin\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("../usr/share/zoneinfo/Asia/Karachi", filepath.Join(root, "etc/localtime")); err != nil {
+		t.Fatal(err)
+	}
+	if got := readTimezone(root); got != "Asia/Karachi" {
+		t.Errorf("readTimezone = %q, want Asia/Karachi", got)
+	}
+	_ = os.Remove(filepath.Join(root, "etc/localtime"))
+	if got := readTimezone(root); got != "Europe/Berlin" {
+		t.Errorf("without the link, readTimezone = %q, want Europe/Berlin", got)
+	}
+}
