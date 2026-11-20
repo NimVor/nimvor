@@ -1305,6 +1305,40 @@
         if (!box) { return; }
         box.querySelectorAll('input[type=checkbox]:not([disabled])').forEach(function (c) { c.checked = all; });
     });
+    // Website cards: the refresh icon takes a new picture of the home page and swaps it in, without leaving the page.
+    function refreshThumb(btn) {
+        if (btn.classList.contains('is-busy')) { return; }
+        btn.classList.add('is-busy');
+        var thumb = btn.closest('.nim-site-thumb');
+        fetch(btn.getAttribute('data-nim-thumb-refresh'), { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF-Token': NimVor.csrfToken(), 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (res) { return res.json().then(function (body) { return { ok: res.ok && body.success !== false, body: body }; }); })
+            .then(function (r) {
+                if (!r.ok) { throw new Error(r.body.error || 'The picture could not be taken.'); }
+                var img = thumb.querySelector('.nim-site-shot');
+                if (!img) {
+                    img = document.createElement('img');
+                    img.className = 'nim-site-shot'; img.alt = '';
+                    thumb.insertBefore(img, thumb.querySelector('.nim-site-initial').nextSibling);
+                }
+                img.src = r.body.url;
+                thumb.classList.add('has-shot');
+                NimVor.toast('The picture of the home page was refreshed.', 'success');
+            })
+            .catch(function (e) { NimVor.toast(e.message || 'The picture could not be taken.', 'danger'); })
+            .then(function () { btn.classList.remove('is-busy'); });
+    }
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest && e.target.closest('[data-nim-thumb-refresh]');
+        if (!btn) { return; }
+        e.preventDefault(); e.stopPropagation();
+        refreshThumb(btn);
+    });
+    document.addEventListener('keydown', function (e) {
+        var btn = e.target.closest && e.target.closest('[data-nim-thumb-refresh]');
+        if (!btn || (e.key !== 'Enter' && e.key !== ' ')) { return; }
+        e.preventDefault(); e.stopPropagation();
+        refreshThumb(btn);
+    });
     // Select all: <input type=checkbox data-nim-select-all="name[]"> in a table
     // header ticks or unticks the enabled, currently visible (not filtered
     // out or paged away) checkboxes of that name in the same table.
