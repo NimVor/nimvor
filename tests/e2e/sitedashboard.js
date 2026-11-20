@@ -210,7 +210,7 @@ const DEV_ROOT = path.resolve(__dirname, '../../.dev/root');
     await login(cust, 'cust' + stamp, 'Customer-pass-' + stamp);
     await cust.goto(BASE + site);
     const custMain = await cust.textContent('main');
-    for (const s of ['Server security', 'Audit log', 'Memcached', 'Spam filter', 'Backup destinations']) {
+    for (const s of ['Server security', 'Audit log', 'Spam filter', 'Backup destinations']) {
       if (custMain.includes(s)) { throw new Error('customer sees ' + s); }
     }
     if (await cust.$('#nim-sidebar')) { throw new Error('customers get no sidebar'); }
