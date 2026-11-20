@@ -68,7 +68,8 @@ final class App
         $this->users = new Users($db);
         $this->posts = new Posts($db);
         $this->messages = new Messages($db);
-        $this->blogImporter = new BlogImporter($this->posts, $root . '/content/blog');
+        $this->state = new State($db);
+        $this->blogImporter = new BlogImporter($this->posts, $root . '/content/blog', $this->state);
         $this->requests = new BuildRequests($db);
         $this->sponsors = new Sponsors($db);
         $this->videos = new Videos($db);
@@ -77,7 +78,6 @@ final class App
         $this->visits = new Visits($db);
         $this->limiter = new RateLimiter($cache);
         $this->reports = new Reports($db, $cache, $this->visits);
-        $this->state = new State($db);
         $this->docs = new Docs($db);
         $this->installs = new Installs($db);
         $gh = (array) ($config['github'] ?? []);

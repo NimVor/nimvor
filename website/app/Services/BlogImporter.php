@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NimVorSite\Services;
 
 use NimVorSite\Repositories\Posts;
+use NimVorSite\Repositories\State;
 
 /**
  * Loads the guides that ship with the site (content/blog/*.md) into the blog. Each file starts with a
@@ -14,8 +15,35 @@ use NimVorSite\Repositories\Posts;
  */
 final class BlogImporter
 {
-    public function __construct(private readonly Posts $posts, private readonly string $dir)
+    public function __construct(private readonly Posts $posts, private readonly string $dir, private readonly ?State $state = null)
     {
+    }
+
+    /**
+     * Loads new or changed guides on their own, so a freshly deployed site shows them without anyone
+     * pressing a button. Cheap when nothing changed (one look at the files' names, sizes and dates);
+     * never replaces a post an administrator wrote or edited.
+     */
+    public function auto(): void
+    {
+        if ($this->state === null) {
+            return;
+        }
+        try {
+            $parts = [];
+            foreach (glob($this->dir . '/*.md') ?: [] as $f) {
+                $parts[] = basename($f) . ':' . (int) filesize($f) . ':' . (int) filemtime($f);
+            }
+            sort($parts);
+            $fingerprint = sha1(implode('|', $parts));
+            if ($parts === [] || $this->state->get('blog:guides') === $fingerprint) {
+                return;
+            }
+            $this->import();
+            $this->state->set('blog:guides', $fingerprint);
+        } catch (\Throwable) {
+            // the blog must still open if the guides cannot be loaded right now
+        }
     }
 
     /**

@@ -58,6 +58,21 @@ final class BlogGuidesTest extends SiteTestCase
         self::assertStringContainsString('DNS in NimVor', $this->get('/resources/blog')->body);
     }
 
+    public function testGuidesLoadThemselvesWhenTheBlogIsOpenedAndAreNotRepeated(): void
+    {
+        $this->guide('auto-one', 'Auto one', 'Text.');
+        $imp = new BlogImporter($this->app->posts, $this->dir, $this->app->state);
+        $imp->auto();
+        self::assertNotNull($this->app->posts->bySlug('auto-one'));
+        $this->app->posts->bySlugAny('auto-one');
+        $this->app->db->run('DELETE FROM posts WHERE slug = ?', ['auto-one']);
+        $imp->auto(); // nothing changed in the folder: no second load
+        self::assertNull($this->app->posts->bySlugAny('auto-one'));
+        $this->guide('auto-two', 'Auto two', 'More.');
+        $imp->auto();
+        self::assertNotNull($this->app->posts->bySlug('auto-two'));
+    }
+
     public function testAChangedFileUpdatesTheGuideButAnEditedPostIsKept(): void
     {
         $this->guide('dns-guide', 'DNS in NimVor', 'First version.');
