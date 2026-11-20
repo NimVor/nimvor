@@ -1,5 +1,5 @@
 // End-to-end test of the admin and reseller shell:
-// - the dashboard's welcome strip, quick actions and "Tools & settings" grid
+// - the dashboard's welcome strip, quick actions and widgets
 // - Ctrl+K opens the global search; typing filters it; Enter opens the match
 // - a reseller gets their own dashboard (customers, websites, plan), no
 //   server details and no server tools in the search
@@ -30,11 +30,11 @@ const OUT = process.env.E2E_OUT || '/tmp';
   try {
     await login('admin', 'dev-password-change-me');
     const main = await page.textContent('main');
-    for (const s of ['Tools & settings', 'Create website', 'System accounts', 'Audit log']) {
+    for (const s of ['Create website', 'Disk', 'Backups', 'Audit log']) {
       if (!main.includes(s)) { throw new Error('dashboard misses ' + s); }
     }
     await page.screenshot({ path: path.join(OUT, 'nav-dashboard.png'), fullPage: true });
-    step('dashboard: welcome strip, quick actions, tools grid');
+    step('dashboard: welcome strip, quick actions, widgets');
 
     await search('backup');
     const first = (await page.textContent('[data-nim-palette-item].is-first')).trim();

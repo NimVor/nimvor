@@ -18,15 +18,19 @@ final class NavigationTest extends HttpTestCase
         $this->login($who);
     }
 
-    public function testAdministratorsGetSearchAndTheToolsGrid(): void
+    public function testAdministratorsGetSearchAndTheDashboardWidgetsInsteadOfAToolsGrid(): void
     {
         $this->seedUser('admin', 'admin');
         $this->agent->succeed('system.info', ['system' => ['hostname' => 'srv1', 'uptime_seconds' => 60], 'os' => ['pretty_name' => 'Ubuntu 24.04', 'supported' => true]]);
+        $this->agent->succeed('disk.filesystems', [['mount' => '/', 'device' => '/dev/vda1', 'type' => 'ext4', 'total_bytes' => 100000000000, 'used_bytes' => 40000000000, 'avail_bytes' => 60000000000, 'used_percent' => 40.0, 'inodes' => 100, 'inodes_used' => 10, 'inodes_percent' => 10.0]]);
         $this->login('admin');
         $page = $this->request('GET', '/')->body();
-        foreach (['id="nim-palette"', 'data-nim-palette-item', 'Tools &amp; settings', 'Create website', 'nim-hero', 'srv1', 'System accounts', 'data-nim-nav-toggle="Hosting"', 'AutoSSL'] as $want) {
+        foreach (['id="nim-palette"', 'data-nim-palette-item', 'Create website', 'nim-hero', 'srv1', 'System accounts', 'data-nim-nav-toggle="Hosting"', 'AutoSSL', 'data-widget="disk"', 'data-widget="backups"'] as $want) {
             self::assertStringContainsString($want, $page, $want);
         }
+        // The icon grid that repeated the sidebar is gone.
+        self::assertStringNotContainsString('Tools &amp; settings', $page);
+        self::assertStringNotContainsString('nim-tool-card', $page);
         // The account menu is in the top bar only.
         self::assertStringNotContainsString('nim-sidebar-account', $page);
     }

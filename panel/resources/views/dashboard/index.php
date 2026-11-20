@@ -66,20 +66,6 @@ foreach ([
     </div>
 <?php endif; ?>
 
-<?php if (!empty($needs) && array_sum($needs['counts']) > 0): ?>
-    <div class="card mb-3" data-widget="sites-needing-attention">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <span><i class="bi bi-heart-pulse me-1" aria-hidden="true"></i>Websites needing attention <span class="badge text-bg-warning"><?= (int) ($needs['total'] - $needs['healthy']) ?> of <?= (int) $needs['total'] ?></span></span>
-            <a class="btn btn-sm btn-outline-primary" href="<?= e($this->url('sites.healthcheck')) ?>">Open Site health</a>
-        </div>
-        <div class="card-body d-flex flex-wrap gap-2">
-            <?php foreach (\NimVor\Services\SitesHealthService::CATEGORIES as $key => [$label]): $n = (int) ($needs['counts'][$key] ?? 0); if ($n === 0) { continue; } ?>
-                <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('sites.healthcheck')) ?>?category=<?= e($key) ?>"><?= e($label) ?> <span class="badge text-bg-warning"><?= $n ?></span></a>
-            <?php endforeach; ?>
-        </div>
-    </div>
-<?php endif; ?>
-
 <?php if ($agentError !== null): ?>
     <?= $this->partial('partials/agent_error', ['error' => $agentError]) ?>
 <?php endif; ?>
@@ -196,6 +182,79 @@ foreach ([
         </div>
     </div>
 
+    <?php
+    $bar = static fn (float $p): string => $p >= 90 ? 'bg-danger' : ($p >= 75 ? 'bg-warning' : '');
+    $attention = $needs !== null ? array_sum($needs['counts']) : 0;
+    $expiring = (int) ($summary['expiring'] ?? 0);
+    ?>
+    <div class="row g-3 mb-3" data-widgets>
+        <?php if ($needs !== null || $summary !== null): ?>
+        <div class="col-lg-4">
+            <div class="card h-100" data-widget="attention">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-heart-pulse me-1" aria-hidden="true"></i>Needs attention</span>
+                    <?php if ($needs !== null): ?><a class="small" href="<?= e($this->url('sites.healthcheck')) ?>">Site health</a><?php endif; ?>
+                </div>
+                <div class="card-body">
+                    <?php if ($attention === 0 && $expiring === 0): ?>
+                        <div class="text-success"><i class="bi bi-check-circle-fill me-1" aria-hidden="true"></i>Nothing needs attention.</div>
+                    <?php else: ?>
+                        <div class="d-flex flex-wrap gap-2">
+                            <?php foreach (\NimVor\Services\SitesHealthService::CATEGORIES as $key => [$label]): $n = (int) ($needs['counts'][$key] ?? 0); if ($n === 0) { continue; } ?>
+                                <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('sites.healthcheck')) ?>?category=<?= e($key) ?>"><?= e($label) ?> <span class="badge text-bg-warning"><?= $n ?></span></a>
+                            <?php endforeach; ?>
+                            <?php if ($expiring > 0): ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('ssl')) ?>">Certificates expiring <span class="badge text-bg-warning"><?= $expiring ?></span></a><?php endif; ?>
+                        </div>
+                        <?php if ($needs !== null): ?><div class="small text-body-secondary mt-2"><?= (int) ($needs['total'] - $needs['healthy']) ?> of <?= (int) $needs['total'] ?> websites have something to look at.</div><?php endif; ?>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+        <?php if ($disk !== null): ?>
+        <div class="col-lg-4">
+            <div class="card h-100" data-widget="disk">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-hdd me-1" aria-hidden="true"></i>Disk</span>
+                    <?php if ($this->hasRoute('server.disk') && $this->routeAllowed('server.disk')): ?><a class="small" href="<?= e($this->url('server.disk')) ?>">Disk usage</a><?php endif; ?>
+                </div>
+                <div class="card-body small">
+                    <?php foreach ($disk['filesystems'] as $f): $p = (float) $f['used_percent']; ?>
+                        <div class="d-flex justify-content-between"><span class="font-monospace"><?= e((string) $f['mount']) ?></span><span><?= e(format_bytes($f['used_bytes'])) ?> / <?= e(format_bytes($f['total_bytes'])) ?></span></div>
+                        <div class="progress mb-2" role="progressbar" aria-valuenow="<?= e((string) $p) ?>" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar <?= $bar($p) ?>" data-width="<?= e((string) $p) ?>"></div></div>
+                    <?php endforeach; ?>
+                    <?php if ($disk['filesystems'] === []): ?><div class="text-body-secondary">No filesystem data.</div><?php endif; ?>
+                    <?php if ($disk['areas'] !== []): ?>
+                        <div class="text-body-secondary mt-2 mb-1">Biggest places (scanned <?= e(time_ago((string) $disk['scanned_at'])) ?>)</div>
+                        <?php foreach ($disk['areas'] as $a): ?><div class="d-flex justify-content-between"><span><?= e((string) $a['label']) ?></span><span><?= e(format_bytes($a['bytes'])) ?></span></div><?php endforeach; ?>
+                    <?php else: ?>
+                        <div class="text-body-secondary mt-2">Scan the disk on the Disk usage page to see where the space goes.</div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+        <?php if ($backups !== null): ?>
+        <div class="col-lg-4">
+            <div class="card h-100" data-widget="backups">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-cloud-arrow-up me-1" aria-hidden="true"></i>Backups</span>
+                    <?php if ($this->hasRoute('backups') && $this->routeAllowed('backups')): ?><a class="small" href="<?= e($this->url('backups')) ?>">Backups</a><?php endif; ?>
+                </div>
+                <div class="card-body small">
+                    <div class="row g-2 text-center mb-2">
+                        <div class="col-4"><div class="nim-kpi"><?= (int) $backups['completed'] ?></div><div class="nim-kpi-label">Completed</div></div>
+                        <div class="col-4"><div class="nim-kpi<?= $backups['failed'] > 0 ? ' text-danger' : '' ?>"><?= (int) $backups['failed'] ?></div><div class="nim-kpi-label">Failed (7 days)</div></div>
+                        <div class="col-4"><div class="nim-kpi"><?= (int) $backups['running'] ?></div><div class="nim-kpi-label">Running</div></div>
+                    </div>
+                    <div class="text-body-secondary">Last completed: <?= $backups['last'] !== null ? e(time_ago($backups['last'])) : 'never' ?><?= $backups['schedules'] === 0 ? ' · no schedule set' : '' ?></div>
+                    <?php if ($needs !== null && ($needs['counts']['backup'] ?? 0) > 0): ?><div class="mt-1"><a href="<?= e($this->url('sites.healthcheck')) ?>?category=backup"><?= (int) $needs['counts']['backup'] ?> website(s) without a recent backup</a></div><?php endif; ?>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+    </div>
+
     <div class="row g-3">
         <div class="col-lg-8">
             <div class="card h-100">
@@ -233,38 +292,4 @@ foreach ([
     </div>
 </div>
 <div class="small text-body-secondary mt-3" data-live-status>Waiting for live data…</div>
-<?php $toolGroups = \NimVor\View\Navigation::visible($this); unset($toolGroups['Overview']); ?>
-<?php if ($toolGroups !== []): ?>
-<section aria-labelledby="tools-title">
-    <div class="nim-tools-head"><h2 id="tools-title">Tools &amp; settings</h2><span class="small text-body-secondary">Everything you can manage, in one place · press <kbd>Ctrl</kbd> <kbd>K</kbd> to search</span></div>
-    <?php $tone = 0; foreach ($toolGroups as $group => $items): ?>
-        <div class="nim-tools-group"><?= e($group) ?></div>
-        <div class="nim-tools">
-            <?php
-            // Security's and SSL's pages each get their own card (as in the sidebar).
-            $cards = [];
-            foreach ($items as $i) {
-                $details = $group === 'Security' ? \NimVor\View\Navigation::SECURITY_CARDS : ($i['route'] === 'ssl' ? \NimVor\View\Navigation::SSL_CARDS : null);
-                if ($details === null || $i['children'] === []) {
-                    $cards[] = $i;
-                    continue;
-                }
-                foreach ($i['children'] as $c) {
-                    [$icon, $desc] = $details[$c['route']] ?? [$i['icon'], $i['description']];
-                    $cards[] = ['label' => $c['label'] === 'Overview' ? 'Security overview' : $c['label'], 'url' => $c['url'], 'icon' => $icon, 'description' => $desc];
-                }
-            }
-            $items = $cards;
-            ?>
-            <?php foreach ($items as $i): ?>
-                <a class="nim-tool-card" href="<?= e($i['url']) ?>">
-                    <span class="nim-tool-icon nim-tone-<?= $tone % 6 ?>"><i class="bi bi-<?= e($i['icon']) ?>" aria-hidden="true"></i></span>
-                    <span class="min-w-0"><span class="d-block fw-semibold"><?= e($i['label']) ?></span><span class="d-block small text-body-secondary"><?= e($i['description']) ?></span></span>
-                </a>
-            <?php endforeach; ?>
-        </div>
-    <?php $tone++; endforeach; ?>
-</section>
-<?php endif; ?>
-
 <script src="<?= e($this->asset('assets/js/dashboard.js')) ?>" defer></script>

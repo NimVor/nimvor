@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The dashboard shows widgets instead of the "Tools & settings" icon grid.** The grid repeated the sidebar and filled the page; the sidebar and Ctrl+K still reach every page, and the quick-actions strip stays. New widgets: **Needs attention** (Site health counts and expiring certificates), **Disk** (filesystems with a red bar when nearly full, and the biggest places from the latest Disk usage scan) and **Backups** (completed, failed in the last 7 days, running, last completed, websites without a recent backup).
+
 ### Added
 
 - **Site health (Websites → Site health) and a dashboard widget.** One page lists every website with what needs attention, worst first: switched off, no HTTPS, no recent backup, malware found, old PHP, and email DNS records (MX, SPF, DKIM, DMARC) that are missing, duplicated, out of date or too permissive. Each problem links to where it is fixed, and missing email records of a zone hosted on this panel can be added with one button. The administrator dashboard shows a "Websites needing attention" card with the counts per kind. Domains whose DNS is hosted elsewhere (for example Cloudflare) are not checked, because their records cannot be read from the panel.
