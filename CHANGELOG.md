@@ -8,7 +8,7 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Fixed
 
-- **"A NimVor update is available" stayed on after updating.** The answer is kept for six hours, so a server updated to the newest version kept showing the update button until the next refresh. The scheduler now notices that the installed version changed and checks again at once (within a minute).
+- **"A NimVor update is available" stayed on after updating.** The answer is kept for six hours, so a server updated to the newest version kept showing the update button until the next refresh. The scheduler now notices that the installed version changed and checks again at its next run (within five minutes).
 
 ### Added
 
