@@ -109,6 +109,8 @@ foreach ([
 <?= $this->partial('sites/header', ['site' => $site, 'tab' => 'overview']) ?>
 <?= $this->partial('sites/overview_notices', ['site' => $site, 'inspect' => $inspect, 'inspectError' => $inspectError, 'import' => $import ?? null]) ?>
 
+<?php if (isset($shotBrowser) && !$shotBrowser): ?><?= $this->partial('partials/screenshot_install') ?><?php endif; ?>
+
 <section class="card nim-site-hero mb-4" aria-label="Website details" data-nim-site-summary>
     <div class="card-body">
         <div class="row g-4 align-items-center">
