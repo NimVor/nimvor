@@ -94,6 +94,25 @@ final class SiteThumbnailTest extends HttpTestCase
         self::assertStringContainsString('No browser is installed', $res->body());
     }
 
+    public function testAdministratorsSeeWhatTheBrowserSaidWhenItFails(): void
+    {
+        $this->agent->fail('screenshot.capture', 409, 'failed', 'The browser did not produce a picture: exit status 1.', 'Fatal: libnss3.so is missing');
+        $this->login('admin');
+        $res = $this->request('POST', '/sites/' . $this->siteId . '/thumbnail', $this->token(), $this->json());
+        self::assertSame(502, $res->status());
+        self::assertStringContainsString('exit status 1', $res->body());
+        self::assertStringContainsString('libnss3.so is missing', $res->body());
+    }
+
+    public function testCustomersDoNotSeeTheBrowsersOutput(): void
+    {
+        $this->agent->fail('screenshot.capture', 409, 'failed', 'The browser did not produce a picture: exit status 1.', 'Fatal: libnss3.so is missing');
+        $this->login('cust');
+        $res = $this->request('POST', '/sites/' . $this->siteId . '/thumbnail', $this->token(), $this->json());
+        self::assertStringContainsString('exit status 1', $res->body());
+        self::assertStringNotContainsString('libnss3', $res->body());
+    }
+
     public function testAdministratorsAreOfferedTheBrowserWhenItIsMissing(): void
     {
         $this->agent->succeed('screenshot.status', ['installed' => false]);

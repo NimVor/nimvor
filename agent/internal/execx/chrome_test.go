@@ -11,6 +11,14 @@ func TestChromeAllowedAcceptsOnlyTheScreenshotCommandLine(t *testing.T) {
 	if !chromeAllowed(good) {
 		t.Fatal("the screenshot command line was refused")
 	}
+	// A website without a certificate is opened over plain HTTP.
+	if plain := append(append([]string{}, good[:len(good)-1]...), "http://shop.test/"); !chromeAllowed(plain) {
+		t.Fatal("the plain-HTTP command line was refused")
+	}
+	// Any other scheme is not a page of the website.
+	if other := append(append([]string{}, good[:len(good)-1]...), "file://shop.test/"); chromeAllowed(other) {
+		t.Fatal("a file: URL was accepted")
+	}
 	bad := map[string][]string{
 		"no page":                  good[:len(good)-1],
 		"another host":             append(append([]string{}, good[:len(good)-1]...), "https://evil.test/"),

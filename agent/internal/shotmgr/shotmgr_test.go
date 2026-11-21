@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -138,4 +139,47 @@ func call(t *testing.T, r *actions.Registry, name, params string) map[string]any
 	var m map[string]any
 	json.Unmarshal(b, &m)
 	return m
+}
+
+func TestCaptureOpensThePageOverHTTPWhenHTTPSGivesNoPicture(t *testing.T) {
+	h := testhost.New(t)
+	fakeBrowser(t, h, color.RGBA{10, 120, 200, 255})
+	paint := h.Respond
+	var urls []string
+	h.Respond = func(id string, args []string) (string, error, bool) {
+		page := args[len(args)-1]
+		urls = append(urls, page)
+		if strings.HasPrefix(page, "https://") {
+			return "ERROR: ssl handshake failed\n[1:1:dbus/bus.cc:405] no bus\n", errors.New("exit status 1"), true
+		}
+		return paint(id, args)
+	}
+	if _, err := Capture(context.Background(), h.Env, "plain.test", "example", ""); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(urls, " ") != "https://plain.test/ http://plain.test/" {
+		t.Errorf("pages opened: %v", urls)
+	}
+}
+
+func TestCaptureFailureShowsWhatTheBrowserSaid(t *testing.T) {
+	h := testhost.New(t)
+	os.MkdirAll(filepath.Join(h.Base, "tmp"), 0o755)
+	h.Respond = func(id string, args []string) (string, error, bool) {
+		if id != "chrome" {
+			return "", nil, false
+		}
+		return "[1:1:dbus/bus.cc:405] no bus\nFatal: shared library libnss3.so is missing\n", errors.New("exit status 1"), true
+	}
+	_, err := Capture(context.Background(), h.Env, "x.test", "example", "")
+	var ae *actions.Error
+	if !errors.As(err, &ae) {
+		t.Fatalf("error: %v", err)
+	}
+	if !strings.Contains(ae.Details, "libnss3.so is missing") || strings.Contains(ae.Details, "dbus") {
+		t.Errorf("details: %q", ae.Details)
+	}
+	if !strings.Contains(ae.Message, "exit status 1") {
+		t.Errorf("message: %q", ae.Message)
+	}
 }

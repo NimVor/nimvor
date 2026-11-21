@@ -1095,7 +1095,7 @@ var (
 	chromeBudgetRe = regexp.MustCompile(`^--virtual-time-budget=[0-9]{3,5}$`)
 	chromePathRe   = regexp.MustCompile(`^--(screenshot|user-data-dir)=/tmp/nimvor-shot-[a-f0-9]{16}(/[A-Za-z0-9._-]+)?$`)
 	chromeHostRe   = regexp.MustCompile(`^--host-resolver-rules=MAP ([a-z0-9][a-z0-9.-]{0,251}[a-z0-9]) 127\.0\.0\.1$`)
-	chromeURLRe    = regexp.MustCompile(`^https://([a-z0-9][a-z0-9.-]{0,251}[a-z0-9])/$`)
+	chromeURLRe    = regexp.MustCompile(`^https?://([a-z0-9][a-z0-9.-]{0,251}[a-z0-9])/$`)
 )
 
 // chromeAllowed accepts only the browser command line NimVor builds to photograph a website's home page: fixed

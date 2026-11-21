@@ -21,6 +21,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -91,27 +92,41 @@ func Capture(ctx context.Context, env *host.Env, domain, user, root string) (Inf
 		return Info{}, fmt.Errorf("give %s to the website's account: %w", tmp, err)
 	}
 	shot := tmp + "/shot.png"
-	args := []string{
-		"--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run", "--no-default-browser-check",
-		"--disable-extensions", "--disable-dev-shm-usage", "--mute-audio", "--ignore-certificate-errors",
-		// The service sandbox the command runs in (own account, no capabilities, no new privileges) is the
-		// containment; the browser's own sandbox cannot be started inside it.
-		"--no-sandbox", "--disable-crash-reporter", "--disable-background-networking",
-		fmt.Sprintf("--window-size=%d,%d", WindowW, WindowH), "--virtual-time-budget=6000",
-		"--user-data-dir=" + tmp + "/profile", "--screenshot=" + shot,
-		"--host-resolver-rules=MAP " + domain + " 127.0.0.1",
-		"https://" + domain + "/",
+	// The page is opened over HTTPS first and, for a website without a
+	// certificate (or one that does not answer on 443), over plain HTTP.
+	var (
+		img     image.Image
+		out     []byte
+		runErr  error
+		readErr error
+	)
+	for _, scheme := range []string{"https", "http"} {
+		os.Remove(realTmp + "/shot.png")
+		args := []string{
+			"--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run", "--no-default-browser-check",
+			"--disable-extensions", "--disable-dev-shm-usage", "--mute-audio", "--ignore-certificate-errors",
+			// The service sandbox the command runs in (own account, no capabilities, no new privileges) is the
+			// containment; the browser's own sandbox cannot be started inside it.
+			"--no-sandbox", "--disable-crash-reporter", "--disable-background-networking",
+			fmt.Sprintf("--window-size=%d,%d", WindowW, WindowH), "--virtual-time-budget=6000",
+			"--user-data-dir=" + tmp + "/profile", "--screenshot=" + shot,
+			"--host-resolver-rules=MAP " + domain + " 127.0.0.1",
+			scheme + "://" + domain + "/",
+		}
+		cctx, cancel := context.WithTimeout(ctx, captureTimeout)
+		out, runErr = env.Runner.RunWith(cctx, "chrome", execx.Opts{As: cred, Dir: tmp, Env: []string{"HOME=" + tmp}, Timeout: captureTimeout}, args...)
+		cancel()
+		img, readErr = readPNG(realTmp+"/shot.png", cred.UID)
+		if readErr == nil {
+			break
+		}
 	}
-	cctx, cancel := context.WithTimeout(ctx, captureTimeout)
-	defer cancel()
-	out, runErr := env.Runner.RunWith(cctx, "chrome", execx.Opts{As: cred, Dir: tmp, Env: []string{"HOME=" + tmp}, Timeout: captureTimeout}, args...)
-	img, readErr := readPNG(realTmp+"/shot.png", cred.UID)
 	if readErr != nil {
 		msg := "The browser did not produce a picture"
 		if runErr != nil {
 			msg += ": " + runErr.Error()
 		}
-		return Info{}, actions.Failed(msg+".", host.Output(out))
+		return Info{}, actions.Failed(msg+".", browserTail(out))
 	}
 	jpg, err := thumbnail(img)
 	if err != nil {
@@ -232,4 +247,26 @@ func Register(r *actions.Registry, env *host.Env) {
 		}
 		return map[string]any{"exists": true, "taken_at": info.ModTime().UTC().Format(time.RFC3339), "jpeg": base64.StdEncoding.EncodeToString(b)}, nil
 	}})
+}
+
+// browserTail is what the browser printed, without the desktop-bus noise a
+// server has no use for, cut to the last lines: the part that says why it
+// stopped.
+func browserTail(out []byte) string {
+	var keep []string
+	for _, l := range strings.Split(host.Output(out), "\n") {
+		l = strings.TrimSpace(l)
+		if l == "" || strings.Contains(l, "dbus/") || strings.Contains(l, "zygote") {
+			continue
+		}
+		keep = append(keep, l)
+	}
+	if len(keep) > 12 {
+		keep = keep[len(keep)-12:]
+	}
+	t := strings.Join(keep, "\n")
+	if len(t) > 1500 {
+		t = t[len(t)-1500:]
+	}
+	return t
 }

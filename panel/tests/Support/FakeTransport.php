@@ -41,10 +41,10 @@ final class FakeTransport implements AgentTransport
         ]));
     }
 
-    public function fail(string $action, int $status, string $code, string $message): void
+    public function fail(string $action, int $status, string $code, string $message, string $details = ''): void
     {
         $this->responses['/v1/actions/' . $action] = new AgentHttpResponse($status, (string) json_encode([
-            'success' => false, 'action' => $action, 'message' => $message, 'error' => ['code' => $code, 'message' => $message], 'request_id' => 'rid42',
+            'success' => false, 'action' => $action, 'message' => $message, 'error' => ['code' => $code, 'message' => $message] + ($details !== '' ? ['details' => $details] : []), 'request_id' => 'rid42',
         ]));
     }
 
