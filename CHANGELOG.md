@@ -6,6 +6,11 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **The browser never started when taking a website's picture.** The agent made the browser's working folder in its own private `/tmp`, which the system service that starts the browser (as the website's account) cannot see, so it failed at once with "exit status 1". The folder is now under `/run/nimvor-run`, where both see it.
+- **"The browser did not produce a picture: exit status 1" gave no reason.** The browser's own last lines are now shown to administrators in the message (desktop-bus noise left out), so a missing library or a refused page can be seen. A website without a certificate, or one that does not answer on HTTPS, is now opened over plain HTTP when the HTTPS attempt gives no picture.
+
 ## [1.8.4] — 2026-11-21
 
 Fixes for the website pictures (the browser install, and where its button is) and for tall windows. This release also contains everything listed under 1.8.3 below: that version was tagged but never published, because one of its release tests (an SFTP login on Ubuntu 24.04) failed and the release workflow publishes only when every system passes. The test now retries as its SSH step already did.

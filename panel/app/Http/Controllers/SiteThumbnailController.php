@@ -65,7 +65,12 @@ final class SiteThumbnailController extends Controller
         try {
             $at = $this->shots->capture($site);
         } catch (UserFacingException $e) {
-            return Response::json(['success' => false, 'error' => $e->getMessage() . ($e->reason() !== '' ? ' ' . $e->reason() : '')], $e instanceof AgentException ? 502 : 429);
+            $error = $e->getMessage() . ($e->reason() !== '' ? ' ' . $e->reason() : '');
+            // What the browser printed tells an administrator why it stopped (a missing library, a refused page).
+            if ($e instanceof AgentException && $e->details() !== '' && $this->view->can(\NimVor\Security\Permissions::SERVER_MANAGE)) {
+                $error .= "\n\nThe browser said:\n" . mb_substr($e->details(), -800);
+            }
+            return Response::json(['success' => false, 'error' => $error], $e instanceof AgentException ? 502 : 429);
         }
         return Response::json(['success' => true, 'taken_at' => $at, 'url' => $this->view->url('sites.thumbnail', ['id' => (int) $site['id']]) . '?v=' . rawurlencode((string) strtotime($at))]);
     }
