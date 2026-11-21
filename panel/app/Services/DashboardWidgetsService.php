@@ -28,6 +28,7 @@ final class DashboardWidgetsService
         private readonly ?DiscoveryService $discovery = null,
         private readonly ?SettingsService $settings = null,
         private readonly ?WebsiteMonitor $monitor = null,
+        private readonly ?SecurityOverviewService $security = null,
     ) {
     }
 
@@ -53,6 +54,8 @@ final class DashboardWidgetsService
                 'backups' => $this->backups() + ['attention' => (int) ($this->siteHealth?->overview($user)['counts']['backup'] ?? 0)],
                 'top_processes' => $this->topProcesses(),
                 'website_health' => $this->websiteHealth(),
+                'security_overview' => ($this->security ?? throw new AgentException('Security status unavailable'))->security(),
+                'ssl_overview' => ($this->security ?? throw new AgentException('Certificates unavailable'))->ssl(),
                 default => throw new \InvalidArgumentException('No data for widget ' . $id),
             });
         } catch (AgentException) {

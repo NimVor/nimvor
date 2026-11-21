@@ -52,6 +52,8 @@ final class WidgetRegistry
             new Widget('backups', 'Backups', 'cloud-arrow-up', 'Backups', P::BACKUPS_VIEW, 'md', 0, 60, true, true, 'Completed, failed and running backups.', 'backups', 'Backups'),
             new Widget('top_processes', 'Top processes', 'cpu', 'Performance', P::MONITORING_VIEW, 'lg', 15, 10, false, true, 'The five busiest processes by CPU and by memory.', 'monitoring.processes', 'Processes'),
             new Widget('website_health', 'Website health', 'activity', 'Websites', P::WEBSITES_VIEW, 'lg', 60, 30, false, true, 'Real HTTP checks of every website: up, failing, slow, uptime over 24 hours.', 'websites', 'Websites'),
+            new Widget('security_overview', 'Security overview', 'shield-check', 'Security', P::SECURITY_VIEW, 'lg', 120, 120, false, true, 'Firewall, fail2ban, SSH and panel sign-in failures, malware scanner, ModSecurity and the security audit.', 'security', 'Security'),
+            new Widget('ssl_overview', 'SSL certificates', 'lock', 'Security', P::SSL_VIEW, 'md', 300, 300, false, true, 'Certificates close to expiry or expired, automatic renewal, and websites served without a matching certificate.', 'ssl.hosts', 'SSL'),
         ];
         $by = [];
         foreach ($list as $w) {
