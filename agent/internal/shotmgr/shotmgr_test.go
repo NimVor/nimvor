@@ -59,6 +59,10 @@ func TestCaptureKeepsAScaledPictureAndNothingBehind(t *testing.T) {
 		t.Fatalf("info: %+v", info)
 	}
 	joined := strings.Join(*args, " ")
+	// Not in /tmp: the agent's /tmp is private and the unit PID 1 starts does not see it.
+	if strings.Contains(joined, "--screenshot=/tmp") || !strings.Contains(joined, "--screenshot=/run/nimvor-run/shot-") || !strings.Contains(joined, "--user-data-dir=/run/nimvor-run/shot-") {
+		t.Errorf("the browser's folder is not in the run directory: %s", joined)
+	}
 	for _, want := range []string{"--headless=new", "--host-resolver-rules=MAP shop.test 127.0.0.1", "https://shop.test/", "--window-size=1280,800"} {
 		if !strings.Contains(joined, want) {
 			t.Errorf("browser command lacks %q: %s", want, joined)
@@ -80,7 +84,7 @@ func TestCaptureKeepsAScaledPictureAndNothingBehind(t *testing.T) {
 		t.Errorf("colour lost: %d %d", r>>8, g>>8)
 	}
 	// The private folder is gone.
-	left, _ := filepath.Glob(filepath.Join(h.Base, "tmp", "nimvor-shot-*"))
+	left, _ := filepath.Glob(filepath.Join(h.Base, "run", "nimvor-run", "shot-*"))
 	if len(left) != 0 {
 		t.Errorf("left behind: %v", left)
 	}

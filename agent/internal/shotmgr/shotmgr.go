@@ -78,7 +78,19 @@ func Capture(ctx context.Context, env *host.Env, domain, user, root string) (Inf
 	if _, err := rand.Read(tok); err != nil {
 		return Info{}, err
 	}
-	tmp := "/tmp/nimvor-shot-" + hex.EncodeToString(tok)
+	// The folder lives in the agent's run directory, not in /tmp: the agent has a private /tmp that the
+	// transient unit (started by PID 1) does not see, so the browser could not even enter its working folder.
+	tmp := execx.RunDir + "/shot-" + hex.EncodeToString(tok)
+	realParent, err := env.Root.Path(execx.RunDir)
+	if err != nil {
+		return Info{}, err
+	}
+	if err := os.MkdirAll(realParent, 0o711); err != nil {
+		return Info{}, fmt.Errorf("create %s: %w", execx.RunDir, err)
+	}
+	if err := os.Chmod(realParent, 0o711); err != nil {
+		return Info{}, err
+	}
 	realTmp, err := env.Root.Path(tmp)
 	if err != nil {
 		return Info{}, err
