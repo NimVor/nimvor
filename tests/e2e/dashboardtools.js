@@ -20,11 +20,41 @@ const OUT = process.env.E2E_OUT || '/tmp';
     await page.fill('#username', 'admin'); await page.fill('#password', 'dev-password-change-me');
     await Promise.all([page.waitForNavigation(), page.click('button[type=submit]')]);
 
+    // A layout left over from an earlier run is put back to the default first.
+    if (await page.locator('button:has-text("Restore default")').count()) {
+      await page.click('button:has-text("Restore default")');
+      await page.waitForSelector('#nim-confirm.show [data-nim-confirm-ok]', { timeout: 5000 });
+      await Promise.all([page.waitForNavigation(), page.click('#nim-confirm [data-nim-confirm-ok]')]);
+    }
+
     if (await page.locator('.nim-tools, .nim-tool-card').count() !== 0) { throw new Error('the tools grid is still on the dashboard'); }
     for (const w of ['disk', 'backups']) {
       if (await page.locator('[data-widget="' + w + '"]').count() === 0) { throw new Error('widget ' + w + ' missing'); }
     }
     step('widgets: disk and backups, no tools grid');
+
+    // A measured widget is loaded after the page and ends in a real state, never stuck on "Loading".
+    await page.waitForSelector('[data-widget="top_processes"]:not([data-state="loading"])', { timeout: 30000 });
+    const tpState = await page.getAttribute('[data-widget="top_processes"]', 'data-state');
+    if (!['ok', 'empty', 'unavailable', 'error'].includes(tpState)) { throw new Error('top processes widget state: ' + tpState); }
+    step('top processes widget loaded (' + tpState + ')');
+
+    // Customize: hide the Disk widget, then restore the default layout.
+    await page.click('button:has-text("Customize")');
+    await page.waitForSelector('#nim-customize.show', { timeout: 5000 });
+    const firstId = await page.$eval('#nim-customize [data-customize-row] input[name="order[]"]', i => i.value);
+    await page.click('#nim-customize [data-customize-row]:first-child [data-customize-move="1"]');
+    const afterMove = await page.$eval('#nim-customize [data-customize-row] input[name="order[]"]', i => i.value);
+    if (afterMove === firstId) { throw new Error('the row did not move'); }
+    await page.uncheck('#cw-disk');
+    await Promise.all([page.waitForNavigation(), page.click('#nim-customize button[type=submit]:has-text("Save")')]);
+    if (await page.locator('[data-widget-host="disk"]').count() !== 0) { throw new Error('a hidden widget is still shown'); }
+    step('customize: moved a widget and hid Disk');
+    await page.click('button:has-text("Restore default")');
+    await page.waitForSelector('#nim-confirm.show [data-nim-confirm-ok]', { timeout: 5000 });
+    await Promise.all([page.waitForNavigation(), page.click('#nim-confirm [data-nim-confirm-ok]')]);
+    await page.waitForSelector('[data-widget-host="disk"]', { timeout: 10000 });
+    step('customize: default layout restored');
 
     await page.waitForSelector('[data-services] > li:not(:has(.placeholder))', { timeout: 20000 });
     if (await page.locator('[data-services] .nim-service-btn').count() === 0) {

@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace NimVor\Services;
 
+use NimVor\Agent\AgentClient;
 use NimVor\Agent\AgentException;
+use NimVor\Dashboard\WidgetCache;
+use NimVor\Dashboard\WidgetRegistry;
 use NimVor\Database\Connection;
 
 /**
@@ -18,7 +21,94 @@ final class DashboardWidgetsService
         private readonly Connection $db,
         private readonly ServerDiskService $disk,
         private readonly ServerContext $server,
+        private readonly ?AgentClient $agent = null,
+        private readonly ?WidgetCache $cache = null,
+        private readonly ?WidgetRegistry $registry = null,
+        private readonly ?SitesHealthService $siteHealth = null,
+        private readonly ?DiscoveryService $discovery = null,
+        private readonly ?SettingsService $settings = null,
     ) {
+    }
+
+    /**
+     * What one widget shows, kept for the widget's own time (WidgetRegistry).
+     * The state says how to draw it: ok, empty, unavailable (the source cannot
+     * answer right now) or error. A number that could not be measured is null,
+     * never a made-up zero.
+     *
+     * @param array<string, mixed> $user
+     * @return array{state: string, data: array<string, mixed>, at: int}
+     */
+    public function widget(string $id, array $user): array
+    {
+        $def = $this->registry?->find($id);
+        if ($def === null || $this->cache === null) {
+            return ['state' => 'error', 'data' => [], 'at' => time()];
+        }
+        try {
+            $r = $this->cache->remember($id, 'server', $def->ttl, fn (): array => match ($id) {
+                'attention' => $this->attention($user),
+                'disk' => $this->disk(),
+                'backups' => $this->backups() + ['attention' => (int) ($this->siteHealth?->overview($user)['counts']['backup'] ?? 0)],
+                'top_processes' => $this->topProcesses(),
+                default => throw new \InvalidArgumentException('No data for widget ' . $id),
+            });
+        } catch (AgentException) {
+            return ['state' => 'unavailable', 'data' => [], 'at' => time()];
+        } catch (\Throwable) {
+            return ['state' => 'error', 'data' => [], 'at' => time()];
+        }
+        $state = ($r['data']['_state'] ?? 'ok');
+        return ['state' => is_string($state) ? $state : 'ok', 'data' => $r['data'], 'at' => $r['at']];
+    }
+
+    /**
+     * Websites that need attention (mail records, certificates, backups) and
+     * certificates close to expiry.
+     *
+     * @param array<string, mixed> $user
+     * @return array<string, mixed>
+     */
+    public function attention(array $user): array
+    {
+        $needs = $this->siteHealth?->overview($user);
+        $expiring = null;
+        if ($this->discovery !== null && $this->settings !== null) {
+            try {
+                $inv = $this->discovery->inventory(false, (int) ($user['id'] ?? 0));
+                $expiring = (int) DiscoveryService::summary($inv['data'], $this->settings->int('ssl_warning_days'))['expiring'];
+            } catch (AgentException) {
+                $expiring = null; // certificate dates cannot be read now
+            }
+        }
+        return ['needs' => $needs, 'expiring' => $expiring, '_state' => $needs === null && $expiring === null ? 'unavailable' : 'ok'];
+    }
+
+    /**
+     * The five busiest processes by CPU and by memory (one half-second sample
+     * by the agent). The Processes page has the full list and the confirmed
+     * stop/kill actions.
+     *
+     * @return array<string, mixed>
+     */
+    public function topProcesses(): array
+    {
+        if ($this->agent === null) {
+            throw new AgentException('Agent unavailable');
+        }
+        $live = (array) json_decode((string) json_encode($this->agent->call('system.live')), true);
+        $pick = static fn (mixed $rows): array => array_map(static fn ($p): array => [
+            'pid' => (int) ($p['pid'] ?? 0),
+            'name' => (string) ($p['name'] ?? ''),
+            'user' => (string) ($p['user'] ?? ''),
+            'state' => (string) ($p['state'] ?? ''),
+            'cpu' => isset($p['cpu_percent']) ? (float) $p['cpu_percent'] : null,
+            'rss' => isset($p['rss_bytes']) ? (int) $p['rss_bytes'] : null,
+            'mem' => isset($p['mem_percent']) ? (float) $p['mem_percent'] : null,
+        ], array_slice(is_array($rows) ? $rows : [], 0, 5));
+        $cpu = $pick($live['top_cpu'] ?? []);
+        $mem = $pick($live['top_memory'] ?? []);
+        return ['cpu' => $cpu, 'mem' => $mem, 'processes' => isset($live['processes']) ? (int) $live['processes'] : null, '_state' => $cpu === [] && $mem === [] ? 'empty' : 'ok'];
     }
 
     /**
