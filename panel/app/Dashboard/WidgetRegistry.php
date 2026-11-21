@@ -54,6 +54,9 @@ final class WidgetRegistry
             new Widget('website_health', 'Website health', 'activity', 'Websites', P::WEBSITES_VIEW, 'lg', 60, 30, false, true, 'Real HTTP checks of every website: up, failing, slow, uptime over 24 hours.', 'websites', 'Websites'),
             new Widget('security_overview', 'Security overview', 'shield-check', 'Security', P::SECURITY_VIEW, 'lg', 120, 120, false, true, 'Firewall, fail2ban, SSH and panel sign-in failures, malware scanner, ModSecurity and the security audit.', 'security', 'Security'),
             new Widget('ssl_overview', 'SSL certificates', 'lock', 'Security', P::SSL_VIEW, 'md', 300, 300, false, true, 'Certificates close to expiry or expired, automatic renewal, and websites served without a matching certificate.', 'ssl.hosts', 'SSL'),
+            new Widget('database_overview', 'Databases', 'database', 'Databases', P::DATABASES_VIEW, 'lg', 60, 30, false, true, 'MariaDB/MySQL and PostgreSQL: connections against the limit, slow queries, cache hit ratio and lock waits.', 'databases.server', 'Database server'),
+            new Widget('cache_overview', 'Redis & Memcached', 'lightning-charge', 'Performance', P::REDIS_MANAGE, 'md', 60, 30, false, true, 'Memory use, hit ratio, clients and evictions of the caches.', 'redis', 'Redis'),
+            new Widget('web_stack', 'Nginx & PHP-FPM', 'server', 'System Health', P::SERVER_VIEW, 'md', 120, 60, false, true, 'Nginx state and, per PHP version in use, how often a pool ran out of workers in the last 24 hours.', 'nginx', 'Nginx'),
         ];
         $by = [];
         foreach ($list as $w) {

@@ -33,10 +33,10 @@ the navigation. "Gap" is what a widget still needs.
 | Website uptime and speed | agent `sites.probe` (read-only), `website_checks` table, `WebsiteMonitor` | none — **shipped** (step 2) |
 | Security overview | `ssh.logins`, `fail2ban.status`, `firewall.status`, `av.status`, `modsec.status`, `security.audit`, panel sign-in failures from the audit log | none — **shipped** (step 3) |
 | SSL | `ssl.store`, `ssl.renewal_status` | none — **shipped** (step 3) |
-| Databases | `db.server_status`, `db.processlist`, `pg.monitor`, `mongo.status` | slow queries, lock waits, growth need history |
-| PHP-FPM | `php.fpm_get` (configuration), `services.status` | pool status (workers, max children reached) needs a collector |
-| Nginx | `nginx.status` (running, config test) | active connections, requests/s need `stub_status` (only if configured) |
-| Redis, Memcached | `redis.info`, `memcached.status` | aggregation widget |
+| Databases | `db.server_status`, `pg.status`, `pg.monitor` | **shipped** (step 4); database growth needs history (step 6) |
+| PHP-FPM | `php.fpm_health` (new, read-only: service state and, from the end of the FPM log, pools that reached `pm.max_children`, busy warnings, worker crashes in 24 h) | **shipped** (step 4); live worker counts need `pm.status_path`, which NimVor does not enable |
+| Nginx | `nginx.status` (running, config test) | **shipped** (step 4) without request rates: those need `stub_status`, which is not enabled, so the widget says so instead of showing zeros |
+| Redis, Memcached | `redis.info`, `memcached.status` | none — **shipped** (step 4) |
 | Backups | `backups`, `backup_schedules`, storages | verified-restore state is not recorded |
 | System updates | `packages.updates`, `packages.advisories`, `packages.health` | aggregation widget |
 | DNS and mail | `dns.status`, `mail.queue`, `mail.server_status`, `EmailHealth` | aggregation widget |
@@ -84,7 +84,7 @@ numbers are never shown to them.
    unchanged; Top processes as the first new widget.
 2. Website uptime and performance (**shipped**): the scheduler's five-minute pass asks the agent's read-only `sites.probe` action to request each enabled website's home page on this server itself (the website's own address or loopback, its name in the Host header, redirects not followed, 8 at a time, 10 s timeout). 2xx/3xx = up, 401/403 = online but asking for a login, other 4xx = client error, 5xx = server error, no answer = down. Results are kept for 14 days; an agent that may not open connections records nothing (never a false "down"). "Check now" is limited to once a minute.
 3. Security overview and SSL certificates (**shipped**): both read existing read-only agent actions through `SecurityOverviewService`; a source that cannot answer shows N/A (never "fine"), and when none answers the widget is unavailable. Brute-force attempts are the SSH failures from the journal and the panel's own failed sign-ins; the audit's failing and warning checks are counted, high-severity ones separately. Certificates are counted valid, expiring (within the configured warning days) and expired; websites serving HTTPS without a certificate that covers their name are listed.
-4. Database, PHP-FPM, Nginx, Redis and Memcached intelligence.
+4. Database, PHP-FPM, Nginx, Redis and Memcached (**shipped**): `ServiceOverviewService` and three widgets (*Databases*, *Redis & Memcached*, *Nginx & PHP-FPM*). One new read-only agent action, `php.fpm_health`, reads the end of each PHP-FPM log of the versions websites use. A source that cannot answer is N/A.
 5. Backups, updates, DNS and mail, deployments, WordPress and storage widgets.
 6. Traffic intelligence and capacity forecasting.
 7. Alert center: severities, acknowledgement, de-duplication, central thresholds.

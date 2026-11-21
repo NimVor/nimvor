@@ -29,6 +29,7 @@ final class DashboardWidgetsService
         private readonly ?SettingsService $settings = null,
         private readonly ?WebsiteMonitor $monitor = null,
         private readonly ?SecurityOverviewService $security = null,
+        private readonly ?ServiceOverviewService $services = null,
     ) {
     }
 
@@ -55,6 +56,9 @@ final class DashboardWidgetsService
                 'top_processes' => $this->topProcesses(),
                 'website_health' => $this->websiteHealth(),
                 'security_overview' => ($this->security ?? throw new AgentException('Security status unavailable'))->security(),
+                'database_overview' => ($this->services ?? throw new AgentException('Database status unavailable'))->databases(),
+                'cache_overview' => ($this->services ?? throw new AgentException('Cache status unavailable'))->caches(),
+                'web_stack' => ($this->services ?? throw new AgentException('Web stack status unavailable'))->webStack(),
                 'ssl_overview' => ($this->security ?? throw new AgentException('Certificates unavailable'))->ssl(),
                 default => throw new \InvalidArgumentException('No data for widget ' . $id),
             });
