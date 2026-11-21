@@ -1078,3 +1078,11 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 .modal-dialog .modal-content > form > .modal-body { overflow-y: auto; flex: 1 1 auto; min-height: 0; }
 .modal-dialog .modal-content > form > .modal-header,
 .modal-dialog .modal-content > form > .modal-footer { flex: 0 0 auto; }
+
+/* Dashboard widgets */
+.nim-w-9 { max-width: 9rem; }
+.nim-w-6 { max-width: 6rem; }
+.nim-top-table th { font-weight: 500; color: var(--bs-secondary-color); white-space: nowrap; }
+.nim-widget-refresh { color: var(--bs-secondary-color); line-height: 1; }
+.nim-widget-refresh:disabled { opacity: .5; }
+[data-widget][data-state="loading"] .card-body { min-height: 5rem; }

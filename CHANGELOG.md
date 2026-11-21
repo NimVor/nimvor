@@ -6,6 +6,11 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Dashboard widgets you can arrange (step 1 of Dashboard 2.0).** The dashboard's *Needs attention*, *Disk* and *Backups* cards are now widgets in a registry, with a **Customize** window to show or hide each one, move it up or down and choose its width. The layout is saved per user, with *Restore default*. A widget added in a later release appears on its own without touching a saved layout. Each widget is allowed only for those who may see it, its data is kept for a few seconds so refreshes do not repeat the measurement, and a widget that cannot be measured says so instead of showing zeros. The audit of what each planned widget can already use, and the order they arrive in, is in `docs/development/dashboard-2.0.md`.
+- **Top processes widget.** The five busiest processes by CPU and by memory (name, PID, user, CPU, memory, state), loaded after the page and refreshed every 15 seconds while the tab is open. Stopping or killing a process stays on the Processes page, with its confirmation.
+
 ## [1.8.5] — 2026-11-21
 
 Website pictures now work on a real server (1.8.4 let the browser be installed, but it could not take a picture yet). The browser's working folder is where the service that starts it can see it, a website with its own IP address is photographed at that address, a website that only answers on HTTP is no longer upgraded to HTTPS, and a failed picture says why. Nothing else changes.

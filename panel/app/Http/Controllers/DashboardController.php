@@ -32,6 +32,8 @@ final class DashboardController extends Controller
         private readonly ?\NimVor\Services\ServerContext $server = null,
         private readonly ?\NimVor\Services\SitesHealthService $siteHealth = null,
         private readonly ?\NimVor\Services\DashboardWidgetsService $widgets = null,
+        private readonly ?\NimVor\Dashboard\WidgetRegistry $registry = null,
+        private readonly ?\NimVor\Dashboard\DashboardLayout $layout = null,
     ) {
         parent::__construct($view, $session);
     }
@@ -68,27 +70,10 @@ final class DashboardController extends Controller
         } catch (AgentException $e) {
             $agentError = $e;
         }
-        $needs = null;
-        if ($this->siteHealth !== null && $this->view->can(Permissions::WEBSITES_VIEW)) {
-            try {
-                $needs = $this->siteHealth->overview($this->user($request));
-            } catch (\Throwable) {
-                $needs = null; // the dashboard still opens
-            }
-        }
-        $backups = null;
-        $disk = null;
-        if ($this->widgets !== null) {
-            try {
-                $backups = $this->view->can(Permissions::BACKUPS_VIEW) ? $this->widgets->backups() : null;
-                $disk = $this->view->can(Permissions::SERVER_VIEW) ? $this->widgets->disk() : null;
-            } catch (\Throwable) {
-                // widgets without data show an empty state; the dashboard still opens
-            }
-        }
+        $tiles = $this->tiles($request);
         return $this->render('dashboard/index', [
-            'backups' => $backups, 'disk' => $disk,
-            'needs' => $needs,
+            'tiles' => $tiles,
+            'customised' => $this->layout !== null && $this->layout->isCustomised($this->userId($request)),
             'info' => is_array($info) ? $info : null,
             'summary' => $summary,
             'agentError' => $agentError,
@@ -99,6 +84,75 @@ final class DashboardController extends Controller
             'failures' => $this->view->can(Permissions::NOTIFICATIONS_VIEW)
                 ? $this->notifications->list($this->user($request), ['unread' => true, 'severity' => 'error'], 5) : [],
         ]);
+    }
+
+    /**
+     * The widgets to draw, in the user's order: the ones that are cheap are drawn
+     * with the page, the others are loaded after it.
+     *
+     * @return list<array{def: \NimVor\Dashboard\Widget, visible: bool, size: string, html: ?string}>
+     */
+    private function tiles(Request $request): array
+    {
+        if ($this->registry === null || $this->layout === null || $this->widgets === null) {
+            return [];
+        }
+        $user = $this->user($request);
+        $out = [];
+        foreach ($this->layout->resolve($this->userId($request), $this->registry->visibleTo(fn (string $p): bool => $this->view->can($p))) as $t) {
+            $def = $t['widget'];
+            $html = null;
+            if ($t['visible'] && $def->inline) {
+                $html = $this->frame($def, $this->widgets->widget($def->id, $user));
+            }
+            $out[] = ['def' => $def, 'visible' => $t['visible'], 'size' => $t['size'], 'html' => $html];
+        }
+        return $out;
+    }
+
+    /** @param array{state: string, data: array<string, mixed>, at: int} $result */
+    private function frame(\NimVor\Dashboard\Widget $def, array $result): string
+    {
+        return $this->view->partial('dashboard/widget_card', ['def' => $def, 'result' => $result]);
+    }
+
+    /** One widget's HTML (the page loads and refreshes widgets with this). */
+    public function widget(Request $request, string $id): Response
+    {
+        $def = $this->registry?->find($id);
+        if ($def === null || $this->widgets === null) {
+            return Response::json(['success' => false, 'error' => 'No such widget.'], 404);
+        }
+        // The data behind a widget is only for those who may see the widget at all.
+        if (!$this->view->can($def->permission)) {
+            return Response::json(['success' => false, 'error' => 'You may not see this widget.'], 403);
+        }
+        $result = $this->widgets->widget($def->id, $this->user($request));
+        return Response::json(['success' => true, 'state' => $result['state'], 'html' => $this->frame($def, $result), 'at' => $result['at']]);
+    }
+
+    /** Saves which widgets the user shows, in what order and at what size. */
+    public function saveLayout(Request $request): Response
+    {
+        if ($this->registry === null || $this->layout === null) {
+            return Response::redirect('/');
+        }
+        $order = $request->input('order', []);
+        $widgets = $request->input('widgets', []);
+        $this->layout->save(
+            $this->userId($request),
+            is_array($order) ? array_values(array_map('strval', $order)) : [],
+            is_array($widgets) ? $widgets : [],
+            $this->registry->visibleTo(fn (string $p): bool => $this->view->can($p)),
+        );
+        return $this->redirectWithSuccess('/', 'Your dashboard layout is saved.');
+    }
+
+    /** Back to the default dashboard. */
+    public function resetLayout(Request $request): Response
+    {
+        $this->layout?->reset($this->userId($request));
+        return $this->redirectWithSuccess('/', 'The dashboard is back to its default layout.');
     }
 
     /**

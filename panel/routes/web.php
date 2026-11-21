@@ -72,6 +72,9 @@ return static function (Router $r): void {
     // Overview
     $r->get('/', [DashboardController::class, 'index'], ['name' => 'dashboard', 'permission' => P::DASHBOARD_VIEW]);
     $r->get('/dashboard/live', [DashboardController::class, 'live'], ['name' => 'dashboard.live', 'permission' => P::DASHBOARD_VIEW]);
+    $r->get('/dashboard/widgets/{id}', [DashboardController::class, 'widget'], ['name' => 'dashboard.widget', 'permission' => P::DASHBOARD_VIEW]);
+    $r->post('/dashboard/layout', [DashboardController::class, 'saveLayout'], ['name' => 'dashboard.layout', 'permission' => P::DASHBOARD_VIEW]);
+    $r->post('/dashboard/layout/reset', [DashboardController::class, 'resetLayout'], ['name' => 'dashboard.layout.reset', 'permission' => P::DASHBOARD_VIEW]);
 
     // Hosting inventory (read-only discovery)
     $r->get('/websites', [WebsitesController::class, 'index'], ['name' => 'websites', 'permission' => P::WEBSITES_VIEW]);

@@ -182,76 +182,31 @@ foreach ([
         </div>
     </div>
 
-    <?php
-    $bar = static fn (float $p): string => $p >= 90 ? 'bg-danger' : ($p >= 75 ? 'bg-warning' : '');
-    $attention = $needs !== null ? array_sum($needs['counts']) : 0;
-    $expiring = (int) ($summary['expiring'] ?? 0);
-    ?>
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 class="h6 mb-0 text-body-secondary">Widgets</h2>
+        <?php if ($tiles !== []): ?>
+            <span class="d-flex gap-2">
+                <?php if (!empty($customised)): ?>
+                    <form method="post" action="<?= e($this->url('dashboard.layout.reset')) ?>" data-nim-confirm="Go back to the default dashboard layout?" data-nim-noajax><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary">Restore default</button></form>
+                <?php endif; ?>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#nim-customize"><i class="bi bi-sliders me-1" aria-hidden="true"></i>Customize</button>
+            </span>
+        <?php endif; ?>
+    </div>
     <div class="row g-3 mb-3" data-widgets>
-        <?php if ($needs !== null || $summary !== null): ?>
-        <div class="col-lg-4">
-            <div class="card h-100" data-widget="attention">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-heart-pulse me-1" aria-hidden="true"></i>Needs attention</span>
-                    <?php if ($needs !== null): ?><a class="small" href="<?= e($this->url('sites.healthcheck')) ?>">Site health</a><?php endif; ?>
-                </div>
-                <div class="card-body">
-                    <?php if ($attention === 0 && $expiring === 0): ?>
-                        <div class="text-success"><i class="bi bi-check-circle-fill me-1" aria-hidden="true"></i>Nothing needs attention.</div>
-                    <?php else: ?>
-                        <div class="d-flex flex-wrap gap-2">
-                            <?php foreach (\NimVor\Services\SitesHealthService::CATEGORIES as $key => [$label]): $n = (int) ($needs['counts'][$key] ?? 0); if ($n === 0) { continue; } ?>
-                                <a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('sites.healthcheck')) ?>?category=<?= e($key) ?>"><?= e($label) ?> <span class="badge text-bg-warning"><?= $n ?></span></a>
-                            <?php endforeach; ?>
-                            <?php if ($expiring > 0): ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('ssl')) ?>">Certificates expiring <span class="badge text-bg-warning"><?= $expiring ?></span></a><?php endif; ?>
-                        </div>
-                        <?php if ($needs !== null): ?><div class="small text-body-secondary mt-2"><?= (int) ($needs['total'] - $needs['healthy']) ?> of <?= (int) $needs['total'] ?> websites have something to look at.</div><?php endif; ?>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </div>
-        <?php endif; ?>
-        <?php if ($disk !== null): ?>
-        <div class="col-lg-4">
-            <div class="card h-100" data-widget="disk">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-hdd me-1" aria-hidden="true"></i>Disk</span>
-                    <?php if ($this->hasRoute('server.disk') && $this->routeAllowed('server.disk')): ?><a class="small" href="<?= e($this->url('server.disk')) ?>">Disk usage</a><?php endif; ?>
-                </div>
-                <div class="card-body small">
-                    <?php foreach ($disk['filesystems'] as $f): $p = (float) $f['used_percent']; ?>
-                        <div class="d-flex justify-content-between"><span class="font-monospace"><?= e((string) $f['mount']) ?></span><span><?= e(format_bytes($f['used_bytes'])) ?> / <?= e(format_bytes($f['total_bytes'])) ?></span></div>
-                        <div class="progress mb-2" role="progressbar" aria-valuenow="<?= e((string) $p) ?>" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar <?= $bar($p) ?>" data-width="<?= e((string) $p) ?>"></div></div>
-                    <?php endforeach; ?>
-                    <?php if ($disk['filesystems'] === []): ?><div class="text-body-secondary">No filesystem data.</div><?php endif; ?>
-                    <?php if ($disk['areas'] !== []): ?>
-                        <div class="text-body-secondary mt-2 mb-1">Biggest places (scanned <?= e(time_ago((string) $disk['scanned_at'])) ?>)</div>
-                        <?php foreach ($disk['areas'] as $a): ?><div class="d-flex justify-content-between"><span><?= e((string) $a['label']) ?></span><span><?= e(format_bytes($a['bytes'])) ?></span></div><?php endforeach; ?>
-                    <?php else: ?>
-                        <div class="text-body-secondary mt-2">Scan the disk on the Disk usage page to see where the space goes.</div>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </div>
-        <?php endif; ?>
-        <?php if ($backups !== null): ?>
-        <div class="col-lg-4">
-            <div class="card h-100" data-widget="backups">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-cloud-arrow-up me-1" aria-hidden="true"></i>Backups</span>
-                    <?php if ($this->hasRoute('backups') && $this->routeAllowed('backups')): ?><a class="small" href="<?= e($this->url('backups')) ?>">Backups</a><?php endif; ?>
-                </div>
-                <div class="card-body small">
-                    <div class="row g-2 text-center mb-2">
-                        <div class="col-4"><div class="nim-kpi"><?= (int) $backups['completed'] ?></div><div class="nim-kpi-label">Completed</div></div>
-                        <div class="col-4"><div class="nim-kpi<?= $backups['failed'] > 0 ? ' text-danger' : '' ?>"><?= (int) $backups['failed'] ?></div><div class="nim-kpi-label">Failed (7 days)</div></div>
-                        <div class="col-4"><div class="nim-kpi"><?= (int) $backups['running'] ?></div><div class="nim-kpi-label">Running</div></div>
+        <?php foreach ($tiles as $t): if (!$t['visible']) { continue; } $def = $t['def']; ?>
+            <div class="<?= e(\NimVor\Dashboard\Widget::SIZES[$t['size']]) ?>" data-widget-host="<?= e($def->id) ?>" data-widget-url="<?= e($this->url('dashboard.widget', ['id' => $def->id])) ?>" data-refresh="<?= (int) $def->refresh ?>"<?= $t['html'] === null ? ' data-widget-lazy' : '' ?>>
+                <?php if ($t['html'] !== null): ?><?= $t['html'] ?>
+                <?php else: ?>
+                    <div class="card h-100" data-widget="<?= e($def->id) ?>" data-state="loading">
+                        <div class="card-header"><i class="bi bi-<?= e($def->icon) ?> me-1" aria-hidden="true"></i><?= e($def->title) ?></div>
+                        <div class="card-body small text-body-secondary"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Loading…</div>
                     </div>
-                    <div class="text-body-secondary">Last completed: <?= $backups['last'] !== null ? e(time_ago($backups['last'])) : 'never' ?><?= $backups['schedules'] === 0 ? ' · no schedule set' : '' ?></div>
-                    <?php if ($needs !== null && ($needs['counts']['backup'] ?? 0) > 0): ?><div class="mt-1"><a href="<?= e($this->url('sites.healthcheck')) ?>?category=backup"><?= (int) $needs['counts']['backup'] ?> website(s) without a recent backup</a></div><?php endif; ?>
-                </div>
+                <?php endif; ?>
             </div>
-        </div>
+        <?php endforeach; ?>
+        <?php if ($tiles !== [] && !array_filter($tiles, static fn (array $t): bool => $t['visible'])): ?>
+            <div class="col-12"><div class="nim-empty-state"><div class="fw-medium">All widgets are hidden</div><div class="small">Use Customize to show some, or reset to the default layout.</div></div></div>
         <?php endif; ?>
     </div>
 
@@ -293,3 +248,43 @@ foreach ([
 </div>
 <div class="small text-body-secondary mt-3" data-live-status>Waiting for live data…</div>
 <script src="<?= e($this->asset('assets/js/dashboard.js')) ?>" defer></script>
+
+<?php if ($tiles !== []): ?>
+<div class="modal fade" id="nim-customize" tabindex="-1" aria-labelledby="nim-customize-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <form class="modal-content" method="post" action="<?= e($this->url('dashboard.layout')) ?>" data-nim-customize data-nim-noajax>
+            <?= $this->csrfField() ?>
+            <div class="modal-header">
+                <h2 class="modal-title h5" id="nim-customize-title">Customize the dashboard</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-body-secondary">Show or hide a widget, move it up or down and choose how wide it is. Only the widgets your role may see are listed.</p>
+                <ul class="list-group" data-customize-list>
+                    <?php foreach ($tiles as $t): $def = $t['def']; ?>
+                        <li class="list-group-item d-flex flex-wrap align-items-center gap-2" data-customize-row>
+                            <input type="hidden" name="order[]" value="<?= e($def->id) ?>">
+                            <div class="form-check me-auto">
+                                <input class="form-check-input" type="checkbox" id="cw-<?= e($def->id) ?>" name="widgets[<?= e($def->id) ?>][visible]" value="1"<?= $t['visible'] ? ' checked' : '' ?>>
+                                <label class="form-check-label" for="cw-<?= e($def->id) ?>"><i class="bi bi-<?= e($def->icon) ?> me-1" aria-hidden="true"></i><?= e($def->title) ?> <span class="badge text-bg-light"><?= e($def->category) ?></span></label>
+                                <?php if ($def->description !== ''): ?><div class="small text-body-secondary"><?= e($def->description) ?></div><?php endif; ?>
+                            </div>
+                            <select class="form-select form-select-sm w-auto" name="widgets[<?= e($def->id) ?>][size]" aria-label="Width of <?= e($def->title) ?>">
+                                <?php foreach (['sm' => 'Small', 'md' => 'Medium', 'lg' => 'Large', 'full' => 'Full width'] as $k => $label): ?><option value="<?= e($k) ?>"<?= $t['size'] === $k ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?>
+                            </select>
+                            <span class="btn-group btn-group-sm" role="group" aria-label="Move <?= e($def->title) ?>">
+                                <button type="button" class="btn btn-outline-secondary" data-customize-move="-1" aria-label="Move up"><i class="bi bi-arrow-up" aria-hidden="true"></i></button>
+                                <button type="button" class="btn btn-outline-secondary" data-customize-move="1" aria-label="Move down"><i class="bi bi-arrow-down" aria-hidden="true"></i></button>
+                            </span>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+<?php endif; ?>

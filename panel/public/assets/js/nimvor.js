@@ -2018,4 +2018,54 @@
         search.addEventListener('input', apply);
         changedOnly.addEventListener('change', apply);
     });
+    // Dashboard widgets: each is loaded on its own after the page (so a slow measurement never holds the
+    // page back), refreshed at its own pace while the tab is visible, and refreshed on request.
+    document.addEventListener('DOMContentLoaded', function () {
+        var hosts = document.querySelectorAll('[data-widget-host]');
+        if (!hosts.length) { return; }
+        function load(host, quiet) {
+            var url = host.getAttribute('data-widget-url');
+            if (!url || host.getAttribute('data-busy') === '1') { return; }
+            host.setAttribute('data-busy', '1');
+            var btn = host.querySelector('[data-widget-refresh]');
+            if (btn) { btn.disabled = true; }
+            NimVor.fetchJson(url).then(function (res) {
+                host.innerHTML = res.html;
+            }).catch(function () {
+                if (!quiet) {
+                    var card = host.querySelector('[data-widget]');
+                    if (card) { card.setAttribute('data-state', 'error'); }
+                    var body = host.querySelector('.card-body');
+                    if (body) { body.textContent = 'This widget could not be loaded. Use the refresh button to try again.'; }
+                    var b2 = host.querySelector('[data-widget-refresh]');
+                    if (b2) { b2.disabled = false; }
+                }
+            }).then(function () { host.removeAttribute('data-busy'); });
+        }
+        hosts.forEach(function (host) {
+            if (host.hasAttribute('data-widget-lazy')) { load(host, false); }
+            var every = parseInt(host.getAttribute('data-refresh') || '0', 10);
+            if (every > 0) {
+                // Never faster than every ten seconds, and not while the tab is in the background.
+                setInterval(function () { if (!document.hidden) { load(host, true); } }, Math.max(10, every) * 1000);
+            }
+        });
+        document.addEventListener('click', function (e) {
+            var b = e.target.closest ? e.target.closest('[data-widget-refresh]') : null;
+            if (!b) { return; }
+            var host = b.closest('[data-widget-host]');
+            if (host) { e.preventDefault(); load(host, false); }
+        });
+    });
+
+    // Customize the dashboard: the rows move up and down; the order they are in when saved is the order kept.
+    document.addEventListener('click', function (e) {
+        var b = e.target.closest ? e.target.closest('[data-customize-move]') : null;
+        if (!b) { return; }
+        var row = b.closest('[data-customize-row]');
+        if (!row) { return; }
+        var up = parseInt(b.getAttribute('data-customize-move'), 10) < 0;
+        var other = up ? row.previousElementSibling : row.nextElementSibling;
+        if (other) { row.parentNode.insertBefore(row, up ? other : other.nextSibling); }
+    });
 })();
