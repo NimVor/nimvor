@@ -8,6 +8,7 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Fixed
 
+- **A website without HTTPS got no picture.** Chrome upgrades `http://` to `https://` by itself, so a website that only answers on port 80 failed after its HTTPS try. The browser now opens each page exactly as asked.
 - **A website with its own IP address got no picture ("connection refused").** The browser was pointed at this server's loopback address, where a website with its own address is not served (its Nginx `listen` names that address). The browser is now pointed at the website's own address first (then loopback), and the command gate allows only the loopback address or one of this server's own addresses.
 - **A failed website picture now says why.** Each try (HTTPS, then HTTP) reports how the browser ended, why its picture file could not be used, and what is in its folder (name, owner, size), besides the browser's own last lines.
 - **The browser never started when taking a website's picture.** The agent made the browser's working folder in its own private `/tmp`, which the system service that starts the browser (as the website's account) cannot see, so it failed at once with "exit status 1". The folder is now under `/run/nimvor-run`, where both see it.

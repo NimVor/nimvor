@@ -7,7 +7,7 @@ import (
 
 func TestChromeAllowedAcceptsOnlyTheScreenshotCommandLine(t *testing.T) {
 	good := []string{
-		"--headless=new", "--disable-gpu", "--no-sandbox", "--window-size=1280,800", "--virtual-time-budget=6000",
+		"--headless=new", "--disable-gpu", "--no-sandbox", "--disable-features=HttpsUpgrades,HttpsFirstBalancedModeAutoEnable", "--window-size=1280,800", "--virtual-time-budget=6000",
 		"--user-data-dir=/run/nimvor-run/shot-0123456789abcdef/profile", "--screenshot=/run/nimvor-run/shot-0123456789abcdef/shot.png",
 		"--host-resolver-rules=MAP shop.test 127.0.0.1", "https://shop.test/",
 	}

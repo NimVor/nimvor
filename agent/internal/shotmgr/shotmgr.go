@@ -135,6 +135,8 @@ try:
 				// The service sandbox the command runs in (own account, no capabilities, no new privileges) is the
 				// containment; the browser's own sandbox cannot be started inside it.
 				"--no-sandbox", "--disable-crash-reporter", "--disable-background-networking",
+				// Chrome upgrades http:// to https:// by itself; a website without HTTPS must be opened as it is.
+				"--disable-features=HttpsUpgrades,HttpsFirstBalancedModeAutoEnable",
 				fmt.Sprintf("--window-size=%d,%d", WindowW, WindowH), "--virtual-time-budget=6000",
 				"--user-data-dir=" + tmp + "/profile", "--screenshot=" + shot,
 				"--host-resolver-rules=MAP " + domain + " " + addr,

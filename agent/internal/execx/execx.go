@@ -1089,6 +1089,8 @@ var chromeFlags = map[string]bool{
 	"--headless=new": true, "--disable-gpu": true, "--hide-scrollbars": true, "--no-first-run": true, "--no-default-browser-check": true,
 	"--disable-extensions": true, "--disable-dev-shm-usage": true, "--mute-audio": true, "--ignore-certificate-errors": true,
 	"--no-sandbox": true, "--disable-crash-reporter": true, "--disable-background-networking": true,
+	// The page is opened exactly as asked: a website without HTTPS must not be upgraded to it.
+	"--disable-features=HttpsUpgrades,HttpsFirstBalancedModeAutoEnable": true,
 }
 
 var (

@@ -63,7 +63,7 @@ func TestCaptureKeepsAScaledPictureAndNothingBehind(t *testing.T) {
 	if strings.Contains(joined, "--screenshot=/tmp") || !strings.Contains(joined, "--screenshot=/run/nimvor-run/shot-") || !strings.Contains(joined, "--user-data-dir=/run/nimvor-run/shot-") {
 		t.Errorf("the browser's folder is not in the run directory: %s", joined)
 	}
-	for _, want := range []string{"--headless=new", "--host-resolver-rules=MAP shop.test 127.0.0.1", "https://shop.test/", "--window-size=1280,800"} {
+	for _, want := range []string{"--headless=new", "--host-resolver-rules=MAP shop.test 127.0.0.1", "https://shop.test/", "--window-size=1280,800", "--disable-features=HttpsUpgrades"} {
 		if !strings.Contains(joined, want) {
 			t.Errorf("browser command lacks %q: %s", want, joined)
 		}
