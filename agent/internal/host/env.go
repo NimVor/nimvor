@@ -176,6 +176,11 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		"/etc/apt/keyrings/nimvor-mongodb-*.asc",
 		"/etc/apt/sources.list.d/nimvor-mongodb-*.sources",
 		"/etc/yum.repos.d/nimvor-mongodb-*.repo",
+		// The browser for the websites' pictures (shotmgr): Google Chrome's
+		// repository, with NimVor's own key, APT source and DNF repo file.
+		"/etc/apt/keyrings/nimvor-google-chrome.asc",
+		"/etc/apt/sources.list.d/nimvor-google-chrome.sources",
+		"/etc/yum.repos.d/nimvor-google-chrome.repo",
 	}
 	return &Env{
 		Cfg: cfg, Root: root, Platform: p, M: m, Runner: r, Jobs: j, Log: log,
