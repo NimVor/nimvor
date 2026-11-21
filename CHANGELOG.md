@@ -6,13 +6,17 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.8.4] — 2026-11-21
+
+Fixes for the website pictures (the browser install, and where its button is) and for tall windows. This release also contains everything listed under 1.8.3 below: that version was tagged but never published, because one of its release tests (an SFTP login on Ubuntu 24.04) failed and the release workflow publishes only when every system passes. The test now retries as its SSH step already did.
+
 ### Fixed
 
 - **Installing the browser for website pictures failed with "path is not managed by NimVor".** The agent's list of files it may write did not include Google Chrome's key and repository file. It does now, and a test checks the install's files against that list.
 - **"Install the browser" could not be found.** The button for the website pictures was only on the card view, which administrators do not see by default. It now also shows above the table and on a website's own page.
 - **Tall windows (such as PHP-FPM in the Websites list) cut off their Save button.** Windows that wrap their header, body and buttons in a form did not scroll inside themselves, so on a small screen the buttons were out of reach. Every window now keeps its title and buttons in view and scrolls only the middle.
 
-## [1.8.3] — 2026-11-20
+## [1.8.3] — 2026-11-20 (tagged, never published; included in 1.8.4)
 
 Dashboard widgets and a tile for every website page, pictures of each website's home page, Site health and Disk usage pages, a more complete full-server install, and several fixes (time zone, kernel settings after reboot, update flag, package index).
 
