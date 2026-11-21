@@ -27,6 +27,7 @@ func Register(r *actions.Registry, env *host.Env) {
 	registerIonCube(r, env)
 	registerIni(r, env)
 	registerFPMGlobal(r, env)
+	registerHealth(r, env)
 	registerRepository(r, env)
 	registerProfile(r, env)
 	registerUpdates(r, env)
