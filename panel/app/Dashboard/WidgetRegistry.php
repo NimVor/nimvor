@@ -57,6 +57,11 @@ final class WidgetRegistry
             new Widget('database_overview', 'Databases', 'database', 'Databases', P::DATABASES_VIEW, 'lg', 60, 30, false, true, 'MariaDB/MySQL and PostgreSQL: connections against the limit, slow queries, cache hit ratio and lock waits.', 'databases.server', 'Database server'),
             new Widget('cache_overview', 'Redis & Memcached', 'lightning-charge', 'Performance', P::REDIS_MANAGE, 'md', 60, 30, false, true, 'Memory use, hit ratio, clients and evictions of the caches.', 'redis', 'Redis'),
             new Widget('web_stack', 'Nginx & PHP-FPM', 'server', 'System Health', P::SERVER_VIEW, 'md', 120, 60, false, true, 'Nginx state and, per PHP version in use, how often a pool ran out of workers in the last 24 hours.', 'nginx', 'Nginx'),
+            new Widget('backup_health', 'Backup health', 'shield-check', 'Backups', P::BACKUPS_VIEW, 'md', 120, 60, false, true, 'Websites without a recent backup, the latest failure, schedules, off-server copies and encryption.', 'backups', 'Backups'),
+            new Widget('system_updates', 'System updates', 'arrow-up-circle', 'System Health', P::PACKAGES_MANAGE, 'md', 300, 300, false, true, 'Package updates waiting (security ones separately) and whether a restart is needed.', 'packages', 'Packages'),
+            new Widget('dns_mail', 'DNS & mail', 'envelope-at', 'DNS & Email', P::SERVER_VIEW, 'md', 120, 60, false, true, 'The nameserver, the mail services and the mail queue.', 'dns', 'DNS'),
+            new Widget('deployments', 'Deployments', 'rocket-takeoff', 'DevOps', P::DEPLOY_MANAGE, 'md', 120, 60, false, true, 'Deployments in the last seven days, any running now, and the latest failure.', 'websites', 'Websites'),
+            new Widget('wordpress', 'WordPress', 'wordpress', 'Websites', P::WEBSITES_VIEW, 'md', 300, 120, false, true, 'WordPress installations: out-of-date core, plugin and theme updates, open issues.', 'wordpress', 'WordPress'),
         ];
         $by = [];
         foreach ($list as $w) {

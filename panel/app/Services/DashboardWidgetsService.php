@@ -30,6 +30,7 @@ final class DashboardWidgetsService
         private readonly ?WebsiteMonitor $monitor = null,
         private readonly ?SecurityOverviewService $security = null,
         private readonly ?ServiceOverviewService $services = null,
+        private readonly ?OperationsOverviewService $ops = null,
     ) {
     }
 
@@ -56,6 +57,11 @@ final class DashboardWidgetsService
                 'top_processes' => $this->topProcesses(),
                 'website_health' => $this->websiteHealth(),
                 'security_overview' => ($this->security ?? throw new AgentException('Security status unavailable'))->security(),
+                'backup_health' => ($this->ops ?? throw new AgentException('Backups unavailable'))->backups(),
+                'system_updates' => ($this->ops ?? throw new AgentException('Updates unavailable'))->updates(),
+                'dns_mail' => ($this->ops ?? throw new AgentException('DNS and mail unavailable'))->dnsMail(),
+                'deployments' => ($this->ops ?? throw new AgentException('Deployments unavailable'))->deployments(),
+                'wordpress' => ($this->ops ?? throw new AgentException('WordPress unavailable'))->wordpress(),
                 'database_overview' => ($this->services ?? throw new AgentException('Database status unavailable'))->databases(),
                 'cache_overview' => ($this->services ?? throw new AgentException('Cache status unavailable'))->caches(),
                 'web_stack' => ($this->services ?? throw new AgentException('Web stack status unavailable'))->webStack(),

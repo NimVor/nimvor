@@ -37,11 +37,11 @@ the navigation. "Gap" is what a widget still needs.
 | PHP-FPM | `php.fpm_health` (new, read-only: service state and, from the end of the FPM log, pools that reached `pm.max_children`, busy warnings, worker crashes in 24 h) | **shipped** (step 4); live worker counts need `pm.status_path`, which NimVor does not enable |
 | Nginx | `nginx.status` (running, config test) | **shipped** (step 4) without request rates: those need `stub_status`, which is not enabled, so the widget says so instead of showing zeros |
 | Redis, Memcached | `redis.info`, `memcached.status` | none — **shipped** (step 4) |
-| Backups | `backups`, `backup_schedules`, storages | verified-restore state is not recorded |
-| System updates | `packages.updates`, `packages.advisories`, `packages.health` | aggregation widget |
-| DNS and mail | `dns.status`, `mail.queue`, `mail.server_status`, `EmailHealth` | aggregation widget |
-| Deployments, cron | `DeployService::history`, `CronService::runs` | aggregation widget |
-| WordPress | `WordPressService::installs`, `wordpress.scan`, `WordPressVulnerabilities` | aggregation widget |
+| Backups | `backups`, `backup_schedules`, storages | **shipped** (step 5); verified-restore state is not recorded, so the widget says so instead of claiming it |
+| System updates | `packages.updates`, `server.settings` (restart needed) | **shipped** (step 5) |
+| DNS and mail | `dns.status`, `mail.server_status`, `mail.queue` | **shipped** (step 5); per-domain `EmailHealth` stays on Site health |
+| Deployments, cron | `deployments` table | deployments **shipped** (step 5); cron run results are not stored by the panel, so there is no cron widget |
+| WordPress | `wordpress_installs` (last scan) | **shipped** (step 5): out-of-date core, plugin/theme updates, open issues; vulnerabilities stay in the WordPress Toolkit |
 | Traffic | per-site access-log readers (`sites.bandwidth`, `stats.data`) | server-wide aggregation |
 | Capacity forecasting | `metric_samples` (CPU, memory, disk, load, network for 30 days) | the forecast itself; "not enough data" state |
 | Alerts | `alerts` table and `MonitoringService` rules (disk, memory, load, service, certificate, quota, bandwidth) | severity levels, acknowledgement, more sources, central thresholds |
@@ -85,7 +85,7 @@ numbers are never shown to them.
 2. Website uptime and performance (**shipped**): the scheduler's five-minute pass asks the agent's read-only `sites.probe` action to request each enabled website's home page on this server itself (the website's own address or loopback, its name in the Host header, redirects not followed, 8 at a time, 10 s timeout). 2xx/3xx = up, 401/403 = online but asking for a login, other 4xx = client error, 5xx = server error, no answer = down. Results are kept for 14 days; an agent that may not open connections records nothing (never a false "down"). "Check now" is limited to once a minute.
 3. Security overview and SSL certificates (**shipped**): both read existing read-only agent actions through `SecurityOverviewService`; a source that cannot answer shows N/A (never "fine"), and when none answers the widget is unavailable. Brute-force attempts are the SSH failures from the journal and the panel's own failed sign-ins; the audit's failing and warning checks are counted, high-severity ones separately. Certificates are counted valid, expiring (within the configured warning days) and expired; websites serving HTTPS without a certificate that covers their name are listed.
 4. Database, PHP-FPM, Nginx, Redis and Memcached (**shipped**): `ServiceOverviewService` and three widgets (*Databases*, *Redis & Memcached*, *Nginx & PHP-FPM*). One new read-only agent action, `php.fpm_health`, reads the end of each PHP-FPM log of the versions websites use. A source that cannot answer is N/A.
-5. Backups, updates, DNS and mail, deployments, WordPress and storage widgets.
+5. Backups, updates, DNS and mail, deployments and WordPress (**shipped**): `OperationsOverviewService` and five widgets. Backups, deployments and WordPress read the panel's own records (no agent call). Storage is already covered by the *Disk* widget (filesystems and where the space goes), so there is no separate one.
 6. Traffic intelligence and capacity forecasting.
 7. Alert center: severities, acknowledgement, de-duplication, central thresholds.
 8. Drag and drop, free resizing and per-widget refresh settings.

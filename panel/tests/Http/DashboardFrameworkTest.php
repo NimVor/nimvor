@@ -60,13 +60,13 @@ final class DashboardFrameworkTest extends HttpTestCase
     public function testTheRegistryListsEveryWidgetWithItsCategoryAndPermission(): void
     {
         $reg = new WidgetRegistry();
-        self::assertSame(['attention', 'disk', 'backups', 'top_processes', 'website_health', 'security_overview', 'ssl_overview', 'database_overview', 'cache_overview', 'web_stack'], array_keys($reg->all()));
+        self::assertSame(['attention', 'disk', 'backups', 'top_processes', 'website_health', 'security_overview', 'ssl_overview', 'database_overview', 'cache_overview', 'web_stack', 'backup_health', 'system_updates', 'dns_mail', 'deployments', 'wordpress'], array_keys($reg->all()));
         foreach ($reg->all() as $w) {
             self::assertContains($w->category, WidgetRegistry::CATEGORIES, $w->id);
             self::assertArrayHasKey($w->size, Widget::SIZES, $w->id);
             self::assertNotSame('', $w->permission, $w->id);
         }
-        self::assertSame(['disk', 'web_stack'], array_keys($reg->visibleTo(static fn (string $p): bool => $p === P::SERVER_VIEW)));
+        self::assertSame(['disk', 'web_stack', 'dns_mail'], array_keys($reg->visibleTo(static fn (string $p): bool => $p === P::SERVER_VIEW)));
     }
 
     public function testCheapWidgetsAreDrawnWithThePageAndTheOthersAreLoadedAfterIt(): void
