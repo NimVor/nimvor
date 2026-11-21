@@ -27,6 +27,7 @@ final class DashboardWidgetsService
         private readonly ?SitesHealthService $siteHealth = null,
         private readonly ?DiscoveryService $discovery = null,
         private readonly ?SettingsService $settings = null,
+        private readonly ?WebsiteMonitor $monitor = null,
     ) {
     }
 
@@ -51,6 +52,7 @@ final class DashboardWidgetsService
                 'disk' => $this->disk(),
                 'backups' => $this->backups() + ['attention' => (int) ($this->siteHealth?->overview($user)['counts']['backup'] ?? 0)],
                 'top_processes' => $this->topProcesses(),
+                'website_health' => $this->websiteHealth(),
                 default => throw new \InvalidArgumentException('No data for widget ' . $id),
             });
         } catch (AgentException) {
@@ -82,6 +84,22 @@ final class DashboardWidgetsService
             }
         }
         return ['needs' => $needs, 'expiring' => $expiring, '_state' => $needs === null && $expiring === null ? 'unavailable' : 'ok'];
+    }
+
+    /**
+     * Website uptime and speed from the scheduler's HTTP checks. Never a zero
+     * for something unmeasured: before the first check the widget is empty, and
+     * when the agent cannot open connections it is unavailable.
+     *
+     * @return array<string, mixed>
+     */
+    public function websiteHealth(): array
+    {
+        $sum = $this->monitor?->summary();
+        if ($this->monitor === null) {
+            throw new AgentException('Website checks unavailable');
+        }
+        return $sum ?? ['none' => true, 'enabled' => (int) $this->db->scalar('SELECT COUNT(*) FROM websites WHERE server_id = ? AND enabled = 1', [$this->server->id()])];
     }
 
     /**

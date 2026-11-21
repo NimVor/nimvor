@@ -28,6 +28,7 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/nginxmgr"
 	"github.com/NimVor/nimvor/agent/internal/pgmgr"
 	"github.com/NimVor/nimvor/agent/internal/phpmgr"
+	"github.com/NimVor/nimvor/agent/internal/probemgr"
 	"github.com/NimVor/nimvor/agent/internal/procmgr"
 	"github.com/NimVor/nimvor/agent/internal/quota"
 	"github.com/NimVor/nimvor/agent/internal/realip"
@@ -86,6 +87,7 @@ func All() []Module {
 		usage.Register,
 		diskmgr.Register,
 		shotmgr.Register,
+		probemgr.Register,
 		apps.Register,
 		wordpress.Register,
 		adopt.Register,
