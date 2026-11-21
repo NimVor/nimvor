@@ -1069,3 +1069,12 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 .nim-chart .nim-axis { fill: var(--bs-secondary-color); font-size: 9px; }
 .nim-chart .nim-track { fill: var(--bs-tertiary-bg); }
 .nim-rank { width: 8rem; height: .6rem; }
+
+/* Every window scrolls inside itself: the header and the buttons stay in view and only the body scrolls.
+   Many windows wrap header, body and footer in a <form>, which Bootstrap's scrolling rules do not reach. */
+.modal-dialog .modal-content { max-height: calc(100vh - 2rem); overflow: hidden; }
+.modal-dialog .modal-content > form,
+.modal-dialog .modal-content > .nim-modal-form { display: flex; flex-direction: column; min-height: 0; max-height: inherit; overflow: hidden; }
+.modal-dialog .modal-content > form > .modal-body { overflow-y: auto; flex: 1 1 auto; min-height: 0; }
+.modal-dialog .modal-content > form > .modal-header,
+.modal-dialog .modal-content > form > .modal-footer { flex: 0 0 auto; }

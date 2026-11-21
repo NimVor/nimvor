@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Tall windows (such as PHP-FPM in the Websites list) cut off their Save button.** Windows that wrap their header, body and buttons in a form did not scroll inside themselves, so on a small screen the buttons were out of reach. Every window now keeps its title and buttons in view and scrolls only the middle.
+
 ## [1.8.3] — 2026-11-20
 
 Dashboard widgets and a tile for every website page, pictures of each website's home page, Site health and Disk usage pages, a more complete full-server install, and several fixes (time zone, kernel settings after reboot, update flag, package index).
