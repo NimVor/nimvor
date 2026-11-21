@@ -186,4 +186,10 @@ func TestCaptureFailureShowsWhatTheBrowserSaid(t *testing.T) {
 	if !strings.Contains(ae.Message, "exit status 1") {
 		t.Errorf("message: %q", ae.Message)
 	}
+	// Each try says how the browser ended and why there was no usable picture.
+	for _, want := range []string{"https: the browser ended with: exit status 1", "http: the browser ended with: exit status 1", "the picture:", "the browser's folder holds:"} {
+		if !strings.Contains(ae.Details, want) {
+			t.Errorf("details lack %q: %q", want, ae.Details)
+		}
+	}
 }

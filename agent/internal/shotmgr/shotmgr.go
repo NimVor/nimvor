@@ -111,6 +111,7 @@ func Capture(ctx context.Context, env *host.Env, domain, user, root string) (Inf
 		out     []byte
 		runErr  error
 		readErr error
+		notes   []string
 	)
 	for _, scheme := range []string{"https", "http"} {
 		os.Remove(realTmp + "/shot.png")
@@ -132,13 +133,14 @@ func Capture(ctx context.Context, env *host.Env, domain, user, root string) (Inf
 		if readErr == nil {
 			break
 		}
+		notes = append(notes, attemptNote(scheme, runErr, readErr, out, realTmp))
 	}
 	if readErr != nil {
 		msg := "The browser did not produce a picture"
 		if runErr != nil {
 			msg += ": " + runErr.Error()
 		}
-		return Info{}, actions.Failed(msg+".", browserTail(out))
+		return Info{}, actions.Failed(msg+".", strings.Join(notes, "\n"))
 	}
 	jpg, err := thumbnail(img)
 	if err != nil {
@@ -281,4 +283,32 @@ func browserTail(out []byte) string {
 		t = t[len(t)-1500:]
 	}
 	return t
+}
+
+// attemptNote says what one try came to: how the browser ended, why the
+// picture could not be used, what the browser printed and what is in its
+// folder (name, owner, size), so a failure can be understood from the
+// message alone.
+func attemptNote(scheme string, runErr, readErr error, out []byte, folder string) string {
+	run := "the browser ended normally"
+	if runErr != nil {
+		run = "the browser ended with: " + runErr.Error()
+	}
+	var files []string
+	if entries, err := os.ReadDir(folder); err == nil {
+		for _, e := range entries {
+			if info, err := e.Info(); err == nil {
+				owner := "?"
+				if st, ok := info.Sys().(*syscall.Stat_t); ok {
+					owner = fmt.Sprint(st.Uid)
+				}
+				files = append(files, fmt.Sprintf("%s (owner %s, %d bytes)", e.Name(), owner, info.Size()))
+			}
+		}
+	}
+	note := fmt.Sprintf("%s: %s; the picture: %v; the browser's folder holds: %s", scheme, run, readErr, strings.Join(files, ", "))
+	if t := browserTail(out); t != "" {
+		note += "\n" + t
+	}
+	return note
 }
