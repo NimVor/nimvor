@@ -34,6 +34,8 @@ final class DashboardController extends Controller
         private readonly ?\NimVor\Services\DashboardWidgetsService $widgets = null,
         private readonly ?\NimVor\Dashboard\WidgetRegistry $registry = null,
         private readonly ?\NimVor\Dashboard\DashboardLayout $layout = null,
+        private readonly ?\NimVor\Services\WebsiteMonitor $monitor = null,
+        private readonly ?\NimVor\Dashboard\WidgetCache $cache = null,
     ) {
         parent::__construct($view, $session);
     }
@@ -146,6 +148,24 @@ final class DashboardController extends Controller
             $this->registry->visibleTo(fn (string $p): bool => $this->view->can($p)),
         );
         return $this->redirectWithSuccess('/', 'Your dashboard layout is saved.');
+    }
+
+    /** Checks the websites now (at most once a minute) and refreshes the widget. */
+    public function checkWebsites(Request $request): Response
+    {
+        if ($this->monitor === null) {
+            return Response::redirect('/');
+        }
+        try {
+            $n = $this->monitor->check(false);
+        } catch (AgentException) {
+            return $this->redirectWithError('/', 'The websites could not be checked: the server\'s agent did not answer. Try again in a moment.');
+        }
+        if ($n === null) {
+            return $this->redirectWithSuccess('/', 'The websites were checked a moment ago. Their results are on the dashboard.');
+        }
+        $this->cache?->forget('website_health');
+        return $this->redirectWithSuccess('/', 'Checked ' . $n . ' website' . ($n === 1 ? '' : 's') . '.');
     }
 
     /** Back to the default dashboard. */

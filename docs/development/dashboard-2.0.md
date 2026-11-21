@@ -30,7 +30,7 @@ the navigation. "Gap" is what a widget still needs.
 | CPU, memory, load, network, uptime | agent `system.metrics`, `system.live`, `metric_samples` (30 days) | swap, disk I/O and temperature are not collected |
 | Top processes | agent `system.live` (top 5 by CPU and memory), `processes.list`, `processes.signal` (stop/kill with confirmation on the Processes page) | none — **shipped** (step 1) |
 | Disk and inodes | agent `disk.filesystems`, `disk.scan`, `ServerDiskService` | latency and read-only warnings |
-| Website uptime and speed | none | HTTP probes (scheduler), table, widget |
+| Website uptime and speed | agent `sites.probe` (read-only), `website_checks` table, `WebsiteMonitor` | none — **shipped** (step 2) |
 | Security overview | `ssh.logins`, `fail2ban.status`, `firewall.status`, `av.status`, `intrusion.status`, `security.audit` | aggregation widget |
 | SSL | `ssl.renewal_status`, `ssl.renewal_log`, certificate dates in discovery | aggregation widget |
 | Databases | `db.server_status`, `db.processlist`, `pg.monitor`, `mongo.status` | slow queries, lock waits, growth need history |
@@ -82,7 +82,7 @@ numbers are never shown to them.
 1. **Foundation** (this step): registry, cache, saved layouts, Customize window,
    lazy loading; Needs attention, Disk and Backups moved into the registry
    unchanged; Top processes as the first new widget.
-2. Website uptime and performance (new scheduler probes).
+2. Website uptime and performance (**shipped**): the scheduler's five-minute pass asks the agent's read-only `sites.probe` action to request each enabled website's home page on this server itself (the website's own address or loopback, its name in the Host header, redirects not followed, 8 at a time, 10 s timeout). 2xx/3xx = up, 401/403 = online but asking for a login, other 4xx = client error, 5xx = server error, no answer = down. Results are kept for 14 days; an agent that may not open connections records nothing (never a false "down"). "Check now" is limited to once a minute.
 3. Security overview and SSL intelligence.
 4. Database, PHP-FPM, Nginx, Redis and Memcached intelligence.
 5. Backups, updates, DNS and mail, deployments, WordPress and storage widgets.

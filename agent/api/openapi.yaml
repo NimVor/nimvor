@@ -496,6 +496,7 @@ paths:
               - sites.list
               - sites.page_cache_purge
               - sites.permissions
+              - sites.probe
               - sites.usage
               - ssh.configure
               - ssh.key_add
@@ -1092,6 +1093,7 @@ x-nimvor-actions:
   sites.list: { mutating: false, description: "NimVor-managed websites present on this server." }
   sites.page_cache_purge: { mutating: true, description: "Empty a website's Nginx page cache (cached PHP pages)." }
   sites.permissions: { mutating: true, description: "Check (dry_run) or repair the ownership and permissions of a website's files: the account's owner, its or the web server's group, no world-writable files, no set-ID files, readable by the owner. Links are never followed." }
+  sites.probe: { mutating: false, description: "Ask each website for its home page on this server (its own address or loopback, with its name in the Host header) and report the status code and time to first byte, or why nothing answered. Redirects are not followed. Read-only." }
   sites.usage: { mutating: false, description: "Disk use of website directories (read-only)." }
   ssh.configure: { mutating: true, description: "Harden the SSH server (validated with sshd -t, auto-reverted unless confirmed)." }
   ssh.key_add: { mutating: true, description: "Add a public key (one line, no options; Ed25519, ECDSA, RSA ≥ 2048 bits) to an administrator's ~/.ssh/authorized_keys." }
