@@ -389,9 +389,19 @@ func TestRealHostShellModes(t *testing.T) {
 	// SFTP runs inside the jail as well.
 	batch := filepath.Join(dir, "batch")
 	os.WriteFile(batch, []byte("pwd\n-ls "+rtSites+"\n-get "+filepath.Join(other, "secret.txt")+" "+filepath.Join(dir, "stolen")+"\n"), 0o644)
-	sout, err := exec.Command("sftp", append(sshOpts, "-b", batch, "rtftp@127.0.0.1")...).CombinedOutput()
+	// The same transient refusals as above (sshd re-reading its configuration,
+	// Ubuntu 24.04 socket activation) can hit this connection, so it gets the
+	// same few tries, and sshd's own view of the account when it still fails.
+	var sout []byte
+	for i := 0; i < 8; i++ {
+		sout, err = exec.Command("sftp", append(sshOpts, "-b", batch, "rtftp@127.0.0.1")...).CombinedOutput()
+		if err == nil || !(strings.Contains(string(sout), "Connection refused") || strings.Contains(string(sout), "Permission denied (publickey")) {
+			break
+		}
+		time.Sleep(time.Second)
+	}
 	if err != nil {
-		t.Fatalf("sftp in the jail: %v\n%s", err, sout)
+		t.Fatalf("sftp in the jail: %v\n%s\n%s", err, sout, sshDiagnosis(env.M.SFTPKeysDir))
 	}
 	if _, err := os.Stat(filepath.Join(dir, "stolen")); err == nil || strings.Contains(string(sout), "other.test  ") || strings.Contains(string(sout), "other.test\n") {
 		t.Fatalf("SFTP reached another website:\n%s", sout)
