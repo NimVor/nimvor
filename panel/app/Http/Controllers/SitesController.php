@@ -156,6 +156,7 @@ final class SitesController extends Controller
             'tab' => 'overview',
             'import' => $this->imports->importOf((int) $site['id']),
             'shot' => $this->shots?->takenAt([(int) $site['id']])[(int) $site['id']] ?? null,
+            'shotBrowser' => $this->shots === null || !$this->view->can(\NimVor\Security\Permissions::SERVER_MANAGE) ? true : $this->shots->installed(),
         ]);
     }
 

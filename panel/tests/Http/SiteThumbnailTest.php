@@ -99,8 +99,12 @@ final class SiteThumbnailTest extends HttpTestCase
         $this->agent->succeed('screenshot.status', ['installed' => false]);
         $this->agent->succeed('screenshot.install', ['job_id' => 'abcdef0123456789']);
         $this->login('admin');
-        $page = $this->request('GET', '/websites', [], [], '', ['view' => 'grid'])->body();
-        self::assertStringContainsString('Install the browser', $page);
+        // The table (an administrator's default), the cards and the website's own page all carry the button.
+        foreach (['list', 'grid'] as $view) {
+            $page = $this->request('GET', '/websites', [], [], '', ['view' => $view])->body();
+            self::assertStringContainsString('Install the browser', $page, $view);
+        }
+        self::assertStringContainsString('Install the browser', $this->request('GET', '/sites/' . $this->otherId)->body());
         $this->post('/server/screenshots/install');
         self::assertSame('abcdef0123456789', $this->session->pullFlash('job'));
         self::assertSame(1, (int) $this->app->container->get(Connection::class)->scalar("SELECT COUNT(*) FROM agent_jobs WHERE job_id = 'abcdef0123456789'"));
