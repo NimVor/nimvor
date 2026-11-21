@@ -8,6 +8,7 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Fixed
 
+- **Installing the browser for website pictures failed with "path is not managed by NimVor".** The agent's list of files it may write did not include Google Chrome's key and repository file. It does now, and a test checks the install's files against that list.
 - **Tall windows (such as PHP-FPM in the Websites list) cut off their Save button.** Windows that wrap their header, body and buttons in a form did not scroll inside themselves, so on a small screen the buttons were out of reach. Every window now keeps its title and buttons in view and scrolls only the middle.
 
 ## [1.8.3] — 2026-11-20
