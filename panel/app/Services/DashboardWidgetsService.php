@@ -31,6 +31,7 @@ final class DashboardWidgetsService
         private readonly ?SecurityOverviewService $security = null,
         private readonly ?ServiceOverviewService $services = null,
         private readonly ?OperationsOverviewService $ops = null,
+        private readonly ?CapacityService $capacity = null,
     ) {
     }
 
@@ -57,6 +58,8 @@ final class DashboardWidgetsService
                 'top_processes' => $this->topProcesses(),
                 'website_health' => $this->websiteHealth(),
                 'security_overview' => ($this->security ?? throw new AgentException('Security status unavailable'))->security(),
+                'capacity_forecast' => ($this->capacity ?? throw new \InvalidArgumentException('Capacity unavailable'))->forecast(),
+                'traffic_overview' => ($this->capacity ?? throw new \InvalidArgumentException('Traffic unavailable'))->traffic(),
                 'backup_health' => ($this->ops ?? throw new AgentException('Backups unavailable'))->backups(),
                 'system_updates' => ($this->ops ?? throw new AgentException('Updates unavailable'))->updates(),
                 'dns_mail' => ($this->ops ?? throw new AgentException('DNS and mail unavailable'))->dnsMail(),

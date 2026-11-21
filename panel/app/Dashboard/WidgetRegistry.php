@@ -62,6 +62,8 @@ final class WidgetRegistry
             new Widget('dns_mail', 'DNS & mail', 'envelope-at', 'DNS & Email', P::SERVER_VIEW, 'md', 120, 60, false, true, 'The nameserver, the mail services and the mail queue.', 'dns', 'DNS'),
             new Widget('deployments', 'Deployments', 'rocket-takeoff', 'DevOps', P::DEPLOY_MANAGE, 'md', 120, 60, false, true, 'Deployments in the last seven days, any running now, and the latest failure.', 'websites', 'Websites'),
             new Widget('wordpress', 'WordPress', 'wordpress', 'Websites', P::WEBSITES_VIEW, 'md', 300, 120, false, true, 'WordPress installations: out-of-date core, plugin and theme updates, open issues.', 'wordpress', 'WordPress'),
+            new Widget('capacity_forecast', 'Capacity forecast', 'graph-up-arrow', 'Performance', P::MONITORING_VIEW, 'md', 600, 300, false, true, 'When the disk or memory is likely to fill at the current pace, and CPU and load against the week before. Needs about a week of measurements.', 'monitoring', 'Monitoring'),
+            new Widget('traffic_overview', 'Traffic', 'bar-chart-line', 'Performance', P::MONITORING_VIEW, 'md', 300, 120, false, true, 'Network use over the last 24 hours and the websites that sent the most this month.', 'monitoring', 'Monitoring'),
         ];
         $by = [];
         foreach ($list as $w) {
