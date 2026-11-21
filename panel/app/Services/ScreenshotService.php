@@ -77,7 +77,9 @@ final class ScreenshotService
         $now = gmdate('c');
         $this->db->run('INSERT INTO site_screenshots (website_id, attempted_at) VALUES (?, ?) ON CONFLICT(website_id) DO UPDATE SET attempted_at = excluded.attempted_at', [$id, $now]);
         try {
-            $res = (array) $this->agent->call('screenshot.capture', ['domain' => (string) $site['domain'], 'user' => (string) $site['system_user'], 'root' => (string) $site['root']], 120);
+            $res = (array) $this->agent->call('screenshot.capture', ['domain' => (string) $site['domain'], 'user' => (string) $site['system_user'], 'root' => (string) $site['root']]
+                // A website with its own address is served only there.
+                + (!empty($site['ipv4']) ? ['ipv4' => (string) $site['ipv4']] : []), 120);
         } catch (AgentException $e) {
             $this->db->run('UPDATE site_screenshots SET error = ? WHERE website_id = ?', [mb_substr($e->getMessage(), 0, 500), $id]);
             throw $e;

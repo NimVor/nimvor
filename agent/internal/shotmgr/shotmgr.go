@@ -19,6 +19,7 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -57,9 +58,19 @@ func file(env *host.Env, domain string) string { return filepath.Join(dir(env), 
 func Installed(env *host.Env) bool { return env.Runner.Available("chrome") }
 
 // Capture photographs the home page of the website with this domain, user and folder.
-func Capture(ctx context.Context, env *host.Env, domain, user, root string) (Info, error) {
+func Capture(ctx context.Context, env *host.Env, domain, user, root, ipv4 string) (Info, error) {
 	if err := validate.Domain("domain", domain); err != nil {
 		return Info{}, host.Invalid(err)
+	}
+	// A website with its own address is served only there (its Nginx "listen" names that address), so the
+	// browser is pointed at it; otherwise at this server's loopback address.
+	addrs := []string{"127.0.0.1"}
+	if ipv4 != "" {
+		ip := net.ParseIP(ipv4)
+		if ip == nil || ip.To4() == nil {
+			return Info{}, actions.InvalidParams("ipv4: not an IPv4 address")
+		}
+		addrs = []string{ip.To4().String(), "127.0.0.1"}
 	}
 	if root == "" {
 		root = filepath.Join(env.Cfg.SitesRoot, domain)
@@ -105,7 +116,8 @@ func Capture(ctx context.Context, env *host.Env, domain, user, root string) (Inf
 	}
 	shot := tmp + "/shot.png"
 	// The page is opened over HTTPS first and, for a website without a
-	// certificate (or one that does not answer on 443), over plain HTTP.
+	// certificate (or one that does not answer on 443), over plain HTTP; each at the website's own address
+	// first when it has one.
 	var (
 		img     image.Image
 		out     []byte
@@ -113,27 +125,30 @@ func Capture(ctx context.Context, env *host.Env, domain, user, root string) (Inf
 		readErr error
 		notes   []string
 	)
-	for _, scheme := range []string{"https", "http"} {
-		os.Remove(realTmp + "/shot.png")
-		args := []string{
-			"--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run", "--no-default-browser-check",
-			"--disable-extensions", "--disable-dev-shm-usage", "--mute-audio", "--ignore-certificate-errors",
-			// The service sandbox the command runs in (own account, no capabilities, no new privileges) is the
-			// containment; the browser's own sandbox cannot be started inside it.
-			"--no-sandbox", "--disable-crash-reporter", "--disable-background-networking",
-			fmt.Sprintf("--window-size=%d,%d", WindowW, WindowH), "--virtual-time-budget=6000",
-			"--user-data-dir=" + tmp + "/profile", "--screenshot=" + shot,
-			"--host-resolver-rules=MAP " + domain + " 127.0.0.1",
-			scheme + "://" + domain + "/",
+try:
+	for _, addr := range addrs {
+		for _, scheme := range []string{"https", "http"} {
+			os.Remove(realTmp + "/shot.png")
+			args := []string{
+				"--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run", "--no-default-browser-check",
+				"--disable-extensions", "--disable-dev-shm-usage", "--mute-audio", "--ignore-certificate-errors",
+				// The service sandbox the command runs in (own account, no capabilities, no new privileges) is the
+				// containment; the browser's own sandbox cannot be started inside it.
+				"--no-sandbox", "--disable-crash-reporter", "--disable-background-networking",
+				fmt.Sprintf("--window-size=%d,%d", WindowW, WindowH), "--virtual-time-budget=6000",
+				"--user-data-dir=" + tmp + "/profile", "--screenshot=" + shot,
+				"--host-resolver-rules=MAP " + domain + " " + addr,
+				scheme + "://" + domain + "/",
+			}
+			cctx, cancel := context.WithTimeout(ctx, captureTimeout)
+			out, runErr = env.Runner.RunWith(cctx, "chrome", execx.Opts{As: cred, Dir: tmp, Env: []string{"HOME=" + tmp}, Timeout: captureTimeout}, args...)
+			cancel()
+			img, readErr = readPNG(realTmp+"/shot.png", cred.UID)
+			if readErr == nil {
+				break try
+			}
+			notes = append(notes, attemptNote(scheme+" via "+addr, runErr, readErr, out, realTmp))
 		}
-		cctx, cancel := context.WithTimeout(ctx, captureTimeout)
-		out, runErr = env.Runner.RunWith(cctx, "chrome", execx.Opts{As: cred, Dir: tmp, Env: []string{"HOME=" + tmp}, Timeout: captureTimeout}, args...)
-		cancel()
-		img, readErr = readPNG(realTmp+"/shot.png", cred.UID)
-		if readErr == nil {
-			break
-		}
-		notes = append(notes, attemptNote(scheme, runErr, readErr, out, realTmp))
 	}
 	if readErr != nil {
 		msg := "The browser did not produce a picture"
@@ -234,11 +249,12 @@ func Register(r *actions.Registry, env *host.Env) {
 			Domain string `json:"domain"`
 			User   string `json:"user"`
 			Root   string `json:"root"`
+			IPv4   string `json:"ipv4"`
 		}
 		if err := host.Decode(p, &in); err != nil {
 			return nil, err
 		}
-		return Capture(ctx, env, in.Domain, in.User, in.Root)
+		return Capture(ctx, env, in.Domain, in.User, in.Root, in.IPv4)
 	}})
 	r.Register(actions.Action{Name: "screenshot.get", Description: "The kept picture of a website's home page (JPEG, base64) and when it was taken; exists is false when there is none (read-only).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {

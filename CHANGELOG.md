@@ -8,6 +8,7 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Fixed
 
+- **A website with its own IP address got no picture ("connection refused").** The browser was pointed at this server's loopback address, where a website with its own address is not served (its Nginx `listen` names that address). The browser is now pointed at the website's own address first (then loopback), and the command gate allows only the loopback address or one of this server's own addresses.
 - **A failed website picture now says why.** Each try (HTTPS, then HTTP) reports how the browser ended, why its picture file could not be used, and what is in its folder (name, owner, size), besides the browser's own last lines.
 - **The browser never started when taking a website's picture.** The agent made the browser's working folder in its own private `/tmp`, which the system service that starts the browser (as the website's account) cannot see, so it failed at once with "exit status 1". The folder is now under `/run/nimvor-run`, where both see it.
 - **"The browser did not produce a picture: exit status 1" gave no reason.** The browser's own last lines are now shown to administrators in the message (desktop-bus noise left out), so a missing library or a refused page can be seen. A website without a certificate, or one that does not answer on HTTPS, is now opened over plain HTTP when the HTTPS attempt gives no picture.

@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -1094,12 +1095,39 @@ var (
 	chromeSizeRe   = regexp.MustCompile(`^--window-size=[0-9]{3,4},[0-9]{3,4}$`)
 	chromeBudgetRe = regexp.MustCompile(`^--virtual-time-budget=[0-9]{3,5}$`)
 	chromePathRe   = regexp.MustCompile(`^--(screenshot|user-data-dir)=/run/nimvor-run/shot-[a-f0-9]{16}(/[A-Za-z0-9._-]+)?$`)
-	chromeHostRe   = regexp.MustCompile(`^--host-resolver-rules=MAP ([a-z0-9][a-z0-9.-]{0,251}[a-z0-9]) 127\.0\.0\.1$`)
+	chromeHostRe   = regexp.MustCompile(`^--host-resolver-rules=MAP ([a-z0-9][a-z0-9.-]{0,251}[a-z0-9]) ([0-9]{1,3}(?:\.[0-9]{1,3}){3})$`)
 	chromeURLRe    = regexp.MustCompile(`^https?://([a-z0-9][a-z0-9.-]{0,251}[a-z0-9])/$`)
 )
 
+// interfaceAddrs lists this server's addresses (replaced in tests).
+var interfaceAddrs = net.InterfaceAddrs
+
+// thisServerIPv4 reports whether s is the loopback address or an address
+// of one of this server's own interfaces: the browser may be pointed at the
+// server itself (a website with its own address is served only there), never
+// at another machine.
+func thisServerIPv4(s string) bool {
+	ip := net.ParseIP(s)
+	if ip == nil || ip.To4() == nil {
+		return false
+	}
+	if ip.IsLoopback() {
+		return true
+	}
+	addrs, err := interfaceAddrs()
+	if err != nil {
+		return false
+	}
+	for _, a := range addrs {
+		if n, ok := a.(*net.IPNet); ok && n.IP.Equal(ip) {
+			return true
+		}
+	}
+	return false
+}
+
 // chromeAllowed accepts only the browser command line NimVor builds to photograph a website's home page: fixed
-// flags, a screenshot file and profile folder in a private /tmp name, the one host mapped to this server, and
+// flags, a screenshot file and profile folder in a private /tmp name, the one host mapped to this server (loopback or one of its own addresses), and
 // that host's address as the single page to open.
 func chromeAllowed(args []string) bool {
 	mapped, page := "", ""
@@ -1107,7 +1135,11 @@ func chromeAllowed(args []string) bool {
 		switch {
 		case chromeFlags[a], chromeSizeRe.MatchString(a), chromeBudgetRe.MatchString(a), chromePathRe.MatchString(a):
 		case chromeHostRe.MatchString(a):
-			mapped = chromeHostRe.FindStringSubmatch(a)[1]
+			m := chromeHostRe.FindStringSubmatch(a)
+			if !thisServerIPv4(m[2]) {
+				return false
+			}
+			mapped = m[1]
 		case chromeURLRe.MatchString(a):
 			if page != "" {
 				return false

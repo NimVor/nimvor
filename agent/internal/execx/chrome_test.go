@@ -1,6 +1,9 @@
 package execx
 
-import "testing"
+import (
+	"net"
+	"testing"
+)
 
 func TestChromeAllowedAcceptsOnlyTheScreenshotCommandLine(t *testing.T) {
 	good := []string{
@@ -44,5 +47,24 @@ func TestChromeOnlyRunsAsAnUnprivilegedAccount(t *testing.T) {
 	}
 	if err := checkArgs("chrome", Opts{As: &Credential{UID: 1500, GID: 1500}}, args); err != nil {
 		t.Errorf("chrome as an account: %v", err)
+	}
+}
+
+func TestChromeMayOnlyBePointedAtThisServer(t *testing.T) {
+	old := interfaceAddrs
+	defer func() { interfaceAddrs = old }()
+	interfaceAddrs = func() ([]net.Addr, error) {
+		return []net.Addr{&net.IPNet{IP: net.ParseIP("192.0.2.7"), Mask: net.CIDRMask(24, 32)}}, nil
+	}
+	mk := func(ip string) []string {
+		return []string{"--host-resolver-rules=MAP shop.test " + ip, "https://shop.test/"}
+	}
+	for ip, want := range map[string]bool{
+		"127.0.0.1": true, "127.0.0.2": true, "192.0.2.7": true, // loopback and the server's own address
+		"192.0.2.8": false, "10.0.0.5": false, "8.8.8.8": false, "999.1.1.1": false,
+	} {
+		if got := chromeAllowed(mk(ip)); got != want {
+			t.Errorf("%s: allowed=%v, want %v", ip, got, want)
+		}
 	}
 }

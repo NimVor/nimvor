@@ -51,7 +51,7 @@ func fakeBrowser(t *testing.T, h *testhost.Host, paint color.Color) *[]string {
 func TestCaptureKeepsAScaledPictureAndNothingBehind(t *testing.T) {
 	h := testhost.New(t)
 	args := fakeBrowser(t, h, color.RGBA{200, 40, 40, 255})
-	info, err := Capture(context.Background(), h.Env, "shop.test", "example", "")
+	info, err := Capture(context.Background(), h.Env, "shop.test", "example", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,18 +93,18 @@ func TestCaptureKeepsAScaledPictureAndNothingBehind(t *testing.T) {
 func TestCaptureRefusesBadInputAndReportsAFailedBrowser(t *testing.T) {
 	h := testhost.New(t)
 	fakeBrowser(t, h, color.White)
-	if _, err := Capture(context.Background(), h.Env, "../etc", "example", ""); err == nil {
+	if _, err := Capture(context.Background(), h.Env, "../etc", "example", "", ""); err == nil {
 		t.Error("a bad domain was accepted")
 	}
-	if _, err := Capture(context.Background(), h.Env, "shop.test", "root", ""); err == nil {
+	if _, err := Capture(context.Background(), h.Env, "shop.test", "root", "", ""); err == nil {
 		t.Error("a system account was accepted")
 	}
-	if _, err := Capture(context.Background(), h.Env, "shop.test", "example", "/etc"); err == nil {
+	if _, err := Capture(context.Background(), h.Env, "shop.test", "example", "/etc", ""); err == nil {
 		t.Error("a folder outside the websites was accepted")
 	}
 	// The browser runs but leaves no picture.
 	h.Respond = func(id string, args []string) (string, error, bool) { return "boom", nil, id == "chrome" }
-	_, err := Capture(context.Background(), h.Env, "shop.test", "example", "")
+	_, err := Capture(context.Background(), h.Env, "shop.test", "example", "", "")
 	if err == nil || !strings.Contains(err.Error(), "did not produce a picture") {
 		t.Errorf("err = %v", err)
 	}
@@ -119,7 +119,7 @@ func TestScreenshotGetAnswersWithoutAPicture(t *testing.T) {
 		t.Errorf("out: %v", out)
 	}
 	fakeBrowser(t, h, color.RGBA{10, 20, 30, 255})
-	if _, err := Capture(context.Background(), h.Env, "shop.test", "example", ""); err != nil {
+	if _, err := Capture(context.Background(), h.Env, "shop.test", "example", "", ""); err != nil {
 		t.Fatal(err)
 	}
 	out = call(t, r, "screenshot.get", `{"domain":"shop.test"}`)
@@ -158,7 +158,7 @@ func TestCaptureOpensThePageOverHTTPWhenHTTPSGivesNoPicture(t *testing.T) {
 		}
 		return paint(id, args)
 	}
-	if _, err := Capture(context.Background(), h.Env, "plain.test", "example", ""); err != nil {
+	if _, err := Capture(context.Background(), h.Env, "plain.test", "example", "", ""); err != nil {
 		t.Fatal(err)
 	}
 	if strings.Join(urls, " ") != "https://plain.test/ http://plain.test/" {
@@ -175,7 +175,7 @@ func TestCaptureFailureShowsWhatTheBrowserSaid(t *testing.T) {
 		}
 		return "[1:1:dbus/bus.cc:405] no bus\nFatal: shared library libnss3.so is missing\n", errors.New("exit status 1"), true
 	}
-	_, err := Capture(context.Background(), h.Env, "x.test", "example", "")
+	_, err := Capture(context.Background(), h.Env, "x.test", "example", "", "")
 	var ae *actions.Error
 	if !errors.As(err, &ae) {
 		t.Fatalf("error: %v", err)
@@ -187,9 +187,57 @@ func TestCaptureFailureShowsWhatTheBrowserSaid(t *testing.T) {
 		t.Errorf("message: %q", ae.Message)
 	}
 	// Each try says how the browser ended and why there was no usable picture.
-	for _, want := range []string{"https: the browser ended with: exit status 1", "http: the browser ended with: exit status 1", "the picture:", "the browser's folder holds:"} {
+	for _, want := range []string{"https via 127.0.0.1: the browser ended with: exit status 1", "http via 127.0.0.1: the browser ended with: exit status 1", "the picture:", "the browser's folder holds:"} {
 		if !strings.Contains(ae.Details, want) {
 			t.Errorf("details lack %q: %q", want, ae.Details)
 		}
+	}
+}
+
+func TestCaptureUsesTheWebsitesOwnAddressFirst(t *testing.T) {
+	h := testhost.New(t)
+	fakeBrowser(t, h, color.RGBA{10, 120, 200, 255})
+	paint := h.Respond
+	var maps []string
+	h.Respond = func(id string, args []string) (string, error, bool) {
+		for _, a := range args {
+			if strings.HasPrefix(a, "--host-resolver-rules=") {
+				maps = append(maps, a)
+			}
+		}
+		// Only the website's own address answers.
+		if !strings.Contains(strings.Join(args, " "), " 127.0.0.2") {
+			return "Page load failed: net::ERR_CONNECTION_REFUSED\n", nil, true
+		}
+		return paint(id, args)
+	}
+	if _, err := Capture(context.Background(), h.Env, "own.test", "example", "", "127.0.0.2"); err != nil {
+		t.Fatal(err)
+	}
+	if len(maps) == 0 || maps[0] != "--host-resolver-rules=MAP own.test 127.0.0.2" {
+		t.Errorf("maps: %v", maps)
+	}
+}
+
+func TestCaptureFallsBackToLoopbackAndRefusesABadAddress(t *testing.T) {
+	h := testhost.New(t)
+	fakeBrowser(t, h, color.RGBA{10, 120, 200, 255})
+	paint := h.Respond
+	var maps []string
+	h.Respond = func(id string, args []string) (string, error, bool) {
+		maps = append(maps, args[len(args)-2])
+		if !strings.Contains(args[len(args)-2], " 127.0.0.1") {
+			return "Page load failed: net::ERR_CONNECTION_REFUSED\n", nil, true
+		}
+		return paint(id, args)
+	}
+	if _, err := Capture(context.Background(), h.Env, "own.test", "example", "", "127.0.0.2"); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(maps, ","); !strings.Contains(got, "MAP own.test 127.0.0.2") || !strings.Contains(got, "MAP own.test 127.0.0.1") {
+		t.Errorf("maps: %s", got)
+	}
+	if _, err := Capture(context.Background(), h.Env, "own.test", "example", "", "not-an-ip"); err == nil {
+		t.Error("a bad address was accepted")
 	}
 }

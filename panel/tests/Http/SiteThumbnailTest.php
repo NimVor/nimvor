@@ -85,6 +85,20 @@ final class SiteThumbnailTest extends HttpTestCase
         self::assertSame(404, $this->request('GET', '/sites/' . $this->otherId . '/thumbnail')->status());
     }
 
+    public function testAWebsiteWithItsOwnAddressIsPhotographedThere(): void
+    {
+        $this->app->container->get(Connection::class)->run('UPDATE websites SET ipv4 = ? WHERE id = ?', ['192.0.2.7', $this->siteId]);
+        $this->login('admin');
+        $res = $this->request('POST', '/sites/' . $this->siteId . '/thumbnail', $this->token(), $this->json());
+        self::assertSame(200, $res->status(), $res->body());
+        self::assertSame('192.0.2.7', $this->lastCall('screenshot.capture')['ipv4'] ?? null);
+        // A website without one sends none.
+        $this->app->container->get(Connection::class)->run('UPDATE websites SET ipv4 = NULL WHERE id = ?', [$this->siteId]);
+        $this->app->container->get(Connection::class)->run('DELETE FROM site_screenshots');
+        $this->request('POST', '/sites/' . $this->siteId . '/thumbnail', $this->token(), $this->json());
+        self::assertArrayNotHasKey('ipv4', $this->lastCall('screenshot.capture'));
+    }
+
     public function testAnAgentErrorIsAnswerableNotAFatalPage(): void
     {
         $this->agent->fail('screenshot.capture', 409, 'conflict', 'No browser is installed to take the picture.');
