@@ -42,8 +42,8 @@ the navigation. "Gap" is what a widget still needs.
 | DNS and mail | `dns.status`, `mail.server_status`, `mail.queue` | **shipped** (step 5); per-domain `EmailHealth` stays on Site health |
 | Deployments, cron | `deployments` table | deployments **shipped** (step 5); cron run results are not stored by the panel, so there is no cron widget |
 | WordPress | `wordpress_installs` (last scan) | **shipped** (step 5): out-of-date core, plugin/theme updates, open issues; vulnerabilities stay in the WordPress Toolkit |
-| Traffic | per-site access-log readers (`sites.bandwidth`, `stats.data`) | server-wide aggregation |
-| Capacity forecasting | `metric_samples` (CPU, memory, disk, load, network for 30 days) | the forecast itself; "not enough data" state |
+| Traffic | `metric_samples` (network in/out), `website_usage` (bandwidth per website, this month) | **shipped** (step 6); requests per second and visitors are not collected |
+| Capacity forecasting | `metric_samples` (CPU, memory, disk, load, network for 30 days) | **shipped** (step 6) as `CapacityService` |
 | Alerts | `alerts` table and `MonitoringService` rules (disk, memory, load, service, certificate, quota, bandwidth) | severity levels, acknowledgement, more sources, central thresholds |
 
 ## 3. Architecture
@@ -86,7 +86,7 @@ numbers are never shown to them.
 3. Security overview and SSL certificates (**shipped**): both read existing read-only agent actions through `SecurityOverviewService`; a source that cannot answer shows N/A (never "fine"), and when none answers the widget is unavailable. Brute-force attempts are the SSH failures from the journal and the panel's own failed sign-ins; the audit's failing and warning checks are counted, high-severity ones separately. Certificates are counted valid, expiring (within the configured warning days) and expired; websites serving HTTPS without a certificate that covers their name are listed.
 4. Database, PHP-FPM, Nginx, Redis and Memcached (**shipped**): `ServiceOverviewService` and three widgets (*Databases*, *Redis & Memcached*, *Nginx & PHP-FPM*). One new read-only agent action, `php.fpm_health`, reads the end of each PHP-FPM log of the versions websites use. A source that cannot answer is N/A.
 5. Backups, updates, DNS and mail, deployments and WordPress (**shipped**): `OperationsOverviewService` and five widgets. Backups, deployments and WordPress read the panel's own records (no agent call). Storage is already covered by the *Disk* widget (filesystems and where the space goes), so there is no separate one.
-6. Traffic intelligence and capacity forecasting.
+6. Traffic intelligence and capacity forecasting (**shipped**): `CapacityService` and two widgets, no agent change. The forecast is a least-squares line through the daily values (the day's fullest disk, the day's average memory) of the last 30 days. It is shown only with at least 7 days of data (days with fewer than 12 samples do not count) and a fit of R² ≥ 0.6; a falling or flat series is "not growing", a scattered one "no clear trend", and with too little history it says how many days it has. A date beyond a year is reported as "not expected within a year". Disk is the fullest filesystem, since the monitor stores only that. Network transfer is estimated from the five-minute samples.
 7. Alert center: severities, acknowledgement, de-duplication, central thresholds.
 8. Drag and drop, free resizing and per-widget refresh settings.
 
