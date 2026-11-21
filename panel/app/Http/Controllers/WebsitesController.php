@@ -45,7 +45,7 @@ final class WebsitesController extends Controller
         $list = ['backups' => $this->backupCounts(array_column($managed, 'id')), 'ssl' => [], 'nginxVersion' => null, 'planUsage' => null];
         // The pictures of the websites' home pages (cards) and, for administrators, whether the browser they need is installed.
         $list['shots'] = $this->shots?->takenAt(array_map('intval', array_column($managed, 'id'))) ?? [];
-        $list['shotBrowser'] = $layout === 'grid' && $this->shots !== null && $this->view->can(\NimVor\Security\Permissions::SERVER_MANAGE) ? $this->shots->installed() : true;
+        $list['shotBrowser'] = $this->shots !== null && $this->view->can(\NimVor\Security\Permissions::SERVER_MANAGE) ? $this->shots->installed() : true;
         // Hosting customers see their plan's limits and what they use.
         if ($this->view->simpleLayout() && ($plan = $this->limits->planFor((int) $user['id'])) !== null) {
             $external = [];

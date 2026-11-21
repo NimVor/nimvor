@@ -8,6 +8,7 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Fixed
 
+- **"Install the browser" could not be found.** The button for the website pictures was only on the card view, which administrators do not see by default. It now also shows above the table and on a website's own page.
 - **Tall windows (such as PHP-FPM in the Websites list) cut off their Save button.** Windows that wrap their header, body and buttons in a form did not scroll inside themselves, so on a small screen the buttons were out of reach. Every window now keeps its title and buttons in view and scrolls only the middle.
 
 ## [1.8.3] — 2026-11-20

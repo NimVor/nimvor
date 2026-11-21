@@ -52,6 +52,7 @@ $showOwner = $this->can(P::USERS_VIEW);
 </div>
 <?php endif; ?>
 
+<?php if ($managed !== [] && empty($shotBrowser)): ?><?= $this->partial('partials/screenshot_install') ?><?php endif; ?>
 <?php if ($managed === [] && $layout === 'grid'): ?>
     <div class="card mb-4"><div class="nim-empty-state">
         <i class="bi bi-globe2" aria-hidden="true"></i>
@@ -60,13 +61,6 @@ $showOwner = $this->can(P::USERS_VIEW);
         <?php if ($canCreate): ?><a class="btn btn-primary mt-3" href="<?= e($this->url('sites.create')) ?>"><i class="bi bi-plus-lg me-1"></i>Create site</a><?php endif; ?>
     </div></div>
 <?php elseif ($layout === 'grid'): ?>
-    <?php if (empty($shotBrowser) && $this->routeAllowed('server.screenshots.install')): ?>
-        <div class="nim-infobar mb-3">
-            <i class="bi bi-image" aria-hidden="true"></i>
-            <span class="me-auto">Show a picture of each website's home page on its card: this needs a browser on the server (Google Chrome, about 300 MB, from Google's own repository).</span>
-            <form method="post" action="<?= e($this->url('server.screenshots.install')) ?>" data-nim-confirm="Install Google Chrome from Google's repository so the websites' cards can show their home pages?"><?= $this->csrfField() ?><button class="btn btn-sm btn-primary">Install the browser</button></form>
-        </div>
-    <?php endif; ?>
     <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xxl-4 g-3 mb-4" id="nim-sites" data-nim-cards>
         <?php foreach ($managed as $m): ?>
             <?php
