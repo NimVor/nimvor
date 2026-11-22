@@ -535,6 +535,7 @@ paths:
               - system.live
               - system.metrics
               - system.metrics_history
+              - telemetry.collect
               - terminal.kill
               - terminal.open
               - terminal.status
@@ -1133,6 +1134,7 @@ x-nimvor-actions:
   system.live: { mutating: false, description: "Live statistics over half a second: CPU per core and details, memory, load, processes (busiest by CPU and memory, program and user only), network interfaces with rates, disks." }
   system.metrics: { mutating: false, description: "Latest CPU, memory, disk, load and network sample." }
   system.metrics_history: { mutating: false, description: "Recent metrics history for charts." }
+  telemetry.collect: { mutating: false, description: "The facts of an opt-in telemetry report: operating system and hardware size, installed components with their major.minor version, service and update health. Read-only; nothing is sent by the agent and nothing identifies the server." }
   terminal.kill: { mutating: true, description: "End a web terminal session (id), or every session of a panel sign-in (owner)." }
   terminal.open: { mutating: true, description: "Prepare a web terminal session for a website account (its shell access must be jailed or normal) or, when terminal_root is on, a root shell. Returns a single-use ticket valid for a minute, which the browser sends over the WebSocket together with the account's Linux password (checked by the agent with PAM's unix_chkpwd; the panel never sees it). Accounts in privileged groups are refused." }
   terminal.status: { mutating: false, description: "Web terminal: whether it is enabled, whether root shells are allowed (terminal_root), and the open sessions." }
