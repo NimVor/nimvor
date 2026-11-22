@@ -8,6 +8,7 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Added
 
+- Website: **Patreon sponsors**. Admin → Sponsors can copy the active patrons of the Patreon campaign (name, public profile link, monthly pledge; no email address) next to GitHub's sponsors and the ones added by hand, edit or hide any sponsor, and switch the GitHub, Patreon and manual sources on or off for the public Sponsors page. The "Support on Patreon" button shows once a Patreon page address is set. Needs `PATREON_ACCESS_TOKEN`; adds migration 0005 (with an SQL file for sites without a terminal).
 - Dashboard: **Arrange** mode. Drag a widget by its card to move it, drag its right edge (or use the S / M / L / Full buttons, or the arrow keys on the edge) to change its width; every change is saved at once, per user. Alt + arrow keys move a focused widget. The Customize dialog stays for showing and hiding widgets and for touch screens.
 - Dashboard: a refresh interval per widget (only on request, 30 seconds, 1, 5 or 15 minutes) in the Customize dialog; without a choice the widget's own default applies. Automatic refreshes pause while arranging.
 

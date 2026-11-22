@@ -216,10 +216,11 @@ final class PageController extends Controller
     {
         $list = $this->app->cache->get('sponsors:list');
         if (!is_array($list)) {
-            $list = $this->app->sponsors->all();
+            $d = $this->app->sponsorDisplay();
+            $list = $this->app->sponsors->shown(array_keys(array_filter(['github' => $d['github'], 'patreon' => $d['patreon'], 'manual' => $d['manual']])));
             $this->app->cache->set('sponsors:list', $list, 300);
         }
-        return $ctx->render('pages/sponsors', ['sponsors' => $list]);
+        return $ctx->render('pages/sponsors', ['sponsors' => $list, 'display' => $this->app->sponsorDisplay()]);
     }
 
     /** The funding link in the repository (nimvor.com/sponsor) lands on the Sponsors page. */

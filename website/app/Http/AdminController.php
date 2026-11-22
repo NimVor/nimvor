@@ -10,6 +10,7 @@ use NimVorSite\Repositories\BuildRequests;
 use NimVorSite\Repositories\Messages;
 use NimVorSite\Repositories\Sponsors;
 use NimVorSite\Services\GitHubException;
+use NimVorSite\Services\PatreonException;
 use NimVorSite\Support\Text;
 use NimVorSite\Support\Validator;
 use NimVorSite\Support\YouTube;
@@ -170,9 +171,89 @@ final class AdminController extends Controller
         return $ctx->redirect('/admin/posts');
     }
 
+    /** @return array<string, mixed> what the sponsors admin page shows */
+    private function sponsorPage(): array
+    {
+        return [
+            'sponsors' => $this->app->sponsors->all(),
+            'tiers' => Sponsors::TIERS,
+            'hasToken' => $this->app->github->hasToken(),
+            'patreonConnected' => $this->app->sponsorSync->patreonConnected(),
+            'display' => $this->app->sponsorDisplay(),
+        ];
+    }
+
     public function sponsors(Ctx $ctx): Response
     {
-        return $ctx->render('admin/sponsors', ['sponsors' => $this->app->sponsors->all(), 'tiers' => Sponsors::TIERS, 'hasToken' => $this->app->github->hasToken()]);
+        return $ctx->render('admin/sponsors', $this->sponsorPage());
+    }
+
+    /** Which sources the public Sponsors page shows, and the Patreon page address. */
+    public function sponsorDisplay(Ctx $ctx): Response
+    {
+        $post = $ctx->req->post;
+        $url = trim((string) ($post['patreon_url'] ?? ''));
+        if ($url !== '' && preg_match('#^https://(www\.)?patreon\.com/[A-Za-z0-9_./?=&%-]{1,200}$#', $url) !== 1) {
+            $v = new Validator($post);
+            $v->fail('patreon_url', 'Enter your Patreon page address, such as https://www.patreon.com/yourname.');
+            return $this->invalid($ctx, 'admin/sponsors', $v->errors(), $this->sponsorPage());
+        }
+        foreach (['github', 'patreon', 'manual'] as $source) {
+            $this->app->state->set('sponsors:show_' . $source, ($post['show_' . $source] ?? '') === '1' ? '1' : '0');
+        }
+        $this->app->state->set('sponsors:patreon_url', $url);
+        $this->app->cache->delete('sponsors:list');
+        $ctx->flash('success', 'The Sponsors page settings were saved.');
+        return $ctx->redirect('/admin/sponsors');
+    }
+
+    /** Copies the active Patreon patrons in; the other sponsors stay. */
+    public function sponsorSyncPatreon(Ctx $ctx): Response
+    {
+        try {
+            $r = $this->app->sponsorSync->syncPatreon();
+            $ctx->flash('success', 'Synced with Patreon: ' . $r['total'] . ' active patron(s), ' . $r['removed'] . ' no longer pledging.');
+        } catch (PatreonException $e) {
+            $ctx->flash('error', $e->getMessage());
+        }
+        return $ctx->redirect('/admin/sponsors');
+    }
+
+    /** @param array<string, string> $params */
+    public function sponsorUpdate(Ctx $ctx, array $params): Response
+    {
+        $id = $this->intParam($params, 'id');
+        if ($id === null) {
+            return $this->app->error($ctx, 404);
+        }
+        $v = new Validator($ctx->req->post);
+        $v->text('name', 1, 120, 'name')->in('tier', Sponsors::TIERS, 'Choose a tier.');
+        $url = $v->value('url');
+        if (preg_match('#^https://[^\s<>"\']{3,240}$#', $url) !== 1) {
+            $v->fail('url', 'Enter a link that starts with https://.');
+        }
+        if ($v->fails()) {
+            return $this->invalid($ctx, 'admin/sponsors', $v->errors(), $this->sponsorPage());
+        }
+        if (!$this->app->sponsors->updateManual($id, $v->value('name'), $url, $v->value('tier'), ($ctx->req->post['visible'] ?? '') === '1')) {
+            $ctx->flash('error', 'Only sponsors added by hand can be edited; synced ones can be hidden.');
+        } else {
+            $ctx->flash('success', 'The sponsor was saved.');
+        }
+        $this->app->cache->delete('sponsors:list');
+        return $ctx->redirect('/admin/sponsors');
+    }
+
+    /** @param array<string, string> $params */
+    public function sponsorVisibility(Ctx $ctx, array $params): Response
+    {
+        $id = $this->intParam($params, 'id');
+        if ($id === null) {
+            return $this->app->error($ctx, 404);
+        }
+        $this->app->sponsors->setVisible($id, ($ctx->req->post['visible'] ?? '') === '1');
+        $this->app->cache->delete('sponsors:list');
+        return $ctx->redirect('/admin/sponsors');
     }
 
     /** Copies the public GitHub sponsors in; the ones added by hand stay. */
@@ -218,7 +299,7 @@ final class AdminController extends Controller
             $v->fail('url', 'Enter a link that starts with https://.');
         }
         if ($v->fails()) {
-            return $this->invalid($ctx, 'admin/sponsors', $v->errors(), ['sponsors' => $this->app->sponsors->all(), 'tiers' => Sponsors::TIERS, 'hasToken' => $this->app->github->hasToken()]);
+            return $this->invalid($ctx, 'admin/sponsors', $v->errors(), $this->sponsorPage());
         }
         $this->app->sponsors->create($v->value('name'), $url, $v->value('tier'));
         $this->app->cache->delete('sponsors:list');
