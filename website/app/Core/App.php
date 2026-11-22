@@ -11,6 +11,7 @@ use NimVorSite\Http\AdminController;
 use NimVorSite\Http\AuthController;
 use NimVorSite\Http\PageController;
 use NimVorSite\Http\ApiController;
+use NimVorSite\Http\TelemetryController;
 use NimVorSite\Http\DocsController;
 use NimVorSite\Repositories\BuildRequests;
 use NimVorSite\Repositories\Docs;
@@ -18,6 +19,7 @@ use NimVorSite\Repositories\Installs;
 use NimVorSite\Repositories\Messages;
 use NimVorSite\Repositories\Posts;
 use NimVorSite\Repositories\Sponsors;
+use NimVorSite\Repositories\Telemetry;
 use NimVorSite\Services\BlogImporter;
 use NimVorSite\Repositories\Videos;
 use NimVorSite\Services\VideoStore;
@@ -35,6 +37,7 @@ use NimVorSite\Services\RateLimiter;
 use NimVorSite\Services\Reports;
 use NimVorSite\Services\SponsorSync;
 use NimVorSite\Services\Stats;
+use NimVorSite\Services\TelemetryService;
 
 final class App
 {
@@ -58,6 +61,8 @@ final class App
     public readonly Releases $releases;
     public readonly SponsorSync $sponsorSync;
     public readonly Stats $stats;
+    public readonly Telemetry $telemetry;
+    public readonly TelemetryService $telemetryService;
     /** Work to do after the answer has been sent (a documentation refresh). */
     private array $afterResponse = [];
     private readonly Router $router;
@@ -88,6 +93,8 @@ final class App
         $this->releases = new Releases($this->github, $cache);
         $this->sponsorSync = new SponsorSync($this->github, $this->sponsors, $cache, (string) ($gh['sponsorable'] ?? 'NimVor'));
         $this->stats = new Stats($this->installs, $cache);
+        $this->telemetry = new Telemetry($db);
+        $this->telemetryService = new TelemetryService($this->telemetry, $this->limiter);
         $this->router = new Router();
         $this->routes();
     }
@@ -131,6 +138,7 @@ final class App
         $m = new AdminController($this);
         $d = new DocsController($this);
         $api = new ApiController($this);
+        $tel = new TelemetryController($this);
 
         $r->add('GET', '/', [$p, 'home']);
         $r->add('GET', '/features', [$p, 'features']);
@@ -156,6 +164,7 @@ final class App
         $r->add('GET', '/docs/{a}', [$d, 'show']);
         $r->add('GET', '/docs/{a}/{b}', [$d, 'show']);
         $r->add('POST', '/api/v1/installs', [$api, 'install']);
+        $r->add('POST', '/api/v1/telemetry/{endpoint}', [$tel, 'receive']);
         $r->add('GET', '/resources/about', [$p, 'about']);
         $r->add('GET', '/support', [$p, 'support']);
         $r->add('GET', '/support/contact', [$p, 'contact']);
@@ -179,6 +188,8 @@ final class App
         $r->add('POST', '/account/profile', [$c, 'profileSave'], 'user');
 
         $r->add('GET', '/admin', [$m, 'overview'], 'admin');
+        $r->add('GET', '/admin/telemetry', [$tel, 'dashboard'], 'admin');
+        $r->add('GET', '/admin/telemetry/export.csv', [$tel, 'export'], 'admin');
         $r->add('GET', '/admin/reports', [$m, 'reports'], 'admin');
         $r->add('GET', '/admin/reports/{type}.csv', [$m, 'csv'], 'admin');
         $r->add('GET', '/admin/users', [$m, 'users'], 'admin');
@@ -254,7 +265,7 @@ final class App
         }
         $route = ['pattern' => $m['route']['pattern'], 'auth' => $m['route']['auth']];
         // The install report comes from a server's installer, not a browser: it has no session or token.
-        if ($req->method === 'POST' && $route['pattern'] !== '/api/v1/installs' && !$ctx->session->checkCsrf($req->input('_token'))) {
+        if ($req->method === 'POST' && !str_starts_with($route['pattern'], '/api/v1/') && !$ctx->session->checkCsrf($req->input('_token'))) {
             return $this->error($ctx, 419);
         }
         if ($m['route']['auth'] !== null) {
