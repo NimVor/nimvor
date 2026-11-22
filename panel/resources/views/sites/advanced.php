@@ -76,6 +76,17 @@ $id = (int) $site['id'];
         <?php endif; ?>
     </div>
     <div class="col-xl-5" id="danger-zone">
+        <div class="card mb-3" id="monitoring">
+            <div class="card-header"><i class="bi bi-activity me-1"></i>Monitoring</div>
+            <div class="card-body">
+                <?php $watched = empty($site['monitor_disabled']); ?>
+                <form class="nim-danger-row" method="post" action="<?= e($this->url('sites.monitoring', ['id' => $id])) ?>" data-nim-busy>
+                    <?= $this->csrfField() ?><input type="hidden" name="enabled" value="<?= $watched ? '0' : '1' ?>">
+                    <div><div class="fw-medium">Uptime checks <?= $watched ? '<span class="nim-state is-ok">On</span>' : '<span class="nim-state is-warn">Off</span>' ?></div><div class="small text-body-secondary"><?= $watched ? 'The dashboard asks this website for its home page about every five minutes and raises an alert when it stops answering or gets slow. Turn them off for a website that is meant to be offline, or that cannot be reached from this server.' : 'The dashboard does not check this website and raises no uptime alerts for it. Earlier results are kept; an open alert closes at the next monitoring pass.' ?></div></div>
+                    <button class="btn btn-sm btn-outline-secondary text-nowrap"><?= $watched ? 'Turn off' : 'Turn on' ?></button>
+                </form>
+            </div>
+        </div>
         <div class="card mb-3" id="files">
             <div class="card-header"><i class="bi bi-folder-check me-1"></i>Files and folders</div>
             <div class="card-body d-grid gap-3">
