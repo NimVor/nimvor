@@ -41,6 +41,7 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/sslmgr"
 	"github.com/NimVor/nimvor/agent/internal/statsmgr"
 	"github.com/NimVor/nimvor/agent/internal/sysmgr"
+	"github.com/NimVor/nimvor/agent/internal/telemetry"
 	"github.com/NimVor/nimvor/agent/internal/terminal"
 	"github.com/NimVor/nimvor/agent/internal/usage"
 	"github.com/NimVor/nimvor/agent/internal/webprotect"
@@ -99,5 +100,6 @@ func All() []Module {
 		mongomgr.Register,
 		pgmgr.Register,
 		nginxmgr.Register,
+		telemetry.Register,
 	}
 }
