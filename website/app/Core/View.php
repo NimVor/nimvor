@@ -164,6 +164,7 @@ final class View
             'copy' => '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
             'menu' => '<path d="M4 7h16M4 12h16M4 17h16"/>',
             'play' => '<path d="M8 5.5v13l11-6.5z"/>',
+            'bell' => '<path d="M6 17v-6a6 6 0 0 1 12 0v6l2 2H4z"/><path d="M10 21a2 2 0 0 0 4 0"/>',
             'cloud' => '<path d="M7 18a4 4 0 0 1-.6-7.9A6 6 0 0 1 18 9.5 4.3 4.3 0 0 1 17.5 18z"/>',
         ];
         $p = $paths[$name] ?? '';
