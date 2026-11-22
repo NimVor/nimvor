@@ -94,14 +94,21 @@ const OUT = process.env.E2E_OUT || '/tmp';
     await sized.locator('[data-size-set="full"]').click();
     if (!await saved2) { throw new Error('arrange: the width button did not save the layout'); }
     if (await sized.getAttribute('data-size') !== 'full') { throw new Error('the width button did not change the width'); }
-    const box = await sized.boundingBox();
+    // The toast from the save sits at the bottom right of the screen, right where a full-width widget's edge is.
+    await page.evaluate(() => document.querySelectorAll('#nim-toasts .toast').forEach(t => t.remove()));
+    const handle = sized.locator('[data-resize-handle]');
+    await handle.scrollIntoViewIfNeeded();
+    const hb = await handle.boundingBox();
     const grid = await page.locator('[data-widgets]').boundingBox();
+    const y = Math.min(Math.max(hb.y + 30, 30), 850, hb.y + hb.height - 5); // a point of the handle that is on screen
+    const x = hb.x + hb.width / 2;
+    const hit = await page.evaluate(([px, py]) => { const e = document.elementFromPoint(px, py); return e ? (e.tagName + '.' + String(e.className)) : 'nothing'; }, [x, y]);
     const saved3 = savedAfter();
-    await page.mouse.move(box.x + box.width + 1, Math.min(box.y + 40, 880));
+    await page.mouse.move(x, y);
     await page.mouse.down();
-    await page.mouse.move(box.x + grid.width * 0.4, Math.min(box.y + 40, 880), { steps: 8 });
+    await page.mouse.move(x - grid.width * 0.5, y, { steps: 10 });
     await page.mouse.up();
-    if (!await saved3) { throw new Error('arrange: dragging the edge did not save the layout'); }
+    if (!await saved3) { throw new Error('arrange: dragging the edge did not save the layout (pointer at ' + Math.round(x) + ',' + Math.round(y) + ' hit ' + hit + '; size ' + await sized.getAttribute('data-size') + ')'); }
     if (await sized.getAttribute('data-size') === 'full') { throw new Error('dragging the edge did not change the width'); }
     const moved = await ids(), size2 = await sized.getAttribute('data-size');
     await page.reload();
