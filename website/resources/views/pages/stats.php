@@ -17,7 +17,7 @@ $bars = static function (array $rows, int $total) use ($v): string {
     return $out . '</ul>';
 };
 ?>
-<?= $v->partial('partials/page-head', ['title' => 'Statistics', 'intro' => 'How many servers run NimVor. The numbers come from anonymous reports the installer sends; see below for exactly what.', 'crumbs' => [['Resources', '/resources'], ['Statistics', '']]]) ?>
+<?= $v->partial('partials/page-head', ['title' => 'Statistics', 'intro' => 'How many servers run NimVor. The numbers come from anonymous reports: those older installers sent, and those of installations whose administrator chose to turn telemetry on. See below for exactly what.', 'crumbs' => [['Resources', '/resources'], ['Statistics', '']]]) ?>
 <section class="section">
     <div class="container">
         <div class="tiles">
@@ -41,13 +41,8 @@ $bars = static function (array $rows, int $total) use ($v): string {
 <section class="section section-soft">
     <div class="container narrow prose">
         <h2 class="mt-0">What is reported, and what is not</h2>
-        <p>When NimVor is installed or upgraded, the installer sends <strong>one small report</strong> to this site:</p>
-        <ul>
-            <li>a random identifier the installer made (not derived from anything on the server),</li>
-            <li>the NimVor version,</li>
-            <li>the operating system's name and version (for example <code>ubuntu 24.04</code>) and the processor type (<code>amd64</code> or <code>arm64</code>).</li>
-        </ul>
-        <p>No host name, address, user name, website, or setting is sent, and this site does not keep the sender's address (it is counted for an hour only to limit abuse). The numbers are indicative: anyone could send a report.</p>
-        <p>The report is part of installing NimVor: it is what these numbers are made from. See the <a href="/docs/installation">installation guide</a> and the <a href="/support/privacy">privacy policy</a>.</p>
+        <p><strong>Telemetry is optional and off by default.</strong> NimVor reports only after the administrator of a server turns it on (the installer asks, default no; or Settings → Telemetry in the panel), and can turn it off, unregister or have everything deleted at any time. It is never used for licensing and no feature depends on it.</p>
+        <p>What is sent is counts, versions and yes/no answers from a fixed list: the NimVor version, the system's name and major version (for example <code>ubuntu 24.04</code>), the processor type, the server's size rounded up, which components are installed, how many websites and mailboxes exist, and a few health answers. Never a host name, address, domain, user, e-mail or file, and this site does not keep the sender's address (it is counted for an hour only to limit abuse). The full list is in the <a href="https://github.com/NimVor/nimvor/blob/main/docs/telemetry/README.md" rel="noopener">telemetry description</a>.</p>
+        <p>Servers installed by older versions sent one anonymous report when they were installed or upgraded (a random identifier, the version, the system and the processor type); those servers still count here, and no newer installer sends it. The numbers are indicative: only servers that opted in appear, and anyone could send a report. See the <a href="/docs/installation">installation guide</a> and the <a href="/support/privacy">privacy policy</a>.</p>
     </div>
 </section>

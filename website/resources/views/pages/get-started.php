@@ -152,7 +152,7 @@ sudo nimvor help</code></pre>
                 <h3>Update</h3>
             <p>From the source checkout. It keeps your configuration, database, write mode and ports:</p>
             <pre class="codeblock"><code>cd /usr/local/src/nimvor &amp;&amp; sudo ./installer/update.sh</code></pre>
-            <p>Running the one-line installer again does the same. If an installation was interrupted, run the same command again with <code>--resume</code>. When NimVor is installed or upgraded, the installer sends one anonymous report that feeds the <a href="/resources/stats">statistics</a>.</p>
+            <p>Running the one-line installer again does the same. If an installation was interrupted, run the same command again with <code>--resume</code>. The installer sends nothing; telemetry is optional and off unless you turn it on (see the <a href="/resources/stats">statistics</a> page for what it would contain).</p>
             </div>
         </div>
     </div>
