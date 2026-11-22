@@ -91,6 +91,55 @@ final class WebsiteHealthTest extends HttpTestCase
         self::assertStringContainsString('counted as online', $html);
     }
 
+    public function testAWebsiteCanBeLeftOutOfTheChecksAndTheNumbers(): void
+    {
+        $all = [
+            ['domain' => 'fast.test', 'status' => 200, 'ms' => 40, 'scheme' => 'http'],
+            ['domain' => 'slow.test', 'status' => 200, 'ms' => 90, 'scheme' => 'http'],
+            ['domain' => 'broken.test', 'status' => 502, 'ms' => 120, 'scheme' => 'http'],
+            ['domain' => 'gone.test', 'status' => 0, 'ms' => 0, 'error' => 'timeout', 'scheme' => 'http'],
+            ['domain' => 'locked.test', 'status' => 200, 'ms' => 60, 'scheme' => 'http'],
+        ];
+        $this->probe($all);
+        $this->monitor()->check();
+        self::assertSame(2, count((array) $this->monitor()->summary()['problems']));
+
+        $this->login('admin');
+        $db = $this->app->container->get(\NimVor\Database\Connection::class);
+        // The next check is a later one (two within the same second would both be "the latest").
+        $db->run('UPDATE website_checks SET checked_at = checked_at - 600');
+        $token = ['_token' => $this->app->container->get(\NimVor\Security\Csrf::class)->token()];
+        foreach (['broken.test', 'gone.test'] as $d) {
+            $id = (int) $db->scalar('SELECT id FROM websites WHERE domain = ?', [$d]);
+            $this->request('POST', '/sites/' . $id . '/monitoring', $token + ['enabled' => '0']);
+        }
+        $this->probe(array_slice($all, 0, 2) + [4 => $all[4]]);
+        $this->monitor()->check();
+        $sent = array_column($this->lastCall('sites.probe')['sites'], 'domain');
+        sort($sent);
+        self::assertSame(['fast.test', 'locked.test', 'slow.test'], $sent, 'left-out websites are not asked');
+
+        $s = (array) $this->monitor()->summary();
+        self::assertSame([], $s['problems'], 'their old failures no longer show');
+        self::assertSame(3, $s['checked']);
+        self::assertSame(2, $s['unmonitored']);
+        self::assertSame(3, $s['enabled']);
+        self::assertSame(100.0, (float) $s['uptime_24h'], 'and no longer count against the uptime');
+        $html = $this->widget()['html'];
+        self::assertStringContainsString('2 websites are left out of the checks', $html);
+        self::assertStringNotContainsString('Failing now', $html);
+    }
+
+    public function testOnlyThoseWhoManageWebsitesCanChangeIt(): void
+    {
+        $this->seedUser('plain', 'customer');
+        $this->login('plain');
+        $token = ['_token' => $this->app->container->get(\NimVor\Security\Csrf::class)->token()];
+        $res = $this->request('POST', '/sites/1/monitoring', $token + ['enabled' => '0']);
+        self::assertContains($res->status(), [302, 303, 403, 404]);
+        self::assertSame(0, (int) $this->app->container->get(\NimVor\Database\Connection::class)->scalar('SELECT monitor_disabled FROM websites WHERE id = 1'));
+    }
+
     public function testNothingIsRecordedWhenTheAgentCannotCheck(): void
     {
         $this->probe([['domain' => 'fast.test', 'status' => 0, 'error' => 'unsupported', 'scheme' => 'http']], false);
