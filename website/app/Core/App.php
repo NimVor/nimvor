@@ -37,6 +37,7 @@ use NimVorSite\Services\Problems;
 use NimVorSite\Services\Releases;
 use NimVorSite\Services\RateLimiter;
 use NimVorSite\Services\Reports;
+use NimVorSite\Services\Patreon;
 use NimVorSite\Services\SponsorSync;
 use NimVorSite\Services\Stats;
 use NimVorSite\Services\TicketService;
@@ -63,6 +64,7 @@ final class App
     public readonly Problems $problems;
     public readonly Releases $releases;
     public readonly SponsorSync $sponsorSync;
+    public readonly Patreon $patreon;
     public readonly Stats $stats;
     public readonly Captcha $captcha;
     /** Work to do after the answer has been sent (a documentation refresh). */
@@ -98,7 +100,9 @@ final class App
         $this->docsService = new DocsService($this->docs, $this->state, $this->github, $ghConfig['branch']);
         $this->problems = new Problems($this->github, $cache);
         $this->releases = new Releases($this->github, $cache);
-        $this->sponsorSync = new SponsorSync($this->github, $this->sponsors, $cache, (string) ($gh['sponsorable'] ?? 'NimVor'));
+        $pt = (array) ($config['patreon'] ?? []);
+        $this->patreon = new Patreon($http ?? new CurlHttp(), ['access_token' => (string) ($pt['access_token'] ?? ''), 'campaign_id' => (string) ($pt['campaign_id'] ?? '')]);
+        $this->sponsorSync = new SponsorSync($this->github, $this->sponsors, $cache, (string) ($gh['sponsorable'] ?? 'NimVor'), $this->patreon);
         $this->stats = new Stats($this->installs, $cache);
         $this->captcha = new Captcha($this->state, $cache, $http ?? new CurlHttp(), (array) ($config['captcha'] ?? []));
         $this->router = new Router();
@@ -128,6 +132,17 @@ final class App
             }
         }
         $this->afterResponse = [];
+    }
+
+    /**
+     * Which sponsors the public page shows (all on by default) and the Patreon page address, kept in the site's state.
+     *
+     * @return array{github: bool, patreon: bool, manual: bool, patreon_url: string}
+     */
+    public function sponsorDisplay(): array
+    {
+        $on = fn (string $k): bool => ($this->state->get('sponsors:show_' . $k) ?? '1') === '1';
+        return ['github' => $on('github'), 'patreon' => $on('patreon'), 'manual' => $on('manual'), 'patreon_url' => (string) ($this->state->get('sponsors:patreon_url') ?? '')];
     }
 
     public function root(): string
@@ -227,6 +242,10 @@ final class App
         $r->add('GET', '/admin/sponsors', [$m, 'sponsors'], 'admin');
         $r->add('POST', '/admin/sponsors', [$m, 'sponsorAdd'], 'admin');
         $r->add('POST', '/admin/sponsors/sync', [$m, 'sponsorSync'], 'admin');
+        $r->add('POST', '/admin/sponsors/sync-patreon', [$m, 'sponsorSyncPatreon'], 'admin');
+        $r->add('POST', '/admin/sponsors/display', [$m, 'sponsorDisplay'], 'admin');
+        $r->add('POST', '/admin/sponsors/{id}/update', [$m, 'sponsorUpdate'], 'admin');
+        $r->add('POST', '/admin/sponsors/{id}/visibility', [$m, 'sponsorVisibility'], 'admin');
         $r->add('GET', '/admin/videos', [$m, 'videos'], 'admin');
         $r->add('POST', '/admin/videos', [$m, 'videoAdd'], 'admin');
         $r->add('GET', '/admin/videos/{id}/edit', [$m, 'videoEditForm'], 'admin');
