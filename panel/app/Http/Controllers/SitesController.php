@@ -473,6 +473,20 @@ final class SitesController extends Controller
         return $this->redirectWithSuccess('/sites/' . (int) $id . '/advanced#files', $on ? 'Directory listing is on: folders without an index page list their files.' : 'Directory listing is off.');
     }
 
+    /** Includes the website in, or leaves it out of, the dashboard's uptime checks and alerts. */
+    public function monitoring(Request $request, string $id): Response
+    {
+        $site = $this->site($request, $id);
+        if ($site === null) {
+            return $this->notFound();
+        }
+        $on = $request->input('enabled') === '1';
+        $this->service->setMonitoring($site, $on);
+        return $this->redirectWithSuccess('/sites/' . (int) $id . '/advanced#monitoring', $on
+            ? 'Uptime checks are on for this website.'
+            : 'This website is no longer checked and raises no uptime alerts. Its open alerts close at the next monitoring pass.');
+    }
+
     /** Checks the website's file permissions (JSON, nothing changed). */
     public function checkPermissions(Request $request, string $id): Response
     {

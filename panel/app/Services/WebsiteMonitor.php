@@ -56,7 +56,7 @@ final class WebsiteMonitor
         if (!$force && $last > time() - self::MIN_INTERVAL) {
             return null;
         }
-        $rows = $this->db->fetchAll('SELECT id, domain, https, ipv4 FROM websites WHERE server_id = ? AND enabled = 1 ORDER BY domain', [$sid]);
+        $rows = $this->db->fetchAll('SELECT id, domain, https, ipv4 FROM websites WHERE server_id = ? AND enabled = 1 AND monitor_disabled = 0 ORDER BY domain', [$sid]);
         if ($rows === []) {
             return null;
         }
@@ -111,11 +111,14 @@ final class WebsiteMonitor
     {
         $sid = $this->server->id();
         $enabled = (int) $this->db->scalar('SELECT COUNT(*) FROM websites WHERE server_id = ?', [$sid]);
-        $active = (int) $this->db->scalar('SELECT COUNT(*) FROM websites WHERE server_id = ? AND enabled = 1', [$sid]);
+        $active = (int) $this->db->scalar('SELECT COUNT(*) FROM websites WHERE server_id = ? AND enabled = 1 AND monitor_disabled = 0', [$sid]);
+        $unmonitored = (int) $this->db->scalar('SELECT COUNT(*) FROM websites WHERE server_id = ? AND enabled = 1 AND monitor_disabled = 1', [$sid]);
+        // Only websites that are enabled and monitored count, in every figure below.
+        $counted = 'website_id IN (SELECT id FROM websites WHERE server_id = :s AND enabled = 1 AND monitor_disabled = 0)';
         // Latest check per website that still exists.
         $latest = $this->db->fetchAll(
             'SELECT c.* FROM website_checks c
-             JOIN websites w ON w.id = c.website_id AND w.enabled = 1
+             JOIN websites w ON w.id = c.website_id AND w.enabled = 1 AND w.monitor_disabled = 0
              WHERE c.server_id = :s AND c.checked_at = (SELECT MAX(checked_at) FROM website_checks WHERE server_id = :s AND website_id = c.website_id)
              ORDER BY c.domain',
             ['s' => $sid]
@@ -139,13 +142,14 @@ final class WebsiteMonitor
         usort($fast, static fn (array $a, array $b): int => $b['ms'] <=> $a['ms']);
         $avg = $fast === [] ? null : (int) round(array_sum(array_column($fast, 'ms')) / count($fast));
         $since = time() - 86400;
-        $day = $this->db->fetch('SELECT COUNT(*) AS n, SUM(CASE WHEN status > 0 AND status < 500 THEN 1 ELSE 0 END) AS ok FROM website_checks WHERE server_id = ? AND checked_at >= ?', [$sid, $since]);
+        $day = $this->db->fetch("SELECT COUNT(*) AS n, SUM(CASE WHEN status > 0 AND status < 500 THEN 1 ELSE 0 END) AS ok FROM website_checks WHERE {$counted} AND checked_at >= :t", ['s' => $sid, 't' => $since]);
         $uptime = $day !== null && (int) $day['n'] > 0 ? round(100 * (int) $day['ok'] / (int) $day['n'], 2) : null;
-        $lastDown = $this->db->scalar('SELECT MAX(checked_at) FROM website_checks WHERE server_id = ? AND (status = 0 OR status >= 500)', [$sid]);
-        $lastOk = $this->db->scalar('SELECT MAX(checked_at) FROM website_checks WHERE server_id = ? AND status > 0 AND status < 500', [$sid]);
+        $lastDown = $this->db->scalar("SELECT MAX(checked_at) FROM website_checks WHERE {$counted} AND (status = 0 OR status >= 500)", ['s' => $sid]);
+        $lastOk = $this->db->scalar("SELECT MAX(checked_at) FROM website_checks WHERE {$counted} AND status > 0 AND status < 500", ['s' => $sid]);
         return [
             'total' => $enabled,
             'enabled' => $active,
+            'unmonitored' => $unmonitored,
             'checked' => count($latest),
             'counts' => $counts,
             'slowest' => array_slice($fast, 0, 5),
