@@ -715,6 +715,8 @@ run install -m 0755 -o root -g root "$AGENT_SRC" "$BIN"
 if [[ $AGENT_ONLY -eq 0 ]]; then
     # The short command: "sudo nimvor user:password admin".
     run install -m 0755 -o root -g root "$SRC_DIR/installer/config/nimvor-cli" /usr/local/bin/nimvor
+    # Where the source lives, so "sudo nimvor update" finds it wherever it was cloned.
+    if [[ $DRY_RUN -eq 0 ]]; then printf '%s\n' "$SRC_DIR" | install -m 0644 -o root -g root /dev/stdin "$CONF_DIR/source"; else printf '    [dry-run] record the source folder in %s/source\n' "$CONF_DIR"; fi
 fi
 if [[ $AGENT_ONLY -eq 0 ]]; then
     run rm -rf "$PREFIX/panel.new"
