@@ -13,7 +13,7 @@ $v->set('description', 'What the NimVor website stores about you, why, and for h
             <ul>
                 <li><strong>Visitors.</strong> We count page visits per day and per page. We do not store your address, a cookie or any other identifier for this, and we use no analytics service.</li>
                 <li><strong>Accounts.</strong> If you register: your name, email address, a hash of your password (we never store the password), the time you registered and last signed in.</li>
-                <li><strong>Messages and requests.</strong> What you type into the contact and build-service forms, with your name and email, so we can reply.</li>
+                <li><strong>Tickets and requests.</strong> What you type into the contact form, a ticket or the build-service form, with your name and email, and our answers, so we can reply. A ticket without an account is reached only through a private link that is shown to you after you send it (and emailed when the site can send email).</li>
                 <li><strong>Installation reports.</strong> When NimVor is installed or upgraded, the installer sends one report: a random identifier it made up, the NimVor version, the operating system's name and version (such as <code>ubuntu 24.04</code>) and the processor type. It contains no host name, address, user name, website or setting, and we do not keep the sender's address (it is counted for an hour only, to limit abuse). It feeds the public <a href="/resources/stats">statistics</a> and is part of installing and upgrading NimVor.</li>
                 <li><strong>Server logs.</strong> The web server keeps ordinary access and error logs (including addresses) for security and fixing faults.</li>
             </ul>
@@ -26,10 +26,10 @@ $v->set('description', 'What the NimVor website stores about you, why, and for h
             <h2>Who sees it</h2>
             <p>The people who run the NimVor project, and the hosting provider that runs this site. We share it with others only if the law requires.</p>
             <h2>How long we keep it</h2>
-            <p>Account details until you ask us to delete the account. Messages and requests until they are no longer needed to help you. Visit counts and installation reports, which are not personal, indefinitely.</p>
+            <p>Account details until you ask us to delete the account. Tickets and requests until they are no longer needed to help you. Visit counts and installation reports, which are not personal, indefinitely.</p>
             <h2>Your choices</h2>
             <p>You can ask to see, correct or delete what we hold about you through the <a href="/support/contact">contact form</a>, or change your name and password under your account.</p>
-            <p class="muted">The documentation, the problems list and the sponsors shown on this site are fetched by the site's server from GitHub; your browser does not contact GitHub for them.</p>
+            <p class="muted">The documentation, the problems list and the sponsors shown on this site are fetched by the site's server from GitHub and, for patrons, from Patreon; your browser contacts neither for them. For a Patreon patron the site keeps only the name, the public Patreon profile link and the monthly amount that Patreon shows for the campaign, never an email address or payment detail.</p>
             <p class="muted">Last updated: 29 October 2026.</p>
         </article>
     </div>

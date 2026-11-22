@@ -10,6 +10,10 @@ It is separate from the control panel (`panel/`) and shares no code with it.
 **Stack:** PHP 8.3, MySQL or MariaDB, and Redis or Memcached (or a file cache on a
 server with neither). No framework, no build step, no external fonts or scripts.
 
+## Tickets
+
+The contact form, and **Account → Tickets**, open tickets. Each has a number (`NV-XXXXXXXX`), a category, a priority, a status (open, answered, on hold, resolved, closed) and a thread of messages. Administrators work them under **Admin → Tickets**: filters and search, bulk actions, owner, internal notes that customers never see, canned replies, and first-response statistics. A visitor without an account follows a ticket through a private link (`/support/tickets/NV-…/token`) shown after sending; a closed ticket can be reopened by answering within 30 days; resolved tickets close themselves after 7 days without an answer (`php bin/site tickets:maintain`, run daily from cron, optionally `--purge-days=730`). Set `MAIL_FROM` (and `MAIL_NOTIFY`, a comma-separated list of team addresses) so answers and new tickets are also emailed with PHP's `mail()`; without it everything works in the browser only. Attachments are not supported.
+
 ## What is in it
 
 | Area | What it does |
@@ -106,7 +110,7 @@ These pages read from GitHub on the server (visitors' browsers never contact Git
 
 - **Documentation** (`/docs`): the repository's `docs/**/*.md` plus `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md` and `CHANGELOG.md` are fetched and shown in the site's design, with a sidebar, an "On this page" list, search and links rewritten to stay on the site. Which files are published, and how they are grouped, is `app/Services/DocsCatalog.php`. The first visit fetches them; after that they are refreshed after the answer is sent when they are older than six hours (`DOCS_AUTO_SYNC=0` turns that off), or at once with **Admin → Docs and stats → Sync documentation now**. If GitHub cannot be reached the stored pages keep being served.
 - **Problems** (`/resources/problems`): the repository's issues (not pull requests), read at most every ten minutes. Closed = resolved; open with an assignee or a label such as "in progress"/"confirmed" = in progress; other open = reported. If GitHub fails, the last good list is shown marked as old. Reporting happens on GitHub.
-- **Sponsors** (`/resources/sponsors`): sponsors you add under Admin → Sponsors, plus the public ones from GitHub Sponsors copied in by **Sync from GitHub now**. GitHub only shows sponsors to a signed-in maintainer, so this needs `GITHUB_TOKEN` (a token that can read the organisation's sponsors; `GITHUB_SPONSORABLE` names the organisation or user, default `NimVor`). Tiers follow the monthly amount (silver from $25, gold from $100). The token is only ever sent to `api.github.com`.
+- **Sponsors** (`/resources/sponsors`): sponsors you add under Admin → Sponsors (edit, hide or remove them there), the public ones from GitHub Sponsors copied in by **Sync from GitHub now**, and the active patrons from Patreon copied in by **Sync from Patreon now**. Admin → Sponsors also has switches for which of the three sources the public page shows, and the Patreon page address for the "Support on Patreon" button. Patreon needs `PATREON_ACCESS_TOKEN` (the creator's access token from the Patreon creator portal, scopes `campaigns` and `campaigns.members`; `PATREON_CAMPAIGN_ID` is optional and found by itself when empty); only the name, the public Patreon profile link and the monthly pledge are read, no email address, and the token is only ever sent to `www.patreon.com`. A site upgraded without a terminal imports `database/sql/0005_patreon_sponsors.sql`. GitHub only shows sponsors to a signed-in maintainer, so this needs `GITHUB_TOKEN` (a token that can read the organisation's sponsors; `GITHUB_SPONSORABLE` names the organisation or user, default `NimVor`). Tiers follow the monthly amount (silver from $25, gold from $100). The token is only ever sent to `api.github.com`.
 - **Install page** (`/get-started`): the one-line installer, an **install command builder** (profile, PHP versions, host name, administrator, ports, options; also read-only and agent-only) and every option, with where things are installed. The builder is `public/assets/js/install-builder.js` (no inline script: the Content-Security-Policy only allows files). The command is pasted into a root shell, so nothing the visitor types is copied into it unless it matches the pattern the installer itself accepts; `tests/js/install-builder.test.js` checks that (run `node --test 'tests/js/*.test.js'`), and `PagesTest` checks the options and folders on the page against the installer scripts. Without JavaScript the page shows the full recommended command.
 - **Statistics** (`/resources/stats`): counts from the anonymous reports installers send to `POST /api/v1/installs` (a random id, the version, the system's name and version, the processor type; no address is stored, and sending is rate limited per address). The counts are indicative: anyone can send a report.
 
@@ -115,6 +119,8 @@ These pages read from GitHub on the server (visitors' browsers never contact Git
 | `GITHUB_REPO` / `GITHUB_BRANCH` | `NimVor/nimvor` / `main` | Where the documentation and issues come from |
 | `GITHUB_TOKEN` | none | Needed for sponsors; also lifts GitHub's anonymous rate limit |
 | `GITHUB_SPONSORABLE` | `NimVor` | The organisation or user whose sponsors are shown |
+| `PATREON_ACCESS_TOKEN` | none | Needed to list Patreon patrons (creator access token) |
+| `PATREON_CAMPAIGN_ID` | found by itself | The Patreon campaign's number |
 | `DOCS_AUTO_SYNC` | `1` | Refresh the documentation when a visitor finds it older than six hours |
 
 ## Deploy without a terminal
@@ -140,7 +146,7 @@ If the site is configured with environment variables or `SITE_CONFIG` instead, t
 4. Run `php bin/site migrate`, then `php bin/site seed`, then create the first administrator with `php bin/site user:create`.
 5. Check `https://your-site/health` (`ok`, or `503` if the database or cache is down).
 
-Updating: pull the new code and run `php bin/site migrate`. **Without a terminal**, upload the new files, then import the SQL file for each migration the site has not had yet (in order) with phpMyAdmin or your host's database tool: `database/sql/0002_docs_problems_stats.sql` upgrades a site set up before the documentation, sponsors and statistics pages. Each file runs once, records itself in the `migrations` table, and says so at its top; `tests/Unit/MigrationSqlTest.php` keeps it identical to the PHP migration. To load the documentation without waiting for a first visit: `php bin/site docs:sync`; to copy the sponsors: `php bin/site sponsors:sync`.
+Updating: pull the new code and run `php bin/site migrate`. **Without a terminal**, upload the new files, then import the SQL file for each migration the site has not had yet (in order) with phpMyAdmin or your host's database tool: `database/sql/0002_docs_problems_stats.sql` upgrades a site set up before the documentation, sponsors and statistics pages. Each file runs once, records itself in the `migrations` table, and says so at its top; `tests/Unit/MigrationSqlTest.php` keeps it identical to the PHP migration. `database/sql/0006_tickets.sql` adds the ticket system and moves the old contact messages into it. To load the documentation without waiting for a first visit: `php bin/site docs:sync`; to copy the sponsors: `php bin/site sponsors:sync`.
 
 ## Tests
 

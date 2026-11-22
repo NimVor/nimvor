@@ -66,14 +66,11 @@ final class AdminTest extends SiteTestCase
         self::assertStringNotContainsString('Acme Hosting', $this->get('/resources/sponsors')->body, 'the cached list was refreshed');
     }
 
-    public function testStatusChangesForMessagesAndRequests(): void
+    public function testStatusChangesForRequests(): void
     {
-        $m = $this->app->messages->create(null, 'Visitor', 'v@example.test', 'Subject line', 'A message long enough');
         $r = $this->app->requests->create(null, 'Visitor', 'v@example.test', 'custom', 'Build me a plugin that does things');
-        $this->post("/admin/messages/{$m}/status", ['status' => 'closed']);
         $this->post("/admin/requests/{$r}/status", ['status' => 'quoted']);
         $this->post("/admin/requests/{$r}/status", ['status' => 'not-a-status']);
-        self::assertSame('closed', $this->row('SELECT status FROM contact_messages')['status']);
         self::assertSame('quoted', $this->row('SELECT status FROM build_requests')['status'], 'an unknown status is ignored');
     }
 
@@ -92,7 +89,7 @@ final class AdminTest extends SiteTestCase
     public function testTheReportsCountWhatIsThere(): void
     {
         $this->createUser('c1@example.test');
-        $this->app->messages->create(null, 'V', 'v@example.test', 'Subject line', 'A message long enough');
+        $this->app->ticketService->open(null, 'V', 'v@example.test', 'Subject line', 'A message long enough');
         $this->app->requests->create(null, 'V', 'v@example.test', 'review', 'Please review our server setup');
         $this->get('/features');
         $this->app->cache->delete('report:overview');
@@ -100,7 +97,7 @@ final class AdminTest extends SiteTestCase
         self::assertSame(2, $r['totals']['users']);
         self::assertSame(1, $r['totals']['clients']);
         self::assertSame(1, $r['totals']['admins']);
-        self::assertSame(1, $r['messages']['new']);
+        self::assertSame(1, $r['tickets']['open']);
         self::assertSame(1, $r['requests']['new']);
         self::assertSame(30, count($r['signups']));
         self::assertSame(2, end($r['signups']));
@@ -113,13 +110,13 @@ final class AdminTest extends SiteTestCase
     public function testCsvExportsAreProtectedAgainstSpreadsheetFormulas(): void
     {
         $this->createUser('=HYPERLINK("http://evil.test")@example.test', '=cmd|calc');
-        $this->app->messages->create(null, '+SUM(A1)', 'v@example.test', '@evil subject', 'A message long enough');
+        $this->app->ticketService->open(null, '+SUM(A1)', 'v@example.test', '@evil subject', 'A message long enough');
         $users = $this->get('/admin/reports/users.csv');
         self::assertSame('text/csv; charset=UTF-8', $users->headers['Content-Type']);
         self::assertStringContainsString('attachment; filename="nimvor-users-', $users->headers['Content-Disposition']);
         self::assertStringContainsString("'=cmd|calc", $users->body);
         self::assertStringNotContainsString(',=cmd|calc', $users->body);
-        self::assertStringContainsString("'+SUM(A1)", $this->get('/admin/reports/messages.csv')->body);
+        self::assertStringContainsString("'+SUM(A1)", $this->get('/admin/reports/tickets.csv')->body);
         self::assertSame(404, $this->get('/admin/reports/passwords.csv')->status);
     }
 }

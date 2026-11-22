@@ -13,7 +13,6 @@ use NimVorSite\Support\Validator;
 final class PageController extends Controller
 {
     private const INSTALL_SCRIPT = 'https://raw.githubusercontent.com/NimVor/nimvor/main/installer/bootstrap.sh';
-    private const INSTALL = 'curl -fsSL https://nimvor.com/install | sudo bash';
 
     /**
      * The one-line installer: `curl -fsSL https://nimvor.com/install | sudo bash`. The script itself lives in the
@@ -30,7 +29,7 @@ final class PageController extends Controller
 
     public function home(Ctx $ctx): Response
     {
-        return $ctx->render('pages/home', ['install' => self::INSTALL, 'posts' => array_slice($this->posts(), 0, 3), 'servers' => $this->app->stats->headline()]);
+        return $ctx->render('pages/home', ['posts' => array_slice($this->posts(), 0, 3), 'servers' => $this->app->stats->headline()]);
     }
 
     public function releases(Ctx $ctx): Response
@@ -48,7 +47,6 @@ final class PageController extends Controller
             'inline' => fn (string $md): string => $this->app->releases->inline($md),
             'brief' => fn (string $md): string => $this->app->releases->brief($md),
             'repo' => $this->app->github->repoUrl(),
-            'install' => self::INSTALL,
         ]);
     }
 
@@ -72,7 +70,6 @@ final class PageController extends Controller
             'older' => $list[$at + 1] ?? null,
             'inline' => fn (string $md): string => $this->app->releases->inline($md),
             'repo' => $this->app->github->repoUrl(),
-            'install' => self::INSTALL,
         ]);
     }
 
@@ -115,7 +112,7 @@ final class PageController extends Controller
 
     public function getStarted(Ctx $ctx): Response
     {
-        return $ctx->render('pages/get-started', ['install' => self::INSTALL]);
+        return $ctx->render('pages/get-started', []);
     }
 
     public function blog(Ctx $ctx): Response
@@ -216,10 +213,11 @@ final class PageController extends Controller
     {
         $list = $this->app->cache->get('sponsors:list');
         if (!is_array($list)) {
-            $list = $this->app->sponsors->all();
+            $d = $this->app->sponsorDisplay();
+            $list = $this->app->sponsors->shown(array_keys(array_filter(['github' => $d['github'], 'patreon' => $d['patreon'], 'manual' => $d['manual']])));
             $this->app->cache->set('sponsors:list', $list, 300);
         }
-        return $ctx->render('pages/sponsors', ['sponsors' => $list]);
+        return $ctx->render('pages/sponsors', ['sponsors' => $list, 'display' => $this->app->sponsorDisplay()]);
     }
 
     /** The funding link in the repository (nimvor.com/sponsor) lands on the Sponsors page. */
@@ -256,9 +254,17 @@ final class PageController extends Controller
         if ($v->fails()) {
             return $this->invalid($ctx, 'pages/contact', $v->errors());
         }
-        $this->app->messages->create($ctx->user() === null ? null : (int) $ctx->user()['id'], $v->value('name'), $v->value('email'), $v->value('subject'), $v->value('message'));
+        $category = in_array($v->value('category'), \NimVorSite\Repositories\Tickets::CATEGORIES, true) ? $v->value('category') : 'general';
+        $t = $this->app->ticketService->open($ctx->user() === null ? null : (int) $ctx->user()['id'], $v->value('name'), $v->value('email'), $v->value('subject'), $v->value('message'), $category);
         $this->app->cache->delete('report:overview');
-        return $this->thanks($ctx, '/support/contact');
+        $ctx->flash('success', 'Thank you. Your ticket number is ' . $t['ref'] . '. Keep this page\'s address: it is the private link to follow your ticket and answer us.');
+        return $ctx->redirect('/support/tickets/' . $t['ref'] . '/' . $t['token']);
+    }
+
+    /** The old Messages pages became Tickets. */
+    public function legacyMessages(Ctx $ctx): Response
+    {
+        return Response::redirect(str_starts_with($ctx->req->path, '/admin') ? '/admin/tickets' : '/account/tickets', 301);
     }
 
     public function privacy(Ctx $ctx): Response

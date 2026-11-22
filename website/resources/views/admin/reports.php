@@ -19,7 +19,7 @@ $status = static function (array $counts): string {
     <div class="cta-row flush">
         <a class="btn btn-outline btn-sm" href="/admin/reports/users.csv">Users CSV</a>
         <a class="btn btn-outline btn-sm" href="/admin/reports/requests.csv">Requests CSV</a>
-        <a class="btn btn-outline btn-sm" href="/admin/reports/messages.csv">Messages CSV</a>
+        <a class="btn btn-outline btn-sm" href="/admin/reports/tickets.csv">Tickets CSV</a>
     </div></div>
 <div class="tiles">
     <div class="tile"><small>Users</small><strong><?= (int) $report['totals']['users'] ?></strong></div>
@@ -33,7 +33,7 @@ $status = static function (array $counts): string {
 <div class="panel"><h2>Visits, last 14 days</h2><?= $v->barChart($report['visits'], 'visits') ?>
     <div class="bars-axis"><span><?= e(array_key_first($report['visits'])) ?></span><span><?= e(array_key_last($report['visits'])) ?></span></div></div>
 <div class="grid grid-2">
-    <div class="panel"><h2>Messages by status</h2><?= $status($report['messages']) ?></div>
+    <div class="panel"><h2>Tickets by status</h2><?= $status($report['tickets']) ?></div>
     <div class="panel"><h2>Build requests by status</h2><?= $status($report['requests']) ?></div>
 </div>
 <div class="panel"><h2>Most visited pages, last 14 days</h2>

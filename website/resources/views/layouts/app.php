@@ -14,6 +14,7 @@ $full = ($v->meta('title') !== '' ? $v->meta('title') . ' · ' : '') . 'NimVor';
     <link rel="apple-touch-icon" href="<?= e($v->asset('img/apple-touch-icon.png')) ?>">
     <link rel="stylesheet" href="<?= e($v->asset('css/site.css')) ?>">
     <script src="<?= e($v->asset('js/site.js')) ?>" defer></script>
+    <?php if ($v->meta('script') !== ''): ?><script src="<?= e($v->asset($v->meta('script'))) ?>" defer></script><?php endif; ?>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -25,7 +26,7 @@ $full = ($v->meta('title') !== '' ? $v->meta('title') . ' · ' : '') . 'NimVor';
             <a href="/admin"<?= $path === '/admin' ? ' aria-current="page"' : '' ?>><?= $v->icon('chart', 18) ?>Overview</a>
             <a href="/admin/reports"<?= $v->active('/admin/reports') ?>><?= $v->icon('file', 18) ?>Reports</a>
             <a href="/admin/users"<?= $v->active('/admin/users') ?>><?= $v->icon('users', 18) ?>Users</a>
-            <a href="/admin/messages"<?= $v->active('/admin/messages') ?>><?= $v->icon('mail', 18) ?>Messages</a>
+            <a href="/admin/tickets"<?= $v->active('/admin/tickets') ?>><?= $v->icon('mail', 18) ?>Tickets</a>
             <a href="/admin/requests"<?= $v->active('/admin/requests') ?>><?= $v->icon('tool', 18) ?>Build requests</a>
             <h5>Content</h5>
             <a href="/admin/posts"<?= $v->active('/admin/posts') ?>><?= $v->icon('pen', 18) ?>Blog</a>
@@ -38,7 +39,7 @@ $full = ($v->meta('title') !== '' ? $v->meta('title') . ' · ' : '') . 'NimVor';
             <h5>Your account</h5>
             <a href="/account"<?= $path === '/account' ? ' aria-current="page"' : '' ?>><?= $v->icon('chart', 18) ?>Dashboard</a>
             <a href="/account/requests"<?= $v->active('/account/requests') ?>><?= $v->icon('tool', 18) ?>Build requests</a>
-            <a href="/account/messages"<?= $v->active('/account/messages') ?>><?= $v->icon('mail', 18) ?>Messages</a>
+            <a href="/account/tickets"<?= $v->active('/account/tickets') ?>><?= $v->icon('mail', 18) ?>Tickets</a>
             <a href="/account/profile"<?= $v->active('/account/profile') ?>><?= $v->icon('lock', 18) ?>Profile and password</a>
             <?php if (($user['role'] ?? '') === 'admin'): ?>
                 <h5>Administration</h5>

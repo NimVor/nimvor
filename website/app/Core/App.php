@@ -7,6 +7,7 @@ namespace NimVorSite\Core;
 use NimVorSite\Cache\Cache;
 use NimVorSite\Cache\CacheFactory;
 use NimVorSite\Http\AccountController;
+use NimVorSite\Http\TicketController;
 use NimVorSite\Http\AdminController;
 use NimVorSite\Http\AuthController;
 use NimVorSite\Http\PageController;
@@ -15,7 +16,7 @@ use NimVorSite\Http\DocsController;
 use NimVorSite\Repositories\BuildRequests;
 use NimVorSite\Repositories\Docs;
 use NimVorSite\Repositories\Installs;
-use NimVorSite\Repositories\Messages;
+use NimVorSite\Repositories\Tickets;
 use NimVorSite\Repositories\Posts;
 use NimVorSite\Repositories\Sponsors;
 use NimVorSite\Services\BlogImporter;
@@ -29,18 +30,23 @@ use NimVorSite\Services\CurlHttp;
 use NimVorSite\Services\DocsService;
 use NimVorSite\Services\GitHub;
 use NimVorSite\Services\Http;
+use NimVorSite\Services\NullMailer;
+use NimVorSite\Services\PhpMailer;
 use NimVorSite\Services\Problems;
 use NimVorSite\Services\Releases;
 use NimVorSite\Services\RateLimiter;
 use NimVorSite\Services\Reports;
+use NimVorSite\Services\Patreon;
 use NimVorSite\Services\SponsorSync;
 use NimVorSite\Services\Stats;
+use NimVorSite\Services\TicketService;
 
 final class App
 {
     public readonly Users $users;
     public readonly Posts $posts;
-    public readonly Messages $messages;
+    public readonly Tickets $tickets;
+    public readonly TicketService $ticketService;
     public readonly BuildRequests $requests;
     public readonly Sponsors $sponsors;
     public readonly BlogImporter $blogImporter;
@@ -57,6 +63,7 @@ final class App
     public readonly Problems $problems;
     public readonly Releases $releases;
     public readonly SponsorSync $sponsorSync;
+    public readonly Patreon $patreon;
     public readonly Stats $stats;
     /** Work to do after the answer has been sent (a documentation refresh). */
     private array $afterResponse = [];
@@ -67,7 +74,12 @@ final class App
     {
         $this->users = new Users($db);
         $this->posts = new Posts($db);
-        $this->messages = new Messages($db);
+        $this->tickets = new Tickets($db);
+        $mail = (array) ($config['mail'] ?? []);
+        $from = (string) ($mail['from'] ?? '');
+        $mailer = $from === '' ? new NullMailer() : new PhpMailer($from, (string) ($mail['name'] ?? 'NimVor'));
+        $notify = array_values(array_filter(array_map('trim', explode(',', (string) ($mail['notify'] ?? ''))), static fn (string $a): bool => filter_var($a, FILTER_VALIDATE_EMAIL) !== false));
+        $this->ticketService = new TicketService($this->tickets, $mailer, (string) ($config['url'] ?? ''), $notify);
         $this->state = new State($db);
         $this->blogImporter = new BlogImporter($this->posts, $root . '/content/blog', ($config['blog_autoload'] ?? true) === false ? null : $this->state);
         $this->requests = new BuildRequests($db);
@@ -86,7 +98,9 @@ final class App
         $this->docsService = new DocsService($this->docs, $this->state, $this->github, $ghConfig['branch']);
         $this->problems = new Problems($this->github, $cache);
         $this->releases = new Releases($this->github, $cache);
-        $this->sponsorSync = new SponsorSync($this->github, $this->sponsors, $cache, (string) ($gh['sponsorable'] ?? 'NimVor'));
+        $pt = (array) ($config['patreon'] ?? []);
+        $this->patreon = new Patreon($http ?? new CurlHttp(), ['access_token' => (string) ($pt['access_token'] ?? ''), 'campaign_id' => (string) ($pt['campaign_id'] ?? '')]);
+        $this->sponsorSync = new SponsorSync($this->github, $this->sponsors, $cache, (string) ($gh['sponsorable'] ?? 'NimVor'), $this->patreon);
         $this->stats = new Stats($this->installs, $cache);
         $this->router = new Router();
         $this->routes();
@@ -117,6 +131,17 @@ final class App
         $this->afterResponse = [];
     }
 
+    /**
+     * Which sponsors the public page shows (all on by default) and the Patreon page address, kept in the site's state.
+     *
+     * @return array{github: bool, patreon: bool, manual: bool, patreon_url: string}
+     */
+    public function sponsorDisplay(): array
+    {
+        $on = fn (string $k): bool => ($this->state->get('sponsors:show_' . $k) ?? '1') === '1';
+        return ['github' => $on('github'), 'patreon' => $on('patreon'), 'manual' => $on('manual'), 'patreon_url' => (string) ($this->state->get('sponsors:patreon_url') ?? '')];
+    }
+
     public function root(): string
     {
         return $this->root;
@@ -129,6 +154,7 @@ final class App
         $a = new AuthController($this);
         $c = new AccountController($this);
         $m = new AdminController($this);
+        $t = new TicketController($this);
         $d = new DocsController($this);
         $api = new ApiController($this);
 
@@ -160,6 +186,9 @@ final class App
         $r->add('GET', '/support', [$p, 'support']);
         $r->add('GET', '/support/contact', [$p, 'contact']);
         $r->add('POST', '/support/contact', [$p, 'contactSubmit']);
+        $r->add('GET', '/support/tickets/{ref}/{token}', [$t, 'guestShow']);
+        $r->add('POST', '/support/tickets/{ref}/{token}/reply', [$t, 'guestReply']);
+        $r->add('POST', '/support/tickets/{ref}/{token}/close', [$t, 'guestClose']);
         $r->add('GET', '/support/privacy', [$p, 'privacy']);
         $r->add('GET', '/sponsor', [$p, 'sponsorRedirect']);
         $r->add('GET', '/robots.txt', [$p, 'robots']);
@@ -174,7 +203,13 @@ final class App
 
         $r->add('GET', '/account', [$c, 'dashboard'], 'user');
         $r->add('GET', '/account/requests', [$c, 'requests'], 'user');
-        $r->add('GET', '/account/messages', [$c, 'messages'], 'user');
+        $r->add('GET', '/account/messages', [$p, 'legacyMessages'], 'user');
+        $r->add('GET', '/account/tickets', [$t, 'accountList'], 'user');
+        $r->add('GET', '/account/tickets/new', [$t, 'accountNew'], 'user');
+        $r->add('POST', '/account/tickets/new', [$t, 'accountCreate'], 'user');
+        $r->add('GET', '/account/tickets/{ref}', [$t, 'accountShow'], 'user');
+        $r->add('POST', '/account/tickets/{ref}/reply', [$t, 'accountReply'], 'user');
+        $r->add('POST', '/account/tickets/{ref}/close', [$t, 'accountClose'], 'user');
         $r->add('GET', '/account/profile', [$c, 'profile'], 'user');
         $r->add('POST', '/account/profile', [$c, 'profileSave'], 'user');
 
@@ -183,8 +218,15 @@ final class App
         $r->add('GET', '/admin/reports/{type}.csv', [$m, 'csv'], 'admin');
         $r->add('GET', '/admin/users', [$m, 'users'], 'admin');
         $r->add('POST', '/admin/users/{id}/active', [$m, 'userActive'], 'admin');
-        $r->add('GET', '/admin/messages', [$m, 'messages'], 'admin');
-        $r->add('POST', '/admin/messages/{id}/status', [$m, 'messageStatus'], 'admin');
+        $r->add('GET', '/admin/messages', [$p, 'legacyMessages'], 'admin');
+        $r->add('GET', '/admin/tickets', [$t, 'adminList'], 'admin');
+        $r->add('POST', '/admin/tickets/bulk', [$t, 'adminBulk'], 'admin');
+        $r->add('GET', '/admin/tickets/canned', [$t, 'cannedList'], 'admin');
+        $r->add('POST', '/admin/tickets/canned', [$t, 'cannedAdd'], 'admin');
+        $r->add('POST', '/admin/tickets/canned/{id}/delete', [$t, 'cannedDelete'], 'admin');
+        $r->add('GET', '/admin/tickets/{id}', [$t, 'adminShow'], 'admin');
+        $r->add('POST', '/admin/tickets/{id}/reply', [$t, 'adminReply'], 'admin');
+        $r->add('POST', '/admin/tickets/{id}/update', [$t, 'adminUpdate'], 'admin');
         $r->add('GET', '/admin/requests', [$m, 'requests'], 'admin');
         $r->add('POST', '/admin/requests/{id}/status', [$m, 'requestStatus'], 'admin');
         $r->add('GET', '/admin/posts', [$m, 'posts'], 'admin');
@@ -197,6 +239,10 @@ final class App
         $r->add('GET', '/admin/sponsors', [$m, 'sponsors'], 'admin');
         $r->add('POST', '/admin/sponsors', [$m, 'sponsorAdd'], 'admin');
         $r->add('POST', '/admin/sponsors/sync', [$m, 'sponsorSync'], 'admin');
+        $r->add('POST', '/admin/sponsors/sync-patreon', [$m, 'sponsorSyncPatreon'], 'admin');
+        $r->add('POST', '/admin/sponsors/display', [$m, 'sponsorDisplay'], 'admin');
+        $r->add('POST', '/admin/sponsors/{id}/update', [$m, 'sponsorUpdate'], 'admin');
+        $r->add('POST', '/admin/sponsors/{id}/visibility', [$m, 'sponsorVisibility'], 'admin');
         $r->add('GET', '/admin/videos', [$m, 'videos'], 'admin');
         $r->add('POST', '/admin/videos', [$m, 'videoAdd'], 'admin');
         $r->add('GET', '/admin/videos/{id}/edit', [$m, 'videoEditForm'], 'admin');
