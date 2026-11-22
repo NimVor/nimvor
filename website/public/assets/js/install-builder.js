@@ -9,18 +9,12 @@
         user: /^[a-z][a-z0-9._-]{2,31}$/,
         email: /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/,
         host: /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/,
-        version: /^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(-[0-9A-Za-z.]{1,12})?$/,
-        commit: /^[0-9a-f]{7,40}$/,
         php: /^[5-9]\.[0-9]{1,2}$/,
         remote: /^([0-9.]+|\[[0-9a-fA-F:]+\]):[0-9]{1,5}$/,
         allow: /^[0-9a-fA-F:./,]+$/
     };
     var DEFAULT_PHP = ['8.3', '8.4'];
     var BASE = 'curl -fsSL https://nimvor.com/install | sudo bash -s --';
-
-    function port(value, min) {
-        return /^[0-9]{1,5}$/.test(value) && Number(value) >= min && Number(value) <= 65535;
-    }
 
     /**
      * @param {Object} s the form's state (all values are strings or booleans)
@@ -33,15 +27,9 @@
         var mode = s.mode === 'look' || s.mode === 'agent' ? s.mode : 'hosting';
         var text = function (key) { return typeof s[key] === 'string' ? s[key].trim() : ''; };
 
-        // The one-line script's own options come first.
-        if (text('version') !== '') {
-            if (RE.version.test(text('version'))) { opts.push('--version ' + text('version')); } else { errors.push('The release must look like 1.1.0.'); }
-        }
-        if (text('commit') !== '') {
-            if (RE.commit.test(text('commit'))) { opts.push('--commit ' + text('commit')); } else { errors.push('The commit must be 7 to 40 characters from 0-9 and a-f.'); }
-        }
-
-        if (s.yes) { opts.push('--yes'); }
+        // Always: no questions, and an interrupted install is finished instead of refused. Not choices.
+        opts.push('--yes');
+        opts.push('--resume');
 
         if (mode === 'hosting') {
             var profile = ['full', 'web', 'minimal', 'none'].indexOf(s.profile) >= 0 ? s.profile : 'full';
@@ -96,26 +84,9 @@
                     }
                 }
             }
-            if (text('port') !== '' && text('port') !== '8090') {
-                if (port(text('port'), 1024)) { opts.push('--port=' + text('port')); } else { errors.push('The panel port must be between 1024 and 65535.'); }
-            }
-            if (s.publicHttps) {
-                var hp = text('httpsPort') === '' ? '8443' : text('httpsPort');
-                if (!port(hp, 1024)) {
-                    errors.push('The HTTPS port must be between 1024 and 65535.');
-                } else if (hp === (text('port') === '' ? '8090' : text('port'))) {
-                    errors.push('The HTTPS port must differ from the panel’s own port.');
-                } else {
-                    opts.push(hp === '8443' ? '--public-https' : '--public-https=' + hp);
-                }
-            }
+            // The panel opens over HTTPS on this server (port 8443, self-signed certificate): always.
+            opts.push('--public-https');
         }
-
-        if (s.resume) { opts.push('--resume'); }
-        if (s.noThirdParty && mode === 'hosting') { opts.push('--no-third-party-repos'); }
-        if (s.noDeps) { opts.push('--no-install-deps'); }
-        if (s.forceUnsupported) { opts.push('--force-unsupported'); }
-        if (s.dryRun) { opts.push('--dry-run'); }
 
         var command = BASE + (opts.length ? ' \\\n  ' + opts.join(' \\\n  ') : '');
         return { command: command, errors: errors, notes: notes };
@@ -139,7 +110,6 @@
     var notesBox = document.getElementById('ib-notes');
 
     function val(name) { var el = form.elements[name]; return el ? el.value : ''; }
-    function checked(name) { var el = form.elements[name]; return !!(el && el.checked); }
 
     function state() {
         var php = [];
@@ -148,10 +118,7 @@
         form.querySelectorAll('input[name="mode"]').forEach(function (el) { if (el.checked) { mode = el.value; } });
         return {
             mode: mode, profile: val('profile'), hostname: val('hostname'), adminUser: val('adminUser'), adminEmail: val('adminEmail'),
-            php: php, port: val('port'), publicHttps: checked('publicHttps'), httpsPort: val('httpsPort'),
-            yes: checked('yes'), resume: checked('resume'), noThirdParty: checked('noThirdParty'), noDeps: checked('noDeps'),
-            forceUnsupported: checked('forceUnsupported'), dryRun: checked('dryRun'),
-            version: val('version'), commit: val('commit'), remote: val('remote'), allow: val('allow')
+            php: php, remote: val('remote'), allow: val('allow')
         };
     }
 
@@ -173,8 +140,6 @@
         form.querySelectorAll('[data-profile]').forEach(function (el) {
             el.hidden = s.mode !== 'hosting' || el.getAttribute('data-profile').split(' ').indexOf(s.profile) < 0;
         });
-        var httpsPort = form.elements.httpsPort;
-        if (httpsPort) { httpsPort.disabled = !s.publicHttps; }
         var r = buildCommand(s);
         out.textContent = r.command;
         list(errorsBox, r.errors);

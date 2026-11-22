@@ -1,6 +1,5 @@
 <?php
 /** @var \NimVorSite\Core\View $v */
-/** @var string $install */
 /** @var list<array<string, mixed>> $posts */
 /** @var ?int $servers */
 $v->layout('layouts/site');
@@ -16,7 +15,6 @@ $v->set('description', 'NimVor is a free, open-source hosting control panel for 
                 <a class="btn btn-primary btn-lg" href="/get-started">Install free <?= $v->icon('arrow', 18) ?></a>
                 <a class="link-arrow" href="/features">Explore features</a>
             </div>
-            <?= $v->partial('partials/install', ['command' => $install]) ?>
             <ul class="trust mt-3">
                 <li><?= $v->icon('check', 16) ?>Read-only until you say so</li>
                 <li><?= $v->icon('check', 16) ?>Ubuntu · AlmaLinux · Rocky</li>
