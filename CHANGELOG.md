@@ -17,6 +17,7 @@ All notable changes to NimVor are documented here. The format follows
 ### Changed
 
 - Dashboard: the Small width is now narrower than Medium at every page width (it was wider than Medium between 1000 and 1360 px).
+- Website: two new guides, "Read and arrange the dashboard" and "Set up alerts and thresholds", with screenshots of the panel.
 - Website: the short `curl … | sudo bash` command is no longer shown on the home page, the release pages or the install page's "short version" card; the install page's command builder is the one place that builds an install command. The builder no longer asks about ports, questions, resuming, HTTPS or the other installer options: `--yes`, `--resume` and `--public-https` are always in the command (the agent-only mode has no panel HTTPS), and the "More options" section is gone. Release pages point to `sudo nimvor update`.
 
 ## [1.9.0] — 2026-11-22
