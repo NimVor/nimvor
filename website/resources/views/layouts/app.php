@@ -24,6 +24,7 @@ $full = ($v->meta('title') !== '' ? $v->meta('title') . ' · ' : '') . 'NimVor';
             <h5>Administration</h5>
             <a href="/admin"<?= $path === '/admin' ? ' aria-current="page"' : '' ?>><?= $v->icon('chart', 18) ?>Overview</a>
             <a href="/admin/reports"<?= $v->active('/admin/reports') ?>><?= $v->icon('file', 18) ?>Reports</a>
+            <a href="/admin/telemetry"<?= $v->active('/admin/telemetry') ?>><?= $v->icon('server', 18) ?>Telemetry</a>
             <a href="/admin/users"<?= $v->active('/admin/users') ?>><?= $v->icon('users', 18) ?>Users</a>
             <a href="/admin/messages"<?= $v->active('/admin/messages') ?>><?= $v->icon('mail', 18) ?>Messages</a>
             <a href="/admin/requests"<?= $v->active('/admin/requests') ?>><?= $v->icon('tool', 18) ?>Build requests</a>

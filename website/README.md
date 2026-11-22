@@ -10,6 +10,10 @@ It is separate from the control panel (`panel/`) and shares no code with it.
 **Stack:** PHP 8.3, MySQL or MariaDB, and Redis or Memcached (or a file cache on a
 server with neither). No framework, no build step, no external fonts or scripts.
 
+## Telemetry
+
+`POST /api/v1/telemetry/{register,heartbeat,inventory,features,health,unregister}` receives the opt-in reports of NimVor installations, and **Admin → Telemetry** shows them (versions, systems, hardware, software and feature adoption, health, upgrade success; filters; CSV export; "N/A" when there is nothing). The contract, what is collected and what never is: `docs/telemetry/README.md`. Run `php bin/site telemetry:maintain` daily from cron to apply the retention periods. Sites without a terminal import `database/sql/0007_telemetry.sql`.
+
 ## What is in it
 
 | Area | What it does |
