@@ -8,6 +8,7 @@ $categories = [
     'general' => ['General', 'sliders', []],
     'server' => ['Server', 'hdd-rack', [['server', 'Host name, time zone, root password, restart'], ['services', 'Services'], ['ips', 'IP addresses and IPv6 ranges'], ['packages', 'Packages and updates'], ['ffmpeg', 'FFmpeg'], ['servers', 'All servers']]],
     'security' => ['Security', 'shield-check', [['security', 'Security overview'], ['security.firewall', 'Firewall'], ['security.ssh', 'SSH'], ['security.shell', 'Shell access'], ['security.malware', 'Malware scans'], ['security.policies', 'Security policies (verified IPs, two-factor, password age)'], ['security.password_strength', 'Password strength'], ['security.compilers', 'Compiler access'], ['security.smtp', 'SMTP restrictions']]],
+    'telemetry' => ['Telemetry', 'activity', [['settings.telemetry', 'Telemetry: opt in to anonymous usage reports, see exactly what would be sent, turn off or delete']]],
     'themes' => ['Customer panel themes', 'palette', [['settings.themes', 'Themes: which are offered, the default, light or dark, accent colours']]],
     'websites' => ['Websites and PHP', 'globe', [['websites', 'Websites'], ['php', 'PHP versions, extensions, php.ini and PHP-FPM']]],
     'email' => ['Email', 'envelope', [['mail', 'Email hosting'], ['mail.admin.server', 'Mail server (Postfix, Dovecot)'], ['mail.greylist', 'Greylisting'], ['mail.limits', 'Mail sending limits']]],

@@ -713,6 +713,8 @@ return static function (Router $r): void {
     $r->get('/settings', [SettingsController::class, 'index'], ['name' => 'settings', 'permission' => P::SETTINGS_VIEW]);
     $r->get('/settings/themes', [\NimVor\Http\Controllers\AppearanceController::class, 'admin'], ['name' => 'settings.themes', 'permission' => P::SETTINGS_VIEW]);
     $r->post('/settings/themes', [\NimVor\Http\Controllers\AppearanceController::class, 'saveAdmin'], ['name' => 'settings.themes.save', 'permission' => P::SETTINGS_MANAGE]);
+    $r->get('/settings/telemetry', [\NimVor\Http\Controllers\TelemetryController::class, 'show'], ['name' => 'settings.telemetry', 'permission' => P::SETTINGS_VIEW]);
+    $r->post('/settings/telemetry', [\NimVor\Http\Controllers\TelemetryController::class, 'save'], ['name' => 'settings.telemetry.save', 'permission' => P::SETTINGS_MANAGE]);
     $r->get('/settings/basic', [\NimVor\Http\Controllers\WebHostSettingsController::class, 'basic'], ['name' => 'settings.basic', 'permission' => P::SETTINGS_VIEW]);
     $r->post('/settings/basic', [\NimVor\Http\Controllers\WebHostSettingsController::class, 'saveBasic'], ['name' => 'settings.basic.save', 'permission' => P::SETTINGS_MANAGE]);
     $r->get('/settings/tweak', [\NimVor\Http\Controllers\WebHostSettingsController::class, 'tweak'], ['name' => 'settings.tweak', 'permission' => P::SETTINGS_VIEW]);

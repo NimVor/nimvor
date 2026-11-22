@@ -27,6 +27,13 @@ return [
         // Never enable on a reachable server: adds exception details to error pages.
         'debug' => false,
     ],
+    // Opt-in telemetry (docs/telemetry/README.md): nothing is sent until an administrator turns it on
+    // under Settings -> Telemetry. The two files are written by the installer, which only notes locally.
+    'telemetry' => [
+        'url' => 'https://nimvor.com/api/v1/telemetry',
+        'optin_file' => '/etc/nimvor/telemetry-optin',
+        'events_file' => '/etc/nimvor/release-events.jsonl',
+    ],
     'database' => [
         'path' => $storage . '/data/nimvor.sqlite',
     ],

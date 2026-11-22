@@ -339,6 +339,14 @@ switch ($command) {
         // One pass per server; each server's agent is reached through the
         // routing transport selected by the forced server context.
         $context = $c->get(\NimVor\Services\ServerContext::class);
+        // Opt-in telemetry: does nothing unless an administrator turned it on; never fails the pass.
+        try {
+            foreach ($c->get(\NimVor\Services\TelemetryService::class)->run() as $line) {
+                out($line);
+            }
+        } catch (\Throwable $e) {
+            out('telemetry: not run: ' . $e->getMessage());
+        }
         foreach ($c->get(\NimVor\Services\ServerService::class)->all() as $srv) {
             $context->force((int) $srv['id']);
             if ((int) $srv['id'] !== 1) {
