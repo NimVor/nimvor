@@ -33,6 +33,13 @@ $config = [
         'token' => $env('GITHUB_TOKEN', ''),
         'sponsorable' => $env('GITHUB_SPONSORABLE', 'NimVor'),
     ],
+    // The check in front of the public forms: builtin (default, nothing leaves the site), turnstile, hcaptcha or off.
+    // The two keys are only for turnstile / hcaptcha.
+    'captcha' => [
+        'provider' => $env('CAPTCHA_PROVIDER', 'builtin'),
+        'site_key' => $env('CAPTCHA_SITE_KEY', ''),
+        'secret_key' => $env('CAPTCHA_SECRET_KEY', ''),
+    ],
     // Email for tickets: set MAIL_FROM (an address on this host) and customers get a copy of the replies; MAIL_NOTIFY
     // (comma-separated) lists who hears about new tickets and customer replies. Without MAIL_FROM nothing is sent
     // and tickets are followed in the browser only.

@@ -24,6 +24,10 @@ abstract class SiteTestCase extends TestCase
     protected string $ip = '203.0.113.7';
     private static bool $schema = false;
 
+    /** The check in front of the forms is off in most tests; CaptchaTest turns it on. */
+    protected string $captchaProvider = 'off';
+    protected int $captchaMinAge = 0;
+
     protected function setUp(): void
     {
         $env = static fn (string $k, string $d): string => getenv($k) !== false && getenv($k) !== '' ? (string) getenv($k) : $d;
@@ -40,6 +44,7 @@ abstract class SiteTestCase extends TestCase
                 'file_dir' => sys_get_temp_dir() . '/nimvor-site-test-' . bin2hex(random_bytes(4)),
             ],
             'videos' => ['dir' => sys_get_temp_dir() . '/nimvor-videos-' . bin2hex(random_bytes(4)), 'max_mb' => 1, 'move' => static fn (string $from, string $to): bool => copy($from, $to)],
+            'captcha' => ['provider' => $this->captchaProvider, 'site_key' => 'site-key', 'secret_key' => 'secret-key', 'min_age' => $this->captchaMinAge],
             'session_ttl' => 600,
             'trusted_proxy' => '127.0.0.1',
         ];

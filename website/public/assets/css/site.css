@@ -686,3 +686,6 @@ a.row-cell:hover .arrow { transform: translateX(6px); }
 .filters .input { min-width: 220px; flex: 1 1 220px; }
 .bulk-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0; }
 .pager { display: flex; gap: 18px; margin: 14px 0; }
+
+/* ---- Check in front of public forms ---- */
+.captcha-input { max-width: 8rem; }
