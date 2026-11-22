@@ -110,13 +110,17 @@ Add `--enable-writes` to let NimVor manage the server. Missing dependencies
 (PHP extensions, Go, Composer, Nginx for `--public-https`) are installed from
 the distribution's repositories (`--no-install-deps` only lists them).
 
-Update a source checkout with one command, with no options and no prompts. It
-pulls the latest version, rebuilds and reinstalls, and keeps the
-configuration, database, write mode and the panel's ports:
+Update to the newest release with one short command, from any older version.
+It fetches the release, rebuilds and reinstalls, runs the database migrations
+and keeps the configuration, database, write mode and the panel's ports:
 
 ```bash
-sudo ./installer/update.sh
+sudo nimvor update            # newest release
+sudo nimvor update --check    # only say whether a newer release exists
 ```
+
+(`sudo ./installer/update.sh` in the source folder does the same for a checkout
+that follows a branch.)
 
 Release archives are upgraded with `sudo ./installer/upgrade.sh`, which rolls
 back automatically on failure. Details:
