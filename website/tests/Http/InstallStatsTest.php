@@ -89,16 +89,17 @@ final class InstallStatsTest extends SiteTestCase
         self::assertStringContainsString('almalinux 9', $page);
         self::assertStringContainsString('arm64', $page);
         self::assertStringContainsString('1.0.1', $page);
-        self::assertStringContainsString('part of installing NimVor', $page, 'the page says what the numbers are made from');
-        self::assertStringNotContainsString('no-telemetry', $page);
+        self::assertStringContainsString('off by default', $page, 'the page says telemetry is optional');
+        self::assertStringContainsString('Servers installed by older versions', $page, 'and what the older numbers are made from');
         self::assertStringContainsString('<svg class="chart"', $page);
     }
 
-    public function testThePrivacyPolicyDescribesTheReport(): void
+    public function testThePrivacyPolicyDescribesTheOptionalReports(): void
     {
         $b = $this->get('/support/privacy')->body;
-        self::assertStringContainsString('Installation reports', $b);
-        self::assertStringContainsString('part of installing and upgrading NimVor', $b);
-        self::assertStringContainsString('random identifier', $b);
+        self::assertStringContainsString('Telemetry reports (optional)', $b);
+        self::assertStringContainsString('turned telemetry on', $b);
+        self::assertStringContainsString('random installation identifier', $b);
+        self::assertStringContainsString('older versions sent one anonymous report', $b);
     }
 }
