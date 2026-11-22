@@ -69,12 +69,9 @@ final class App
     public readonly SponsorSync $sponsorSync;
     public readonly Patreon $patreon;
     public readonly Stats $stats;
-<<<<<<< HEAD
     public readonly Captcha $captcha;
-=======
     public readonly Telemetry $telemetry;
     public readonly TelemetryService $telemetryService;
->>>>>>> origin/main
     /** Work to do after the answer has been sent (a documentation refresh). */
     private array $afterResponse = [];
     private readonly Router $router;
@@ -112,12 +109,9 @@ final class App
         $this->patreon = new Patreon($http ?? new CurlHttp(), ['access_token' => (string) ($pt['access_token'] ?? ''), 'campaign_id' => (string) ($pt['campaign_id'] ?? '')]);
         $this->sponsorSync = new SponsorSync($this->github, $this->sponsors, $cache, (string) ($gh['sponsorable'] ?? 'NimVor'), $this->patreon);
         $this->stats = new Stats($this->installs, $cache);
-<<<<<<< HEAD
         $this->captcha = new Captcha($this->state, $cache, $http ?? new CurlHttp(), (array) ($config['captcha'] ?? []));
-=======
         $this->telemetry = new Telemetry($db);
         $this->telemetryService = new TelemetryService($this->telemetry, $this->limiter);
->>>>>>> origin/main
         $this->router = new Router();
         $this->routes();
     }

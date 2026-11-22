@@ -10,16 +10,13 @@ It is separate from the control panel (`panel/`) and shares no code with it.
 **Stack:** PHP 8.3, MySQL or MariaDB, and Redis or Memcached (or a file cache on a
 server with neither). No framework, no build step, no external fonts or scripts.
 
-<<<<<<< HEAD
 ## Forms are checked
 
 Sign in, register, contact and build-services ask a question before they are accepted (signed-in people are not asked). The default, `CAPTCHA_PROVIDER=builtin`, is a small question the site checks itself: nothing goes to a third party, no cookie is set, it works without JavaScript, each question is signed, expires, can be tried once and is refused if answered faster than a person could. It stops simple scripts; a site under real attack should use `CAPTCHA_PROVIDER=turnstile` (Cloudflare Turnstile) or `hcaptcha`, with `CAPTCHA_SITE_KEY` and `CAPTCHA_SECRET_KEY`; the Content-Security-Policy then also allows that provider and nothing else, and a form that cannot be checked is refused. `off` disables the check. A provider without both keys falls back to the built-in question. Hidden-field and per-address rate limits stay in place either way.
 
-=======
 ## Telemetry
 
 `POST /api/v1/telemetry/{register,heartbeat,inventory,features,health,unregister}` receives the opt-in reports of NimVor installations, and **Admin → Telemetry** shows them (versions, systems, hardware, software and feature adoption, health, upgrade success; filters; CSV export; "N/A" when there is nothing). The contract, what is collected and what never is: `docs/telemetry/README.md`. Run `php bin/site telemetry:maintain` daily from cron to apply the retention periods. Sites without a terminal import `database/sql/0007_telemetry.sql`.
->>>>>>> origin/main
 ## Tickets
 
 The contact form, and **Account → Tickets**, open tickets. Each has a number (`NV-XXXXXXXX`), a category, a priority, a status (open, answered, on hold, resolved, closed) and a thread of messages. Administrators work them under **Admin → Tickets**: filters and search, bulk actions, owner, internal notes that customers never see, canned replies, and first-response statistics. A visitor without an account follows a ticket through a private link (`/support/tickets/NV-…/token`) shown after sending; a closed ticket can be reopened by answering within 30 days; resolved tickets close themselves after 7 days without an answer (`php bin/site tickets:maintain`, run daily from cron, optionally `--purge-days=730`). Set `MAIL_FROM` (and `MAIL_NOTIFY`, a comma-separated list of team addresses) so answers and new tickets are also emailed with PHP's `mail()`; without it everything works in the browser only. Attachments are not supported.
