@@ -32,6 +32,7 @@ final class DashboardWidgetsService
         private readonly ?ServiceOverviewService $services = null,
         private readonly ?OperationsOverviewService $ops = null,
         private readonly ?CapacityService $capacity = null,
+        private readonly ?MonitoringService $monitoring = null,
     ) {
     }
 
@@ -58,6 +59,7 @@ final class DashboardWidgetsService
                 'top_processes' => $this->topProcesses(),
                 'website_health' => $this->websiteHealth(),
                 'security_overview' => ($this->security ?? throw new AgentException('Security status unavailable'))->security(),
+                'alert_center' => $this->alertCenter(),
                 'capacity_forecast' => ($this->capacity ?? throw new \InvalidArgumentException('Capacity unavailable'))->forecast(),
                 'traffic_overview' => ($this->capacity ?? throw new \InvalidArgumentException('Traffic unavailable'))->traffic(),
                 'backup_health' => ($this->ops ?? throw new AgentException('Backups unavailable'))->backups(),
@@ -100,6 +102,43 @@ final class DashboardWidgetsService
             }
         }
         return ['needs' => $needs, 'expiring' => $expiring, '_state' => $needs === null && $expiring === null ? 'unavailable' : 'ok'];
+    }
+
+    /**
+     * Open alerts by severity (acknowledged ones counted apart), the ones to
+     * look at first, and what was resolved in the last day.
+     *
+     * @return array<string, mixed>
+     */
+    public function alertCenter(): array
+    {
+        if ($this->monitoring === null) {
+            throw new \InvalidArgumentException('Alerts unavailable');
+        }
+        $open = $this->monitoring->openAlerts();
+        $counts = ['critical' => 0, 'warning' => 0, 'info' => 0];
+        $acked = 0;
+        foreach ($open as $a) {
+            if (!empty($a['acknowledged_at'])) {
+                $acked++;
+                continue;
+            }
+            $sev = isset($counts[(string) $a['severity']]) ? (string) $a['severity'] : 'info';
+            $counts[$sev]++;
+        }
+        $day = gmdate('c', time() - 86400);
+        $recent = array_values(array_filter($this->monitoring->recentAlerts(20), static fn (array $a): bool => (string) $a['resolved_at'] >= $day));
+        return [
+            'counts' => $counts,
+            'acknowledged' => $acked,
+            'open' => array_map(static fn (array $a): array => [
+                'id' => (int) $a['id'], 'severity' => (string) $a['severity'], 'message' => (string) $a['message'], 'first_seen' => (string) $a['first_seen'],
+                'acknowledged' => !empty($a['acknowledged_at']),
+            ], array_slice($open, 0, 10)),
+            'open_total' => count($open),
+            'resolved_24h' => count($recent),
+            'recent' => array_map(static fn (array $a): array => ['message' => (string) $a['message'], 'resolved_at' => (string) $a['resolved_at']], array_slice($recent, 0, 3)),
+        ];
     }
 
     /**

@@ -47,6 +47,7 @@ final class WidgetRegistry
     private function define(): array
     {
         $list = [
+            new Widget('alert_center', 'Alert center', 'bell', 'Overview', P::MONITORING_VIEW, 'lg', 30, 15, false, true, 'Open alerts by severity with acknowledge and resolve, and what was resolved in the last day.', 'monitoring', 'Monitoring'),
             new Widget('attention', 'Needs attention', 'heart-pulse', 'Overview', P::WEBSITES_VIEW, 'md', 0, 30, true, true, 'Websites with something to fix: mail records, certificates, backups.', 'sites.healthcheck', 'Site health'),
             new Widget('disk', 'Disk', 'hdd', 'System Health', P::SERVER_VIEW, 'md', 0, 60, true, true, 'Space on each filesystem and where it goes.', 'server.disk', 'Disk usage'),
             new Widget('backups', 'Backups', 'cloud-arrow-up', 'Backups', P::BACKUPS_VIEW, 'md', 0, 60, true, true, 'Completed, failed and running backups.', 'backups', 'Backups'),

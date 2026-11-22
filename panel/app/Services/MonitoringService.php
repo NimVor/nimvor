@@ -34,6 +34,7 @@ final class MonitoringService
         private readonly ?\NimVor\Mail\Mailer $mailer = null,
         private readonly ?\NimVor\Mail\MailConfig $mailConfig = null,
         private readonly ?NotificationService $notifications = null,
+        private readonly ?AlertRules $rules = null,
     ) {
     }
 
@@ -205,6 +206,21 @@ final class MonitoringService
             $what = $b['kind'] === 'server' ? 'server configuration' : (string) $b['domain'];
             $firing['backup:' . $what] = ['backup', $what, 'warning', "Backup of {$what} failed: " . mb_substr((string) $b['error'], 0, 150)];
         }
+        $unknown = [];
+        if ($this->rules !== null) {
+            $extra = $this->rules->evaluate($now);
+            foreach ($extra['firing'] as $a) {
+                $firing[] = $a;
+            }
+            $unknown = $extra['unknown'];
+        }
+        // A source that could not be read leaves its earlier alerts open.
+        if ($unknown !== []) {
+            $in = implode(',', array_fill(0, count($unknown), '?'));
+            foreach ($this->db->fetchAll("SELECT * FROM alerts WHERE server_id = ? AND resolved_at IS NULL AND rule IN ({$in})", array_merge([$this->server->id()], $unknown)) as $a) {
+                $firing[] = [(string) $a['rule'], (string) $a['subject'], (string) $a['severity'], (string) $a['message']];
+            }
+        }
         $log = $this->reconcile($firing, $now);
         $this->db->run('DELETE FROM metric_samples WHERE taken_at < ?', [$now - self::RETENTION_DAYS * 86400]);
         $this->db->run('DELETE FROM alerts WHERE resolved_at IS NOT NULL AND resolved_at < ?', [gmdate('c', $now - 90 * 86400)]);
@@ -236,10 +252,19 @@ final class MonitoringService
                 $this->db->run('UPDATE alerts SET last_seen = ?, message = ?, severity = ? WHERE id = ?', [$ts, $message, $severity, (int) $open[$key]['id']]);
                 continue;
             }
+            // Closed by hand a moment ago and firing still: the same alert again, still acknowledged, not a new one.
+            $again = $this->db->fetch(
+                'SELECT id FROM alerts WHERE server_id = ? AND rule = ? AND subject = ? AND resolved_by IS NOT NULL AND resolved_at >= ? ORDER BY id DESC LIMIT 1',
+                [$this->server->id(), $rule, $subject, gmdate('c', $now - 86400)]
+            );
+            if ($again !== null) {
+                $this->db->run('UPDATE alerts SET resolved_at = NULL, resolved_by = NULL, last_seen = ?, message = ?, severity = ?, acknowledged_at = COALESCE(acknowledged_at, ?) WHERE id = ?', [$ts, $message, $severity, $ts, (int) $again['id']]);
+                continue;
+            }
             $this->db->run('INSERT INTO alerts (server_id, rule, subject, severity, message, first_seen, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?)', [$this->server->id(), $rule, $subject, $severity, $message, $ts, $ts]);
-            $this->notifyAlert($this->db->lastInsertId(), $rule, $subject, $severity === 'critical' ? 'error' : 'warning', $message);
+            $this->notifyAlert($this->db->lastInsertId(), $rule, $subject, match ($severity) { 'critical' => 'error', 'info' => 'info', default => 'warning' }, $message);
             $log[] = 'Alert: ' . $message;
-            $this->notify(($severity === 'critical' ? '🔴 ' : '🟠 ') . $message);
+            $this->notify(match ($severity) { 'critical' => '🔴 ', 'info' => '🔵 ', default => '🟠 ' } . $message);
         }
         foreach ($open as $key => $a) {
             if (!isset($firing[$key])) {
@@ -263,10 +288,10 @@ final class MonitoringService
             return;
         }
         $opts = ['link' => '/monitoring'];
-        if (($rule === 'certificate' || $rule === 'backup') && $subject !== '') {
+        if (in_array($rule, ['certificate', 'backup', 'backup_stale', 'website', 'slow'], true) && $subject !== '') {
             $site = $this->db->fetch('SELECT id FROM websites WHERE server_id = ? AND domain = ? COLLATE NOCASE', [$this->server->id(), $subject]);
             if ($site !== null) {
-                $opts = ['website_id' => (int) $site['id'], 'link' => '/sites/' . (int) $site['id'] . ($rule === 'backup' ? '/backups' : '')];
+                $opts = ['website_id' => (int) $site['id'], 'link' => '/sites/' . (int) $site['id'] . (in_array($rule, ['backup', 'backup_stale'], true) ? '/backups' : '')];
             }
         } elseif (($rule === 'quota' || $rule === 'bandwidth') && $subject !== '') {
             $owner = $this->db->scalar('SELECT id FROM users WHERE username = ? COLLATE NOCASE', [$subject]);
@@ -318,7 +343,33 @@ final class MonitoringService
     /** @return list<array<string, mixed>> */
     public function openAlerts(): array
     {
-        return $this->db->fetchAll("SELECT * FROM alerts WHERE server_id = ? AND resolved_at IS NULL ORDER BY CASE severity WHEN 'critical' THEN 0 ELSE 1 END, first_seen", [$this->server->id()]);
+        return $this->db->fetchAll("SELECT * FROM alerts WHERE server_id = ? AND resolved_at IS NULL ORDER BY CASE severity WHEN 'critical' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END, first_seen", [$this->server->id()]);
+    }
+
+    /**
+     * Marks an open alert as seen. It stays open (and counted) until its
+     * condition is gone, but is shown as acknowledged.
+     */
+    public function acknowledge(int $id, int $userId): bool
+    {
+        $n = $this->db->run('UPDATE alerts SET acknowledged_at = ?, acknowledged_by = ? WHERE id = ? AND server_id = ? AND resolved_at IS NULL AND acknowledged_at IS NULL', [gmdate('c'), $userId, $id, $this->server->id()])->rowCount();
+        return $n > 0;
+    }
+
+    /**
+     * Closes an open alert by hand. If its condition is still there on the
+     * next pass within a day it is reopened (acknowledged), not announced again.
+     */
+    public function resolve(int $id, int $userId): bool
+    {
+        $n = $this->db->run('UPDATE alerts SET resolved_at = ?, resolved_by = ?, acknowledged_at = COALESCE(acknowledged_at, ?), acknowledged_by = COALESCE(acknowledged_by, ?) WHERE id = ? AND server_id = ? AND resolved_at IS NULL', [gmdate('c'), $userId, gmdate('c'), $userId, $id, $this->server->id()])->rowCount();
+        return $n > 0;
+    }
+
+    /** @return array<string, mixed>|null */
+    public function alert(int $id): ?array
+    {
+        return $this->db->fetch('SELECT * FROM alerts WHERE id = ? AND server_id = ?', [$id, $this->server->id()]);
     }
 
     /** @return list<array<string, mixed>> */

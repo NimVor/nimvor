@@ -36,6 +36,7 @@ final class DashboardController extends Controller
         private readonly ?\NimVor\Dashboard\DashboardLayout $layout = null,
         private readonly ?\NimVor\Services\WebsiteMonitor $monitor = null,
         private readonly ?\NimVor\Dashboard\WidgetCache $cache = null,
+        private readonly ?\NimVor\Services\AuditLogger $auditor = null,
     ) {
         parent::__construct($view, $session);
     }
@@ -166,6 +167,32 @@ final class DashboardController extends Controller
         }
         $this->cache?->forget('website_health');
         return $this->redirectWithSuccess('/', 'Checked ' . $n . ' website' . ($n === 1 ? '' : 's') . '.');
+    }
+
+    public function alertAck(Request $request, string $id): Response
+    {
+        return $this->alertAction($request, $id, 'ack');
+    }
+
+    public function alertResolve(Request $request, string $id): Response
+    {
+        return $this->alertAction($request, $id, 'resolve');
+    }
+
+    /** Acknowledges or closes an open alert. */
+    public function alertAction(Request $request, string $id, string $do): Response
+    {
+        $alert = $this->monitoring->alert((int) $id);
+        if ($alert === null || $alert['resolved_at'] !== null) {
+            return $this->redirectWithError('/', 'That alert is not open any more.');
+        }
+        $uid = $this->userId($request);
+        $done = $do === 'resolve' ? $this->monitoring->resolve((int) $id, $uid) : $this->monitoring->acknowledge((int) $id, $uid);
+        $this->cache?->forget('alert_center');
+        if ($done) {
+            $this->auditor?->record('alert.' . ($do === 'resolve' ? 'resolve' : 'acknowledge'), 'alert', (string) $alert['rule'] . ($alert['subject'] !== '' ? ':' . $alert['subject'] : ''), \NimVor\Services\AuditLogger::SUCCESS, ['message' => (string) $alert['message']], $uid);
+        }
+        return $this->redirectWithSuccess('/', $do === 'resolve' ? 'The alert is closed. If the problem is still there it comes back as an acknowledged alert.' : 'The alert is acknowledged.');
     }
 
     /** Back to the default dashboard. */

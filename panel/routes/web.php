@@ -75,6 +75,8 @@ return static function (Router $r): void {
     $r->get('/dashboard/widgets/{id}', [DashboardController::class, 'widget'], ['name' => 'dashboard.widget', 'permission' => P::DASHBOARD_VIEW]);
     $r->post('/dashboard/layout', [DashboardController::class, 'saveLayout'], ['name' => 'dashboard.layout', 'permission' => P::DASHBOARD_VIEW]);
     $r->post('/dashboard/websites/check', [DashboardController::class, 'checkWebsites'], ['name' => 'dashboard.websites.check', 'permission' => P::WEBSITES_VIEW]);
+    $r->post('/dashboard/alerts/{id}/ack', [DashboardController::class, 'alertAck'], ['name' => 'dashboard.alert.ack', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/dashboard/alerts/{id}/resolve', [DashboardController::class, 'alertResolve'], ['name' => 'dashboard.alert.resolve', 'permission' => P::SERVER_MANAGE]);
     $r->post('/dashboard/layout/reset', [DashboardController::class, 'resetLayout'], ['name' => 'dashboard.layout.reset', 'permission' => P::DASHBOARD_VIEW]);
 
     // Hosting inventory (read-only discovery)
