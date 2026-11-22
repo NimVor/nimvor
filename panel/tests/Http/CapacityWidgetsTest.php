@@ -55,7 +55,8 @@ final class CapacityWidgetsTest extends HttpTestCase
         $this->login('admin');
         $w = $this->widget('capacity_forecast');
         self::assertSame('ok', $w['state']);
-        self::assertStringContainsString('Growing by 14.0% a week', $w['html']);
+        // The line is fitted through whole-day buckets, so the rate depends a little on the time of day the test runs.
+        self::assertMatchesRegularExpression('/Growing by 1[34]\.\d% a week/', $w['html']);
         self::assertMatchesRegularExpression('/the fullest disk is full in about \d+ days/', $w['html']);
         self::assertStringContainsString('Not growing', $w['html'], 'memory is flat');
     }

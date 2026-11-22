@@ -44,7 +44,7 @@ the navigation. "Gap" is what a widget still needs.
 | WordPress | `wordpress_installs` (last scan) | **shipped** (step 5): out-of-date core, plugin/theme updates, open issues; vulnerabilities stay in the WordPress Toolkit |
 | Traffic | `metric_samples` (network in/out), `website_usage` (bandwidth per website, this month) | **shipped** (step 6); requests per second and visitors are not collected |
 | Capacity forecasting | `metric_samples` (CPU, memory, disk, load, network for 30 days) | **shipped** (step 6) as `CapacityService` |
-| Alerts | `alerts` table and `MonitoringService` rules (disk, memory, load, service, certificate, quota, bandwidth) | severity levels, acknowledgement, more sources, central thresholds |
+| Alerts | `alerts` table and `MonitoringService` rules (disk, memory, load, service, certificate, quota, bandwidth, backup failure) plus `AlertRules` (website down/slow, backup stale, security updates, mail queue, disk filling) | **shipped** (step 7): information severity, acknowledge and resolve, thresholds as settings |
 
 ## 3. Architecture
 
@@ -87,7 +87,12 @@ numbers are never shown to them.
 4. Database, PHP-FPM, Nginx, Redis and Memcached (**shipped**): `ServiceOverviewService` and three widgets (*Databases*, *Redis & Memcached*, *Nginx & PHP-FPM*). One new read-only agent action, `php.fpm_health`, reads the end of each PHP-FPM log of the versions websites use. A source that cannot answer is N/A.
 5. Backups, updates, DNS and mail, deployments and WordPress (**shipped**): `OperationsOverviewService` and five widgets. Backups, deployments and WordPress read the panel's own records (no agent call). Storage is already covered by the *Disk* widget (filesystems and where the space goes), so there is no separate one.
 6. Traffic intelligence and capacity forecasting (**shipped**): `CapacityService` and two widgets, no agent change. The forecast is a least-squares line through the daily values (the day's fullest disk, the day's average memory) of the last 30 days. It is shown only with at least 7 days of data (days with fewer than 12 samples do not count) and a fit of R² ≥ 0.6; a falling or flat series is "not growing", a scattered one "no clear trend", and with too little history it says how many days it has. A date beyond a year is reported as "not expected within a year". Disk is the fullest filesystem, since the monitor stores only that. Network transfer is estimated from the five-minute samples.
-7. Alert center: severities, acknowledgement, de-duplication, central thresholds.
+7. Alert center (**shipped**): the existing alert pipeline (one open alert per rule and subject, refreshed while the condition lasts, closed when it ends, notified once on opening and once on closing) gains:
+   * **Severity** `info` next to `critical` and `warning`, and **resolved** alerts in the last 24 hours.
+   * **Acknowledge** (still open, shown dimmed, not counted by severity) and **Resolve** (close by hand). A hand-closed alert whose condition is still there within a day is reopened as the same alert, acknowledged, with no new notification. Both need `server.manage` and are audited (`alert.acknowledge`, `alert.resolve`).
+   * **New rules** in `AlertRules`, fed by Dashboard 2.0's data: website down (N failed checks in a row), slow website, stale backup (only websites with an enabled schedule), security updates waiting, deferred mail, disk forecast. A rule whose source cannot be read (for example the agent for updates) keeps its earlier alert open rather than reporting it resolved.
+   * **Central thresholds** as settings in the monitoring category (disk, memory, load per core, website down checks, slow website ms, stale backup days, security updates, deferred mail, disk filling days); 0 turns a rule off.
+   * The **Alert center** widget lists open alerts, counts by severity and shows what was resolved in 24 hours.
 8. Drag and drop, free resizing and per-widget refresh settings.
 
 Not done in step 1, by design: drag and drop (rows move with arrow buttons for

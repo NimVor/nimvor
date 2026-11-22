@@ -61,6 +61,30 @@ final class SettingsService
                 'category' => 'monitoring', 'type' => 'int', 'default' => 2, 'min' => 1, 'max' => 20,
                 'label' => 'Load alert (per CPU core)', 'help' => 'Alert when the 1-minute load exceeds this many times the number of cores.',
             ],
+            'alert_site_down_checks' => [
+                'category' => 'monitoring', 'type' => 'int', 'default' => 2, 'min' => 1, 'max' => 10,
+                'label' => 'Website down alert (failed checks in a row)', 'help' => 'Alert when a website fails this many website health checks in a row (a check runs about every five minutes).',
+            ],
+            'alert_site_slow_ms' => [
+                'category' => 'monitoring', 'type' => 'int', 'default' => 0, 'min' => 0, 'max' => 60000,
+                'label' => 'Slow website alert (milliseconds)', 'help' => 'Alert when a website needs longer than this to answer in its last three checks. 0 turns it off.',
+            ],
+            'alert_backup_stale_days' => [
+                'category' => 'monitoring', 'type' => 'int', 'default' => 3, 'min' => 0, 'max' => 90,
+                'label' => 'Missing backup alert (days)', 'help' => 'Alert when a website with an enabled backup schedule has no completed backup for this many days. 0 turns it off.',
+            ],
+            'alert_security_updates' => [
+                'category' => 'monitoring', 'type' => 'int', 'default' => 1, 'min' => 0, 'max' => 1000,
+                'label' => 'Security updates alert (number waiting)', 'help' => 'Alert when at least this many security updates are waiting. 0 turns it off.',
+            ],
+            'alert_mail_deferred' => [
+                'category' => 'monitoring', 'type' => 'int', 'default' => 50, 'min' => 0, 'max' => 100000,
+                'label' => 'Mail queue alert (deferred messages)', 'help' => 'Alert when at least this many messages are deferred in the mail queue. 0 turns it off.',
+            ],
+            'alert_disk_forecast_days' => [
+                'category' => 'monitoring', 'type' => 'int', 'default' => 14, 'min' => 0, 'max' => 365,
+                'label' => 'Disk filling alert (days)', 'help' => 'Alert when the fullest disk is forecast to be full within this many days (needs about a week of measurements). 0 turns it off.',
+            ],
             'alert_webhook_url' => [
                 'category' => 'monitoring', 'type' => 'url', 'default' => '', 'max_length' => 500,
                 'label' => 'Alert webhook URL', 'help' => 'Optional https:// URL that receives alerts as JSON ({"text": …}); works with Slack, Mattermost, Discord (/slack) and ntfy.',
