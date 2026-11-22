@@ -14,6 +14,7 @@ All notable changes to NimVor are documented here. The format follows
 ### Changed
 
 - Dashboard: the Small width is now narrower than Medium at every page width (it was wider than Medium between 1000 and 1360 px).
+- Website: two new guides, "Read and arrange the dashboard" and "Set up alerts and thresholds", with screenshots of the panel.
 
 ## [1.9.0] — 2026-11-22
 
