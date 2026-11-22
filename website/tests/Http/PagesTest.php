@@ -152,10 +152,24 @@ final class PagesTest extends SiteTestCase
         foreach (['8.0', '8.1', '8.2', '8.3', '8.4'] as $php) {
             self::assertStringContainsString('name="php" value="' . $php . '"', $b);
         }
-        foreach (['hostname', 'adminUser', 'adminEmail', 'publicHttps', 'httpsPort', 'port', 'yes', 'resume', 'dryRun', 'version', 'commit'] as $field) {
+        foreach (['hostname', 'adminUser', 'adminEmail'] as $field) {
             self::assertStringContainsString('name="' . $field . '"', $b, $field);
         }
+        // Not asked for: --yes, --resume and --public-https are always in the command, and the rest is not offered.
+        foreach (['publicHttps', 'httpsPort', 'port', 'yes', 'resume', 'dryRun', 'version', 'commit', 'noThirdParty', 'noDeps', 'forceUnsupported'] as $field) {
+            self::assertStringNotContainsString('name="' . $field . '"', $b, $field . ' is hidden from the form');
+        }
+        self::assertStringNotContainsString('More options', $b);
+        self::assertStringContainsString('--yes', $b);
+        self::assertStringContainsString('--resume', $b);
+        self::assertStringContainsString('--public-https', $b);
+        self::assertStringNotContainsString('class="install"', $b, 'no short install command snippet on the install page');
         self::assertStringContainsString('/get-started', $this->get('/')->body, 'the home page links to the install page');
+        foreach (['/', '/features', '/resources/releases', '/resources/support'] as $path) {
+            $body = $this->get($path)->body;
+            self::assertStringNotContainsString('curl -fsSL', $body, $path . ' shows no short install command');
+            self::assertStringNotContainsString('class="install"', $body, $path);
+        }
         self::assertStringContainsString('/get-started', $this->get('/features')->body);
         $home = $this->get('/')->body;
         self::assertStringContainsString('Copyright ' . gmdate('Y') . ' NimVor', $home, 'the footer carries the copyright line with the current year');

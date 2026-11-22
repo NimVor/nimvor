@@ -1,11 +1,10 @@
 <?php
 /** @var \NimVorSite\Core\View $v */
-/** @var string $install */
 $v->layout('layouts/site');
 $v->set('title', 'Install NimVor: a free control panel for Ubuntu, AlmaLinux and Rocky Linux');
 $v->set('description', 'Install NimVor in one command. Build the exact command for your server: profile, PHP versions, host name, administrator and options. Free and open source.');
 $v->set('script', 'js/install-builder.js');
-$recommended = "curl -fsSL https://nimvor.com/install | sudo bash -s -- \\\n  --yes \\\n  --enable-writes \\\n  --profile=full \\\n  --php=8.3,8.4 \\\n  --admin-user=admin \\\n  --admin-email=you@example.com";
+$recommended = "curl -fsSL https://nimvor.com/install | sudo bash -s -- \\\n  --yes \\\n  --resume \\\n  --public-https \\\n  --enable-writes \\\n  --profile=full \\\n  --php=8.3,8.4 \\\n  --admin-user=admin \\\n  --admin-email=you@example.com";
 $phpChoices = ['8.0' => false, '8.1' => false, '8.2' => false, '8.3' => true, '8.4' => true];
 ?>
 <?= $v->partial('partials/page-head', ['title' => 'Install NimVor', 'intro' => 'One command sets up the panel, and a server for hosting if you want it. Choose your options below and copy the command.', 'crumbs' => [['Install NimVor', '']]]) ?>
@@ -25,15 +24,16 @@ $phpChoices = ['8.0' => false, '8.1' => false, '8.2' => false, '8.3' => true, '8
             <div class="card prose-card">
                 <h3>The short version</h3>
             <p>The default install is <strong>read-only</strong>: NimVor inventories the server and changes nothing.</p>
-            <?= $v->partial('partials/install', ['command' => $install]) ?>
+            <p><a class="btn btn-primary" href="#install">Build your install command</a></p>
             </div>
             <div class="card prose-card">
                 <h3>Administrator commands</h3>
                 <p class="muted">The server administrator&rsquo;s command-line tool:</p>
-                <pre class="codeblock"><code>sudo nimvor user:password admin
+                <pre class="codeblock"><code>sudo nimvor update
+sudo nimvor user:password admin
 sudo nimvor doctor
 sudo nimvor help</code></pre>
-                <p class="muted"><code>user:password</code> sets a new password for a user, <code>doctor</code> checks the installation. More in the <a href="/docs/installation">installation guide</a>.</p>
+                <p class="muted"><code>update</code> brings the panel to the newest release (with its database migrations), <code>user:password</code> sets a new password for a user, <code>doctor</code> checks the installation. More in the <a href="/docs/installation">installation guide</a>.</p>
             </div>
         </div>
     </div>
@@ -72,7 +72,7 @@ sudo nimvor help</code></pre>
                             <label class="check"><input type="checkbox" name="php" value="<?= e($ver) ?>"<?= $on ? ' checked' : '' ?>> PHP <?= e($ver) ?></label>
                         <?php endforeach; ?>
                     </div>
-                    <small class="muted">Versions the system does not offer come from a third-party repository (Ond&#345;ej Sur&yacute; on Ubuntu, Remi on the RHEL family) unless you tick &ldquo;no third-party repositories&rdquo; below.</small>
+                    <small class="muted">Versions the system does not offer come from a third-party repository (Ond&#345;ej Sur&yacute; on Ubuntu, Remi on the RHEL family).</small>
                 </div>
                 <div class="field" data-mode="hosting" data-profile="full">
                     <label for="ib-hostname">Mail server host name</label>
@@ -87,16 +87,7 @@ sudo nimvor help</code></pre>
                     <input class="input" id="ib-email" name="adminEmail" type="email" autocomplete="off" placeholder="you@yourdomain.com" maxlength="190">
                     <small class="muted">Also the Let&rsquo;s Encrypt contact for expiry notices: use a real address.</small>
                 </div>
-                <div class="field" data-mode="hosting look">
-                    <label class="check"><input type="checkbox" name="publicHttps"> Open the panel over HTTPS on this server (self-signed certificate)</label>
-                    <div class="inline-fields">
-                        <label for="ib-https-port">HTTPS port</label>
-                        <input class="input narrow-input" id="ib-https-port" name="httpsPort" inputmode="numeric" placeholder="8443" maxlength="5" disabled>
-                        <label for="ib-port">Panel&rsquo;s own port</label>
-                        <input class="input narrow-input" id="ib-port" name="port" inputmode="numeric" placeholder="8090" maxlength="5">
-                    </div>
-                    <small class="muted">Without it, reach the panel through an SSH tunnel.</small>
-                </div>
+                <p class="muted" data-mode="hosting look">The panel is opened over HTTPS on this server, on port 8443 with a self-signed certificate (the browser warns once). The command already contains everything the installer needs to run without questions.</p>
                 <div class="field" data-mode="agent">
                     <label for="ib-remote">Address the agent listens on</label>
                     <input class="input" id="ib-remote" name="remote" autocomplete="off" placeholder="0.0.0.0:8443" maxlength="60">
@@ -106,23 +97,6 @@ sudo nimvor help</code></pre>
                     <input class="input" id="ib-allow" name="allow" autocomplete="off" placeholder="203.0.113.10" maxlength="200">
                 </div>
 
-                <details class="advanced">
-                    <summary>More options</summary>
-                    <label class="check"><input type="checkbox" name="yes" checked> Do not ask questions (<code>--yes</code>)</label>
-                    <label class="check"><input type="checkbox" name="resume"> Finish an interrupted install or run again (<code>--resume</code>)</label>
-                    <label class="check" data-mode="hosting"><input type="checkbox" name="noThirdParty"> No third-party repositories (<code>--no-third-party-repos</code>)</label>
-                    <label class="check"><input type="checkbox" name="noDeps"> Only list missing packages (<code>--no-install-deps</code>)</label>
-                    <label class="check"><input type="checkbox" name="forceUnsupported"> Try an unsupported system anyway (<code>--force-unsupported</code>)</label>
-                    <label class="check"><input type="checkbox" name="dryRun"> Show what would happen, change nothing (<code>--dry-run</code>)</label>
-                    <div class="field">
-                        <label for="ib-version">Release (default: the newest stable)</label>
-                        <input class="input narrow-input" id="ib-version" name="version" autocomplete="off" placeholder="1.1.0" maxlength="20">
-                    </div>
-                    <div class="field">
-                        <label for="ib-commit">Require this exact commit</label>
-                        <input class="input" id="ib-commit" name="commit" autocomplete="off" placeholder="full or short commit hash" maxlength="40">
-                    </div>
-                </details>
 
                 </div>
 <div class="builder-out">
