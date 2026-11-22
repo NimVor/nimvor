@@ -29,7 +29,7 @@ $v->set('description', 'What the NimVor website stores about you, why, and for h
             <p>Account details until you ask us to delete the account. Messages and requests until they are no longer needed to help you. Visit counts and installation reports, which are not personal, indefinitely.</p>
             <h2>Your choices</h2>
             <p>You can ask to see, correct or delete what we hold about you through the <a href="/support/contact">contact form</a>, or change your name and password under your account.</p>
-            <p class="muted">The documentation, the problems list and the sponsors shown on this site are fetched by the site's server from GitHub; your browser does not contact GitHub for them.</p>
+            <p class="muted">The documentation, the problems list and the sponsors shown on this site are fetched by the site's server from GitHub and, for patrons, from Patreon; your browser contacts neither for them. For a Patreon patron the site keeps only the name, the public Patreon profile link and the monthly amount that Patreon shows for the campaign, never an email address or payment detail.</p>
             <p class="muted">Last updated: 29 October 2026.</p>
         </article>
     </div>
