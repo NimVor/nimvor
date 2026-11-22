@@ -2031,6 +2031,8 @@
             if (btn) { btn.disabled = true; }
             NimVor.fetchJson(url).then(function (res) {
                 host.innerHTML = res.html;
+                // Widgets with charts draw them once their markup is in the page (assets/js/charts.js).
+                document.dispatchEvent(new CustomEvent('nim:widget-loaded', { detail: host }));
             }).catch(function () {
                 if (!quiet) {
                     var card = host.querySelector('[data-widget]');

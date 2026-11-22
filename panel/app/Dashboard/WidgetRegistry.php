@@ -46,26 +46,29 @@ final class WidgetRegistry
     /** @return array<string, Widget> */
     private function define(): array
     {
-        // The default order fills whole rows of the 12-column grid: eight wide + four narrow, then four small tiles.
+        // The default order fills whole rows of the 12-column grid: eight wide + four narrow, every row full.
         $list = [
             new Widget('alert_center', 'Alert center', 'bell', 'Overview', P::MONITORING_VIEW, 'lg', 30, 15, false, true, 'Open alerts by severity with acknowledge and resolve, and what was resolved in the last day.', 'monitoring', 'Monitoring'),
             new Widget('attention', 'Needs attention', 'heart-pulse', 'Overview', P::WEBSITES_VIEW, 'md', 0, 30, true, true, 'Websites with something to fix: mail records, certificates, backups.', 'sites.healthcheck', 'Site health'),
-            new Widget('website_health', 'Website health', 'activity', 'Websites', P::WEBSITES_VIEW, 'lg', 60, 30, false, true, 'Real HTTP checks of every website: up, failing, slow, uptime over 24 hours.', 'websites', 'Websites'),
-            new Widget('ssl_overview', 'SSL certificates', 'lock', 'Security', P::SSL_VIEW, 'md', 300, 300, false, true, 'Certificates close to expiry or expired, automatic renewal, and websites served without a matching certificate.', 'ssl.hosts', 'SSL'),
-            new Widget('security_overview', 'Security overview', 'shield-check', 'Security', P::SECURITY_VIEW, 'lg', 120, 120, false, true, 'Firewall, fail2ban, SSH and panel sign-in failures, malware scanner, ModSecurity and the security audit.', 'security', 'Security'),
-            new Widget('backup_health', 'Backup health', 'shield-check', 'Backups', P::BACKUPS_VIEW, 'md', 120, 60, false, true, 'Websites without a recent backup, the latest failure, schedules, off-server copies and encryption.', 'backups', 'Backups'),
-            new Widget('top_processes', 'Top processes', 'cpu', 'Performance', P::MONITORING_VIEW, 'lg', 15, 10, false, true, 'The five busiest processes by CPU and by memory.', 'monitoring.processes', 'Processes'),
+            new Widget('performance_history', 'Performance history', 'activity', 'Performance', P::MONITORING_VIEW, 'lg', 60, 30, false, true, 'CPU, memory, load and network over the last hour, 6 hours, 24 hours or 7 days, drawn from what the monitor recorded.', 'monitoring', 'Monitoring'),
             new Widget('disk', 'Disk', 'hdd', 'System Health', P::SERVER_VIEW, 'md', 0, 60, true, true, 'Space on each filesystem and where it goes.', 'server.disk', 'Disk usage'),
+            new Widget('website_health', 'Website health', 'activity', 'Websites', P::WEBSITES_VIEW, 'lg', 60, 30, false, true, 'Real HTTP checks of every website: up, failing, slow, uptime over 24 hours.', 'websites', 'Websites'),
+            new Widget('website_overview', 'Website statistics', 'bar-chart', 'Websites', P::WEBSITES_VIEW, 'md', 0, 60, true, true, 'Active, disabled and suspended websites, HTTPS use and how many were created each month.', 'websites', 'Websites'),
+            new Widget('security_overview', 'Security overview', 'shield-check', 'Security', P::SECURITY_VIEW, 'lg', 120, 120, false, true, 'Firewall, fail2ban, SSH and panel sign-in failures, malware scanner, ModSecurity and the security audit.', 'security', 'Security'),
+            new Widget('ssl_overview', 'SSL certificates', 'lock', 'Security', P::SSL_VIEW, 'md', 300, 300, false, true, 'Certificates close to expiry or expired, automatic renewal, and websites served without a matching certificate.', 'ssl.hosts', 'SSL'),
+            new Widget('top_processes', 'Top processes', 'cpu', 'Performance', P::MONITORING_VIEW, 'lg', 15, 10, false, true, 'The five busiest processes by CPU and by memory.', 'monitoring.processes', 'Processes'),
+            new Widget('services_overview', 'Service health', 'heart-pulse', 'System Health', P::SERVICES_VIEW, 'md', 30, 15, false, true, 'How many enabled services run, are stopped or have failed, and how many ran over time.', 'services', 'Services'),
             new Widget('database_overview', 'Databases', 'database', 'Databases', P::DATABASES_VIEW, 'lg', 60, 30, false, true, 'MariaDB/MySQL and PostgreSQL: connections against the limit, slow queries, cache hit ratio and lock waits.', 'databases.server', 'Database server'),
             new Widget('cache_overview', 'Redis & Memcached', 'lightning-charge', 'Performance', P::REDIS_MANAGE, 'md', 60, 30, false, true, 'Memory use, hit ratio, clients and evictions of the caches.', 'redis', 'Redis'),
             new Widget('capacity_forecast', 'Capacity forecast', 'graph-up-arrow', 'Performance', P::MONITORING_VIEW, 'lg', 600, 300, false, true, 'When the disk or memory is likely to fill at the current pace, and CPU and load against the week before. Needs about a week of measurements.', 'monitoring', 'Monitoring'),
             new Widget('web_stack', 'Nginx & PHP-FPM', 'server', 'System Health', P::SERVER_VIEW, 'md', 120, 60, false, true, 'Nginx state and, per PHP version in use, how often a pool ran out of workers in the last 24 hours.', 'nginx', 'Nginx'),
             new Widget('traffic_overview', 'Traffic', 'bar-chart-line', 'Performance', P::MONITORING_VIEW, 'lg', 300, 120, false, true, 'Network use over the last 24 hours and the websites that sent the most this month.', 'monitoring', 'Monitoring'),
             new Widget('dns_mail', 'DNS & mail', 'envelope-at', 'DNS & Email', P::SERVER_VIEW, 'md', 120, 60, false, true, 'The nameserver, the mail services and the mail queue.', 'dns', 'DNS'),
-            new Widget('backups', 'Backups', 'cloud-arrow-up', 'Backups', P::BACKUPS_VIEW, 'sm', 0, 60, true, true, 'Completed, failed and running backups.', 'backups', 'Backups'),
-            new Widget('system_updates', 'System updates', 'arrow-up-circle', 'System Health', P::PACKAGES_MANAGE, 'sm', 300, 300, false, true, 'Package updates waiting (security ones separately) and whether a restart is needed.', 'packages', 'Packages'),
-            new Widget('deployments', 'Deployments', 'rocket-takeoff', 'DevOps', P::DEPLOY_MANAGE, 'sm', 120, 60, false, true, 'Deployments in the last seven days, any running now, and the latest failure.', 'websites', 'Websites'),
-            new Widget('wordpress', 'WordPress', 'wordpress', 'Websites', P::WEBSITES_VIEW, 'sm', 300, 120, false, true, 'WordPress installations: out-of-date core, plugin and theme updates, open issues.', 'wordpress', 'WordPress'),
+            new Widget('backup_health', 'Backup health', 'shield-check', 'Backups', P::BACKUPS_VIEW, 'lg', 120, 60, false, true, 'Websites without a recent backup, the latest failure, schedules, off-server copies and encryption.', 'backups', 'Backups'),
+            new Widget('backups', 'Backups', 'cloud-arrow-up', 'Backups', P::BACKUPS_VIEW, 'md', 0, 60, true, true, 'Completed, failed and running backups.', 'backups', 'Backups'),
+            new Widget('system_updates', 'System updates', 'arrow-up-circle', 'System Health', P::PACKAGES_MANAGE, 'md', 300, 300, false, true, 'Package updates waiting (security ones separately) and whether a restart is needed.', 'packages', 'Packages'),
+            new Widget('deployments', 'Deployments', 'rocket-takeoff', 'DevOps', P::DEPLOY_MANAGE, 'md', 120, 60, false, true, 'Deployments in the last seven days, any running now, and the latest failure.', 'websites', 'Websites'),
+            new Widget('wordpress', 'WordPress', 'wordpress', 'Websites', P::WEBSITES_VIEW, 'md', 300, 120, false, true, 'WordPress installations: out-of-date core, plugin and theme updates, open issues.', 'wordpress', 'WordPress'),
         ];
         $by = [];
         foreach ($list as $w) {

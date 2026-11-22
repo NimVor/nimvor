@@ -23,7 +23,8 @@ final class DashboardWidgetsTest extends HttpTestCase
     {
         $page = $this->request('GET', '/')->body();
         self::assertStringContainsString('data-widget="disk"', $page);
-        self::assertStringContainsString('progress-bar bg-danger', $page, 'a nearly full disk is red');
+        self::assertStringContainsString('nim-donut-seg c-bad', $page, 'a nearly full disk is a red donut');
+        self::assertStringContainsString('>91%<', $page, 'the donut says how full it is');
         self::assertStringContainsString('Scan the disk on the Disk usage page', $page);
     }
 
