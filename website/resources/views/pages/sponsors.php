@@ -1,6 +1,7 @@
 <?php
 /** @var \NimVorSite\Core\View $v */
 /** @var list<array<string, mixed>> $sponsors */
+/** @var array{github: bool, patreon: bool, manual: bool, patreon_url: string} $display */
 $v->layout('layouts/site');
 $v->set('title', 'Sponsors');
 $v->set('description', 'The people and companies that keep NimVor free and independent.');
@@ -22,7 +23,7 @@ $labels = ['gold' => 'Gold sponsors', 'silver' => 'Silver sponsors', 'supporter'
                     <?php foreach ($list as $s): ?>
                         <a class="card card-link sponsor" href="<?= e($s['url']) ?>" rel="sponsored noopener">
                             <span class="avatar" aria-hidden="true"><?= e(mb_strtoupper(mb_substr(ltrim((string) $s['name'], '@'), 0, 1))) ?></span>
-                            <span><h3 class="mb-0"><?= e($s['name']) ?></h3><span class="muted"><?= e(parse_url((string) $s['url'], PHP_URL_HOST) ?: '') ?><?= ($s['source'] ?? '') === 'github' ? ' · GitHub Sponsors' : '' ?></span></span>
+                            <span><h3 class="mb-0"><?= e($s['name']) ?></h3><span class="muted"><?= e(parse_url((string) $s['url'], PHP_URL_HOST) ?: '') ?><?= ($s['source'] ?? '') === 'github' ? ' · GitHub Sponsors' : (($s['source'] ?? '') === 'patreon' ? ' · Patreon' : '') ?></span></span>
                         </a>
                     <?php endforeach; ?>
                 </div>
@@ -44,8 +45,12 @@ $labels = ['gold' => 'Gold sponsors', 'silver' => 'Silver sponsors', 'supporter'
         </div>
         <div class="card">
             <h3>Become a sponsor</h3>
-            <p class="muted">Sponsor through GitHub Sponsors and your name appears here automatically, or write to us for another way to contribute and the tier that fits.</p>
-            <div class="cta-row"><a class="btn btn-primary" href="https://github.com/sponsors/NimVor" rel="noopener">Sponsor on GitHub</a><a class="btn btn-outline" href="/support/contact">Contact us</a></div>
+            <p class="muted">Sponsor<?= $display['github'] && $display['patreon'] && $display['patreon_url'] !== '' ? ' through GitHub Sponsors or Patreon' : ($display['patreon'] && $display['patreon_url'] !== '' ? ' through Patreon' : ' through GitHub Sponsors') ?> and your name appears here automatically, or write to us for another way to contribute and the tier that fits.</p>
+            <div class="cta-row">
+                <?php if ($display['github']): ?><a class="btn btn-primary" href="https://github.com/sponsors/NimVor" rel="noopener">Sponsor on GitHub</a><?php endif; ?>
+                <?php if ($display['patreon'] && $display['patreon_url'] !== ''): ?><a class="btn btn-primary" href="<?= e($display['patreon_url']) ?>" rel="noopener">Support on Patreon</a><?php endif; ?>
+                <a class="btn btn-outline" href="/support/contact">Contact us</a>
+            </div>
         </div>
     </div>
 </section>

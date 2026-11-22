@@ -20,18 +20,13 @@ final class AccountController extends Controller
         return $ctx->render('account/dashboard', [
             'requests' => array_slice($requests, 0, 5),
             'openRequests' => $open,
-            'messageCount' => count($this->app->messages->forUser($id)),
+            'ticketCount' => count($this->app->tickets->forUser($id)),
         ]);
     }
 
     public function requests(Ctx $ctx): Response
     {
         return $ctx->render('account/requests', ['requests' => $this->app->requests->forUser((int) $ctx->user()['id'])]);
-    }
-
-    public function messages(Ctx $ctx): Response
-    {
-        return $ctx->render('account/messages', ['messages' => $this->app->messages->forUser((int) $ctx->user()['id'])]);
     }
 
     public function profile(Ctx $ctx): Response

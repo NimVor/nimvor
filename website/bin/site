@@ -9,6 +9,7 @@ declare(strict_types=1);
  *   bin/site migrate                          Create or update the database tables
  *   bin/site docs:sync                        Fetch the documentation from GitHub
  *   bin/site telemetry:maintain               Apply the telemetry retention periods (run daily from cron)
+ *   bin/site tickets:maintain [--purge-days=N] Close unanswered resolved tickets, optionally purge old closed ones
  *   bin/site sponsors:sync                    Copy the public GitHub sponsors (needs GITHUB_TOKEN)
  *   bin/site seed                             Add the first blog post (once)
  *   bin/site blog:import [--replace]          Load the guides in content/blog into the blog
@@ -138,6 +139,17 @@ switch ($cmd) {
         }
         break;
 
+    case 'tickets:maintain':
+        // Close resolved tickets the customer did not answer; optionally delete old closed ones (--purge-days=N).
+        $closed = $app->tickets->autoClose(\NimVorSite\Services\TicketService::AUTO_CLOSE_DAYS);
+        out("Closed {$closed} resolved ticket(s) that had no answer.");
+        foreach ($argv as $a) {
+            if (preg_match('/^--purge-days=(\d{2,4})$/', $a, $m)) {
+                out('Deleted ' . $app->tickets->purgeClosed((int) $m[1]) . " closed ticket(s) older than {$m[1]} days.");
+            }
+        }
+        break;
+
     case 'telemetry:maintain':
         // Retention: heartbeats 90 days, feature/health snapshots 180, the request log 30, installations silent for 400.
         foreach ($app->telemetry->purge() as $what => $n) {
@@ -146,5 +158,5 @@ switch ($cmd) {
         break;
 
     default:
-        out("Commands: migrate, telemetry:maintain, seed, docs:sync, sponsors:sync, blog:import, user:create EMAIL NAME [--role=admin|client], user:password EMAIL");
+        out("Commands: migrate, telemetry:maintain, seed, docs:sync, sponsors:sync, tickets:maintain [--purge-days=N], blog:import, user:create EMAIL NAME [--role=admin|client], user:password EMAIL");
 }
