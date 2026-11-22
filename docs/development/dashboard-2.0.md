@@ -93,12 +93,22 @@ numbers are never shown to them.
    * **New rules** in `AlertRules`, fed by Dashboard 2.0's data: website down (N failed checks in a row), slow website, stale backup (only websites with an enabled schedule), security updates waiting, deferred mail, disk forecast. A rule whose source cannot be read (for example the agent for updates) keeps its earlier alert open rather than reporting it resolved.
    * **Central thresholds** as settings in the monitoring category (disk, memory, load per core, website down checks, slow website ms, stale backup days, security updates, deferred mail, disk filling days); 0 turns a rule off.
    * The **Alert center** widget lists open alerts, counts by severity and shows what was resolved in 24 hours.
-8. Drag and drop, free resizing and per-widget refresh settings.
+8. **Arrange mode, resize and refresh settings.** *Arrange* (button above the widgets) makes every
+   widget draggable by its card (HTML5 drag and drop, the order follows the pointer through the
+   grid); its right edge is a handle that snaps to the four widths the grid knows, and an S / M /
+   L / Full picker does the same by click or touch (an edge cannot be dragged further than the
+   screen, so a widget in the right column is widened with the picker). Alt + arrow keys move a
+   focused widget, the arrow keys on the edge change its width. Each change is posted to
+   `POST /dashboard/layout/arrange` (`DashboardLayout::arrange`): the shown widgets in their new
+   order plus sizes; hidden widgets keep their place, visibility and refresh choices are untouched,
+   unknown ids and sizes are ignored. The body and header actions of a widget are inert while
+   arranging, and automatic refreshes pause. A widget's refresh interval (`refresh` in the saved
+   layout: only on request, 30 s, 1, 5, 15 min; absent = the registry default) is chosen in
+   Customize; the page uses it as `data-refresh`.
 
-Not done in step 1, by design: drag and drop (rows move with arrow buttons for
-now), free resizing (four fixed widths), per-widget refresh settings, and moving
-the CPU/memory cards, Server, Services, Websites, Network and Recent activity
-cards into the registry. They keep working as before.
+Widths stay discrete (sm / md / lg / full) rather than free-form so that rows keep filling the
+grid; a drag snaps to the nearest. Not done: moving the CPU/memory cards, Server, Services,
+Websites, Network and Recent activity cards into the registry. They keep working as before.
 
 ## 5. Layout rules (UI polish)
 

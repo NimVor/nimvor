@@ -180,6 +180,52 @@ final class DashboardFrameworkTest extends HttpTestCase
         self::assertStringNotContainsString('Restore default', $page);
     }
 
+    public function testArrangingOnThePageKeepsVisibilityAndRefreshChoices(): void
+    {
+        $this->login('admin');
+        $this->request('POST', '/dashboard/layout', $this->token() + [
+            'order' => ['top_processes', 'disk', 'backups', 'attention'],
+            'widgets' => [
+                'top_processes' => ['visible' => '1', 'size' => 'lg', 'refresh' => '300'],
+                'disk' => ['visible' => '1', 'size' => 'md', 'refresh' => 'not-a-number'],
+                'backups' => ['size' => 'md'], // hidden
+                'attention' => ['visible' => '1', 'size' => 'md', 'refresh' => '0'],
+            ],
+        ]);
+        $page = $this->request('GET', '/')->body();
+        self::assertMatchesRegularExpression('/data-widget-host="top_processes"[^>]*data-refresh="300"/', $page, 'the chosen refresh interval is used');
+        self::assertMatchesRegularExpression('/data-widget-host="attention"[^>]*data-refresh="0"/', $page, 'manual refresh is a choice too');
+        self::assertStringContainsString('data-arrange-toggle', $page);
+
+        $r = $this->request('POST', '/dashboard/layout/arrange', $this->token() + [
+            'order' => ['attention', 'ghost', 'disk', 'top_processes', 'disk'],
+            'sizes' => ['attention' => 'full', 'disk' => 'nope', 'ghost' => 'sm', 'backups' => 'full'],
+        ]);
+        self::assertTrue(json_decode($r->body(), true)['success']);
+        $saved = json_decode((string) $this->app->container->get(Connection::class)->scalar('SELECT layout FROM dashboard_layouts WHERE user_id = ?', [$this->adminId]), true)['widgets'];
+        self::assertFalse($saved['backups']['visible'], 'a hidden widget stays hidden');
+        self::assertSame('md', $saved['backups']['size'], 'and is not resized by the page');
+        self::assertArrayNotHasKey('ghost', $saved);
+        self::assertSame('full', $saved['attention']['size']);
+        self::assertSame('md', $saved['disk']['size'], 'an unknown size is ignored');
+        self::assertSame(300, $saved['top_processes']['refresh']);
+        self::assertSame(0, $saved['attention']['refresh']);
+        self::assertArrayNotHasKey('refresh', $saved['disk'], 'an invalid choice means the default');
+
+        $page = $this->request('GET', '/')->body();
+        $pos = static fn (string $id): int => (int) strpos($page, 'data-widget-host="' . $id . '"');
+        self::assertLessThan($pos('disk'), $pos('attention'));
+        self::assertLessThan($pos('top_processes'), $pos('disk'));
+        self::assertStringNotContainsString('data-widget-host="backups"', $page);
+    }
+
+    public function testArrangingNeedsTheSessionAndAToken(): void
+    {
+        $this->login('admin');
+        $res = $this->request('POST', '/dashboard/layout/arrange', ['order' => ['disk']]);
+        self::assertContains($res->status(), [302, 303, 403, 419]);
+    }
+
     public function testAWidgetAddedLaterAppearsWithoutRewritingASavedLayout(): void
     {
         $db = $this->app->container->get(Connection::class);

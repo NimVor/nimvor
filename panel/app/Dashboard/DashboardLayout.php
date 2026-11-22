@@ -18,6 +18,9 @@ final class DashboardLayout
 {
     public const VERSION = 1;
 
+    /** Refresh intervals a user may pick for a widget, in seconds (0: only on request). Without a pick the widget's own default applies. */
+    public const REFRESH_CHOICES = [0 => 'Only when I ask', 30 => 'Every 30 seconds', 60 => 'Every minute', 300 => 'Every 5 minutes', 900 => 'Every 15 minutes'];
+
     public function __construct(private readonly Connection $db, private readonly WidgetRegistry $registry)
     {
     }
@@ -26,7 +29,7 @@ final class DashboardLayout
      * The widgets to show, in order, with their resolved settings.
      *
      * @param array<string, Widget> $allowed what the viewer may see (WidgetRegistry::visibleTo)
-     * @return list<array{widget: Widget, visible: bool, size: string}>
+     * @return list<array{widget: Widget, visible: bool, size: string, refresh: int, refreshChoice: ?int}>
      */
     public function resolve(int $userId, array $allowed): array
     {
@@ -39,12 +42,19 @@ final class DashboardLayout
                 'widget' => $w,
                 'visible' => $s !== null ? (bool) ($s['visible'] ?? $w->defaultVisible) : $w->defaultVisible,
                 'size' => isset(Widget::SIZES[(string) ($s['size'] ?? '')]) ? (string) $s['size'] : $w->size,
+                'refreshChoice' => self::refreshOf($s),
                 // Widgets the user never placed follow the placed ones, in registry order.
                 'order' => isset($s['order']) ? (int) $s['order'] : 1000 + $position++,
             ];
         }
         usort($out, static fn (array $a, array $b): int => $a['order'] <=> $b['order']);
-        return array_map(static fn (array $r): array => ['widget' => $r['widget'], 'visible' => $r['visible'], 'size' => $r['size']], $out);
+        return array_map(static fn (array $r): array => [
+            'widget' => $r['widget'],
+            'visible' => $r['visible'],
+            'size' => $r['size'],
+            'refresh' => $r['refreshChoice'] ?? $r['widget']->refresh,
+            'refreshChoice' => $r['refreshChoice'],
+        ], $out);
     }
 
     /**
@@ -71,6 +81,10 @@ final class DashboardLayout
                 'size' => isset(Widget::SIZES[$size]) ? $size : $known[$id]->size,
                 'order' => $n++,
             ];
+            $refresh = self::refreshOf($in);
+            if ($refresh !== null) {
+                $layout['widgets'][$id]['refresh'] = $refresh;
+            }
         }
         // What the viewer may not see keeps what was saved before, so a role change does not erase it.
         foreach ($this->saved($userId)['widgets'] ?? [] as $id => $s) {
@@ -78,10 +92,82 @@ final class DashboardLayout
                 $layout['widgets'][$id] = $s;
             }
         }
+        $this->write($userId, $layout);
+    }
+
+    /**
+     * Drag and drop on the dashboard itself: the shown widgets in their new order
+     * and, optionally, new sizes. Which widgets are shown, and their refresh
+     * choices, stay as they are; hidden widgets keep their place between the
+     * shown ones.
+     *
+     * @param list<string> $order the ids of the shown widgets, in the new order
+     * @param array<string, mixed> $sizes id => size
+     * @param array<string, Widget> $allowed
+     */
+    public function arrange(int $userId, array $order, array $sizes, array $allowed): void
+    {
+        $current = $this->resolve($userId, $allowed);
+        $shown = [];
+        foreach ($current as $t) {
+            if ($t['visible']) {
+                $shown[$t['widget']->id] = true;
+            }
+        }
+        $queue = [];
+        foreach ($order as $id) {
+            $id = (string) $id;
+            if (isset($shown[$id]) && !in_array($id, $queue, true)) {
+                $queue[] = $id;
+            }
+        }
+        // A shown widget the page did not mention keeps its relative place after the mentioned ones.
+        foreach (array_keys($shown) as $id) {
+            if (!in_array($id, $queue, true)) {
+                $queue[] = $id;
+            }
+        }
+        $byId = [];
+        foreach ($current as $t) {
+            $byId[$t['widget']->id] = $t;
+        }
+        $layout = ['widgets' => []];
+        $n = 0;
+        foreach ($current as $slot) {
+            $t = $slot['visible'] ? $byId[array_shift($queue)] : $slot;
+            $id = $t['widget']->id;
+            $size = $t['visible'] ? (string) ($sizes[$id] ?? '') : '';
+            $entry = ['visible' => $t['visible'], 'size' => isset(Widget::SIZES[$size]) ? $size : $t['size'], 'order' => $n++];
+            if ($t['refreshChoice'] !== null) {
+                $entry['refresh'] = $t['refreshChoice'];
+            }
+            $layout['widgets'][$id] = $entry;
+        }
+        foreach ($this->saved($userId)['widgets'] ?? [] as $id => $s) {
+            if (!isset($layout['widgets'][$id]) && isset($this->registry->all()[$id]) && !isset($allowed[$id])) {
+                $layout['widgets'][$id] = $s;
+            }
+        }
+        $this->write($userId, $layout);
+    }
+
+    /** @param array<string, mixed> $layout */
+    private function write(int $userId, array $layout): void
+    {
         $this->db->run(
             'INSERT INTO dashboard_layouts (user_id, version, layout, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET version = excluded.version, layout = excluded.layout, updated_at = excluded.updated_at',
             [$userId, self::VERSION, (string) json_encode($layout), gmdate('c')]
         );
+    }
+
+    /** The refresh interval picked for a widget, or null when none was (or the value is not one of the choices). */
+    private static function refreshOf(mixed $in): ?int
+    {
+        $v = is_array($in) ? ($in['refresh'] ?? null) : null;
+        if ($v === null || $v === '' || !is_numeric($v) || !isset(self::REFRESH_CHOICES[(int) $v])) {
+            return null;
+        }
+        return (int) $v;
     }
 
     public function reset(int $userId): void

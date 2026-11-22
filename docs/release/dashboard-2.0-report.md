@@ -67,8 +67,8 @@ on the time of day.
 
 ## D. Recommendations (not done)
 
-1. **Step 8 of the brief**: drag and drop, free resizing and a refresh interval per widget. Rows
-   move with arrow buttons and widths are four fixed sizes today.
+1. ~~Step 8 of the brief~~ — done after 1.9.0: Arrange mode (drag to move, edge or S/M/L/Full to
+   resize, snapping to the four grid widths) and a refresh interval per widget in Customize.
 2. Bring the first cards (Server, Services, Websites, Network, Recent activity) into the registry so
    they can be hidden and moved like the others.
 3. Optional Nginx `stub_status` (loopback only) for request rates, and an access-log aggregator for
