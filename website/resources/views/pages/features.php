@@ -89,9 +89,20 @@ $groups = [
         'A TLS audit, vulnerability advisories and file integrity monitoring',
         'An audit log of who changed what, CSRF protection and a strict Content-Security-Policy in the panel',
     ]],
-    ['monitoring', 'chart', 'Monitoring and health', 'Know what the server is doing, and when something is wrong.', [
-        'A dashboard with CPU, memory, disk, load, services and websites',
-        'Metrics history with alerts, live statistics and a process list',
+    ['dashboard', 'chart', 'Dashboard', 'One screen for the whole server, arranged the way you work.', [
+        'Widgets you can show, hide, drag into a new order and widen or narrow, each with its own refresh interval, saved per user',
+        'Website health from real HTTP checks (online, errors, slowest sites, uptime over 24 hours), with a switch to leave a site out of the checks',
+        'Security overview and SSL certificates in one place: firewall, brute-force protection, ModSecurity, malware scans and certificates about to expire',
+        'Database, cache and web-stack overviews for MySQL or MariaDB, PostgreSQL, Redis, Memcached, Nginx and PHP-FPM',
+        'Backup health, pending updates, DNS and mail status, deployments and WordPress sites at a glance',
+        'Capacity forecast: when the disk is expected to fill, only when there is enough history to say so',
+        'History charts for CPU, memory, load, network, disk, services and databases drawn from what the monitor really recorded, with gaps shown as gaps',
+        'A top-processes view, and every figure that could not be measured shown as N/A instead of a made-up zero',
+    ]],
+    ['monitoring', 'bell', 'Monitoring and health', 'Know what the server is doing, and when something is wrong.', [
+        'An alert center: one open alert per problem, with severity, acknowledge and resolve, and the thresholds set in one place',
+        'Alerts for websites that stop answering or get slow, stale backups, security updates, a stuck mail queue and a disk that is filling up',
+        'Metrics history, live statistics and a process list',
         'A health page that runs every check in one place, and notifications for what happened and what failed',
         'Resource limits (CPU, memory and disk) and monthly bandwidth limits per account',
     ]],
@@ -113,7 +124,7 @@ $groups = [
     ['api', 'tool', 'Automation and extension', 'Script it or extend it.', [
         'A REST API with personal access tokens, described by an OpenAPI file',
         'Plugins for the panel',
-        'A command-line tool for administrators (`sudo nimvor`) with a `doctor` check for the installation',
+        'A command-line tool for administrators (`sudo nimvor`): `nimvor update` brings the panel to the newest release with its database migrations, `doctor` checks the installation and `user:password` resets a password',
     ]],
 ];?>
 <?= $v->partial('partials/page-head', ['title' => 'Features', 'intro' => 'What NimVor manages today, and how it keeps each change safe.', 'crumbs' => [['Features', '']]]) ?>

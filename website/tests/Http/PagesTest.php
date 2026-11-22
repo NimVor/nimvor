@@ -163,7 +163,7 @@ final class PagesTest extends SiteTestCase
         self::assertStringNotContainsString('Not affiliated with any other control panel', $home);
         self::assertStringNotContainsStringIgnoringCase('whacp', $this->get('/about')->body, 'the old project name is not mentioned');
         $features = $this->get('/features')->body;
-        foreach (['ModSecurity', 'ionCube', 'MongoDB', 'Cloudflare', 'Greylisting', 'WordPress Toolkit', 'Node.js and Python', 'Monitoring and health'] as $topic) {
+        foreach (['ModSecurity', 'ionCube', 'MongoDB', 'Cloudflare', 'Greylisting', 'WordPress Toolkit', 'Node.js and Python', 'Monitoring and health', 'Dashboard', 'alert center', 'Capacity forecast', 'nimvor update', 'drag into a new order'] as $topic) {
             self::assertStringContainsString($topic, $features, $topic . ' is on the features page');
         }
         self::assertStringContainsString('<video class="tour-video"', $home, 'the home page shows the product tour');
