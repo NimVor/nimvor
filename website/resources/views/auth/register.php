@@ -14,6 +14,7 @@ $v->set('title', 'Create an account');
         <div class="field"><label for="email">Email</label><input class="input" id="email" type="email" name="email" value="<?= e($old['email'] ?? '') ?>" autocomplete="email" maxlength="190" required><?= $v->error($errors, 'email') ?></div>
         <div class="field"><label for="password">Password</label><input class="input" id="password" type="password" name="password" autocomplete="new-password" maxlength="200" required><div class="hint">At least 12 characters.</div><?= $v->error($errors, 'password') ?></div>
         <div class="field"><label for="password_confirm">Repeat the password</label><input class="input" id="password_confirm" type="password" name="password_confirm" autocomplete="new-password" maxlength="200" required><?= $v->error($errors, 'password_confirm') ?></div>
+<?= $v->partial('partials/captcha', ['errors' => $errors ?? []]) ?>
         <button class="btn btn-primary" type="submit">Create account</button>
         <p class="muted mb-0">Already registered? <a href="/login">Log in</a>. By registering you accept the <a href="/support/privacy">privacy policy</a>.</p>
     </form>

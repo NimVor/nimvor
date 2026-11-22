@@ -155,6 +155,9 @@ final class PageController extends Controller
         if ($this->app->limiter->hit('form:ip:' . $ctx->ip(), 6, 3600)) {
             return $this->app->error($ctx, 429);
         }
+        if (($bad = $this->captchaError($ctx)) !== null) {
+            $v->fail('captcha', $bad);
+        }
         if ($v->fails()) {
             return $this->invalid($ctx, 'pages/build-services', $v->errors(), $extra);
         }
@@ -250,6 +253,9 @@ final class PageController extends Controller
         }
         if ($this->app->limiter->hit('form:ip:' . $ctx->ip(), 6, 3600)) {
             return $this->app->error($ctx, 429);
+        }
+        if (($bad = $this->captchaError($ctx)) !== null) {
+            $v->fail('captcha', $bad);
         }
         if ($v->fails()) {
             return $this->invalid($ctx, 'pages/contact', $v->errors());
