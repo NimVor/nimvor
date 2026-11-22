@@ -14,14 +14,14 @@ final class FormsTest extends SiteTestCase
         return $over + ['name' => 'Grace', 'email' => 'grace@example.test', 'subject' => 'A question', 'message' => 'Hello, I have a question about NimVor.'];
     }
 
-    public function testAContactMessageIsStored(): void
+    public function testAContactMessageOpensATicket(): void
     {
         $res = $this->post('/support/contact', $this->contact());
-        self::assertSame([303, '/support/contact'], [$res->status, $res->headers['Location']]);
-        $m = $this->row('SELECT * FROM contact_messages');
-        self::assertSame(['Grace', 'grace@example.test', 'new', null], [$m['name'], $m['email'], $m['status'], $m['user_id']]);
-        self::assertStringContainsString('Thank you', $this->get('/support/contact')->body, 'the confirmation is shown once');
-        self::assertStringNotContainsString('Thank you', $this->get('/support/contact')->body);
+        $m = $this->row('SELECT * FROM tickets');
+        self::assertSame(['Grace', 'grace@example.test', 'open', null], [$m['name'], $m['email'], $m['status'], $m['user_id']]);
+        self::assertSame(303, $res->status);
+        self::assertSame('/support/tickets/' . $m['ref'] . '/' . $m['access_token'], $res->headers['Location']);
+        self::assertSame(1, $this->rows('ticket_replies'), 'the message is the first entry of the ticket');
     }
 
     public function testAContactMessageIsValidatedAndKept(): void
@@ -31,14 +31,14 @@ final class FormsTest extends SiteTestCase
         self::assertStringContainsString('valid email', $res->body);
         self::assertStringContainsString('at least 10 characters', $res->body);
         self::assertStringContainsString('value="Grace"', $res->body, 'what was typed is kept');
-        self::assertSame(0, $this->rows('contact_messages'));
+        self::assertSame(0, $this->rows('tickets'));
     }
 
     public function testTheHiddenFieldCatchesBots(): void
     {
         $res = $this->post('/support/contact', $this->contact(['website' => 'http://spam.test']));
         self::assertSame(303, $res->status, 'the bot is told it worked');
-        self::assertSame(0, $this->rows('contact_messages'));
+        self::assertSame(0, $this->rows('tickets'));
     }
 
     public function testFormsAreRateLimitedPerAddress(): void
@@ -47,7 +47,7 @@ final class FormsTest extends SiteTestCase
             self::assertSame(303, $this->post('/support/contact', $this->contact())->status);
         }
         self::assertSame(429, $this->post('/support/contact', $this->contact())->status);
-        self::assertSame(6, $this->rows('contact_messages'));
+        self::assertSame(6, $this->rows('tickets'));
     }
 
     public function testASignedInUserIsPrefilledAndLinked(): void
@@ -56,7 +56,7 @@ final class FormsTest extends SiteTestCase
         $this->login('ada@example.test');
         self::assertStringContainsString('value="ada@example.test"', $this->get('/support/contact')->body);
         $this->post('/support/contact', $this->contact(['email' => 'ada@example.test']));
-        self::assertSame($id, (int) $this->row('SELECT user_id FROM contact_messages')['user_id']);
+        self::assertSame($id, (int) $this->row('SELECT user_id FROM tickets')['user_id']);
     }
 
     public function testABuildRequestIsStoredAndOnlyKnownServicesAreAccepted(): void

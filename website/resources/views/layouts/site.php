@@ -11,7 +11,7 @@ $desc = $v->meta('description', 'NimVor is a free, open-source hosting control p
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= e($full) ?></title>
     <meta name="description" content="<?= e($desc) ?>">
-    <link rel="canonical" href="<?= e($siteUrl . $path) ?>">
+    <?php if ($v->meta('noindex', '') !== ''): ?><meta name="robots" content="noindex, nofollow"><?php else: ?><link rel="canonical" href="<?= e($siteUrl . $path) ?>"><?php endif; ?>
     <meta property="og:title" content="<?= e($full) ?>">
     <meta property="og:description" content="<?= e($desc) ?>">
     <meta property="og:type" content="website">

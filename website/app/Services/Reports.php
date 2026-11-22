@@ -34,7 +34,7 @@ final class Reports
                 'sponsors' => (int) $this->db->scalar('SELECT COUNT(*) FROM sponsors'),
             ],
             'signups' => Series::fill(array_column($signups, 'n', 'd'), 30),
-            'messages' => $this->byStatus('contact_messages', ['new', 'read', 'closed']),
+            'tickets' => $this->byStatus('tickets', \NimVorSite\Repositories\Tickets::STATUSES),
             'requests' => $this->byStatus('build_requests', ['new', 'quoted', 'in_progress', 'done', 'closed']),
             'visits' => $this->visits->perDay(14),
             'top_pages' => $this->visits->top(14),
@@ -68,7 +68,7 @@ final class Reports
         [$head, $rows] = match ($type) {
             'users' => [['id', 'email', 'name', 'role', 'active', 'created_at', 'last_login_at'], $this->db->all('SELECT id, email, name, role, is_active, created_at, last_login_at FROM users ORDER BY id')],
             'requests' => [['id', 'name', 'email', 'service', 'status', 'created_at'], $this->db->all('SELECT id, name, email, service, status, created_at FROM build_requests ORDER BY id')],
-            'messages' => [['id', 'name', 'email', 'subject', 'status', 'created_at'], $this->db->all('SELECT id, name, email, subject, status, created_at FROM contact_messages ORDER BY id')],
+            'tickets', 'messages' => [['ref', 'name', 'email', 'subject', 'category', 'priority', 'status', 'first_response_at', 'created_at'], $this->db->all('SELECT ref, name, email, subject, category, priority, status, first_response_at, created_at FROM tickets ORDER BY id')],
             default => throw new \InvalidArgumentException('unknown report'),
         };
         $safe = static fn (mixed $v): string => preg_match('/^[=+\-@\t\r]/', (string) $v) === 1 ? "'" . $v : (string) $v;

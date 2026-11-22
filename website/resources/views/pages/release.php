@@ -5,14 +5,12 @@
 /** @var ?array<string, mixed> $older */
 /** @var \Closure $inline */
 /** @var string $repo */
-/** @var string $install */
 $v->layout('layouts/site');
 $v->set('title', 'NimVor ' . $r['version']);
 $v->set('description', 'What is new in NimVor ' . $r['version'] . ($r['date'] ? ' (' . gmdate('j F Y', (int) strtotime((string) $r['date'])) . ')' : '') . ': ' . $r['count'] . ' changes, with downloads.');
 $date = $r['date'] !== null && strtotime((string) $r['date']) !== false ? gmdate('j F Y', (int) strtotime((string) $r['date'])) : '';
 $size = static fn (int $b): string => $b >= 1048576 ? number_format($b / 1048576, 1) . ' MB' : max(1, (int) round($b / 1024)) . ' KB';
 $kinds = ['major' => 'Major release', 'minor' => 'Minor release', 'patch' => 'Patch release', 'pre' => 'Pre-release'];
-$cmd = $install . ' -s -- --version ' . $r['version'];
 $compare = $older !== null && $r['published'] && $older['published'] ? $repo . '/compare/v' . $older['version'] . '...v' . $r['version'] : '';
 ?>
 <?= $v->partial('partials/page-head', ['title' => 'NimVor ' . $r['version'], 'intro' => $date !== '' ? $kinds[$r['kind']] . ' · ' . $date : $kinds[$r['kind']], 'crumbs' => [['Resources', '/resources'], ['Releases', '/resources/releases'], [$r['version'], '']]]) ?>
@@ -42,8 +40,7 @@ $compare = $older !== null && $r['published'] && $older['published'] ? $repo . '
                     <p class="muted">The downloads could not be read right now. They are on the <a href="<?= e((string) $r['url']) ?>" rel="noopener">GitHub release</a>.</p>
                 <?php endif; ?>
                 <?php if ($r['published']): ?>
-                    <h3 class="mt-2">Install this version</h3>
-                    <?= $v->partial('partials/install', ['command' => $cmd]) ?>
+                    <p class="mt-2 mb-0"><a class="link-arrow" href="/get-started#install">Install NimVor <?= $v->icon('arrow', 14) ?></a></p>
                 <?php endif; ?>
             </div>
             <div class="panel">
