@@ -10,6 +10,7 @@ All notable changes to NimVor are documented here. The format follows
 
 - Websites: an **Uptime checks** switch (website → Advanced → Monitoring) to leave a website out of the dashboard's HTTP checks, uptime figures and uptime alerts, for sites that are meant to be offline or cannot be reached from the server itself. Panel-only (migration 0081, nothing on the server changes); earlier results are kept, an open alert for the site closes at the next monitoring pass, and the Website health widget says how many sites are left out. Audited as `website.monitoring_on` / `website.monitoring_off`.
 - `sudo nimvor update`: one short command that brings an installation to the newest release from any older version, with its database migrations (`--check` only reports, `--version X.Y.Z` picks a release, `--branch NAME` follows development). It works with a checkout pinned to a release or without a local `main`. The installer records the source folder in `/etc/nimvor/source`.
+- Website: **Patreon sponsors**. Admin → Sponsors can copy the active patrons of the Patreon campaign (name, public profile link, monthly pledge; no email address) next to GitHub's sponsors and the ones added by hand, edit or hide any sponsor, and switch the GitHub, Patreon and manual sources on or off for the public Sponsors page. The "Support on Patreon" button shows once a Patreon page address is set. Needs `PATREON_ACCESS_TOKEN`; adds migration 0005 (with an SQL file for sites without a terminal).
 - Dashboard: **Arrange** mode. Drag a widget by its card to move it, drag its right edge (or use the S / M / L / Full buttons, or the arrow keys on the edge) to change its width; every change is saved at once, per user. Alt + arrow keys move a focused widget. The Customize dialog stays for showing and hiding widgets and for touch screens.
 - Dashboard: a refresh interval per widget (only on request, 30 seconds, 1, 5 or 15 minutes) in the Customize dialog; without a choice the widget's own default applies. Automatic refreshes pause while arranging.
 
@@ -17,6 +18,7 @@ All notable changes to NimVor are documented here. The format follows
 
 - Dashboard: the Small width is now narrower than Medium at every page width (it was wider than Medium between 1000 and 1360 px).
 - Website: the features page covers Dashboard 2.0 (arrangeable widgets, real website checks, security and SSL overview, database and cache overviews, capacity forecast, history charts, alert center) and `nimvor update`.
+- Website: the short `curl … | sudo bash` command is no longer shown on the home page, the release pages or the install page's "short version" card; the install page's command builder is the one place that builds an install command. The builder no longer asks about ports, questions, resuming, HTTPS or the other installer options: `--yes`, `--resume` and `--public-https` are always in the command (the agent-only mode has no panel HTTPS), and the "More options" section is gone. Release pages point to `sudo nimvor update`.
 
 ## [1.9.0] — 2026-11-22
 
