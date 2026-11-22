@@ -402,7 +402,28 @@ Without `sudo` it asks `sudo` to run the same command. The uninstaller removes
 it. The long form (`sudo -u nimvor NIMVOR_CONFIG=/etc/nimvor/panel.php php
 /opt/nimvor/panel/bin/nimvor …`) still works.
 
-## Update (source checkout)
+## Update (`nimvor update`)
+
+```bash
+sudo nimvor update                    # the newest stable release
+sudo nimvor update --check            # only say whether a newer release exists
+sudo nimvor update --version 1.9.0    # a specific release (older ones need --allow-downgrade)
+sudo nimvor update --branch main      # follow development instead of releases
+```
+
+It works from any older version (1.8.1 to the newest, for example): it finds
+the source checkout (recorded in `/etc/nimvor/source` at install time, default
+`/usr/local/src/nimvor`), fetches the release, and runs the installer's
+reinstall from it, so dependencies, the agent, the panel files, **database
+migrations** and services are all brought up to date and the configuration is
+kept. A checkout pinned to a release, or without a local `main` branch, is fine.
+It stops without changing anything when the checkout has local changes, when the
+installation is already current, or when it is a development build newer than the
+newest release. The `nimvor` command appears on a server after the first
+installer run that contains it (a one-time `curl -fsSL https://nimvor.com/install | sudo bash`
+or `sudo ./installer/update.sh`); from then on `sudo nimvor update` is enough.
+
+## Update (source checkout, `update.sh`)
 
 ```bash
 sudo ./installer/update.sh
