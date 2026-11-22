@@ -8,6 +8,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Added
 
+- `sudo nimvor update`: one short command that brings an installation to the newest release from any older version, with its database migrations (`--check` only reports, `--version X.Y.Z` picks a release, `--branch NAME` follows development). It works with a checkout pinned to a release or without a local `main`. The installer records the source folder in `/etc/nimvor/source`.
+
+### Added
+
 - Dashboard: **Arrange** mode. Drag a widget by its card to move it, drag its right edge (or use the S / M / L / Full buttons, or the arrow keys on the edge) to change its width; every change is saved at once, per user. Alt + arrow keys move a focused widget. The Customize dialog stays for showing and hiding widgets and for touch screens.
 - Dashboard: a refresh interval per widget (only on request, 30 seconds, 1, 5 or 15 minutes) in the Customize dialog; without a choice the widget's own default applies. Automatic refreshes pause while arranging.
 
