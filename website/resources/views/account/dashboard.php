@@ -10,7 +10,7 @@ $badge = static fn (string $s): string => match ($s) { 'new' => 'badge-new', 'qu
     <a class="btn btn-primary" href="/resources/build-services#request">New build request</a></div>
 <div class="tiles">
     <div class="tile"><small>Open requests</small><strong><?= (int) $openRequests ?></strong></div>
-    <div class="tile"><small>Messages sent</small><strong><?= (int) $messageCount ?></strong></div>
+    <div class="tile"><small>Tickets</small><strong><?= (int) $ticketCount ?></strong></div>
     <div class="tile"><small>Member since</small><strong><?= e(substr((string) $user['created_at'], 0, 10)) ?></strong></div>
 </div>
 <div class="panel">

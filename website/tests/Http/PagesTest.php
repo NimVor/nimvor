@@ -23,7 +23,7 @@ final class PagesTest extends SiteTestCase
             'sponsors' => ['/resources/sponsors', 'Become a sponsor'],
             'about' => ['/resources/about', 'The rules we follow'],
             'support' => ['/support', 'Security problem'],
-            'contact' => ['/support/contact', 'Send message'],
+            'contact' => ['/support/contact', 'Open a ticket'],
             'privacy' => ['/support/privacy', 'What we store'],
             'login' => ['/login', 'Log in'],
             'register' => ['/register', 'Create an account'],

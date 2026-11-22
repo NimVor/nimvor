@@ -47,14 +47,14 @@ abstract class SiteTestCase extends TestCase
         $this->app = App::boot($config, dirname(__DIR__, 2), $this->http);
         $db = $this->app->db;
         if (!self::$schema) {
-            foreach (['videos', 'visits', 'sponsors', 'build_requests', 'contact_messages', 'posts', 'users', 'docs_pages', 'installs', 'site_state', 'migrations'] as $t) {
+            foreach (['videos', 'visits', 'sponsors', 'build_requests', 'ticket_replies', 'tickets', 'ticket_canned', 'contact_messages', 'posts', 'users', 'docs_pages', 'installs', 'site_state', 'migrations'] as $t) {
                 $db->run("DROP TABLE IF EXISTS {$t}");
             }
             $db->migrate(dirname(__DIR__, 2) . '/database/migrations');
             self::$schema = true;
         }
         $db->run('SET FOREIGN_KEY_CHECKS = 0');
-        foreach (['videos', 'visits', 'sponsors', 'build_requests', 'contact_messages', 'posts', 'users', 'docs_pages', 'installs', 'site_state'] as $t) {
+        foreach (['videos', 'visits', 'sponsors', 'build_requests', 'ticket_replies', 'tickets', 'ticket_canned', 'contact_messages', 'posts', 'users', 'docs_pages', 'installs', 'site_state'] as $t) {
             $db->run("TRUNCATE TABLE {$t}");
         }
         $db->run('SET FOREIGN_KEY_CHECKS = 1');
