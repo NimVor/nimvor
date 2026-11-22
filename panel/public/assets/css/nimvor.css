@@ -1149,9 +1149,10 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 /* Top processes: the two tables sit side by side when the widget is wide enough. */
 .nim-proc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(21rem, 1fr)); gap: 1rem 1.5rem; }
 .nim-top-table { table-layout: fixed; }
-.nim-top-table th:nth-child(2), .nim-top-table td:nth-child(2) { width: 3.6rem; }
-.nim-top-table th:nth-child(3), .nim-top-table td:nth-child(3) { width: 3.6rem; }
-.nim-top-table th:nth-child(4), .nim-top-table td:nth-child(4) { width: 5.4rem; }
+/* Numbers never wrap: process IDs can have seven digits and memory sizes carry a unit. */
+.nim-top-table th:nth-child(2), .nim-top-table td:nth-child(2) { width: 4.9rem; white-space: nowrap; }
+.nim-top-table th:nth-child(3), .nim-top-table td:nth-child(3) { width: 3.9rem; white-space: nowrap; }
+.nim-top-table th:nth-child(4), .nim-top-table td:nth-child(4) { width: 6rem; white-space: nowrap; }
 .nim-top-table .nim-w-9 { width: auto; }
 
 /* Overview cards above the widgets share the same rhythm. */
