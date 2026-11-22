@@ -36,4 +36,15 @@ abstract class Controller
     {
         return str_starts_with($next, '/') && !str_starts_with($next, '//') && !str_contains($next, '\\') && !preg_match('/[\x00-\x1f]/', $next) ? $next : $fallback;
     }
+
+    /** The text shown when the check in front of a public form failed, or null when it passed (or is off). */
+    protected function captchaError(Ctx $ctx): ?string
+    {
+        if ($ctx->user() !== null || $this->app->captcha->verify($ctx->req, $ctx->ip())) {
+            return null;
+        }
+        return $this->app->captcha->provider() === 'builtin'
+            ? 'That answer was not right, or the question took too long. Please answer the new question.'
+            : 'The check could not be confirmed. Please try it again.';
+    }
 }

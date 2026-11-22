@@ -18,6 +18,7 @@ $v->set('description', 'Write to the NimVor project.');
             <div class="field"><label for="subject">Subject</label><input class="input" id="subject" name="subject" value="<?= e($old['subject'] ?? '') ?>" maxlength="200" required><?= $v->error($errors, 'subject') ?></div>
             <div class="field"><label for="message">Message</label><textarea class="textarea" id="message" name="message" maxlength="5000" required><?= e($old['message'] ?? '') ?></textarea><?= $v->error($errors, 'message') ?></div>
             <div class="hp" aria-hidden="true"><label>Leave this empty<input name="website" tabindex="-1" autocomplete="off"></label></div>
+<?= $v->partial('partials/captcha', ['errors' => $errors ?? []]) ?>
             <button class="btn btn-primary" type="submit">Open a ticket</button>
         </form>
         <div class="prose">

@@ -13,6 +13,7 @@ $v->set('title', 'Log in');
         <?php if (!empty($errors['form'])): ?><div class="alert alert-error mb-0" role="alert"><?= e($errors['form']) ?></div><?php endif; ?>
         <div class="field"><label for="email">Email</label><input class="input" id="email" type="email" name="email" value="<?= e($old['email'] ?? '') ?>" autocomplete="username" maxlength="190" required autofocus></div>
         <div class="field"><label for="password">Password</label><input class="input" id="password" type="password" name="password" autocomplete="current-password" maxlength="200" required></div>
+<?= $v->partial('partials/captcha', ['errors' => $errors ?? []]) ?>
         <button class="btn btn-primary" type="submit">Log in</button>
         <p class="muted mb-0">No account? <a href="/register">Create one</a>.</p>
     </form>

@@ -28,6 +28,7 @@ use NimVorSite\Repositories\State;
 use NimVorSite\Repositories\Users;
 use NimVorSite\Repositories\Visits;
 use NimVorSite\Services\Auth;
+use NimVorSite\Services\Captcha;
 use NimVorSite\Services\CurlHttp;
 use NimVorSite\Services\DocsService;
 use NimVorSite\Services\GitHub;
@@ -68,6 +69,7 @@ final class App
     public readonly SponsorSync $sponsorSync;
     public readonly Patreon $patreon;
     public readonly Stats $stats;
+    public readonly Captcha $captcha;
     public readonly Telemetry $telemetry;
     public readonly TelemetryService $telemetryService;
     /** Work to do after the answer has been sent (a documentation refresh). */
@@ -107,6 +109,7 @@ final class App
         $this->patreon = new Patreon($http ?? new CurlHttp(), ['access_token' => (string) ($pt['access_token'] ?? ''), 'campaign_id' => (string) ($pt['campaign_id'] ?? '')]);
         $this->sponsorSync = new SponsorSync($this->github, $this->sponsors, $cache, (string) ($gh['sponsorable'] ?? 'NimVor'), $this->patreon);
         $this->stats = new Stats($this->installs, $cache);
+        $this->captcha = new Captcha($this->state, $cache, $http ?? new CurlHttp(), (array) ($config['captcha'] ?? []));
         $this->telemetry = new Telemetry($db);
         $this->telemetryService = new TelemetryService($this->telemetry, $this->limiter);
         $this->router = new Router();
@@ -275,6 +278,7 @@ final class App
         ]);
         $ctx = new Ctx($this, $req, $session, $auth, $view);
         $view->share('v', $view);
+        $view->share('captcha', $this->captcha);
 
         $route = null;
         try {
@@ -338,7 +342,9 @@ final class App
 
     private function secure(Response $r, Request $req, bool $https, bool $private): Response
     {
-        $r->header('Content-Security-Policy', "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-src https://www.youtube-nocookie.com; frame-ancestors 'none'");
+        $hosts = $this->captcha->cspHosts();
+        $extra = $hosts === [] ? '' : ' ' . implode(' ', $hosts);
+        $r->header('Content-Security-Policy', "default-src 'self'; img-src 'self' data:; style-src 'self'" . ($this->captcha->provider() === 'hcaptcha' ? " 'unsafe-inline'" : '') . "; script-src 'self'{$extra}; font-src 'self'; connect-src 'self'{$extra}; object-src 'none'; base-uri 'none'; form-action 'self'; frame-src https://www.youtube-nocookie.com{$extra}; frame-ancestors 'none'");
         $r->header('X-Content-Type-Options', 'nosniff');
         $r->header('X-Frame-Options', 'DENY');
         $r->header('Referrer-Policy', 'strict-origin-when-cross-origin');

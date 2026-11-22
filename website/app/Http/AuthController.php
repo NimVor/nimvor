@@ -22,6 +22,9 @@ final class AuthController extends Controller
     public function login(Ctx $ctx): Response
     {
         $email = trim($ctx->req->input('email'));
+        if (($bad = $this->captchaError($ctx)) !== null) {
+            return $this->invalid($ctx, 'auth/login', ['captcha' => $bad], ['next' => $ctx->req->input('next')], 422);
+        }
         $res = $ctx->auth->attempt($email, $ctx->req->input('password'), $ctx->ip());
         if ($res['user'] === null) {
             $msg = $res['error'] === 'throttled' ? 'Too many failed attempts. Wait a few minutes and try again.' : 'The email or password is not right.';
@@ -50,6 +53,9 @@ final class AuthController extends Controller
         }
         if (!$v->fails() && $this->app->users->byEmail($v->value('email')) !== null) {
             $v->fail('email', 'An account with this email already exists. Sign in instead.');
+        }
+        if (($bad = $this->captchaError($ctx)) !== null) {
+            $v->fail('captcha', $bad);
         }
         if ($v->fails()) {
             return $this->invalid($ctx, 'auth/register', $v->errors());

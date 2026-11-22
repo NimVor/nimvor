@@ -49,6 +49,7 @@ $icons = ['migration' => 'server', 'install' => 'shield', 'custom' => 'code', 'r
                 </select><?= $v->error($errors, 'service') ?></div>
             <div class="field"><label for="details">Details</label><textarea class="textarea" id="details" name="details" maxlength="5000" required><?= e($old['details'] ?? '') ?></textarea><div class="hint">Operating system, number of sites, deadlines: anything that helps us scope it.</div><?= $v->error($errors, 'details') ?></div>
             <div class="hp" aria-hidden="true"><label>Leave this empty<input name="website" tabindex="-1" autocomplete="off"></label></div>
+            <?= $v->partial('partials/captcha', ['errors' => $errors ?? []]) ?>
             <button class="btn btn-primary" type="submit">Send request</button>
         </form>
     </div>
