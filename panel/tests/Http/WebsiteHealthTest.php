@@ -106,6 +106,8 @@ final class WebsiteHealthTest extends HttpTestCase
 
         $this->login('admin');
         $db = $this->app->container->get(\NimVor\Database\Connection::class);
+        // The next check is a later one (two within the same second would both be "the latest").
+        $db->run('UPDATE website_checks SET checked_at = checked_at - 600');
         $token = ['_token' => $this->app->container->get(\NimVor\Security\Csrf::class)->token()];
         foreach (['broken.test', 'gone.test'] as $d) {
             $id = (int) $db->scalar('SELECT id FROM websites WHERE domain = ?', [$d]);
