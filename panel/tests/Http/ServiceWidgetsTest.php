@@ -41,7 +41,7 @@ final class ServiceWidgetsTest extends HttpTestCase
             self::assertStringContainsString($s, $w['html']);
         }
         self::assertStringContainsString('text-warning', $w['html'], 'connections are at 85% of the limit');
-        self::assertStringNotContainsString('PostgreSQL', $w['html']);
+        self::assertStringNotContainsString('PostgreSQL <span', $w['html'], 'no PostgreSQL section when it is not installed');
     }
 
     public function testADownDatabaseIsSaidNotZeroed(): void

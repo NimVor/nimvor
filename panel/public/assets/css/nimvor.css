@@ -1169,3 +1169,99 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 @container nim-widgets (min-width: 640px) and (max-width: 999.98px) {
     .nim-widgets > .nim-span-md:last-child:nth-child(odd), .nim-widgets > .nim-span-sm:last-child:nth-child(odd) { grid-column: span 12; }
 }
+
+/* ---- Charts (assets/js/charts.js and the server-drawn donuts and bars) ----
+   Related metrics keep their colour everywhere: CPU blue, memory purple, disk orange, load teal,
+   traffic in teal and out blue, services green, database cyan. */
+:root {
+    --nim-c-cpu: #2563eb; --nim-c-mem: #9333ea; --nim-c-swap: #c084fc; --nim-c-disk: #ea580c; --nim-c-load: #0d9488; --nim-c-load5: #5eead4; --nim-c-load15: #99f6e4;
+    --nim-c-rx: #0d9488; --nim-c-tx: #2563eb; --nim-c-svc: #16a34a; --nim-c-db: #0891b2; --nim-c-db2: #6366f1;
+    --nim-c-ok: #16a34a; --nim-c-warn: #d97706; --nim-c-bad: #dc2626; --nim-c-info: #2563eb; --nim-c-muted: #94a3b8;
+    --nim-chart-grid: rgba(15, 23, 42, .08);
+}
+[data-bs-theme="dark"] {
+    --nim-c-cpu: #60a5fa; --nim-c-mem: #c084fc; --nim-c-swap: #e9d5ff; --nim-c-disk: #fb923c; --nim-c-load: #2dd4bf; --nim-c-load5: #5eead4; --nim-c-load15: #99f6e4;
+    --nim-c-rx: #2dd4bf; --nim-c-tx: #60a5fa; --nim-c-svc: #4ade80; --nim-c-db: #22d3ee; --nim-c-db2: #a5b4fc;
+    --nim-c-ok: #4ade80; --nim-c-warn: #fbbf24; --nim-c-bad: #f87171; --nim-c-info: #60a5fa; --nim-c-muted: #64748b;
+    --nim-chart-grid: rgba(255, 255, 255, .08);
+}
+.c-text-cpu { color: var(--nim-c-cpu); } .c-text-mem { color: var(--nim-c-mem); } .c-text-load { color: var(--nim-c-load); }
+.c-text-rx { color: var(--nim-c-rx); } .c-text-tx { color: var(--nim-c-tx); } .c-text-ok { color: var(--nim-c-ok); }
+
+.nim-chart { position: relative; min-width: 0; }
+.nim-chart-plot svg { display: block; width: 100%; height: auto; overflow: visible; }
+.nim-chart .grid { stroke: var(--nim-chart-grid); stroke-width: 1; }
+.nim-chart .tick { fill: var(--bs-secondary-color); font-size: 10px; font-variant-numeric: tabular-nums; }
+.nim-chart .guide { stroke: var(--bs-secondary-color); stroke-width: 1; stroke-dasharray: 3 3; opacity: .7; }
+.nim-chart .line { fill: none; stroke-width: 1.75; stroke-linejoin: round; stroke-linecap: round; animation: nim-chart-in .45s ease-out both; }
+.nim-chart .area { stroke: none; opacity: .14; animation: nim-chart-in .45s ease-out both; }
+.nim-chart .dot, .nim-chart .hover { stroke: none; }
+.nim-chart .hover { stroke: var(--bs-body-bg); stroke-width: 1.5; }
+@keyframes nim-chart-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .nim-chart .line, .nim-chart .area { animation: none; } }
+.s-cpu { stroke: var(--nim-c-cpu); fill: var(--nim-c-cpu); } .s-mem { stroke: var(--nim-c-mem); fill: var(--nim-c-mem); } .s-swap { stroke: var(--nim-c-swap); fill: var(--nim-c-swap); }
+.s-disk { stroke: var(--nim-c-disk); fill: var(--nim-c-disk); } .s-load1 { stroke: var(--nim-c-load); fill: var(--nim-c-load); } .s-load5 { stroke: var(--nim-c-load5); fill: var(--nim-c-load5); }
+.s-load15 { stroke: var(--nim-c-load15); fill: var(--nim-c-load15); } .s-rx { stroke: var(--nim-c-rx); fill: var(--nim-c-rx); } .s-tx { stroke: var(--nim-c-tx); fill: var(--nim-c-tx); }
+.s-svc { stroke: var(--nim-c-svc); fill: var(--nim-c-svc); } .s-db_conn { stroke: var(--nim-c-db); fill: var(--nim-c-db); } .s-db_qps { stroke: var(--nim-c-db2); fill: var(--nim-c-db2); }
+.nim-chart .line.s-cpu, .nim-chart .line.s-mem, .nim-chart .line.s-swap, .nim-chart .line.s-disk, .nim-chart .line.s-load1, .nim-chart .line.s-load5, .nim-chart .line.s-load15,
+.nim-chart .line.s-rx, .nim-chart .line.s-tx, .nim-chart .line.s-svc, .nim-chart .line.s-db_conn, .nim-chart .line.s-db_qps { fill: none; }
+.nim-chart .area.s-cpu, .nim-chart .area.s-mem, .nim-chart .area.s-disk, .nim-chart .area.s-load1, .nim-chart .area.s-rx, .nim-chart .area.s-svc, .nim-chart .area.s-db_conn, .nim-chart .area.s-db_qps { stroke: none; }
+.nim-chart-legend { display: flex; flex-wrap: wrap; gap: .15rem .9rem; font-size: .72rem; color: var(--bs-secondary-color); }
+.nim-chart-legend:empty { display: none; }
+.nim-chart-legend-item { display: inline-flex; align-items: center; gap: .35rem; }
+.nim-chart-key { display: inline-block; width: .55rem; height: .55rem; border-radius: 50%; flex-shrink: 0; }
+.nim-chart-key.s-cpu, .nim-chart-key.s-mem, .nim-chart-key.s-swap, .nim-chart-key.s-disk, .nim-chart-key.s-load1, .nim-chart-key.s-load5, .nim-chart-key.s-load15,
+.nim-chart-key.s-rx, .nim-chart-key.s-tx, .nim-chart-key.s-svc, .nim-chart-key.s-db_conn, .nim-chart-key.s-db_qps { background: currentColor; stroke: none; }
+.nim-chart-key.s-cpu { color: var(--nim-c-cpu); } .nim-chart-key.s-mem { color: var(--nim-c-mem); } .nim-chart-key.s-swap { color: var(--nim-c-swap); } .nim-chart-key.s-disk { color: var(--nim-c-disk); }
+.nim-chart-key.s-load1 { color: var(--nim-c-load); } .nim-chart-key.s-load5 { color: var(--nim-c-load5); } .nim-chart-key.s-load15 { color: var(--nim-c-load15); }
+.nim-chart-key.s-rx { color: var(--nim-c-rx); } .nim-chart-key.s-tx { color: var(--nim-c-tx); } .nim-chart-key.s-svc { color: var(--nim-c-svc); } .nim-chart-key.s-db_conn { color: var(--nim-c-db); } .nim-chart-key.s-db_qps { color: var(--nim-c-db2); }
+.nim-chart-key.c-ok { background: var(--nim-c-ok); } .nim-chart-key.c-warn { background: var(--nim-c-warn); } .nim-chart-key.c-bad { background: var(--nim-c-bad); }
+.nim-chart-key.c-muted { background: var(--nim-c-muted); } .nim-chart-key.c-info { background: var(--nim-c-info); }
+.nim-chart-tip { position: absolute; z-index: 3; pointer-events: none; min-width: 9rem; padding: .4rem .55rem; border-radius: .45rem; font-size: .74rem; line-height: 1.35;
+    background: var(--bs-body-bg); color: var(--bs-body-color); border: 1px solid var(--nim-card-border); box-shadow: 0 6px 18px rgba(0, 0, 0, .18); }
+.nim-chart-tip-time { color: var(--bs-secondary-color); margin-bottom: .15rem; }
+.nim-chart-tip-row { display: flex; align-items: center; gap: .4rem; }
+.nim-chart-note { padding: 1rem 0; color: var(--bs-secondary-color); }
+.nim-chart-sum { margin-top: .15rem; font-size: .72rem; color: var(--bs-secondary-color); }
+
+/* Pills: segmented controls for the metric tabs and time ranges (the older .nim-seg is a different control). */
+.nim-chart-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .6rem; }
+.nim-pills { display: inline-flex; padding: 2px; border-radius: .5rem; background: var(--bs-secondary-bg); gap: 2px; }
+.nim-pill { border: 0; background: none; padding: .15rem .6rem; border-radius: .4rem; font-size: .75rem; font-weight: 500; line-height: 1.5; color: var(--bs-secondary-color); }
+.nim-pill:hover { color: var(--bs-body-color); }
+.nim-pill.active { background: var(--bs-body-bg); color: var(--bs-body-color); box-shadow: 0 1px 2px rgba(0, 0, 0, .15); }
+.nim-pill:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 1px; }
+
+/* Performance: the latest reading beside the chart. */
+.nim-perf { display: grid; grid-template-columns: minmax(8.5rem, 11rem) minmax(0, 1fr); gap: 1rem 1.25rem; align-items: stretch; }
+.nim-perf-now { display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
+.nim-now-value { font-size: 1.9rem; font-weight: 650; line-height: 1.1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.nim-now-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--bs-secondary-color); }
+.nim-now-sub { font-size: .76rem; color: var(--bs-secondary-color); }
+@container nim-widgets (max-width: 639px) { .nim-perf { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 575.98px) { .nim-perf { grid-template-columns: minmax(0, 1fr); } }
+
+/* Donuts, stacked status bars, bars and the legend lists next to them. */
+.nim-donut { flex-shrink: 0; display: block; }
+.nim-donut-track { stroke: var(--bs-secondary-bg); }
+.nim-donut-seg { transition: stroke-dasharray .4s ease; }
+.nim-donut-seg.c-ok { stroke: var(--nim-c-ok); } .nim-donut-seg.c-warn { stroke: var(--nim-c-warn); } .nim-donut-seg.c-bad { stroke: var(--nim-c-bad); }
+.nim-donut-seg.c-muted { stroke: var(--nim-c-muted); } .nim-donut-seg.c-info { stroke: var(--nim-c-info); } .nim-donut-seg.c-track { stroke: var(--bs-secondary-bg); }
+.nim-donut-value { fill: var(--bs-body-color); font-size: 8px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.nim-donuts { display: flex; flex-wrap: wrap; gap: .9rem 1.2rem; }
+.nim-donut-item { display: flex; flex-direction: column; align-items: center; gap: .3rem; min-width: 5.5rem; }
+.nim-donut-cap { display: flex; flex-direction: column; align-items: center; font-size: .72rem; line-height: 1.25; }
+.nim-split { display: flex; align-items: center; gap: 1.1rem; }
+.nim-legend-list { list-style: none; margin: 0; padding: 0; flex: 1 1 auto; min-width: 0; font-size: .8rem; }
+.nim-legend-list li { display: flex; align-items: center; gap: .5rem; padding: .15rem 0; }
+.nim-stack { display: flex; height: .55rem; border-radius: 999px; overflow: hidden; background: var(--bs-secondary-bg); gap: 2px; }
+.nim-stack-seg { flex: 0 0 auto; min-width: 6px; }
+.nim-stack-seg.c-ok { background: var(--nim-c-ok); } .nim-stack-seg.c-warn { background: var(--nim-c-warn); } .nim-stack-seg.c-bad { background: var(--nim-c-bad); }
+.nim-bars { display: flex; align-items: stretch; gap: .4rem; height: 6.2rem; }
+.nim-bar { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: .15rem; }
+.nim-bar-track { flex: 1 1 auto; min-height: 0; width: 100%; display: flex; align-items: flex-end; justify-content: center; }
+.nim-bar-fill { display: block; width: 100%; max-width: 2.2rem; height: 2%; border-radius: .25rem .25rem 0 0; background: var(--nim-c-info); opacity: .85; transition: height .4s ease; }
+.nim-bar:hover .nim-bar-fill { opacity: 1; }
+.nim-bar-n { font-size: .68rem; font-variant-numeric: tabular-nums; color: var(--bs-secondary-color); }
+.nim-bar-l { font-size: .68rem; color: var(--bs-secondary-color); }
+@media (prefers-reduced-motion: reduce) { .nim-bar-fill, .nim-donut-seg { transition: none; } }

@@ -60,6 +60,9 @@ final class DashboardWidgetsService
                 'website_health' => $this->websiteHealth(),
                 'security_overview' => ($this->security ?? throw new AgentException('Security status unavailable'))->security(),
                 'alert_center' => $this->alertCenter(),
+                'performance_history' => $this->performanceHistory(),
+                'website_overview' => $this->websiteOverview(),
+                'services_overview' => $this->servicesOverview(),
                 'capacity_forecast' => ($this->capacity ?? throw new \InvalidArgumentException('Capacity unavailable'))->forecast(),
                 'traffic_overview' => ($this->capacity ?? throw new \InvalidArgumentException('Traffic unavailable'))->traffic(),
                 'backup_health' => ($this->ops ?? throw new AgentException('Backups unavailable'))->backups(),
@@ -102,6 +105,118 @@ final class DashboardWidgetsService
             }
         }
         return ['needs' => $needs, 'expiring' => $expiring, '_state' => $needs === null && $expiring === null ? 'unavailable' : 'ok'];
+    }
+
+    /**
+     * The numbers next to the performance charts: the latest reading of CPU,
+     * memory, swap, load and network, and when the recorded history starts. The
+     * history itself is drawn by the browser from /dashboard/series.
+     *
+     * @return array<string, mixed>
+     */
+    public function performanceHistory(): array
+    {
+        if ($this->agent === null) {
+            throw new AgentException('Agent unavailable');
+        }
+        $m = (array) json_decode((string) json_encode($this->agent->call('system.metrics')), true);
+        $mem = (array) ($m['memory'] ?? []);
+        $rx = $tx = null;
+        foreach ((array) ($m['network'] ?? []) as $n) {
+            $n = (array) $n;
+            $rx = ($rx ?? 0.0) + (float) ($n['rx_bytes_per_sec'] ?? 0);
+            $tx = ($tx ?? 0.0) + (float) ($n['tx_bytes_per_sec'] ?? 0);
+        }
+        $swapTotal = (int) ($mem['swap_total_bytes'] ?? 0);
+        return [
+            'cpu' => isset($m['cpu_percent']) ? (float) $m['cpu_percent'] : null,
+            'mem' => [
+                'percent' => isset($mem['used_percent']) ? (float) $mem['used_percent'] : null,
+                'used' => isset($mem['used_bytes']) ? (int) $mem['used_bytes'] : null,
+                'available' => isset($mem['available_bytes']) ? (int) $mem['available_bytes'] : null,
+                'total' => isset($mem['total_bytes']) ? (int) $mem['total_bytes'] : null,
+                'swap_used' => $swapTotal > 0 ? (int) ($mem['swap_used_bytes'] ?? 0) : null,
+                'swap_total' => $swapTotal > 0 ? $swapTotal : null,
+            ],
+            'load' => isset($m['load']) ? ['1' => (float) $m['load']['load1'], '5' => (float) $m['load']['load5'], '15' => (float) $m['load']['load15']] : null,
+            'net' => $rx === null ? null : ['rx' => $rx, 'tx' => $tx],
+            'since' => $this->monitoring?->firstSampleAt(),
+        ];
+    }
+
+    /**
+     * Websites by state, how many use HTTPS, and how many were created in each
+     * of the last six months (websites that still exist; a deleted one is gone).
+     *
+     * @return array<string, mixed>
+     */
+    public function websiteOverview(): array
+    {
+        $sid = $this->server->id();
+        $row = $this->db->fetch(
+            'SELECT COUNT(*) AS total,
+                    SUM(CASE WHEN ' . \NimVor\Repositories\UserRepository::SUSPENDED . ' THEN 1 ELSE 0 END) AS suspended,
+                    SUM(CASE WHEN NOT ' . \NimVor\Repositories\UserRepository::SUSPENDED . ' AND w.enabled = 0 THEN 1 ELSE 0 END) AS disabled,
+                    SUM(CASE WHEN NOT ' . \NimVor\Repositories\UserRepository::SUSPENDED . ' AND w.enabled = 1 THEN 1 ELSE 0 END) AS active,
+                    SUM(CASE WHEN w.https = 1 THEN 1 ELSE 0 END) AS https
+             FROM websites w LEFT JOIN users u ON u.id = w.owner_id WHERE w.server_id = ?',
+            [$sid]
+        ) ?? [];
+        $total = (int) ($row['total'] ?? 0);
+        $months = [];
+        for ($i = 5; $i >= 0; $i--) {
+            $months[gmdate('Y-m', strtotime("first day of -{$i} month"))] = 0;
+        }
+        foreach ($this->db->fetchAll("SELECT strftime('%Y-%m', created_at) AS m, COUNT(*) AS n FROM websites WHERE server_id = ? GROUP BY m", [$sid]) as $r) {
+            if (isset($months[(string) $r['m']])) {
+                $months[(string) $r['m']] = (int) $r['n'];
+            }
+        }
+        return [
+            'total' => $total,
+            'active' => (int) ($row['active'] ?? 0),
+            'disabled' => (int) ($row['disabled'] ?? 0),
+            'suspended' => (int) ($row['suspended'] ?? 0),
+            'https' => (int) ($row['https'] ?? 0),
+            'created' => $months,
+            '_state' => $total === 0 ? 'empty' : 'ok',
+        ];
+    }
+
+    /**
+     * The enabled services: how many run, are stopped or failed. The history
+     * of how many ran is drawn from the recorded samples.
+     *
+     * @return array<string, mixed>
+     */
+    public function servicesOverview(): array
+    {
+        if ($this->agent === null) {
+            throw new AgentException('Agent unavailable');
+        }
+        $list = (array) json_decode((string) json_encode($this->agent->call('services.status')), true);
+        $seen = [];
+        $up = $stopped = $failed = 0;
+        $bad = [];
+        foreach ($list as $svc) {
+            $svc = (array) $svc;
+            $unit = (string) ($svc['unit'] ?? '');
+            if ($unit === '' || isset($seen[$unit]) || ($svc['unit_file_state'] ?? '') !== 'enabled') {
+                continue;
+            }
+            $seen[$unit] = true;
+            $state = (string) ($svc['active_state'] ?? '');
+            if ($state === 'active') {
+                $up++;
+            } elseif ($state === 'failed') {
+                $failed++;
+                $bad[] = preg_replace('/\.service$/', '', $unit);
+            } else {
+                $stopped++;
+                $bad[] = preg_replace('/\.service$/', '', $unit);
+            }
+        }
+        return ['up' => $up, 'stopped' => $stopped, 'failed' => $failed, 'total' => $up + $stopped + $failed, 'problems' => array_slice($bad, 0, 4), '_state' => $up + $stopped + $failed === 0 ? 'empty' : 'ok'];
     }
 
     /**

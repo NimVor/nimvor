@@ -248,6 +248,7 @@ foreach ([
 </div>
 <div class="small text-body-secondary mt-3" data-live-status>Waiting for live data…</div>
 <script src="<?= e($this->asset('assets/js/dashboard.js')) ?>" defer></script>
+<script src="<?= e($this->asset('assets/js/charts.js')) ?>" defer></script>
 
 <?php if ($tiles !== []): ?>
 <div class="modal fade" id="nim-customize" tabindex="-1" aria-labelledby="nim-customize-title" aria-hidden="true">
