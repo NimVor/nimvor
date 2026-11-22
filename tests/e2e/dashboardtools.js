@@ -39,6 +39,23 @@ const OUT = process.env.E2E_OUT || '/tmp';
     if (!['ok', 'empty', 'unavailable', 'error'].includes(tpState)) { throw new Error('top processes widget state: ' + tpState); }
     step('top processes widget loaded (' + tpState + ')');
 
+    // Performance history: the chart is drawn from what the monitor recorded; with no history it says so instead of drawing anything.
+    // (A new server has no history yet: the plot is then empty and a note says so, which is also a valid state.)
+    await page.waitForSelector('[data-widget="performance_history"][data-state="ok"] [data-nim-chart][data-mounted="1"]', { timeout: 15000 });
+    await page.waitForFunction(() => {
+        const box = document.querySelector('[data-widget="performance_history"] [data-nim-chart]');
+        return box && (box.querySelector('svg path.line') || (box.querySelector('.nim-chart-note') && !box.querySelector('.nim-chart-note').hidden));
+    }, null, { timeout: 15000 });
+    for (const tab of ['mem', 'load', 'net', 'cpu']) {
+        await page.click('[data-widget="performance_history"] [data-chart-tab="' + tab + '"]');
+        const shown = await page.$eval('[data-widget="performance_history"] [data-chart-pane]:not([hidden])', n => n.getAttribute('data-chart-pane'));
+        if (shown !== tab) { throw new Error('the performance tab ' + tab + ' shows the readings of ' + shown); }
+    }
+    await page.click('[data-widget="performance_history"] [data-range-button="7d"]');
+    if (await page.$eval('[data-widget="performance_history"] [data-range-button="7d"]', b => b.getAttribute('aria-pressed')) !== 'true') { throw new Error('the 7 d range is not selected'); }
+    await page.click('[data-widget="performance_history"] [data-range-button="24h"]');
+    step('performance history: tabs and ranges work');
+
     // Customize: hide the Disk widget, then restore the default layout.
     await page.click('button:has-text("Customize")');
     await page.waitForSelector('#nim-customize.show', { timeout: 5000 });

@@ -151,6 +151,27 @@ final class DashboardController extends Controller
         return $this->redirectWithSuccess('/', 'Your dashboard layout is saved.');
     }
 
+    /** Ranges the history charts offer: seconds and the most points drawn. */
+    private const RANGES = ['1h' => [3600, 60], '6h' => [21600, 72], '24h' => [86400, 96], '7d' => [604800, 112]];
+
+    /**
+     * The monitoring history for the dashboard's charts: only what the monitor
+     * measured (read from the panel's own records, no agent call). A value that
+     * was not measured in a period is null.
+     */
+    public function series(Request $request): Response
+    {
+        $range = (string) $request->query('range', '24h');
+        if (!isset(self::RANGES[$range])) {
+            $range = '24h';
+        }
+        [$seconds, $points] = self::RANGES[$range];
+        $now = time();
+        $rows = $this->monitoring->series($seconds, $points, $now);
+        $first = $this->monitoring->firstSampleAt();
+        return Response::json(['success' => true, 'range' => $range, 'from' => $now - $seconds, 'to' => $now, 'since' => $first, 'points' => $rows]);
+    }
+
     /** Checks the websites now (at most once a minute) and refreshes the widget. */
     public function checkWebsites(Request $request): Response
     {

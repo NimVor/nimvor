@@ -46,3 +46,18 @@ $full = static fn (?int $c, ?int $m): bool => $c !== null && $m !== null && $m >
     </div>
 <?php endif; ?>
 </div>
+<?php if ($d['mysql'] !== null && $d['mysql']['running']): ?>
+    <div class="mt-3" data-chart-scope="database">
+        <div class="nim-chart-bar">
+            <div class="nim-pills" role="tablist" aria-label="Database metric">
+                <button type="button" class="nim-pill active" role="tab" aria-selected="true" data-chart-tab="db_conn">Connections</button>
+                <button type="button" class="nim-pill" role="tab" aria-selected="false" data-chart-tab="db_qps">Statements per second</button>
+            </div>
+            <div class="nim-pills" role="group" aria-label="Time range">
+                <?php foreach (['1h' => '1 h', '6h' => '6 h', '24h' => '24 h', '7d' => '7 d'] as $k => $label): ?><button type="button" class="nim-pill" data-range-button="<?= e($k) ?>"><?= e($label) ?></button><?php endforeach; ?>
+            </div>
+        </div>
+        <div data-nim-chart data-metric="db_conn" data-series-url="<?= e($this->url('dashboard.series')) ?>" data-height="110"></div>
+        <div class="nim-widget-foot">History is recorded every five minutes for MariaDB / MySQL; PostgreSQL shows its current state only.</div>
+    </div>
+<?php endif; ?>

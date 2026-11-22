@@ -7,6 +7,13 @@
  */
 $rate = static fn (float $b): string => format_bytes($b) . '/s';
 ?>
+<div class="nim-chart-bar">
+    <span class="nim-sub mb-0">Network</span>
+    <div class="nim-pills" role="group" aria-label="Time range">
+        <?php foreach (['1h' => '1 h', '6h' => '6 h', '24h' => '24 h', '7d' => '7 d'] as $k => $label): ?><button type="button" class="nim-pill" data-range-button="<?= e($k) ?>"><?= e($label) ?></button><?php endforeach; ?>
+    </div>
+</div>
+<div class="mb-3" data-nim-chart data-metric="net" data-series-url="<?= e($this->url('dashboard.series')) ?>" data-height="120"></div>
 <div class="fw-semibold mb-1">Network, last <?= $d['net'] === null ? '24' : e((string) $d['net']['hours']) ?> hours</div>
 <?php if ($d['net'] === null): ?>
     <div class="text-body-secondary mb-3">Not enough measurements yet (the monitor takes one every five minutes).</div>

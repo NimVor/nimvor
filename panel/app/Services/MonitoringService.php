@@ -164,9 +164,34 @@ final class MonitoringService
             }
             $mem = (float) ($m['memory']['used_percent'] ?? 0);
             $load = (float) ($m['load']['load1'] ?? 0);
+            // What the charts also show. Each is NULL when it could not be measured (no swap, no database, no answer).
+            $swapTotal = (float) ($m['memory']['swap_total_bytes'] ?? 0);
+            $swap = $swapTotal > 0 ? round(100 * (float) ($m['memory']['swap_used_bytes'] ?? 0) / $swapTotal, 1) : null;
+            try {
+                $svcList = (array) $this->agent->call('services.status');
+            } catch (AgentException) {
+                $svcList = null;
+            }
+            $svcUp = $svcTotal = null;
+            if ($svcList !== null) {
+                $svcUp = $svcTotal = 0;
+                foreach ($svcList as $svc) {
+                    $svc = (array) $svc;
+                    if (($svc['unit_file_state'] ?? '') === 'enabled') {
+                        $svcTotal++;
+                        $svcUp += ($svc['active_state'] ?? '') === 'active' ? 1 : 0;
+                    }
+                }
+            }
+            [$dbConn, $dbQ] = $this->databaseCounters();
+            $prev = $this->db->fetch('SELECT taken_at, db_q FROM metric_samples WHERE server_id = ? AND db_q IS NOT NULL ORDER BY taken_at DESC LIMIT 1', [$this->server->id()]);
+            $dbQps = null;
+            if ($dbQ !== null && $prev !== null && $dbQ >= (int) $prev['db_q'] && $now - (int) $prev['taken_at'] > 0 && $now - (int) $prev['taken_at'] <= 3600) {
+                $dbQps = round(($dbQ - (int) $prev['db_q']) / ($now - (int) $prev['taken_at']), 2);
+            }
             $this->db->run(
-                'INSERT INTO metric_samples (server_id, taken_at, cpu, mem, disk, load1, rx_bps, tx_bps) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                [$this->server->id(), $now, (float) ($m['cpu_percent'] ?? 0), $mem, $maxDisk, $load, $rx, $tx]
+                'INSERT INTO metric_samples (server_id, taken_at, cpu, mem, disk, load1, rx_bps, tx_bps, swap, load5, load15, svc_up, svc_total, db_conn, db_qps, db_q) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [$this->server->id(), $now, (float) ($m['cpu_percent'] ?? 0), $mem, $maxDisk, $load, $rx, $tx, $swap, isset($m['load']['load5']) ? (float) $m['load']['load5'] : null, isset($m['load']['load15']) ? (float) $m['load']['load15'] : null, $svcUp, $svcTotal, $dbConn, $dbQps, $dbQ]
             );
             $prevMem = (float) $this->db->scalar('SELECT mem FROM metric_samples WHERE server_id = ? AND taken_at < ? ORDER BY taken_at DESC LIMIT 1', [$this->server->id(), $now]);
             if ($mem >= $this->settings->int('alert_memory_percent') && $prevMem >= $this->settings->int('alert_memory_percent')) {
@@ -175,7 +200,7 @@ final class MonitoringService
             if ($load > $cores * $this->settings->int('alert_load_per_core')) {
                 $firing['load'] = ['load', '', 'warning', sprintf('Load average %.2f on %d core(s).', $load, $cores)];
             }
-            foreach ((array) $this->agent->call('services.status') as $svc) {
+            foreach ($svcList ?? (array) $this->agent->call('services.status') as $svc) {
                 $svc = (array) $svc;
                 $enabled = ($svc['unit_file_state'] ?? '') === 'enabled';
                 if ($enabled && in_array($svc['active_state'] ?? '', ['failed', 'inactive'], true)) {
@@ -340,6 +365,36 @@ final class MonitoringService
         }
     }
 
+    /** When the first sample of this server was taken (the history starts here), or null. */
+    public function firstSampleAt(): ?int
+    {
+        $v = $this->db->scalar('SELECT MIN(taken_at) FROM metric_samples WHERE server_id = ?', [$this->server->id()]);
+        return $v === null || $v === false ? null : (int) $v;
+    }
+
+    /**
+     * Database connections and the statement counter, or [null, null] when the
+     * database server is not installed or does not answer.
+     *
+     * @return array{0: int|null, 1: int|null}
+     */
+    private function databaseCounters(): array
+    {
+        try {
+            $st = (array) $this->agent->call('db.server_status');
+        } catch (AgentException) {
+            return [null, null];
+        }
+        if (empty($st['running'])) {
+            return [null, null];
+        }
+        $status = (array) ($st['status'] ?? []);
+        return [
+            isset($status['Threads_connected']) && is_numeric($status['Threads_connected']) ? (int) $status['Threads_connected'] : null,
+            isset($status['Questions']) && is_numeric($status['Questions']) ? (int) $status['Questions'] : null,
+        ];
+    }
+
     /** @return list<array<string, mixed>> */
     public function openAlerts(): array
     {
@@ -381,7 +436,7 @@ final class MonitoringService
     /**
      * Samples averaged into at most $buckets points for a chart.
      *
-     * @return list<array{t: int, cpu: float, mem: float, disk: float, load1: float, rx: float, tx: float}>
+     * @return list<array<string, float|int|null>>
      */
     public function series(int $seconds, int $buckets = 120, ?int $now = null): array
     {
@@ -389,13 +444,19 @@ final class MonitoringService
         $from = $now - $seconds;
         $size = max(1, intdiv($seconds, $buckets));
         $rows = $this->db->fetchAll(
-            'SELECT (taken_at - :from) / :size AS b, MIN(taken_at) AS t, AVG(cpu) AS cpu, AVG(mem) AS mem, MAX(disk) AS disk, AVG(load1) AS load1, AVG(rx_bps) AS rx, AVG(tx_bps) AS tx
+            'SELECT (taken_at - :from) / :size AS b, MIN(taken_at) AS t, AVG(cpu) AS cpu, AVG(mem) AS mem, MAX(disk) AS disk, AVG(load1) AS load1, AVG(rx_bps) AS rx, AVG(tx_bps) AS tx,
+                    AVG(swap) AS swap, AVG(load5) AS load5, AVG(load15) AS load15,
+                    AVG(CASE WHEN svc_total > 0 THEN 100.0 * svc_up / svc_total END) AS svc, AVG(db_conn) AS db_conn, AVG(db_qps) AS db_qps
              FROM metric_samples WHERE server_id = :server AND taken_at >= :from GROUP BY b ORDER BY b',
             ['from' => $from, 'size' => $size, 'server' => $this->server->id()]
         );
+        // A value that was not measured in a period stays null (a gap in a chart), never zero.
+        $opt = static fn (mixed $v): ?float => $v === null ? null : round((float) $v, 2);
         return array_map(static fn (array $r): array => [
             't' => (int) $r['t'], 'cpu' => (float) $r['cpu'], 'mem' => (float) $r['mem'], 'disk' => (float) $r['disk'],
             'load1' => (float) $r['load1'], 'rx' => (float) $r['rx'], 'tx' => (float) $r['tx'],
+            'swap' => $opt($r['swap']), 'load5' => $opt($r['load5']), 'load15' => $opt($r['load15']),
+            'svc' => $opt($r['svc']), 'db_conn' => $opt($r['db_conn']), 'db_qps' => $opt($r['db_qps']),
         ], $rows);
     }
 }

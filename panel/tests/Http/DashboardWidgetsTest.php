@@ -23,7 +23,8 @@ final class DashboardWidgetsTest extends HttpTestCase
     {
         $page = $this->request('GET', '/')->body();
         self::assertStringContainsString('data-widget="disk"', $page);
-        self::assertStringContainsString('progress-bar bg-danger', $page, 'a nearly full disk is red');
+        self::assertStringContainsString('nim-donut-seg c-bad', $page, 'a nearly full disk is a red donut');
+        self::assertStringContainsString('>91%<', $page, 'the donut says how full it is');
         self::assertStringContainsString('Scan the disk on the Disk usage page', $page);
     }
 
@@ -36,9 +37,9 @@ final class DashboardWidgetsTest extends HttpTestCase
         }
         $page = $this->request('GET', '/')->body();
         self::assertStringContainsString('data-widget="backups"', $page);
-        self::assertMatchesRegularExpression('#nim-kpi">2</div><div class="nim-kpi-label">Completed#', $page);
-        self::assertMatchesRegularExpression('#nim-kpi text-danger">1</div><div class="nim-kpi-label">Failed \(7 days\)#', $page, 'only failures of the last week count');
-        self::assertMatchesRegularExpression('#nim-kpi">1</div><div class="nim-kpi-label">Running#', $page);
+        self::assertMatchesRegularExpression('#nim-fig-value">2</div><div class="nim-fig-label">Completed#', $page);
+        self::assertMatchesRegularExpression('#nim-fig-value text-danger">1</div><div class="nim-fig-label">Failed \(7 days\)#', $page, 'only failures of the last week count');
+        self::assertMatchesRegularExpression('#nim-fig-value">1</div><div class="nim-fig-label">Running#', $page);
     }
 
     public function testTheLatestDiskScanListsTheBiggestPlaces(): void

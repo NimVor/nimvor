@@ -60,7 +60,7 @@ final class DashboardFrameworkTest extends HttpTestCase
     public function testTheRegistryListsEveryWidgetWithItsCategoryAndPermission(): void
     {
         $reg = new WidgetRegistry();
-        self::assertSame(['alert_center', 'attention', 'disk', 'backups', 'top_processes', 'website_health', 'security_overview', 'ssl_overview', 'database_overview', 'cache_overview', 'web_stack', 'backup_health', 'system_updates', 'dns_mail', 'deployments', 'wordpress', 'capacity_forecast', 'traffic_overview'], array_keys($reg->all()));
+        self::assertSame(['alert_center', 'attention', 'performance_history', 'disk', 'website_health', 'website_overview', 'security_overview', 'ssl_overview', 'top_processes', 'services_overview', 'database_overview', 'cache_overview', 'capacity_forecast', 'web_stack', 'traffic_overview', 'dns_mail', 'backup_health', 'backups', 'system_updates', 'deployments', 'wordpress'], array_keys($reg->all()));
         foreach ($reg->all() as $w) {
             self::assertContains($w->category, WidgetRegistry::CATEGORIES, $w->id);
             self::assertArrayHasKey($w->size, Widget::SIZES, $w->id);
@@ -164,7 +164,7 @@ final class DashboardFrameworkTest extends HttpTestCase
         $page = $this->request('GET', '/')->body();
         self::assertStringNotContainsString('data-widget-host="disk"', $page, 'a hidden widget is not drawn');
         self::assertLessThan(strpos($page, 'data-widget-host="backups"'), strpos($page, 'data-widget-host="top_processes"'), 'the saved order is kept');
-        self::assertStringContainsString('col-12" data-widget-host="top_processes"', $page, 'the saved size is kept');
+        self::assertStringContainsString('nim-span-full" data-widget-host="top_processes"', $page, 'the saved size is kept');
         self::assertStringNotContainsString('ghost_widget', $page, 'an unknown widget is ignored');
         self::assertStringContainsString('Restore default', $page);
 

@@ -41,7 +41,7 @@ final class ServiceWidgetsTest extends HttpTestCase
             self::assertStringContainsString($s, $w['html']);
         }
         self::assertStringContainsString('text-warning', $w['html'], 'connections are at 85% of the limit');
-        self::assertStringNotContainsString('PostgreSQL', $w['html']);
+        self::assertStringNotContainsString('PostgreSQL <span', $w['html'], 'no PostgreSQL section when it is not installed');
     }
 
     public function testADownDatabaseIsSaidNotZeroed(): void
@@ -58,7 +58,7 @@ final class ServiceWidgetsTest extends HttpTestCase
     public function testPostgresIsReadFromItsMonitor(): void
     {
         $this->agent->succeed('pg.status', ['installed' => true, 'running' => true, 'version' => '16.2']);
-        $this->agent->succeed('pg.monitor', ['uptime_seconds' => 7200, 'max_connections' => 50, 'connections' => ['total' => 12], 'lock_waits' => [['pid' => 1]], 'long_running' => [], 'databases' => [['blks_hit' => 990, 'blks_read' => 10]]]);
+        $this->agent->succeed('pg.monitor', ['uptime_seconds' => 7200, 'max_connections' => 50, 'connections' => ['total' => 12], 'lock_waits' => 1, 'long_running' => [], 'databases' => [['name' => 'a', 'size_bytes' => 1, 'connections' => 1, 'cache_hit_percent' => 99.5], ['name' => 'b', 'size_bytes' => 1, 'connections' => 1, 'cache_hit_percent' => 98.5]]]);
         $this->login('admin');
         $html = $this->widget('database_overview')['html'];
         foreach (['PostgreSQL', '16.2', '2 h', '12 / 50', '99.0%'] as $s) {

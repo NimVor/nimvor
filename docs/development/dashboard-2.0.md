@@ -99,3 +99,26 @@ Not done in step 1, by design: drag and drop (rows move with arrow buttons for
 now), free resizing (four fixed widths), per-widget refresh settings, and moving
 the CPU/memory cards, Server, Services, Websites, Network and Recent activity
 cards into the registry. They keep working as before.
+
+## 5. Layout rules (UI polish)
+
+One grid and one set of components serve every dashboard card, so widgets line up and read alike.
+
+* **Grid** (`.nim-widgets`, `nimvor.css`): 12 columns, gap `--nim-gap` (1 rem), dense packing. Breakpoints are **container queries** on the width of the page content, not of the window, so the layout follows the sidebar: under 640 px one column; from 640 px two columns; from 1000 px the 8 + 4 pattern (`lg` = 8, `md` = 4); from 1360 px four `sm` tiles per row. The four metric tiles (`nim-span-tile`) are two across, then four from 900 px. A lone last card between 640 and 1000 px takes the full row.
+* **Widget sizes** (`Widget::SIZES`): `sm`, `md`, `lg`, `full` map to `nim-span-*` classes. The registry's order is the default layout and fills whole rows (eight wide + four narrow pairs, then four small tiles); saved layouts keep their own order and sizes.
+* **Frame** (`dashboard/widget_card.php`): a compact header with the icon and title on the left and, on the right, the link, the time of the measurement (full time in the tooltip) and the refresh button; no footer. Padding, borders and background stay with the active theme (`--bs-card-*` variables are only defaults).
+* **Key figures** (`.nim-figs` / `.nim-fig` / `.nim-fig-value` / `.nim-fig-label`): one number (1.3 rem, tabular figures) with a small muted label; wraps evenly. Do not use `.nim-stat` for this: it is the boxed tile used on other pages.
+* **Tables** inside a widget: compact, no frame, 0.8 rem, small uppercase headings, numbers aligned right, no padding at the outer edges.
+* **Notes** (`.nim-widget-note`): empty, unavailable and error states with an icon; **sub-headings** (`.nim-sub`) for groups inside a widget.
+* Only existing tokens are used (`--nim-card-border`, `--bs-secondary-color`, `--bs-tertiary-color`, `--bs-secondary-bg`); the one new token is `--nim-gap`.
+
+## 6. Charts
+
+The dashboard draws history only from what was really measured. No chart library is used: `public/assets/js/charts.js` draws small SVG charts (time axis, grid, hover tooltip with the exact values, range selector, legend, gaps for missing samples); donuts, stacked bars and bar charts of current figures are drawn on the server (no script) with a tooltip per segment.
+
+* **Source of history**: `metric_samples`, written by the scheduler's monitoring pass every five minutes and kept 30 days. Migration 0080 adds swap use, the 5- and 15-minute load, enabled and running services, database connections and statements per second (computed from the server's statement counter; a counter that went back after a restart gives no rate). Samples from before this release have NULL in the new columns, shown as a gap; nothing is back-filled.
+* **Endpoint**: `GET /dashboard/series?range=1h|6h|24h|7d` (`monitoring.view`), read from the panel's own records, no agent call, at most 60 to 112 points. A period with no measurement is `null`. The chart's time axis starts where the history starts, and with fewer than two samples it says so instead of drawing.
+* **Widgets**: *Performance history* (CPU, memory with swap, load 1/5/15, network in and out; the live readings sit next to the chart), *Disk* (a donut per filesystem and the fullest disk over 7 days), *Website statistics* (donut of active, disabled and suspended websites, HTTPS use, websites created per month from `created_at`; it counts websites that still exist), *Service health* (running, stopped and failed enabled services and how many ran over time), *Databases* (connections and statements per second for MariaDB/MySQL, recorded from now on) and *Traffic* (network chart).
+* **Not shown, because it is not collected**: HTTP request trends and website growth beyond `created_at`; PostgreSQL history (its current state is shown); swap history before this release.
+* **Colours**: related metrics keep one colour everywhere (`--nim-c-cpu`, `-mem`, `-disk`, `-load`, `-rx`, `-tx`, `-svc`, `-db`), with a lighter set for the dark theme. The range chosen is remembered in the browser (`localStorage`, optional) and applies to all charts; each widget also remembers its tab.
+* **Cost**: each widget refresh reads one indexed table; the browser caches a range for 30 seconds so several charts share one request; the monitoring pass adds one `db.server_status` call every five minutes.

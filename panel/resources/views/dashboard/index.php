@@ -88,14 +88,14 @@ foreach ([
 <?php endif; ?>
 
 <div id="nim-dashboard" data-live-url="<?= e($this->url('dashboard.live')) ?>" data-refresh="<?= (int) $refreshSeconds ?>">
-    <div class="row g-3 mb-3">
+    <div class="nim-widgets mb-3">
         <?php foreach ([
             ['cpu', 'CPU', 'cpu', 'cpu'],
             ['mem', 'Memory', 'memory', 'mem'],
             ['disk', 'Disk (/)', 'hdd', 'disk'],
             ['load', 'Load average', 'speedometer', 'load1'],
         ] as [$key, $label, $icon, $series]): ?>
-            <div class="col-6 col-xl-3">
+            <div class="nim-span-tile">
                 <div class="card nim-metric h-100" data-metric="<?= e($key) ?>">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start">
@@ -112,8 +112,8 @@ foreach ([
         <?php endforeach; ?>
     </div>
 
-    <div class="row g-3 mb-3">
-        <div class="col-lg-4">
+    <div class="nim-widgets mb-3">
+        <div class="nim-span-md">
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center"><span><i class="bi bi-hdd-rack me-1"></i>Server</span><?= $this->partial('partials/server_tools') ?></div>
                 <div class="card-body">
@@ -134,7 +134,7 @@ foreach ([
                 </div>
             </div>
         </div>
-        <div class="col-lg-4">
+        <div class="nim-span-md">
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span><i class="bi bi-cpu me-1"></i>Services</span>
@@ -149,7 +149,7 @@ foreach ([
                 </ul>
             </div>
         </div>
-        <div class="col-lg-4">
+        <div class="nim-span-md">
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span><i class="bi bi-globe2 me-1"></i>Websites</span>
@@ -193,25 +193,25 @@ foreach ([
             </span>
         <?php endif; ?>
     </div>
-    <div class="row g-3 mb-3" data-widgets>
+    <div class="nim-widgets mb-3" data-widgets>
         <?php foreach ($tiles as $t): if (!$t['visible']) { continue; } $def = $t['def']; ?>
             <div class="<?= e(\NimVor\Dashboard\Widget::SIZES[$t['size']]) ?>" data-widget-host="<?= e($def->id) ?>" data-widget-url="<?= e($this->url('dashboard.widget', ['id' => $def->id])) ?>" data-refresh="<?= (int) $def->refresh ?>"<?= $t['html'] === null ? ' data-widget-lazy' : '' ?>>
                 <?php if ($t['html'] !== null): ?><?= $t['html'] ?>
                 <?php else: ?>
-                    <div class="card h-100" data-widget="<?= e($def->id) ?>" data-state="loading">
-                        <div class="card-header"><i class="bi bi-<?= e($def->icon) ?> me-1" aria-hidden="true"></i><?= e($def->title) ?></div>
-                        <div class="card-body small text-body-secondary"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Loading…</div>
+                    <div class="card nim-widget h-100" data-widget="<?= e($def->id) ?>" data-state="loading">
+                        <div class="card-header nim-widget-head"><span class="nim-widget-title"><i class="bi bi-<?= e($def->icon) ?>" aria-hidden="true"></i><span><?= e($def->title) ?></span></span></div>
+                        <div class="card-body nim-widget-body"><div class="nim-widget-note"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span>Loading…</div></div>
                     </div>
                 <?php endif; ?>
             </div>
         <?php endforeach; ?>
         <?php if ($tiles !== [] && !array_filter($tiles, static fn (array $t): bool => $t['visible'])): ?>
-            <div class="col-12"><div class="nim-empty-state"><div class="fw-medium">All widgets are hidden</div><div class="small">Use Customize to show some, or reset to the default layout.</div></div></div>
+            <div class="nim-span-full"><div class="nim-empty-state"><div class="fw-medium">All widgets are hidden</div><div class="small">Use Customize to show some, or reset to the default layout.</div></div></div>
         <?php endif; ?>
     </div>
 
-    <div class="row g-3">
-        <div class="col-lg-8">
+    <div class="nim-widgets">
+        <div class="nim-span-lg">
             <div class="card h-100">
                 <div class="card-header"><i class="bi bi-diagram-3 me-1"></i>Network</div>
                 <div class="card-body">
@@ -223,7 +223,7 @@ foreach ([
                 </div>
             </div>
         </div>
-        <div class="col-lg-4">
+        <div class="nim-span-md">
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span><i class="bi bi-list-check me-1"></i>Recent activity</span>
@@ -248,6 +248,7 @@ foreach ([
 </div>
 <div class="small text-body-secondary mt-3" data-live-status>Waiting for live data…</div>
 <script src="<?= e($this->asset('assets/js/dashboard.js')) ?>" defer></script>
+<script src="<?= e($this->asset('assets/js/charts.js')) ?>" defer></script>
 
 <?php if ($tiles !== []): ?>
 <div class="modal fade" id="nim-customize" tabindex="-1" aria-labelledby="nim-customize-title" aria-hidden="true">

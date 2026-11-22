@@ -7,10 +7,10 @@
  */
 $ago = static fn (?string $t): string => $t === null || $t === '' ? 'never' : str_replace('T', ' ', substr($t, 0, 16)) . ' UTC';
 ?>
-<div class="row g-2 text-center mb-3">
-    <div class="col-4"><div class="fs-5 <?= (int) $d['covered'] < (int) $d['sites'] ? 'text-warning' : 'text-success' ?>"><?= (int) $d['covered'] ?> / <?= (int) $d['sites'] ?></div><div class="text-body-secondary">Websites backed up, 7 days</div></div>
-    <div class="col-4"><div class="fs-5"><?= (int) $d['completed'] ?></div><div class="text-body-secondary">Backups kept</div></div>
-    <div class="col-4"><div class="fs-5"><?= e(format_bytes((int) $d['size'])) ?></div><div class="text-body-secondary">Total size</div></div>
+<div class="nim-figs">
+    <div class="nim-fig"><div class="nim-fig-value <?= (int) $d['covered'] < (int) $d['sites'] ? 'text-warning' : 'text-success' ?>"><?= (int) $d['covered'] ?> / <?= (int) $d['sites'] ?></div><div class="nim-fig-label">Websites backed up, 7 days</div></div>
+    <div class="nim-fig"><div class="nim-fig-value"><?= (int) $d['completed'] ?></div><div class="nim-fig-label">Backups kept</div></div>
+    <div class="nim-fig"><div class="nim-fig-value"><?= e(format_bytes((int) $d['size'])) ?></div><div class="nim-fig-label">Total size</div></div>
 </div>
 <?php if ($d['uncovered'] !== []): ?>
     <div class="text-warning mb-2">No backup in the last 7 days: <span class="font-monospace"><?= e(implode(', ', array_slice((array) $d['uncovered'], 0, 4))) ?></span><?= count((array) $d['uncovered']) > 4 || (int) $d['sites'] - (int) $d['covered'] > count((array) $d['uncovered']) ? ', …' : '' ?></div>

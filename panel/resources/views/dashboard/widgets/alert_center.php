@@ -8,11 +8,11 @@
 $canAct = $this->can(\NimVor\Security\Permissions::SERVER_MANAGE);
 $levels = ['critical' => ['Critical', 'text-danger', 'danger'], 'warning' => ['Warning', 'text-warning', 'warning'], 'info' => ['Information', 'text-info', 'info']];
 ?>
-<div class="row g-2 text-center mb-3">
+<div class="nim-figs">
     <?php foreach ($levels as $key => [$label, $cls]): ?>
-        <div class="col-3"><div class="fs-5 <?= (int) $d['counts'][$key] > 0 ? e($cls) : '' ?>"><?= (int) $d['counts'][$key] ?></div><div class="text-body-secondary"><?= e($label) ?></div></div>
+        <div class="nim-fig"><div class="nim-fig-value <?= (int) $d['counts'][$key] > 0 ? e($cls) : '' ?>"><?= (int) $d['counts'][$key] ?></div><div class="nim-fig-label"><?= e($label) ?></div></div>
     <?php endforeach; ?>
-    <div class="col-3"><div class="fs-5 text-success"><?= (int) $d['resolved_24h'] ?></div><div class="text-body-secondary">Resolved, 24 h</div></div>
+    <div class="nim-fig"><div class="nim-fig-value text-success"><?= (int) $d['resolved_24h'] ?></div><div class="nim-fig-label">Resolved, 24 h</div></div>
 </div>
 <?php if ($d['open'] === []): ?>
     <div class="text-success"><i class="bi bi-check-circle me-1" aria-hidden="true"></i>No open alerts.</div>
