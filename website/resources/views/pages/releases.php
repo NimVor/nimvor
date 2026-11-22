@@ -6,7 +6,6 @@
 /** @var \Closure $inline */
 /** @var \Closure $brief */
 /** @var string $repo */
-/** @var string $install */
 $v->layout('layouts/site');
 $v->set('title', 'Releases');
 $v->set('description', 'Every NimVor release: what was added, changed, fixed and secured in each version, with its downloads.');
@@ -73,7 +72,7 @@ foreach (array_reverse($all) as $r) {
                             <?php foreach ($hl as $it): ?><li><?= ($brief)($it) ?></li><?php endforeach; ?>
                         </ul>
                     <?php endif; ?>
-                    <p class="rel-upgrade mb-0">Upgrade an existing server with <code>sudo nimvor upgrade</code> or run the installer again.</p>
+                    <p class="rel-upgrade mb-0">Upgrade an existing server with <code>sudo nimvor update</code>.</p>
                 </div>
             </article>
             <div class="tiles mt-2">

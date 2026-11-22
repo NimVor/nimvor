@@ -33,6 +33,12 @@ $config = [
         'token' => $env('GITHUB_TOKEN', ''),
         'sponsorable' => $env('GITHUB_SPONSORABLE', 'NimVor'),
     ],
+    // Patreon: the creator's access token (Patreon → Creator portal → Clients & API, scopes campaigns and campaigns.members)
+    // lets the Sponsors page list the active patrons. The campaign number is found by itself when left empty.
+    'patreon' => [
+        'access_token' => $env('PATREON_ACCESS_TOKEN', ''),
+        'campaign_id' => $env('PATREON_CAMPAIGN_ID', ''),
+    ],
     // Fetch the documentation from GitHub on a visit when it is missing or older than six hours.
     'docs_auto_sync' => $env('DOCS_AUTO_SYNC', '1') === '1',
     // Uploaded videos live outside the web root. PHP's own upload_max_filesize and post_max_size
