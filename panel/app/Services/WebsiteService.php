@@ -336,6 +336,20 @@ final class WebsiteService
     }
 
     /**
+     * Include a website in, or leave it out of, the dashboard's uptime checks
+     * and their alerts. Panel-only: nothing on the server changes. The earlier
+     * check results are kept; an open alert about the website closes at the
+     * next monitoring pass.
+     *
+     * @param array<string, mixed> $site
+     */
+    public function setMonitoring(array $site, bool $on): void
+    {
+        $this->sites->update((int) $site['id'], ['monitor_disabled' => $on ? 0 : 1]);
+        $this->audit->record($on ? 'website.monitoring_on' : 'website.monitoring_off', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['domain' => $site['domain']]);
+    }
+
+    /**
      * Check (dry run) or repair the ownership and permissions of the
      * website's files.
      *

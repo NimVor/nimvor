@@ -107,7 +107,9 @@ numbers are never shown to them.
    Customize; the page uses it as `data-refresh`.
 
 Widths stay discrete (sm / md / lg / full) rather than free-form so that rows keep filling the
-grid; a drag snaps to the nearest. Not done: moving the CPU/memory cards, Server, Services,
+grid; a drag snaps to the nearest. **Leaving a website out of the checks.** `websites.monitor_disabled` (migration 0081, default 0) is set from the website's Advanced page (`POST /sites/{id}/monitoring`, `websites.manage`, audited). `WebsiteMonitor` (probe list, latest results, uptime, last success/failure) and `AlertRules` (website down/slow) skip such sites, so an open alert closes at the next pass; stored results stay. The Website health widget reports the number left out. Nothing on the host is touched.
+
+Not done: moving the CPU/memory cards, Server, Services,
 Websites, Network and Recent activity cards into the registry. They keep working as before.
 
 ## 5. Layout rules (UI polish)
