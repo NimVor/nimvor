@@ -45,7 +45,7 @@
 # Usage (from a source checkout or release archive):
 #   sudo ./installer/install.sh [--no-install-deps] [--admin-user=NAME] [--admin-email=EMAIL]
 #                               [--port=8090] [--dry-run] [--yes] [--reinstall|--resume] [--force-unsupported]
-#                               [--enable-writes] [--public-https[=8443]]
+#                               [--telemetry|--no-telemetry] [--enable-writes] [--public-https[=8443]]
 #                               [--profile=full|web|minimal|none] [--hostname=server.example.com]
 #                               [--php=8.3,8.4] [--no-third-party-repos]
 #                               [--agent-only --remote-access=0.0.0.0:8443 --allow-from=PANEL_IP[,...]]
@@ -64,9 +64,10 @@
 # certificate) to the addresses given with --allow-from. The installer
 # prints the address, pin and token to enter under "All servers" in the panel.
 #
-# When the installation finishes it sends one anonymous report (a random id, the
-# NimVor version, the system's name and version, the processor type) that feeds
-# nimvor.com/resources/stats; installer/telemetry.sh says exactly what.
+# Telemetry is opt-in: --telemetry says yes, --no-telemetry says no; without either the installer
+# asks on a terminal (default no) and never asks a script or --yes. The installer sends nothing
+# itself; the panel reports only after its administrator turned it on (Settings -> Telemetry).
+# docs/telemetry/README.md says exactly what is collected and what never is.
 #
 # A reinstall (--reinstall) keeps the configuration, token, database, write
 # mode, the panel's port and its public HTTPS port: no options are needed
@@ -88,6 +89,7 @@ INSTALL_DEPS=1
 PORT_SET=0
 DRY_RUN=0
 ASSUME_YES=0
+TELEMETRY=ask
 REINSTALL=0
 FORCE_UNSUPPORTED=0
 ENABLE_WRITES=0
@@ -155,6 +157,8 @@ for arg in "$@"; do
         --no-install-deps) INSTALL_DEPS=0 ;;
         --dry-run) DRY_RUN=1 ;;
         --yes|-y) ASSUME_YES=1 ;;
+        --telemetry) TELEMETRY=yes ;;
+        --no-telemetry) TELEMETRY=no ;;
         --reinstall|--resume) REINSTALL=1 ;;
         --force-unsupported) FORCE_UNSUPPORTED=1 ;;
         --enable-writes) ENABLE_WRITES=1 ;;
@@ -1050,10 +1054,10 @@ if [[ $PROFILE != none && $AGENT_ONLY -eq 0 && $DRY_RUN -eq 0 ]]; then
     fi
 fi
 
-# One anonymous report (version, system type; see installer/telemetry.sh) feeds the
-# statistics on nimvor.com.
+# Telemetry is opt-in (installer/telemetry.sh sends nothing; it only records the answer locally).
 if [[ $DRY_RUN -eq 0 ]]; then
-    "$SRC_DIR/installer/telemetry.sh" install "$CONF_DIR" || true
+    "$SRC_DIR/installer/telemetry.sh" consent "$CONF_DIR" "$TELEMETRY" "$ASSUME_YES" || true
+    "$SRC_DIR/installer/telemetry.sh" event "$CONF_DIR" install "" "$(tr -d ' \n' <"$SRC_DIR/VERSION")" true || true
 fi
 
 if [[ $AGENT_ONLY -eq 1 ]]; then

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# installer/telemetry.sh: what it sends, and every way it stays silent. A stub
-# curl records the request, so nothing leaves the machine.
+# installer/telemetry.sh: telemetry is opt-in. The script sends nothing at all (a stub curl would record it),
+# asks nobody who cannot be asked, and only notes events after a yes.
 set -Eeuo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 t="$(mktemp -d)"
@@ -11,52 +11,59 @@ cat >"$t/bin/curl" <<'STUB'
 printf '%s\n' "$*" >>"$CURL_LOG"
 STUB
 chmod +x "$t/bin/curl"
-cat >"$t/os-release" <<'E2'
-ID=almalinux
-VERSION_ID="9.6"
-E2
-export CURL_LOG="$t/curl.log" PATH="$t/bin:$PATH" NIMVOR_TESTING_OS_RELEASE="$t/os-release"
+export CURL_LOG="$t/curl.log" PATH="$t/bin:$PATH"
 unset CI GITHUB_ACTIONS NIMVOR_TESTING NIMVOR_PREFIX NIMVOR_CONF_DIR NIMVOR_ALLOW_LOCAL_SOURCE
 ok() { printf '  ok  %s\n' "$*"; }
 bad() { printf 'FAIL  %s\n' "$*" >&2; exit 1; }
-calls() { [[ -f $CURL_LOG ]] && wc -l <"$CURL_LOG" || echo 0; }
+tel="$here/installer/telemetry.sh"
+conf="$t/conf"
 
-"$here/installer/telemetry.sh" install "$t/conf" >/dev/null
-[[ $(calls) == 1 ]] || bad "no report was sent"
-line="$(cat "$CURL_LOG")"
-grep -q -- '--proto =https' <<<"$line" || bad "not restricted to https"
-grep -q 'https://nimvor.com/api/v1/installs' <<<"$line" || bad "wrong address"
-id="$(cat "$t/conf/install-id")"
-[[ $id =~ ^[a-f0-9]{32}$ ]] || bad "identifier is not 32 hex characters: $id"
-grep -q "\"id\":\"$id\"" <<<"$line" || bad "identifier not sent"
-grep -q '"event":"install"' <<<"$line" || bad "event not sent"
-grep -q "\"version\":\"$(tr -d ' \n' <"$here/VERSION")\"" <<<"$line" || bad "version not sent"
-grep -q '"os":"almalinux","os_version":"9"' <<<"$line" || bad "system not reduced to the major version: $line"
-grep -Eq '"arch":"(amd64|arm64|other)"' <<<"$line" || bad "arch missing"
-grep -q "$(hostname)" <<<"$line" && bad "the host name was sent" || true
-ok "one report with the expected fields and nothing else"
+# No answer, no event: nothing is written.
+"$tel" event "$conf" install "" 1.9.0 true
+[[ ! -e $conf/release-events.jsonl ]] || bad "an event was noted without a yes"
+ok "no event is noted before a yes"
 
-"$here/installer/telemetry.sh" upgrade "$t/conf" >/dev/null
-[[ "$(cat "$t/conf/install-id")" == "$id" ]] || bad "identifier changed"
-grep -q '"event":"upgrade"' "$CURL_LOG" || bad "upgrade event not sent"
-ok "the same identifier is reused for an upgrade"
+# Nobody is asked when there is no terminal or --yes was used; the answer is no.
+"$tel" consent "$conf" ask 1 </dev/null
+[[ ! -e $conf/telemetry-optin ]] || bad "--yes answered yes"
+"$tel" consent "$conf" ask 0 </dev/null
+[[ ! -e $conf/telemetry-optin ]] || bad "no terminal answered yes"
+CI=true "$tel" consent "$conf" ask 0
+[[ ! -e $conf/telemetry-optin ]] || bad "CI answered yes"
+ok "scripts, --yes and CI are never asked and never opted in"
 
-silent() {
-    : >"$CURL_LOG"
-    "$@" >/dev/null
-    [[ $(calls) == 0 ]] || bad "sent a report although: $label"
-    ok "silent: $label"
-}
-label="CI is set"; silent env CI=true "$here/installer/telemetry.sh" install "$t/conf"
-label="the test suites' switch is set"; silent env NIMVOR_TESTING=1 "$here/installer/telemetry.sh" install "$t/conf"
-label="test locations are overridden"; silent env NIMVOR_PREFIX=/tmp/x "$here/installer/telemetry.sh" install "$t/conf"
-label="an unknown event"; silent "$here/installer/telemetry.sh" bogus "$t/conf"
-label="no configuration folder"; silent "$here/installer/telemetry.sh" install "$t/missing"
+# Explicit choices.
+"$tel" consent "$conf" yes
+[[ "$(cat "$conf/telemetry-optin")" == "yes" ]] || bad "yes was not recorded"
+"$tel" consent "$conf" ask 1 </dev/null
+[[ -e $conf/telemetry-optin ]] || bad "an earlier yes was forgotten by a later silent run"
+ok "an explicit yes is recorded and survives a later run without a question"
 
-# The report is part of installing: there is no option to turn it off, and nothing is printed.
-grep -q -- 'no-telemetry\|NIMVOR_TELEMETRY' "$here/installer/install.sh" "$here/installer/telemetry.sh" && bad "an opt-out is still there" || true
-out="$("$here/installer/telemetry.sh" install "$t/conf2" 2>&1 || true)"
-mkdir -p "$t/conf2"; out="$("$here/installer/telemetry.sh" upgrade "$t/conf2" 2>&1)"
-[[ -z $out ]] || bad "the installer printed something: $out"
-ok "no opt-out option and no output"
+# Events: only well-formed, only after a yes, last 20 kept, no host data.
+"$tel" event "$conf" upgrade 1.8.1 1.9.0 true
+line="$(tail -n 1 "$conf/release-events.jsonl")"
+grep -Eq '^\{"event_id":"[0-9a-f-]{36}","kind":"upgrade","from_version":"1\.8\.1","to_version":"1\.9\.0","success":true,"occurred_at":"[0-9TZ:-]+"\}$' <<<"$line" || bad "event line: $line"
+grep -q "$(hostname)" <<<"$line" && bad "the host name is in the event" || true
+"$tel" event "$conf" upgrade 1.8.1 'x; rm -rf /' true
+"$tel" event "$conf" bogus 1.8.1 1.9.0 true
+"$tel" event "$conf" upgrade 1.8.1 1.9.0 maybe
+[[ $(wc -l <"$conf/release-events.jsonl") == 1 ]] || bad "a bad event was noted"
+for i in $(seq 1 30); do "$tel" event "$conf" upgrade 1.8.1 1.9.0 true; done
+[[ $(wc -l <"$conf/release-events.jsonl") == 20 ]] || bad "the file is not capped at 20 lines"
+ok "events are validated, capped and contain only versions"
+
+"$tel" consent "$conf" no
+[[ ! -e $conf/telemetry-optin ]] || bad "no did not remove the opt-in"
+ok "an explicit no removes the opt-in"
+
+# It never sends anything and never fails.
+[[ ! -e $CURL_LOG ]] || bad "something was sent: $(cat "$CURL_LOG")"
+grep -q 'curl' "$tel" && bad "telemetry.sh mentions curl" || true
+"$tel" consent "$t/missing" yes; "$tel" event "$t/missing" install "" 1.9.0 true; "$tel" bogus "$conf"
+ok "nothing is sent, and a missing folder or an unknown command is harmless"
+
+# The installers use it: an option each way, no hidden report.
+grep -q -- '--telemetry' "$here/installer/install.sh" && grep -q -- '--no-telemetry' "$here/installer/install.sh" || bad "the installer has no option"
+grep -q 'api/v1/installs' "$here/installer/install.sh" "$here/installer/upgrade.sh" "$tel" && bad "the old report address is still there" || true
+ok "the installers have the option and no longer report anything"
 echo "telemetry: all checks passed"

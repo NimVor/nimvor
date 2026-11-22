@@ -219,6 +219,16 @@ final class Application
         // Vulnerability answers are cached next to the panel's database.
         $c->set(\NimVor\Services\WordPressVulnerabilities::class, static fn () => new \NimVor\Services\WordPressVulnerabilities(dirname($cfg->string('database.path')) . '/cache/wpvulnerability'));
         $c->set(\NimVor\Services\UpdateCheckService::class, static fn (Container $c) => new \NimVor\Services\UpdateCheckService($c->get(\NimVor\Agent\AgentClient::class), dirname($cfg->string('database.path')) . '/cache/update-check.json'));
+        $c->set(\NimVor\Services\TelemetryService::class, static fn (Container $c) => new \NimVor\Services\TelemetryService(
+            $c->get(\NimVor\Database\Connection::class),
+            $c->get(\NimVor\Agent\AgentClient::class),
+            $c->get(\NimVor\Security\Crypto::class),
+            $c->get(\NimVor\Services\AuditLogger::class),
+            $cfg->string('app.version'),
+            $cfg->string('telemetry.url', \NimVor\Services\TelemetryService::DEFAULT_URL),
+            $cfg->string('telemetry.optin_file', '/etc/nimvor/telemetry-optin'),
+            $cfg->string('telemetry.events_file', '/etc/nimvor/release-events.jsonl'),
+        ));
         $c->set(\NimVor\Security\Crypto::class, static fn () => new \NimVor\Security\Crypto($cfg->string('security.key_file')));
         $c->set(\NimVor\Support\Events::class, static function (Container $c): \NimVor\Support\Events {
             $events = new \NimVor\Support\Events();

@@ -8,6 +8,7 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Added
 
+- Telemetry (phase 3 of 3, panel and installer): **Settings → Telemetry**, off by default. An administrator turns it on, sees exactly what the next reports would contain (read from this server), and can turn it off, unregister or have everything deleted at the central service. Reports (registration, a daily heartbeat and health report, a weekly inventory and feature counts) are queued and sent by the scheduler with exponential back-off and jitter, never while a page loads; the token is stored encrypted; nothing is sent or generated, not even the installation id, before opting in. Audited as `telemetry.enable/disable/unregister/delete` (migration 0082).
 - Websites: an **Uptime checks** switch (website → Advanced → Monitoring) to leave a website out of the dashboard's HTTP checks, uptime figures and uptime alerts, for sites that are meant to be offline or cannot be reached from the server itself. Panel-only (migration 0081, nothing on the server changes); earlier results are kept, an open alert for the site closes at the next monitoring pass, and the Website health widget says how many sites are left out. Audited as `website.monitoring_on` / `website.monitoring_off`.
 - `sudo nimvor update`: one short command that brings an installation to the newest release from any older version, with its database migrations (`--check` only reports, `--version X.Y.Z` picks a release, `--branch NAME` follows development). It works with a checkout pinned to a release or without a local `main`. The installer records the source folder in `/etc/nimvor/source`.
 - Dashboard: **Arrange** mode. Drag a widget by its card to move it, drag its right edge (or use the S / M / L / Full buttons, or the arrow keys on the edge) to change its width; every change is saved at once, per user. Alt + arrow keys move a focused widget. The Customize dialog stays for showing and hiding widgets and for touch screens.
@@ -15,6 +16,7 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Changed
 
+- The installer no longer sends an anonymous report when it finishes. Telemetry is opt-in: `--telemetry` / `--no-telemetry`, or a question on a terminal (default no; scripts, `--yes` and `nimvor update` are never asked and keep an earlier answer). `installer/telemetry.sh` now only records the answer and install/upgrade events locally.
 - Dashboard: the Small width is now narrower than Medium at every page width (it was wider than Medium between 1000 and 1360 px).
 
 ## [1.9.0] — 2026-11-22
