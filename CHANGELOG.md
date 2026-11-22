@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.9.0] — 2026-11-22
+
+Dashboard 2.0: the administrator dashboard is now a set of widgets you can show, hide, reorder and resize, with real website checks, security, SSL, database, cache, backup, update, DNS and mail, deployment and WordPress widgets, a capacity forecast, history charts, and an alert center with acknowledge and resolve. The audit, what shipped, how it was tested and what is left are in [docs/release/dashboard-2.0-report.md](docs/release/dashboard-2.0-report.md). This release adds four database migrations (0077 to 0080: layouts and cache, website checks, alert acknowledgement, chart history) and two read-only agent actions (`sites.probe`, `php.fpm_health`), so the agent is restarted by the update.
+
 ### Added
 
 - **Dashboard widgets you can arrange (step 1 of Dashboard 2.0).** The dashboard's *Needs attention*, *Disk* and *Backups* cards are now widgets in a registry, with a **Customize** window to show or hide each one, move it up or down and choose its width. The layout is saved per user, with *Restore default*. A widget added in a later release appears on its own without touching a saved layout. Each widget is allowed only for those who may see it, its data is kept for a few seconds so refreshes do not repeat the measurement, and a widget that cannot be measured says so instead of showing zeros. The audit of what each planned widget can already use, and the order they arrive in, is in `docs/development/dashboard-2.0.md`.
