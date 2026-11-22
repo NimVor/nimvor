@@ -112,6 +112,7 @@ return static function (Router $r): void {
     $r->post('/sites/{id}/toggle', [SitesController::class, 'toggle'], ['name' => 'sites.toggle', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/restart-php', [SitesController::class, 'restartPhp'], ['name' => 'sites.restart_php', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/reapply', [SitesController::class, 'reapply'], ['name' => 'sites.reapply', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/monitoring', [SitesController::class, 'monitoring'], ['name' => 'sites.monitoring', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/directory-listing', [SitesController::class, 'directoryListing'], ['name' => 'sites.listing', 'permission' => P::WEBSITES_MANAGE]);
     $r->get('/sites/{id}/permissions', [SitesController::class, 'checkPermissions'], ['name' => 'sites.permissions', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/permissions', [SitesController::class, 'repairPermissions'], ['name' => 'sites.permissions.repair', 'permission' => P::WEBSITES_MANAGE]);

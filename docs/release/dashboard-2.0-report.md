@@ -77,4 +77,5 @@ on the time of day.
    samples limits the 7-day chart's detail and anything longer).
 5. Record test restores so *Backup health* can say a backup was verified; store cron run results.
 6. A settings page that groups the alert thresholds and previews what would fire.
-7. Per-website charts (response time from the website checks, bandwidth) on the website's own page.
+7. (Done after 1.9.0: a per-website switch to leave a site out of the uptime checks and alerts.)
+8. Per-website charts (response time from the website checks, bandwidth) on the website's own page.
