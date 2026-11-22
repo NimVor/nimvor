@@ -74,31 +74,34 @@ const OUT = process.env.E2E_OUT || '/tmp';
     step('customize: default layout restored');
 
     // Arrange: drag the second widget in front of the first one, widen another by its edge, and both are kept after a reload.
+    // Layout shifts from widgets still loading would move the drop target, so wait until all are drawn.
+    await page.waitForFunction(() => !document.querySelector('[data-widget-host] [data-state="loading"]'), null, { timeout: 40000 });
+    const savedAfter = () => page.waitForResponse(r => r.url().endsWith('/dashboard/layout/arrange') && r.status() === 200, { timeout: 15000 }).catch(() => null);
     const ids = () => page.$$eval('[data-widgets] [data-widget-host]', hs => hs.map(h => h.getAttribute('data-widget-host')));
     const before = await ids();
     await page.click('[data-arrange-toggle]:has-text("Arrange")');
     await page.waitForSelector('[data-widgets].is-arranging .nim-resize-handle', { timeout: 5000 });
     // The second widget is dropped on the top-left corner of the first: it takes the first one's place.
     const a = page.locator('[data-widget-host="' + before[1] + '"]'), b = page.locator('[data-widget-host="' + before[0] + '"]');
-    const saved = page.waitForResponse(r => r.url().endsWith('/dashboard/layout/arrange') && r.status() === 200);
+    const saved = savedAfter();
     await a.dragTo(b, { targetPosition: { x: 10, y: 10 } });
-    await saved;
+    if (!await saved) { throw new Error('arrange: dragging a widget did not save the layout (order now: ' + (await ids()).slice(0, 4).join(',') + ')'); }
     if ((await ids())[0] !== before[1]) { throw new Error('the dragged widget did not move'); }
     // Width: the S/M/L/Full buttons, and the edge dragged to the left (a widget's edge can only be dragged as far as the screen).
     const sized = page.locator('[data-widget-host="' + before[3] + '"]');
     await sized.scrollIntoViewIfNeeded();
-    const saved2 = page.waitForResponse(r => r.url().endsWith('/dashboard/layout/arrange') && r.status() === 200);
+    const saved2 = savedAfter();
     await sized.locator('[data-size-set="full"]').click();
-    await saved2;
+    if (!await saved2) { throw new Error('arrange: the width button did not save the layout'); }
     if (await sized.getAttribute('data-size') !== 'full') { throw new Error('the width button did not change the width'); }
     const box = await sized.boundingBox();
     const grid = await page.locator('[data-widgets]').boundingBox();
-    const saved3 = page.waitForResponse(r => r.url().endsWith('/dashboard/layout/arrange') && r.status() === 200);
+    const saved3 = savedAfter();
     await page.mouse.move(box.x + box.width + 1, Math.min(box.y + 40, 880));
     await page.mouse.down();
     await page.mouse.move(box.x + grid.width * 0.4, Math.min(box.y + 40, 880), { steps: 8 });
     await page.mouse.up();
-    await saved3;
+    if (!await saved3) { throw new Error('arrange: dragging the edge did not save the layout'); }
     if (await sized.getAttribute('data-size') === 'full') { throw new Error('dragging the edge did not change the width'); }
     const moved = await ids(), size2 = await sized.getAttribute('data-size');
     await page.reload();
