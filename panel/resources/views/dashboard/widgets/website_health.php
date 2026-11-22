@@ -10,9 +10,10 @@ $ms = static fn (?int $v): string => $v === null ? 'N/A' : number_format($v) . '
 $ago = static fn (?int $t): string => $t === null ? 'never' : gmdate('Y-m-d H:i', $t) . ' UTC';
 $checkForm = '<form method="post" action="' . e($this->url('dashboard.websites.check')) . '" data-nim-noajax class="d-inline">' . $this->csrfField() . '<button class="btn btn-sm btn-outline-secondary">Check now</button></form>';
 ?>
+<?php $off = (int) ($d['unmonitored'] ?? 0); $offNote = $off > 0 ? '<div class="text-body-secondary mb-2">' . $off . ' website' . ($off === 1 ? ' is' : 's are') . ' left out of the checks (Website → Advanced → Monitoring).</div>' : ''; ?>
 <?php if (!empty($d['none'])): ?>
     <div class="text-body-secondary mb-2">
-        <?php if ((int) $d['enabled'] === 0): ?>No enabled websites to check.<?php else: ?>No check has run yet. The scheduler checks every <?= (int) $d['enabled'] ?> enabled website about every five minutes.<?php endif; ?>
+        <?php if ((int) $d['enabled'] === 0): ?><?= $off > 0 ? 'Every enabled website is left out of the checks (Website → Advanced → Monitoring).' : 'No enabled websites to check.' ?><?php else: ?>No check has run yet. The scheduler checks every <?= (int) $d['enabled'] ?> enabled website about every five minutes.<?php endif; ?>
     </div>
     <?php if ((int) $d['enabled'] > 0): ?><?= $checkForm ?><?php endif; ?>
 <?php return; endif; ?>
@@ -25,6 +26,7 @@ $checkForm = '<form method="post" action="' . e($this->url('dashboard.websites.c
     <div class="nim-fig"><div class="nim-fig-value <?= (int) $c['client_error'] > 0 ? 'text-warning' : '' ?>"><?= (int) $c['client_error'] ?></div><div class="nim-fig-label">4xx errors</div></div>
     <div class="nim-fig"><div class="nim-fig-value"><?= $d['uptime_24h'] === null ? 'N/A' : e(number_format((float) $d['uptime_24h'], 2)) . '%' ?></div><div class="nim-fig-label">Uptime 24 h</div></div>
 </div>
+<?= $offNote ?>
 <?php if ((int) $c['auth'] > 0): ?><div class="text-body-secondary mb-2"><?= (int) $c['auth'] ?> website<?= (int) $c['auth'] === 1 ? ' asks' : 's ask' ?> for a login or forbid the check (401/403); they are counted as online.</div><?php endif; ?>
 <?php if ($d['problems'] !== []): ?>
     <div class="mb-3">

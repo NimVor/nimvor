@@ -68,7 +68,7 @@ final class AlertRules
         $need = $this->settings->int('alert_site_down_checks');
         $slow = $this->settings->int('alert_site_slow_ms');
         $sid = $this->server->id();
-        $sites = $this->db->fetchAll('SELECT id, domain FROM websites WHERE server_id = ? AND enabled = 1', [$sid]);
+        $sites = $this->db->fetchAll('SELECT id, domain FROM websites WHERE server_id = ? AND enabled = 1 AND monitor_disabled = 0', [$sid]);
         foreach ($sites as $w) {
             $last = $this->db->fetchAll('SELECT status, ms FROM website_checks WHERE website_id = ? ORDER BY checked_at DESC LIMIT ?', [(int) $w['id'], max($need, 3)]);
             if (count($last) >= $need) {

@@ -62,6 +62,28 @@ final class AlertCenterTest extends HttpTestCase
         self::assertCount(1, $this->mon->recentAlerts());
     }
 
+    public function testAWebsiteLeftOutOfTheChecksRaisesNoAlertAndItsOpenAlertCloses(): void
+    {
+        $this->check(0, 0, 600);
+        $this->check(0, 0, 300);
+        $this->mon->run(time());
+        self::assertCount(1, $this->open());
+
+        $this->login('admin');
+        $token = ['_token' => $this->app->container->get(\NimVor\Security\Csrf::class)->token()];
+        $this->request('POST', '/sites/' . $this->site . '/monitoring', $token + ['enabled' => '0']);
+        self::assertSame(1, (int) $this->conn->scalar('SELECT monitor_disabled FROM websites WHERE id = ?', [$this->site]));
+        self::assertSame(1, (int) $this->conn->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'website.monitoring_off'"));
+        $this->mon->run(time());
+        self::assertSame([], $this->open(), 'its alert closes at the next pass');
+        self::assertSame(2, (int) $this->conn->scalar('SELECT COUNT(*) FROM website_checks WHERE website_id = ?', [$this->site]), 'earlier results are kept');
+
+        $this->request('POST', '/sites/' . $this->site . '/monitoring', $token + ['enabled' => '1']);
+        self::assertSame(0, (int) $this->conn->scalar('SELECT monitor_disabled FROM websites WHERE id = ?', [$this->site]));
+        $this->mon->run(time());
+        self::assertCount(1, $this->open(), 'checked again: still failing, so the alert comes back');
+    }
+
     public function testAlertsAreNotRaisedTwiceForTheSameProblem(): void
     {
         $this->check(502, 10, 600);

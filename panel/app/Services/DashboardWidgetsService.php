@@ -269,7 +269,11 @@ final class DashboardWidgetsService
         if ($this->monitor === null) {
             throw new AgentException('Website checks unavailable');
         }
-        return $sum ?? ['none' => true, 'enabled' => (int) $this->db->scalar('SELECT COUNT(*) FROM websites WHERE server_id = ? AND enabled = 1', [$this->server->id()])];
+        return $sum ?? [
+            'none' => true,
+            'enabled' => (int) $this->db->scalar('SELECT COUNT(*) FROM websites WHERE server_id = ? AND enabled = 1 AND monitor_disabled = 0', [$this->server->id()]),
+            'unmonitored' => (int) $this->db->scalar('SELECT COUNT(*) FROM websites WHERE server_id = ? AND enabled = 1 AND monitor_disabled = 1', [$this->server->id()]),
+        ];
     }
 
     /**
