@@ -7,7 +7,8 @@ namespace NimVor\Dashboard;
 /** One dashboard widget as the registry knows it. */
 final class Widget
 {
-    public const SIZES = ['sm' => 'col-12 col-md-6 col-xl-3', 'md' => 'col-12 col-lg-6 col-xl-4', 'lg' => 'col-12 col-xl-8', 'full' => 'col-12'];
+    /** Width classes: the dashboard grid (nimvor.css, .nim-widgets) lays them out by the width of the page content, not of the window. */
+    public const SIZES = ['sm' => 'nim-span-sm', 'md' => 'nim-span-md', 'lg' => 'nim-span-lg', 'full' => 'nim-span-full'];
 
     /**
      * @param string $permission what the viewer needs to see the widget at all

@@ -80,15 +80,18 @@ final class ServiceOverviewService
             if ($pg['running'] && ($mon = $this->read('pg.monitor')) !== null) {
                 $pg['connections'] = isset($mon['connections']['total']) ? (int) $mon['connections']['total'] : null;
                 $pg['max_connections'] = isset($mon['max_connections']) ? (int) $mon['max_connections'] : null;
-                $pg['lock_waits'] = isset($mon['lock_waits']) ? count((array) $mon['lock_waits']) : null;
+                // pg.monitor: lock_waits is a number, long_running a list, each database has cache_hit_percent.
+                $pg['lock_waits'] = isset($mon['lock_waits']) ? (int) $mon['lock_waits'] : null;
                 $pg['long_running'] = isset($mon['long_running']) ? count((array) $mon['long_running']) : null;
                 $pg['uptime'] = isset($mon['uptime_seconds']) ? (int) $mon['uptime_seconds'] : null;
-                $hit = $read = 0;
+                $ratios = [];
                 foreach ((array) ($mon['databases'] ?? []) as $d) {
-                    $hit += (int) ((array) $d)['blks_hit'];
-                    $read += (int) ((array) $d)['blks_read'];
+                    $d = (array) $d;
+                    if (isset($d['cache_hit_percent']) && is_numeric($d['cache_hit_percent'])) {
+                        $ratios[] = (float) $d['cache_hit_percent'];
+                    }
                 }
-                $pg['cache_hit'] = self::ratio((float) $hit, (float) ($hit + $read));
+                $pg['cache_hit'] = $ratios === [] ? null : round(array_sum($ratios) / count($ratios), 1);
             }
             $out['postgres'] = $pg;
         }

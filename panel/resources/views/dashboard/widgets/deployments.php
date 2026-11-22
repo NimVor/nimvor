@@ -6,10 +6,10 @@
  * @var array<string, mixed> $d
  */
 ?>
-<div class="row g-2 text-center mb-3">
-    <div class="col-4"><div class="fs-5"><?= (int) $d['week'] ?></div><div class="text-body-secondary">Deployments, 7 days</div></div>
-    <div class="col-4"><div class="fs-5 <?= (int) $d['failed'] > 0 ? 'text-danger' : '' ?>"><?= (int) $d['failed'] ?></div><div class="text-body-secondary">Failed</div></div>
-    <div class="col-4"><div class="fs-5"><?= (int) $d['running'] ?></div><div class="text-body-secondary">Running now</div></div>
+<div class="nim-figs">
+    <div class="nim-fig"><div class="nim-fig-value"><?= (int) $d['week'] ?></div><div class="nim-fig-label">Deployments, 7 days</div></div>
+    <div class="nim-fig"><div class="nim-fig-value <?= (int) $d['failed'] > 0 ? 'text-danger' : '' ?>"><?= (int) $d['failed'] ?></div><div class="nim-fig-label">Failed</div></div>
+    <div class="nim-fig"><div class="nim-fig-value"><?= (int) $d['running'] ?></div><div class="nim-fig-label">Running now</div></div>
 </div>
 <div class="text-body-secondary">Latest: <span class="font-monospace"><?= e((string) $d['last']['domain']) ?></span>, <?= e((string) $d['last']['status']) ?> at <?= e(str_replace('T', ' ', substr((string) $d['last']['created_at'], 0, 16))) ?> UTC.</div>
 <?php if (is_array($d['last_failure'])): ?>

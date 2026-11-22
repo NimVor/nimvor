@@ -6,11 +6,11 @@
  * @var array<string, mixed> $d
  */
 ?>
-<div class="row g-2 text-center mb-3">
-    <div class="col-3"><div class="fs-5"><?= (int) $d['installs'] ?></div><div class="text-body-secondary">Installs</div></div>
-    <div class="col-3"><div class="fs-5 <?= (int) $d['outdated_total'] > 0 ? 'text-warning' : '' ?>"><?= (int) $d['outdated_total'] ?></div><div class="text-body-secondary">Core out of date</div></div>
-    <div class="col-3"><div class="fs-5 <?= (int) $d['plugin_updates'] > 0 ? 'text-warning' : '' ?>"><?= (int) $d['plugin_updates'] ?></div><div class="text-body-secondary">Plugin updates</div></div>
-    <div class="col-3"><div class="fs-5 <?= (int) $d['theme_updates'] > 0 ? 'text-warning' : '' ?>"><?= (int) $d['theme_updates'] ?></div><div class="text-body-secondary">Theme updates</div></div>
+<div class="nim-figs">
+    <div class="nim-fig"><div class="nim-fig-value"><?= (int) $d['installs'] ?></div><div class="nim-fig-label">Installs</div></div>
+    <div class="nim-fig"><div class="nim-fig-value <?= (int) $d['outdated_total'] > 0 ? 'text-warning' : '' ?>"><?= (int) $d['outdated_total'] ?></div><div class="nim-fig-label">Core out of date</div></div>
+    <div class="nim-fig"><div class="nim-fig-value <?= (int) $d['plugin_updates'] > 0 ? 'text-warning' : '' ?>"><?= (int) $d['plugin_updates'] ?></div><div class="nim-fig-label">Plugin updates</div></div>
+    <div class="nim-fig"><div class="nim-fig-value <?= (int) $d['theme_updates'] > 0 ? 'text-warning' : '' ?>"><?= (int) $d['theme_updates'] ?></div><div class="nim-fig-label">Theme updates</div></div>
 </div>
 <?php foreach ((array) $d['outdated'] as $o): ?>
     <div><span class="font-monospace"><?= e((string) $o['domain']) ?></span> <span class="text-body-secondary">runs <?= e((string) $o['version']) ?>, latest is <?= e((string) $o['latest']) ?></span></div>

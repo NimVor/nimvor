@@ -99,3 +99,15 @@ Not done in step 1, by design: drag and drop (rows move with arrow buttons for
 now), free resizing (four fixed widths), per-widget refresh settings, and moving
 the CPU/memory cards, Server, Services, Websites, Network and Recent activity
 cards into the registry. They keep working as before.
+
+## 5. Layout rules (UI polish)
+
+One grid and one set of components serve every dashboard card, so widgets line up and read alike.
+
+* **Grid** (`.nim-widgets`, `nimvor.css`): 12 columns, gap `--nim-gap` (1 rem), dense packing. Breakpoints are **container queries** on the width of the page content, not of the window, so the layout follows the sidebar: under 640 px one column; from 640 px two columns; from 1000 px the 8 + 4 pattern (`lg` = 8, `md` = 4); from 1360 px four `sm` tiles per row. The four metric tiles (`nim-span-tile`) are two across, then four from 900 px. A lone last card between 640 and 1000 px takes the full row.
+* **Widget sizes** (`Widget::SIZES`): `sm`, `md`, `lg`, `full` map to `nim-span-*` classes. The registry's order is the default layout and fills whole rows (eight wide + four narrow pairs, then four small tiles); saved layouts keep their own order and sizes.
+* **Frame** (`dashboard/widget_card.php`): a compact header with the icon and title on the left and, on the right, the link, the time of the measurement (full time in the tooltip) and the refresh button; no footer. Padding, borders and background stay with the active theme (`--bs-card-*` variables are only defaults).
+* **Key figures** (`.nim-figs` / `.nim-fig` / `.nim-fig-value` / `.nim-fig-label`): one number (1.3 rem, tabular figures) with a small muted label; wraps evenly. Do not use `.nim-stat` for this: it is the boxed tile used on other pages.
+* **Tables** inside a widget: compact, no frame, 0.8 rem, small uppercase headings, numbers aligned right, no padding at the outer edges.
+* **Notes** (`.nim-widget-note`): empty, unavailable and error states with an icon; **sub-headings** (`.nim-sub`) for groups inside a widget.
+* Only existing tokens are used (`--nim-card-border`, `--bs-secondary-color`, `--bs-tertiary-color`, `--bs-secondary-bg`); the one new token is `--nim-gap`.
