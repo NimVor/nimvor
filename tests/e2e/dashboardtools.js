@@ -40,7 +40,8 @@ const OUT = process.env.E2E_OUT || '/tmp';
     step('top processes widget loaded (' + tpState + ')');
 
     // Performance history: the chart is drawn from what the monitor recorded; with no history it says so instead of drawing anything.
-    await page.waitForSelector('[data-widget="performance_history"][data-state="ok"] .nim-chart-plot', { timeout: 15000 });
+    // (A new server has no history yet: the plot is then empty and a note says so, which is also a valid state.)
+    await page.waitForSelector('[data-widget="performance_history"][data-state="ok"] [data-nim-chart][data-mounted="1"]', { timeout: 15000 });
     await page.waitForFunction(() => {
         const box = document.querySelector('[data-widget="performance_history"] [data-nim-chart]');
         return box && (box.querySelector('svg path.line') || (box.querySelector('.nim-chart-note') && !box.querySelector('.nim-chart-note').hidden));
