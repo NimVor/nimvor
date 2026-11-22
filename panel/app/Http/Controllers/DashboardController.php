@@ -93,7 +93,7 @@ final class DashboardController extends Controller
      * The widgets to draw, in the user's order: the ones that are cheap are drawn
      * with the page, the others are loaded after it.
      *
-     * @return list<array{def: \NimVor\Dashboard\Widget, visible: bool, size: string, html: ?string}>
+     * @return list<array{def: \NimVor\Dashboard\Widget, visible: bool, size: string, refresh: int, refreshChoice: ?int, html: ?string}>
      */
     private function tiles(Request $request): array
     {
@@ -108,7 +108,7 @@ final class DashboardController extends Controller
             if ($t['visible'] && $def->inline) {
                 $html = $this->frame($def, $this->widgets->widget($def->id, $user));
             }
-            $out[] = ['def' => $def, 'visible' => $t['visible'], 'size' => $t['size'], 'html' => $html];
+            $out[] = ['def' => $def, 'visible' => $t['visible'], 'size' => $t['size'], 'refresh' => $t['refresh'], 'refreshChoice' => $t['refreshChoice'], 'html' => $html];
         }
         return $out;
     }
@@ -149,6 +149,23 @@ final class DashboardController extends Controller
             $this->registry->visibleTo(fn (string $p): bool => $this->view->can($p)),
         );
         return $this->redirectWithSuccess('/', 'Your dashboard layout is saved.');
+    }
+
+    /** Drag and drop / resize on the dashboard: saves the new order and sizes of the shown widgets. */
+    public function arrangeLayout(Request $request): Response
+    {
+        if ($this->registry === null || $this->layout === null) {
+            return Response::json(['success' => false, 'error' => 'The dashboard layout is not available.'], 404);
+        }
+        $order = $request->input('order', []);
+        $sizes = $request->input('sizes', []);
+        $this->layout->arrange(
+            $this->userId($request),
+            is_array($order) ? array_values(array_map('strval', $order)) : [],
+            is_array($sizes) ? $sizes : [],
+            $this->registry->visibleTo(fn (string $p): bool => $this->view->can($p)),
+        );
+        return Response::json(['success' => true]);
     }
 
     /** Ranges the history charts offer: seconds and the most points drawn. */

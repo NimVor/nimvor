@@ -6,6 +6,15 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Dashboard: **Arrange** mode. Drag a widget by its card to move it, drag its right edge (or use the S / M / L / Full buttons, or the arrow keys on the edge) to change its width; every change is saved at once, per user. Alt + arrow keys move a focused widget. The Customize dialog stays for showing and hiding widgets and for touch screens.
+- Dashboard: a refresh interval per widget (only on request, 30 seconds, 1, 5 or 15 minutes) in the Customize dialog; without a choice the widget's own default applies. Automatic refreshes pause while arranging.
+
+### Changed
+
+- Dashboard: the Small width is now narrower than Medium at every page width (it was wider than Medium between 1000 and 1360 px).
+
 ## [1.9.0] — 2026-11-22
 
 Dashboard 2.0: the administrator dashboard is now a set of widgets you can show, hide, reorder and resize, with real website checks, security, SSL, database, cache, backup, update, DNS and mail, deployment and WordPress widgets, a capacity forecast, history charts, and an alert center with acknowledge and resolve. The audit, what shipped, how it was tested and what is left are in [docs/release/dashboard-2.0-report.md](docs/release/dashboard-2.0-report.md). This release adds four database migrations (0077 to 0080: layouts and cache, website checks, alert acknowledgement, chart history) and two read-only agent actions (`sites.probe`, `php.fpm_health`), so the agent is restarted by the update.

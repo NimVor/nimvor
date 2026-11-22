@@ -73,6 +73,43 @@ const OUT = process.env.E2E_OUT || '/tmp';
     await page.waitForSelector('[data-widget-host="disk"]', { timeout: 10000 });
     step('customize: default layout restored');
 
+    // Arrange: drag the second widget in front of the first one, widen another by its edge, and both are kept after a reload.
+    const ids = () => page.$$eval('[data-widgets] [data-widget-host]', hs => hs.map(h => h.getAttribute('data-widget-host')));
+    const before = await ids();
+    await page.click('[data-arrange-toggle]:has-text("Arrange")');
+    await page.waitForSelector('[data-widgets].is-arranging .nim-resize-handle', { timeout: 5000 });
+    // The second widget is dropped on the top-left corner of the first: it takes the first one's place.
+    const a = page.locator('[data-widget-host="' + before[1] + '"]'), b = page.locator('[data-widget-host="' + before[0] + '"]');
+    const saved = page.waitForResponse(r => r.url().endsWith('/dashboard/layout/arrange') && r.status() === 200);
+    await a.dragTo(b, { targetPosition: { x: 10, y: 10 } });
+    await saved;
+    if ((await ids())[0] !== before[1]) { throw new Error('the dragged widget did not move'); }
+    // Width: the S/M/L/Full buttons, and the edge dragged to the left (a widget's edge can only be dragged as far as the screen).
+    const sized = page.locator('[data-widget-host="' + before[3] + '"]');
+    await sized.scrollIntoViewIfNeeded();
+    const saved2 = page.waitForResponse(r => r.url().endsWith('/dashboard/layout/arrange') && r.status() === 200);
+    await sized.locator('[data-size-set="full"]').click();
+    await saved2;
+    if (await sized.getAttribute('data-size') !== 'full') { throw new Error('the width button did not change the width'); }
+    const box = await sized.boundingBox();
+    const grid = await page.locator('[data-widgets]').boundingBox();
+    const saved3 = page.waitForResponse(r => r.url().endsWith('/dashboard/layout/arrange') && r.status() === 200);
+    await page.mouse.move(box.x + box.width + 1, Math.min(box.y + 40, 880));
+    await page.mouse.down();
+    await page.mouse.move(box.x + grid.width * 0.4, Math.min(box.y + 40, 880), { steps: 8 });
+    await page.mouse.up();
+    await saved3;
+    if (await sized.getAttribute('data-size') === 'full') { throw new Error('dragging the edge did not change the width'); }
+    const moved = await ids(), size2 = await sized.getAttribute('data-size');
+    await page.reload();
+    if ((await ids()).join() !== moved.join()) { throw new Error('the dragged order was not kept'); }
+    if (await page.locator('[data-widget-host="' + before[3] + '"]').getAttribute('data-size') !== size2) { throw new Error('the width was not kept'); }
+    step('arrange: drag to move and edge to resize, both kept after reload');
+    await page.click('button:has-text("Restore default")');
+    await page.waitForSelector('#nim-confirm.show [data-nim-confirm-ok]', { timeout: 5000 });
+    await Promise.all([page.waitForNavigation(), page.click('#nim-confirm [data-nim-confirm-ok]')]);
+    await page.waitForSelector('[data-widget-host="disk"]', { timeout: 10000 });
+
     await page.waitForSelector('[data-services] > li:not(:has(.placeholder))', { timeout: 20000 });
     if (await page.locator('[data-services] .nim-service-btn').count() === 0) {
       // The development instance simulates systemd: no services to list.

@@ -2049,7 +2049,7 @@
             var every = parseInt(host.getAttribute('data-refresh') || '0', 10);
             if (every > 0) {
                 // Never faster than every ten seconds, and not while the tab is in the background.
-                setInterval(function () { if (!document.hidden) { load(host, true); } }, Math.max(10, every) * 1000);
+                setInterval(function () { if (!document.hidden && !document.querySelector('[data-widgets].is-arranging')) { load(host, true); } }, Math.max(10, every) * 1000);
             }
         });
         document.addEventListener('click', function (e) {
@@ -2058,6 +2058,156 @@
             var host = b.closest('[data-widget-host]');
             if (host) { e.preventDefault(); load(host, false); }
         });
+    });
+
+    // Arrange the dashboard: drag a widget to move it, drag its right edge (or use the arrow keys on that
+    // edge) to change its width. Widths snap to the sizes the grid offers; every change is saved at once.
+    document.addEventListener('DOMContentLoaded', function () {
+        var grid = document.querySelector('[data-widgets][data-arrange-url]');
+        if (!grid) { return; }
+        var bar = document.querySelector('[data-arrange-bar]');
+        var SIZES = ['sm', 'md', 'lg', 'full'];
+        var dragging = null;
+        function hosts() { return Array.prototype.slice.call(grid.querySelectorAll('[data-widget-host]')); }
+        function sizeOf(host) { return host.getAttribute('data-size') || 'md'; }
+        function setSize(host, size) {
+            SIZES.forEach(function (z) { host.classList.remove('nim-span-' + z); });
+            host.classList.add('nim-span-' + size);
+            host.setAttribute('data-size', size);
+            host.querySelectorAll('[data-size-set]').forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-size-set') === size ? 'true' : 'false'); });
+        }
+        function save() {
+            var order = [], sizes = {};
+            hosts().forEach(function (h) { var id = h.getAttribute('data-widget-host'); order.push(id); sizes[id] = sizeOf(h); });
+            NimVor.fetchJson(grid.getAttribute('data-arrange-url'), { method: 'POST', body: JSON.stringify({ order: order, sizes: sizes }) })
+                .then(function () { NimVor.toast('Dashboard layout saved.', 'success'); })
+                .catch(function () { NimVor.toast('The layout could not be saved. Try again.', 'danger'); });
+        }
+        function addHandle(host) {
+            var h = document.createElement('button');
+            h.type = 'button';
+            h.className = 'nim-resize-handle';
+            h.setAttribute('data-resize-handle', '');
+            h.setAttribute('aria-label', 'Width of ' + (host.getAttribute('data-title') || 'widget') + ': use the left and right arrow keys');
+            h.title = 'Drag to change the width';
+            h.setAttribute('data-arrange-ui', '');
+            host.appendChild(h);
+            // Width buttons as well: an edge cannot be dragged further than the screen, and they work by touch.
+            var g = document.createElement('div');
+            g.className = 'nim-size-picker';
+            g.setAttribute('data-arrange-ui', '');
+            g.setAttribute('role', 'group');
+            g.setAttribute('aria-label', 'Width of ' + (host.getAttribute('data-title') || 'widget'));
+            [['sm', 'S', 'Small'], ['md', 'M', 'Medium'], ['lg', 'L', 'Large'], ['full', 'Full', 'Full width']].forEach(function (z) {
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.textContent = z[1];
+                b.title = z[2];
+                b.setAttribute('data-size-set', z[0]);
+                b.setAttribute('aria-pressed', sizeOf(host) === z[0] ? 'true' : 'false');
+                g.appendChild(b);
+            });
+            host.appendChild(g);
+        }
+        function arrange(on) {
+            grid.classList.toggle('is-arranging', on);
+            if (bar) { bar.classList.toggle('d-none', !on); }
+            document.querySelectorAll('[data-arrange-toggle][aria-pressed]').forEach(function (b) { b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+            hosts().forEach(function (host) {
+                host.draggable = on;
+                if (on) { host.tabIndex = 0; addHandle(host); }
+                else {
+                    host.removeAttribute('tabindex');
+                    host.querySelectorAll(':scope > [data-arrange-ui]').forEach(function (n) { n.remove(); });
+                }
+            });
+        }
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest) { return; }
+            if (e.target.closest('[data-arrange-toggle]')) { arrange(!grid.classList.contains('is-arranging')); return; }
+            var pick = e.target.closest('[data-size-set]');
+            if (pick && grid.contains(pick)) {
+                var host = pick.closest('[data-widget-host]');
+                if (host && sizeOf(host) !== pick.getAttribute('data-size-set')) { setSize(host, pick.getAttribute('data-size-set')); save(); }
+            }
+        });
+
+        // Moving: the dragged widget follows the pointer through the grid, the order is saved when it is dropped.
+        grid.addEventListener('dragstart', function (e) {
+            var host = e.target.closest ? e.target.closest('[data-widget-host]') : null;
+            if (!host || !grid.classList.contains('is-arranging')) { return; }
+            dragging = host;
+            host.classList.add('is-dragging');
+            if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', host.getAttribute('data-widget-host')); }
+        });
+        grid.addEventListener('dragover', function (e) {
+            if (!dragging) { return; }
+            e.preventDefault();
+            var over = e.target.closest ? e.target.closest('[data-widget-host]') : null;
+            if (!over || over === dragging) { return; }
+            var r = over.getBoundingClientRect();
+            var sideBySide = r.width < grid.clientWidth * 0.9;
+            var after = sideBySide ? e.clientX > r.left + r.width / 2 : e.clientY > r.top + r.height / 2;
+            var ref = after ? over.nextElementSibling : over;
+            if (ref !== dragging && dragging.nextElementSibling !== ref) { grid.insertBefore(dragging, ref); }
+        });
+        grid.addEventListener('drop', function (e) { if (dragging) { e.preventDefault(); } });
+        grid.addEventListener('dragend', function () {
+            if (!dragging) { return; }
+            dragging.classList.remove('is-dragging');
+            dragging = null;
+            save();
+        });
+
+        // Keyboard: Alt + arrow keys on a widget move it; the arrow keys on its edge change the width.
+        grid.addEventListener('keydown', function (e) {
+            if (!grid.classList.contains('is-arranging')) { return; }
+            var handle = e.target.closest ? e.target.closest('[data-resize-handle]') : null;
+            var host = e.target.closest ? e.target.closest('[data-widget-host]') : null;
+            if (!host) { return; }
+            var key = e.key;
+            if (handle && (key === 'ArrowLeft' || key === 'ArrowRight')) {
+                e.preventDefault();
+                var i = SIZES.indexOf(sizeOf(host)) + (key === 'ArrowRight' ? 1 : -1);
+                if (i >= 0 && i < SIZES.length) { setSize(host, SIZES[i]); save(); }
+            } else if (!handle && e.altKey && (key === 'ArrowLeft' || key === 'ArrowUp' || key === 'ArrowRight' || key === 'ArrowDown')) {
+                e.preventDefault();
+                var back = key === 'ArrowLeft' || key === 'ArrowUp';
+                var other = back ? host.previousElementSibling : host.nextElementSibling;
+                if (other && other.hasAttribute('data-widget-host')) {
+                    grid.insertBefore(host, back ? other : other.nextElementSibling);
+                    host.focus();
+                    save();
+                }
+            }
+        });
+
+        // Resizing: the width follows the pointer and snaps to the nearest size the grid knows.
+        var resizing = null;
+        grid.addEventListener('pointerdown', function (e) {
+            var handle = e.target.closest ? e.target.closest('[data-resize-handle]') : null;
+            if (!handle) { return; }
+            resizing = { host: handle.parentNode, handle: handle, changed: false };
+            resizing.host.draggable = false;
+            if (handle.setPointerCapture) { handle.setPointerCapture(e.pointerId); }
+            e.preventDefault();
+        });
+        grid.addEventListener('pointermove', function (e) {
+            if (!resizing) { return; }
+            var left = resizing.host.getBoundingClientRect().left;
+            var f = (e.clientX - left) / grid.clientWidth;
+            var size = f < 0.29 ? 'sm' : (f < 0.5 ? 'md' : (f < 0.8 ? 'lg' : 'full'));
+            if (size !== sizeOf(resizing.host)) { setSize(resizing.host, size); resizing.changed = true; }
+        });
+        function endResize() {
+            if (!resizing) { return; }
+            var r = resizing;
+            resizing = null;
+            r.host.draggable = grid.classList.contains('is-arranging');
+            if (r.changed) { save(); }
+        }
+        grid.addEventListener('pointerup', endResize);
+        grid.addEventListener('pointercancel', endResize);
     });
 
     // Customize the dashboard: the rows move up and down; the order they are in when saved is the order kept.

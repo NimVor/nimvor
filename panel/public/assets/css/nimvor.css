@@ -1102,6 +1102,7 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
     .nim-widgets > .nim-span-sm, .nim-widgets > .nim-span-md { grid-column: span 6; }
 }
 @container nim-widgets (min-width: 1000px) {
+    .nim-widgets > .nim-span-sm { grid-column: span 3; }
     .nim-widgets > .nim-span-md { grid-column: span 4; }
     .nim-widgets > .nim-span-lg { grid-column: span 8; }
 }
@@ -1266,3 +1267,18 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 .nim-bar-n { font-size: .68rem; font-variant-numeric: tabular-nums; color: var(--bs-secondary-color); }
 .nim-bar-l { font-size: .68rem; color: var(--bs-secondary-color); }
 @media (prefers-reduced-motion: reduce) { .nim-bar-fill, .nim-donut-seg { transition: none; } }
+
+/* ---- Arrange mode (drag to move, drag the right edge to resize) ---- */
+.nim-arrange-bar { display: flex; align-items: center; gap: .6rem; padding: .55rem .8rem; margin-bottom: var(--nim-gap); border: 1px dashed var(--bs-primary); border-radius: .5rem; background: var(--bs-primary-bg-subtle); font-size: .84rem; }
+.nim-widgets.is-arranging > [data-widget-host] { position: relative; cursor: grab; border-radius: .5rem; outline: 2px dashed var(--bs-border-color); outline-offset: 2px; }
+.nim-widgets.is-arranging > [data-widget-host]:focus-visible { outline: 2px solid var(--bs-primary); }
+.nim-widgets.is-arranging .nim-widget-body, .nim-widgets.is-arranging .nim-widget-actions { pointer-events: none; }
+.nim-widgets.is-arranging .nim-widget-actions { visibility: hidden; }
+.nim-widgets.is-arranging > .is-dragging { opacity: .45; }
+.nim-resize-handle { position: absolute; top: 0; right: -5px; bottom: 0; width: 12px; padding: 0; border: 0; background: transparent; cursor: ew-resize; touch-action: none; z-index: 2; }
+.nim-resize-handle::after { content: ''; position: absolute; top: 50%; left: 50%; width: 4px; height: 2.4rem; transform: translate(-50%, -50%); border-radius: 2px; background: var(--bs-primary); opacity: .55; }
+.nim-resize-handle:hover::after, .nim-resize-handle:focus-visible::after { opacity: 1; }
+.nim-size-picker { position: absolute; top: .3rem; right: .6rem; z-index: 3; display: inline-flex; gap: 1px; padding: 2px; border-radius: .4rem; background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); box-shadow: 0 1px 3px rgba(0, 0, 0, .12); cursor: default; }
+.nim-size-picker button { border: 0; padding: .1rem .45rem; font-size: .72rem; line-height: 1.4; border-radius: .3rem; background: none; color: var(--bs-secondary-color); }
+.nim-size-picker button:hover { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
+.nim-size-picker button[aria-pressed="true"] { background: var(--bs-primary); color: #fff; }

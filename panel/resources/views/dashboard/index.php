@@ -189,13 +189,15 @@ foreach ([
                 <?php if (!empty($customised)): ?>
                     <form method="post" action="<?= e($this->url('dashboard.layout.reset')) ?>" data-nim-confirm="Go back to the default dashboard layout?" data-nim-noajax><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-secondary">Restore default</button></form>
                 <?php endif; ?>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-arrange-toggle aria-pressed="false" title="Drag widgets to reorder them and drag their right edge to change the width"><i class="bi bi-arrows-move me-1" aria-hidden="true"></i><span>Arrange</span></button>
                 <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#nim-customize"><i class="bi bi-sliders me-1" aria-hidden="true"></i>Customize</button>
             </span>
         <?php endif; ?>
     </div>
-    <div class="nim-widgets mb-3" data-widgets>
+    <div class="nim-arrange-bar d-none" data-arrange-bar role="status"><i class="bi bi-arrows-move" aria-hidden="true"></i><span>Arrange mode: drag a widget by its title to move it, drag the right edge (or use the arrow keys on it) to change its width. Changes are saved as you go.</span><button type="button" class="btn btn-sm btn-primary ms-auto" data-arrange-toggle>Done</button></div>
+    <div class="nim-widgets mb-3" data-widgets data-arrange-url="<?= e($this->url('dashboard.layout.arrange')) ?>">
         <?php foreach ($tiles as $t): if (!$t['visible']) { continue; } $def = $t['def']; ?>
-            <div class="<?= e(\NimVor\Dashboard\Widget::SIZES[$t['size']]) ?>" data-widget-host="<?= e($def->id) ?>" data-widget-url="<?= e($this->url('dashboard.widget', ['id' => $def->id])) ?>" data-refresh="<?= (int) $def->refresh ?>"<?= $t['html'] === null ? ' data-widget-lazy' : '' ?>>
+            <div class="<?= e(\NimVor\Dashboard\Widget::SIZES[$t['size']]) ?>" data-widget-host="<?= e($def->id) ?>" data-widget-url="<?= e($this->url('dashboard.widget', ['id' => $def->id])) ?>" data-refresh="<?= (int) $t['refresh'] ?>" data-size="<?= e($t['size']) ?>" data-title="<?= e($def->title) ?>"<?= $t['html'] === null ? ' data-widget-lazy' : '' ?>>
                 <?php if ($t['html'] !== null): ?><?= $t['html'] ?>
                 <?php else: ?>
                     <div class="card nim-widget h-100" data-widget="<?= e($def->id) ?>" data-state="loading">
@@ -260,7 +262,7 @@ foreach ([
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p class="small text-body-secondary">Show or hide a widget, move it up or down and choose how wide it is. Only the widgets your role may see are listed.</p>
+                <p class="small text-body-secondary">Show or hide a widget, move it up or down, choose how wide it is and how often it refreshes. You can also drag widgets around on the dashboard itself with Arrange. Only the widgets your role may see are listed.</p>
                 <ul class="list-group" data-customize-list>
                     <?php foreach ($tiles as $t): $def = $t['def']; ?>
                         <li class="list-group-item d-flex flex-wrap align-items-center gap-2" data-customize-row>
@@ -272,6 +274,10 @@ foreach ([
                             </div>
                             <select class="form-select form-select-sm w-auto" name="widgets[<?= e($def->id) ?>][size]" aria-label="Width of <?= e($def->title) ?>">
                                 <?php foreach (['sm' => 'Small', 'md' => 'Medium', 'lg' => 'Large', 'full' => 'Full width'] as $k => $label): ?><option value="<?= e($k) ?>"<?= $t['size'] === $k ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?>
+                            </select>
+                            <select class="form-select form-select-sm w-auto" name="widgets[<?= e($def->id) ?>][refresh]" aria-label="Refresh <?= e($def->title) ?>">
+                                <option value="">Refresh: default<?= $def->refresh > 0 ? ' (' . e(\NimVor\Dashboard\DashboardLayout::REFRESH_CHOICES[$def->refresh] ?? ($def->refresh . ' s')) . ')' : '' ?></option>
+                                <?php foreach (\NimVor\Dashboard\DashboardLayout::REFRESH_CHOICES as $k => $label): ?><option value="<?= (int) $k ?>"<?= $t['refreshChoice'] === $k ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?>
                             </select>
                             <span class="btn-group btn-group-sm" role="group" aria-label="Move <?= e($def->title) ?>">
                                 <button type="button" class="btn btn-outline-secondary" data-customize-move="-1" aria-label="Move up"><i class="bi bi-arrow-up" aria-hidden="true"></i></button>
