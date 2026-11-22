@@ -653,7 +653,7 @@ details[data-nim-menu] > summary::-webkit-details-marker { display: none; }
 /* Security overview: stat tiles, login cards, rating cards */
 .nim-stat { border-radius: .6rem; padding: 1rem; text-align: center; border: 1px solid; }
 .nim-stat .nim-stat-num { font-size: 1.6rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.nim-stat .nim-stat-label { font-size: .85rem; margin-top: .35rem; color: var(--bs-body-color); }
+.nim-stat .nim-fig-label { font-size: .85rem; margin-top: .35rem; color: var(--bs-body-color); }
 .nim-stat.is-good { background: rgba(22, 163, 74, .08); border-color: rgba(22, 163, 74, .3); }
 .nim-stat.is-good .nim-stat-num { color: #16a34a; }
 .nim-stat.is-bad { background: rgba(220, 38, 38, .07); border-color: rgba(220, 38, 38, .3); }
@@ -847,7 +847,7 @@ body { letter-spacing: -.003em; }
 .nim-tone-5 { background: linear-gradient(135deg, #64748b, #334155); }
 .nim-kstat { display: flex; align-items: center; gap: .8rem; }
 .nim-kstat .nim-tool-icon { width: 2.6rem; height: 2.6rem; border-radius: .8rem; display: grid; place-items: center; color: #fff; font-size: 1.2rem; flex-shrink: 0; }
-.nim-stat-value { font-size: 1.6rem; font-weight: 700; line-height: 1.1; letter-spacing: -.02em; }
+.nim-fig-value { font-size: 1.6rem; font-weight: 700; line-height: 1.1; letter-spacing: -.02em; }
 .nim-usage + .nim-usage { margin-top: .85rem; }
 .nim-usage .progress { height: .45rem; border-radius: 999px; background: var(--bs-tertiary-bg); }
 .nim-avatar-sm { width: 1.8rem; height: 1.8rem; font-size: .8rem; }
@@ -1086,3 +1086,86 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 .nim-widget-refresh { color: var(--bs-secondary-color); line-height: 1; }
 .nim-widget-refresh:disabled { opacity: .5; }
 [data-widget][data-state="loading"] .card-body { min-height: 5rem; }
+
+/* ---- Dashboard widgets ----
+   One grid and one set of components for every dashboard widget. The grid reads the
+   width of the page content (container queries), so it adapts to the sidebar and not
+   only to the window. Card padding, borders and colours are left to the active theme. */
+:root { --nim-gap: 1rem; }
+.nim-widgets { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--nim-gap); grid-auto-flow: row dense; container-type: inline-size; container-name: nim-widgets; }
+.nim-widgets > * { grid-column: span 12; min-width: 0; }
+.nim-widgets > .nim-span-tile { grid-column: span 6; }
+@container nim-widgets (min-width: 900px) {
+    .nim-widgets > .nim-span-tile { grid-column: span 3; }
+}
+@container nim-widgets (min-width: 640px) {
+    .nim-widgets > .nim-span-sm, .nim-widgets > .nim-span-md { grid-column: span 6; }
+}
+@container nim-widgets (min-width: 1000px) {
+    .nim-widgets > .nim-span-md { grid-column: span 4; }
+    .nim-widgets > .nim-span-lg { grid-column: span 8; }
+}
+@container nim-widgets (min-width: 1360px) {
+    .nim-widgets > .nim-span-sm { grid-column: span 3; }
+}
+.mb-3.nim-widgets { margin-bottom: var(--nim-gap) !important; }
+
+/* Frame: a compact header (title on the left, link, time and refresh on the right) and a body. */
+.card.nim-widget { --bs-card-cap-padding-y: .55rem; --bs-card-cap-padding-x: .9rem; --bs-card-spacer-y: .8rem; --bs-card-spacer-x: .9rem; }
+.nim-widget-head { display: flex; align-items: center; justify-content: space-between; gap: .75rem; font-size: .85rem; line-height: 1.2; }
+.nim-widget-title { display: inline-flex; align-items: center; gap: .45rem; min-width: 0; font-weight: 600; }
+.nim-widget-title > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nim-widget-title > i { color: var(--bs-secondary-color); font-size: .95rem; flex-shrink: 0; }
+.nim-widget-actions { display: inline-flex; align-items: center; gap: .6rem; flex-shrink: 0; font-size: .75rem; font-weight: 400; }
+.nim-widget-link { text-decoration: none; }
+.nim-widget-link:hover { text-decoration: underline; }
+.nim-widget-meta { color: var(--bs-tertiary-color); font-variant-numeric: tabular-nums; }
+.nim-widget-refresh { border: 0; background: none; padding: .15rem; line-height: 1; color: var(--bs-secondary-color); border-radius: .3rem; }
+.nim-widget-refresh:hover, .nim-widget-refresh:focus-visible { color: var(--bs-body-color); background: var(--bs-secondary-bg); }
+.nim-widget-body { font-size: .84rem; }
+.nim-widget-note { display: flex; align-items: flex-start; gap: .5rem; color: var(--bs-secondary-color); }
+.nim-widget-note > i { margin-top: .1rem; }
+.nim-widget-note.is-error { color: var(--bs-danger-text-emphasis, #dc2626); }
+.nim-widget-foot { margin-top: .6rem; font-size: .75rem; color: var(--bs-secondary-color); }
+.nim-sub { margin: 0 0 .3rem; font-size: .7rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--bs-secondary-color); }
+
+/* Key figures (nim-figs / nim-fig): one big number with a small label, in a row that wraps evenly. */
+.nim-figs { display: grid; grid-template-columns: repeat(auto-fit, minmax(4.4rem, 1fr)); gap: .75rem .5rem; margin-bottom: .9rem; }
+.nim-fig { min-width: 0; }
+.nim-fig-value { font-size: 1.3rem; font-weight: 650; line-height: 1.15; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.nim-fig-label { margin-top: .15rem; font-size: .72rem; line-height: 1.25; color: var(--bs-secondary-color); }
+
+/* Tables inside widgets: compact, no frame, numbers aligned. */
+.nim-widget .table { --bs-table-bg: transparent; --bs-table-border-color: var(--nim-card-border); font-size: .8rem; margin-bottom: 0; }
+.nim-widget .table > :not(caption) > * > * { padding: .3rem .4rem; }
+.nim-widget .table > :not(caption) > * > :first-child { padding-left: 0; }
+.nim-widget .table > :not(caption) > * > :last-child { padding-right: 0; }
+.nim-widget .table thead th { font-size: .68rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--bs-secondary-color); white-space: nowrap; }
+.nim-widget .table td { font-variant-numeric: tabular-nums; }
+.nim-widget .table tbody tr:last-child > * { border-bottom-width: 0; }
+.nim-widget .progress { height: .4rem; }
+.nim-widget dl.nim-dl, .nim-widget .list-group { font-size: .8rem; }
+
+/* Top processes: the two tables sit side by side when the widget is wide enough. */
+.nim-proc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(21rem, 1fr)); gap: 1rem 1.5rem; }
+.nim-top-table { table-layout: fixed; }
+.nim-top-table th:nth-child(2), .nim-top-table td:nth-child(2) { width: 3.6rem; }
+.nim-top-table th:nth-child(3), .nim-top-table td:nth-child(3) { width: 3.6rem; }
+.nim-top-table th:nth-child(4), .nim-top-table td:nth-child(4) { width: 5.4rem; }
+.nim-top-table .nim-w-9 { width: auto; }
+
+/* Overview cards above the widgets share the same rhythm. */
+.nim-hero { padding: 1.1rem 1.3rem; margin-bottom: 1rem; border-radius: .9rem; }
+.nim-quick { grid-template-columns: repeat(auto-fill, minmax(7.25rem, 1fr)); gap: .5rem; margin-top: .9rem; }
+.nim-quick a { padding: .45rem .65rem; font-size: .84rem; }
+.nim-metric .card-body { padding: .85rem .95rem; }
+.nim-metric-value { font-size: 1.5rem; margin-top: .15rem; }
+.nim-spark { height: 36px; margin-top: .5rem; }
+@media (max-width: 575.98px) {
+    .nim-fig-value { font-size: 1.15rem; }
+    .nim-metric-value { font-size: 1.3rem; }
+}
+/* Medium widths: a lone last card takes the whole row instead of leaving a hole. */
+@container nim-widgets (min-width: 640px) and (max-width: 999.98px) {
+    .nim-widgets > .nim-span-md:last-child:nth-child(odd), .nim-widgets > .nim-span-sm:last-child:nth-child(odd) { grid-column: span 12; }
+}

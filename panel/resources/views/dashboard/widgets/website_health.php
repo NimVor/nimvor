@@ -17,13 +17,13 @@ $checkForm = '<form method="post" action="' . e($this->url('dashboard.websites.c
     <?php if ((int) $d['enabled'] > 0): ?><?= $checkForm ?><?php endif; ?>
 <?php return; endif; ?>
 <?php $c = (array) $d['counts']; ?>
-<div class="row g-2 text-center mb-3">
-    <div class="col-4 col-md-2"><div class="fs-5"><?= (int) $d['total'] ?></div><div class="text-body-secondary">Websites</div></div>
-    <div class="col-4 col-md-2"><div class="fs-5 text-success"><?= (int) $c['up'] + (int) $c['auth'] ?></div><div class="text-body-secondary">Online</div></div>
-    <div class="col-4 col-md-2"><div class="fs-5 <?= (int) $c['down'] > 0 ? 'text-danger' : '' ?>"><?= (int) $c['down'] ?></div><div class="text-body-secondary">Offline</div></div>
-    <div class="col-4 col-md-2"><div class="fs-5 <?= (int) $c['server_error'] > 0 ? 'text-danger' : '' ?>"><?= (int) $c['server_error'] ?></div><div class="text-body-secondary">5xx errors</div></div>
-    <div class="col-4 col-md-2"><div class="fs-5 <?= (int) $c['client_error'] > 0 ? 'text-warning' : '' ?>"><?= (int) $c['client_error'] ?></div><div class="text-body-secondary">4xx errors</div></div>
-    <div class="col-4 col-md-2"><div class="fs-5"><?= $d['uptime_24h'] === null ? 'N/A' : e(number_format((float) $d['uptime_24h'], 2)) . '%' ?></div><div class="text-body-secondary">Uptime 24 h</div></div>
+<div class="nim-figs">
+    <div class="nim-fig"><div class="nim-fig-value"><?= (int) $d['total'] ?></div><div class="nim-fig-label">Websites</div></div>
+    <div class="nim-fig"><div class="nim-fig-value text-success"><?= (int) $c['up'] + (int) $c['auth'] ?></div><div class="nim-fig-label">Online</div></div>
+    <div class="nim-fig"><div class="nim-fig-value <?= (int) $c['down'] > 0 ? 'text-danger' : '' ?>"><?= (int) $c['down'] ?></div><div class="nim-fig-label">Offline</div></div>
+    <div class="nim-fig"><div class="nim-fig-value <?= (int) $c['server_error'] > 0 ? 'text-danger' : '' ?>"><?= (int) $c['server_error'] ?></div><div class="nim-fig-label">5xx errors</div></div>
+    <div class="nim-fig"><div class="nim-fig-value <?= (int) $c['client_error'] > 0 ? 'text-warning' : '' ?>"><?= (int) $c['client_error'] ?></div><div class="nim-fig-label">4xx errors</div></div>
+    <div class="nim-fig"><div class="nim-fig-value"><?= $d['uptime_24h'] === null ? 'N/A' : e(number_format((float) $d['uptime_24h'], 2)) . '%' ?></div><div class="nim-fig-label">Uptime 24 h</div></div>
 </div>
 <?php if ((int) $c['auth'] > 0): ?><div class="text-body-secondary mb-2"><?= (int) $c['auth'] ?> website<?= (int) $c['auth'] === 1 ? ' asks' : 's ask' ?> for a login or forbid the check (401/403); they are counted as online.</div><?php endif; ?>
 <?php if ($d['problems'] !== []): ?>
