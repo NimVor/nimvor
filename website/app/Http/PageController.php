@@ -13,7 +13,6 @@ use NimVorSite\Support\Validator;
 final class PageController extends Controller
 {
     private const INSTALL_SCRIPT = 'https://raw.githubusercontent.com/NimVor/nimvor/main/installer/bootstrap.sh';
-    private const INSTALL = 'curl -fsSL https://nimvor.com/install | sudo bash';
 
     /**
      * The one-line installer: `curl -fsSL https://nimvor.com/install | sudo bash`. The script itself lives in the
@@ -30,7 +29,7 @@ final class PageController extends Controller
 
     public function home(Ctx $ctx): Response
     {
-        return $ctx->render('pages/home', ['install' => self::INSTALL, 'posts' => array_slice($this->posts(), 0, 3), 'servers' => $this->app->stats->headline()]);
+        return $ctx->render('pages/home', ['posts' => array_slice($this->posts(), 0, 3), 'servers' => $this->app->stats->headline()]);
     }
 
     public function releases(Ctx $ctx): Response
@@ -48,7 +47,6 @@ final class PageController extends Controller
             'inline' => fn (string $md): string => $this->app->releases->inline($md),
             'brief' => fn (string $md): string => $this->app->releases->brief($md),
             'repo' => $this->app->github->repoUrl(),
-            'install' => self::INSTALL,
         ]);
     }
 
@@ -72,7 +70,6 @@ final class PageController extends Controller
             'older' => $list[$at + 1] ?? null,
             'inline' => fn (string $md): string => $this->app->releases->inline($md),
             'repo' => $this->app->github->repoUrl(),
-            'install' => self::INSTALL,
         ]);
     }
 
@@ -115,7 +112,7 @@ final class PageController extends Controller
 
     public function getStarted(Ctx $ctx): Response
     {
-        return $ctx->render('pages/get-started', ['install' => self::INSTALL]);
+        return $ctx->render('pages/get-started', []);
     }
 
     public function blog(Ctx $ctx): Response
