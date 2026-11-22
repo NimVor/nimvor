@@ -256,9 +256,17 @@ final class PageController extends Controller
         if ($v->fails()) {
             return $this->invalid($ctx, 'pages/contact', $v->errors());
         }
-        $this->app->messages->create($ctx->user() === null ? null : (int) $ctx->user()['id'], $v->value('name'), $v->value('email'), $v->value('subject'), $v->value('message'));
+        $category = in_array($v->value('category'), \NimVorSite\Repositories\Tickets::CATEGORIES, true) ? $v->value('category') : 'general';
+        $t = $this->app->ticketService->open($ctx->user() === null ? null : (int) $ctx->user()['id'], $v->value('name'), $v->value('email'), $v->value('subject'), $v->value('message'), $category);
         $this->app->cache->delete('report:overview');
-        return $this->thanks($ctx, '/support/contact');
+        $ctx->flash('success', 'Thank you. Your ticket number is ' . $t['ref'] . '. Keep this page\'s address: it is the private link to follow your ticket and answer us.');
+        return $ctx->redirect('/support/tickets/' . $t['ref'] . '/' . $t['token']);
+    }
+
+    /** The old Messages pages became Tickets. */
+    public function legacyMessages(Ctx $ctx): Response
+    {
+        return Response::redirect(str_starts_with($ctx->req->path, '/admin') ? '/admin/tickets' : '/account/tickets', 301);
     }
 
     public function privacy(Ctx $ctx): Response

@@ -7,7 +7,6 @@ namespace NimVorSite\Http;
 use NimVorSite\Core\Ctx;
 use NimVorSite\Core\Response;
 use NimVorSite\Repositories\BuildRequests;
-use NimVorSite\Repositories\Messages;
 use NimVorSite\Repositories\Sponsors;
 use NimVorSite\Services\GitHubException;
 use NimVorSite\Support\Text;
@@ -20,7 +19,7 @@ final class AdminController extends Controller
     public function overview(Ctx $ctx): Response
     {
         $r = $this->app->reports->overview();
-        return $ctx->render('admin/overview', ['report' => $r, 'recentMessages' => array_slice($this->app->messages->all(), 0, 5), 'recentRequests' => array_slice($this->app->requests->all(), 0, 5)]);
+        return $ctx->render('admin/overview', ['report' => $r, 'recentTickets' => array_slice($this->app->tickets->search(['status' => 'active'], 1)['rows'], 0, 5), 'recentRequests' => array_slice($this->app->requests->all(), 0, 5)]);
     }
 
     public function reports(Ctx $ctx): Response
@@ -31,7 +30,7 @@ final class AdminController extends Controller
     /** @param array<string, string> $params */
     public function csv(Ctx $ctx, array $params): Response
     {
-        if (!in_array($params['type'] ?? '', ['users', 'requests', 'messages'], true)) {
+        if (!in_array($params['type'] ?? '', ['users', 'requests', 'tickets', 'messages'], true)) {
             return $this->app->error($ctx, 404);
         }
         $fh = fopen('php://temp', 'r+');
@@ -65,23 +64,6 @@ final class AdminController extends Controller
         $this->app->users->setActive((int) $target['id'], $activate);
         $ctx->flash('success', $target['email'] . ($activate ? ' was activated.' : ' was deactivated.'));
         return $ctx->redirect('/admin/users');
-    }
-
-    public function messages(Ctx $ctx): Response
-    {
-        return $ctx->render('admin/messages', ['messages' => $this->app->messages->all(), 'statuses' => Messages::STATUSES]);
-    }
-
-    /** @param array<string, string> $params */
-    public function messageStatus(Ctx $ctx, array $params): Response
-    {
-        $id = $this->intParam($params, 'id');
-        if ($id === null) {
-            return $this->app->error($ctx, 404);
-        }
-        $this->app->messages->setStatus($id, $ctx->req->input('status'));
-        $this->app->cache->delete('report:overview');
-        return $ctx->redirect('/admin/messages');
     }
 
     public function requests(Ctx $ctx): Response

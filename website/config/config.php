@@ -33,6 +33,14 @@ $config = [
         'token' => $env('GITHUB_TOKEN', ''),
         'sponsorable' => $env('GITHUB_SPONSORABLE', 'NimVor'),
     ],
+    // Email for tickets: set MAIL_FROM (an address on this host) and customers get a copy of the replies; MAIL_NOTIFY
+    // (comma-separated) lists who hears about new tickets and customer replies. Without MAIL_FROM nothing is sent
+    // and tickets are followed in the browser only.
+    'mail' => [
+        'from' => $env('MAIL_FROM', ''),
+        'name' => $env('MAIL_FROM_NAME', 'NimVor'),
+        'notify' => $env('MAIL_NOTIFY', ''),
+    ],
     // Fetch the documentation from GitHub on a visit when it is missing or older than six hours.
     'docs_auto_sync' => $env('DOCS_AUTO_SYNC', '1') === '1',
     // Uploaded videos live outside the web root. PHP's own upload_max_filesize and post_max_size

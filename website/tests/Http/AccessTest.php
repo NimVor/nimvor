@@ -11,7 +11,7 @@ final class AccessTest extends SiteTestCase
     /** @return array<string, array{string}> */
     public static function protectedPages(): array
     {
-        return [['/account'], ['/account/requests'], ['/account/messages'], ['/account/profile'], ['/admin'], ['/admin/reports'], ['/admin/reports/users.csv'], ['/admin/users'], ['/admin/messages'], ['/admin/requests'], ['/admin/posts'], ['/admin/posts/new'], ['/admin/sponsors']];
+        return [['/account'], ['/account/requests'], ['/account/tickets'], ['/account/profile'], ['/admin'], ['/admin/reports'], ['/admin/reports/users.csv'], ['/admin/users'], ['/admin/tickets'], ['/admin/requests'], ['/admin/posts'], ['/admin/posts/new'], ['/admin/sponsors']];
     }
 
     #[\PHPUnit\Framework\Attributes\DataProvider('protectedPages')]
@@ -48,7 +48,7 @@ final class AccessTest extends SiteTestCase
     public function testAnAdministratorReachesEverything(): void
     {
         $this->loginAs('admin');
-        foreach (['/admin', '/admin/reports', '/admin/users', '/admin/messages', '/admin/requests', '/admin/posts', '/admin/posts/new', '/admin/sponsors', '/account'] as $path) {
+        foreach (['/admin', '/admin/reports', '/admin/users', '/admin/tickets', '/admin/requests', '/admin/posts', '/admin/posts/new', '/admin/sponsors', '/account'] as $path) {
             self::assertSame(200, $this->get($path)->status, $path);
         }
     }
@@ -59,9 +59,9 @@ final class AccessTest extends SiteTestCase
         $b = $this->createUser('b@example.test', 'Bob');
         $this->app->requests->create($a, 'Alice', 'a@example.test', 'migration', 'Alice private details for the migration work');
         $this->app->requests->create($b, 'Bob', 'b@example.test', 'review', 'Bob private details for the review work here');
-        $this->app->messages->create($b, 'Bob', 'b@example.test', 'Bob secret subject', 'Bob private message text');
+        $this->app->ticketService->open($b, 'Bob', 'b@example.test', 'Bob secret subject', 'Bob private message text');
         $this->login('a@example.test');
-        $page = $this->get('/account/requests')->body . $this->get('/account/messages')->body . $this->get('/account')->body;
+        $page = $this->get('/account/requests')->body . $this->get('/account/tickets')->body . $this->get('/account')->body;
         self::assertStringContainsString('Alice private details', $page);
         self::assertStringNotContainsString('Bob private', $page);
         self::assertStringNotContainsString('Bob secret subject', $page);

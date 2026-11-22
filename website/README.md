@@ -10,6 +10,10 @@ It is separate from the control panel (`panel/`) and shares no code with it.
 **Stack:** PHP 8.3, MySQL or MariaDB, and Redis or Memcached (or a file cache on a
 server with neither). No framework, no build step, no external fonts or scripts.
 
+## Tickets
+
+The contact form, and **Account → Tickets**, open tickets. Each has a number (`NV-XXXXXXXX`), a category, a priority, a status (open, answered, on hold, resolved, closed) and a thread of messages. Administrators work them under **Admin → Tickets**: filters and search, bulk actions, owner, internal notes that customers never see, canned replies, and first-response statistics. A visitor without an account follows a ticket through a private link (`/support/tickets/NV-…/token`) shown after sending; a closed ticket can be reopened by answering within 30 days; resolved tickets close themselves after 7 days without an answer (`php bin/site tickets:maintain`, run daily from cron, optionally `--purge-days=730`). Set `MAIL_FROM` (and `MAIL_NOTIFY`, a comma-separated list of team addresses) so answers and new tickets are also emailed with PHP's `mail()`; without it everything works in the browser only. Attachments are not supported.
+
 ## What is in it
 
 | Area | What it does |
@@ -140,7 +144,7 @@ If the site is configured with environment variables or `SITE_CONFIG` instead, t
 4. Run `php bin/site migrate`, then `php bin/site seed`, then create the first administrator with `php bin/site user:create`.
 5. Check `https://your-site/health` (`ok`, or `503` if the database or cache is down).
 
-Updating: pull the new code and run `php bin/site migrate`. **Without a terminal**, upload the new files, then import the SQL file for each migration the site has not had yet (in order) with phpMyAdmin or your host's database tool: `database/sql/0002_docs_problems_stats.sql` upgrades a site set up before the documentation, sponsors and statistics pages. Each file runs once, records itself in the `migrations` table, and says so at its top; `tests/Unit/MigrationSqlTest.php` keeps it identical to the PHP migration. To load the documentation without waiting for a first visit: `php bin/site docs:sync`; to copy the sponsors: `php bin/site sponsors:sync`.
+Updating: pull the new code and run `php bin/site migrate`. **Without a terminal**, upload the new files, then import the SQL file for each migration the site has not had yet (in order) with phpMyAdmin or your host's database tool: `database/sql/0002_docs_problems_stats.sql` upgrades a site set up before the documentation, sponsors and statistics pages. Each file runs once, records itself in the `migrations` table, and says so at its top; `tests/Unit/MigrationSqlTest.php` keeps it identical to the PHP migration. `database/sql/0006_tickets.sql` adds the ticket system and moves the old contact messages into it. To load the documentation without waiting for a first visit: `php bin/site docs:sync`; to copy the sponsors: `php bin/site sponsors:sync`.
 
 ## Tests
 
