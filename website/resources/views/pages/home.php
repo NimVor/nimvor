@@ -50,7 +50,7 @@ $v->set('description', 'NimVor is a free, open-source hosting control panel for 
             <p>From a first site to a whole fleet, the panel brings the everyday work together and shows you what it is about to change.</p>
         </div>
         <figure class="walk tour">
-            <div class="walk-top"><span><span class="dot"></span>Product tour</span><span>5 min · captions, no sound needed</span></div>
+            <div class="walk-top"><span><span class="dot"></span>Product tour</span><span>5 min · voice, music and captions</span></div>
             <video class="tour-video" controls preload="none" playsinline poster="<?= e($v->asset('media/nimvor-panel-tour.jpg')) ?>" width="1280" height="720">
                 <source src="<?= e($v->asset('media/nimvor-panel-tour.mp4')) ?>" type="video/mp4">
                 A tour of the panel: the dashboard, a new customer account and website, their own PHP configuration files, monitoring, backups, databases, security, moving in from another panel and the settings.
