@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Website: the **product tour video on the home page is new**: five minutes on version 1.10.1 (dashboard widgets, a new account and website, the customer's `php.ini` and `.user.ini`, monitoring, SSL, backups, databases, security, migration, themes and settings), with captions and no sound needed. Recorded on a demo server with sample data.
+
 ## [1.10.1] — 2026-11-23
 
 Version files only: 1.10.0 was tagged one commit before its version bump, so it still reported 1.9.0. 1.10.1 is the same code with the right version. Use 1.10.1.
