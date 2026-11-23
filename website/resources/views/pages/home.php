@@ -50,12 +50,12 @@ $v->set('description', 'NimVor is a free, open-source hosting control panel for 
             <p>From a first site to a whole fleet, the panel brings the everyday work together and shows you what it is about to change.</p>
         </div>
         <figure class="walk tour">
-            <div class="walk-top"><span><span class="dot"></span>Product tour</span><span>6 min · captions, no sound needed</span></div>
+            <div class="walk-top"><span><span class="dot"></span>Product tour</span><span>5 min · captions, no sound needed</span></div>
             <video class="tour-video" controls preload="none" playsinline poster="<?= e($v->asset('media/nimvor-panel-tour.jpg')) ?>" width="1280" height="720">
                 <source src="<?= e($v->asset('media/nimvor-panel-tour.mp4')) ?>" type="video/mp4">
-                From the install command to the first website: setting up the server, a hosting plan, a customer, WordPress, backups and security.
+                A tour of the panel: the dashboard, a new customer account and website, their own PHP configuration files, monitoring, backups, databases, security, moving in from another panel and the settings.
             </video>
-            <figcaption>From the install command to the first website: the setup wizard, a hosting plan, a customer and their site, WordPress, backups and security. Recorded on a demo server.</figcaption>
+            <figcaption>The dashboard and its widgets, a new customer account and website, the customer's own PHP configuration files, monitoring, SSL, backups, databases, security, moving in from another panel, themes and settings. Recorded on a demo server with sample data.</figcaption>
         </figure>
         <div class="chips"><span class="chip">Websites</span><span class="chip">Email</span><span class="chip">DNS</span><span class="chip">SSL</span><span class="chip">Databases</span><span class="chip">Backups</span><span class="chip">Firewall</span><span class="chip">REST API</span></div>
     </div>
