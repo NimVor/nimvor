@@ -683,7 +683,9 @@ a.row-cell:hover .arrow { transform: translateX(6px); }
 .tabs a { padding: 8px 2px; text-decoration: none; color: var(--muted); border-bottom: 2px solid transparent; }
 .tabs a[aria-current="page"] { color: inherit; border-bottom-color: var(--orange-ink); font-weight: 600; }
 .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
-.filters .input { min-width: 220px; flex: 1 1 220px; }
+.filters .input { width: auto; min-width: 220px; flex: 1 1 220px; }
+.filters .select { width: auto; flex: 0 0 auto; }
+.bulk-bar .select { width: auto; }
 .bulk-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0; }
 .pager { display: flex; gap: 18px; margin: 14px 0; }
 

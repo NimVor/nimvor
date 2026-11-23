@@ -241,6 +241,7 @@ final class App
         $r->add('GET', '/admin/tickets/{id}', [$t, 'adminShow'], 'admin');
         $r->add('POST', '/admin/tickets/{id}/reply', [$t, 'adminReply'], 'admin');
         $r->add('POST', '/admin/tickets/{id}/update', [$t, 'adminUpdate'], 'admin');
+        $r->add('POST', '/admin/tickets/{id}/delete', [$t, 'adminDelete'], 'admin');
         $r->add('GET', '/admin/requests', [$m, 'requests'], 'admin');
         $r->add('POST', '/admin/requests/{id}/status', [$m, 'requestStatus'], 'admin');
         $r->add('GET', '/admin/posts', [$m, 'posts'], 'admin');

@@ -19,7 +19,7 @@ $v->set('title', 'Ticket ' . $ticket['ref']);
 $v->set('script', 'js/tickets.js');
 $label = static fn (string $s): string => ucfirst(str_replace('_', ' ', $s));
 ?>
-<div class="app-top"><div><h1><?= e($ticket['subject']) ?></h1><p class="muted mb-0"><a href="/admin/tickets">&larr; All tickets</a> · <?= e($ticket['ref']) ?></p></div><?= $v->partial('partials/ticket-badge', ['status' => (string) $ticket['status'], 'priority' => (string) $ticket['priority']]) ?></div>
+<div class="app-top"><div><h1><?= e($ticket['subject']) ?></h1><p class="muted mb-0"><a href="/admin/tickets">&larr; All tickets</a> · <?= e($ticket['ref']) ?></p></div><div><?= $v->partial('partials/ticket-badge', ['status' => (string) $ticket['status'], 'priority' => (string) $ticket['priority']]) ?></div></div>
 <div class="ticket-admin">
     <div>
         <div class="thread">
@@ -66,6 +66,7 @@ $label = static fn (string $s): string => ucfirst(str_replace('_', ' ', $s));
             <p class="mb-0"><?= e($ticket['name']) ?><br><a href="mailto:<?= e($ticket['email']) ?>"><?= e($ticket['email']) ?></a></p>
             <p class="muted mb-0"><?= $ticket['user_id'] !== null ? 'Has an account.' : 'No account: they follow the ticket by its private link.' ?></p>
             <p class="muted mb-0">Opened <?= e(substr((string) $ticket['created_at'], 0, 16)) ?> UTC<?= $ticket['first_response_at'] !== null ? '; first reply after ' . e((string) max(1, (int) round((strtotime($ticket['first_response_at'] . ' UTC') - strtotime($ticket['created_at'] . ' UTC')) / 60))) . ' min' : '; not answered yet' ?>.</p>
+            <form class="mt-3" method="post" action="/admin/tickets/<?= (int) $ticket['id'] ?>/delete" data-confirm="Delete ticket <?= e($ticket['ref']) ?> and all its messages for good? This cannot be undone."><?= $v->csrf() ?><button class="btn btn-danger btn-sm" type="submit">Delete this ticket</button></form>
             <details><summary class="muted">The customer's private link</summary><p class="mb-0 small"><code><?= e($guestUrl) ?></code></p></details>
         </div>
     </aside>

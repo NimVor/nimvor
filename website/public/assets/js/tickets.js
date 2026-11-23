@@ -17,6 +17,17 @@
         });
     }
 
+    // Deleting from the list asks first.
+    document.querySelectorAll('form[data-bulk]').forEach(function (f) {
+        f.addEventListener('submit', function (e) {
+            var a = f.querySelector('select[name="action"]');
+            var n = f.querySelectorAll('input[name="ids[]"]:checked').length;
+            if (a && a.value === 'delete' && n > 0 && !window.confirm('Delete ' + n + ' ticket(s) and all their messages for good? This cannot be undone.')) {
+                e.preventDefault();
+            }
+        });
+    });
+
     // "Select all" in the ticket list.
     var all = document.querySelector('[data-select-all]');
     if (all) {
