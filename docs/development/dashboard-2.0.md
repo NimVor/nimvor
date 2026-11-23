@@ -134,3 +134,7 @@ The dashboard draws history only from what was really measured. No chart library
 * **Not shown, because it is not collected**: HTTP request trends and website growth beyond `created_at`; PostgreSQL history (its current state is shown); swap history before this release.
 * **Colours**: related metrics keep one colour everywhere (`--nim-c-cpu`, `-mem`, `-disk`, `-load`, `-rx`, `-tx`, `-svc`, `-db`), with a lighter set for the dark theme. The range chosen is remembered in the browser (`localStorage`, optional) and applies to all charts; each widget also remembers its tab.
 * **Cost**: each widget refresh reads one indexed table; the browser caches a range for 30 seconds so several charts share one request; the monitoring pass adds one `db.server_status` call every five minutes.
+
+## Top cards and request trends
+
+The four metric cards (`tile_cpu`, `tile_memory`, `tile_disk`, `tile_load`) and the Server, Services and Websites cards (`server_info`, `services_live`, `websites_summary`) are registry widgets. The metric tiles are *frameless* (`Widget::$frameless`): they render their own card and keep the `data-metric` hooks used by the live poll in `dashboard.js`. `request_trends` reads `webreport.site` (48 h) for up to 30 enabled sites and aggregates the last 24 full hours; with no readable log it reports `unavailable`/`empty` rather than zeros.

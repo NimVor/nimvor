@@ -48,6 +48,16 @@ final class WidgetRegistry
     {
         // The default order fills whole rows of the 12-column grid: eight wide + four narrow, every row full.
         $list = [
+            // The first things on the dashboard: four live tiles (width 3 each) and three cards (width 4 each), as before, now
+            // widgets like the rest: they can be hidden, moved and resized. The tiles and the services list are filled by
+            // the live poll (public/assets/js/dashboard.js), so they cost nothing to draw.
+            new Widget('tile_cpu', 'CPU', 'cpu', 'Performance', P::DASHBOARD_VIEW, 'sm', 0, 3600, true, true, 'Live CPU use with a sparkline of the last hour.', '', '', true),
+            new Widget('tile_memory', 'Memory', 'memory', 'Performance', P::DASHBOARD_VIEW, 'sm', 0, 3600, true, true, 'Live memory use with a sparkline of the last hour.', '', '', true),
+            new Widget('tile_disk', 'Disk (/)', 'hdd', 'System Health', P::DASHBOARD_VIEW, 'sm', 0, 3600, true, true, 'Live use of the main filesystem with a sparkline of the last hour.', '', '', true),
+            new Widget('tile_load', 'Load average', 'speedometer', 'Performance', P::DASHBOARD_VIEW, 'sm', 0, 3600, true, true, 'Live load average (1, 5 and 15 minutes) with a sparkline of the last hour.', '', '', true),
+            new Widget('server_info', 'Server', 'hdd-rack', 'Server', P::DASHBOARD_VIEW, 'md', 0, 0, true, true, 'Host name, operating system, kernel, CPU, uptime, time zone and agent version.', 'server', 'Server'),
+            new Widget('services_live', 'Services', 'cpu', 'System Health', P::DASHBOARD_VIEW, 'md', 0, 3600, true, true, 'The core services and what they are doing now, with start, stop and restart for those who may.', 'services', 'All services'),
+            new Widget('websites_summary', 'Websites', 'globe2', 'Websites', P::DASHBOARD_VIEW, 'md', 0, 60, true, true, 'How many websites exist, are enabled and use HTTPS, the PHP versions in use and certificates close to expiry.', 'websites', 'View all'),
             new Widget('alert_center', 'Alert center', 'bell', 'Overview', P::MONITORING_VIEW, 'lg', 30, 15, false, true, 'Open alerts by severity with acknowledge and resolve, and what was resolved in the last day.', 'monitoring', 'Monitoring'),
             new Widget('attention', 'Needs attention', 'heart-pulse', 'Overview', P::WEBSITES_VIEW, 'md', 0, 30, true, true, 'Websites with something to fix: mail records, certificates, backups.', 'sites.healthcheck', 'Site health'),
             new Widget('performance_history', 'Performance history', 'activity', 'Performance', P::MONITORING_VIEW, 'lg', 60, 30, false, true, 'CPU, memory, load and network over the last hour, 6 hours, 24 hours or 7 days, drawn from what the monitor recorded.', 'monitoring', 'Monitoring'),
@@ -68,6 +78,7 @@ final class WidgetRegistry
             new Widget('backups', 'Backups', 'cloud-arrow-up', 'Backups', P::BACKUPS_VIEW, 'md', 0, 60, true, true, 'Completed, failed and running backups.', 'backups', 'Backups'),
             new Widget('system_updates', 'System updates', 'arrow-up-circle', 'System Health', P::PACKAGES_MANAGE, 'md', 300, 300, false, true, 'Package updates waiting (security ones separately) and whether a restart is needed.', 'packages', 'Packages'),
             new Widget('deployments', 'Deployments', 'rocket-takeoff', 'DevOps', P::DEPLOY_MANAGE, 'md', 120, 60, false, true, 'Deployments in the last seven days, any running now, and the latest failure.', 'websites', 'Websites'),
+            new Widget('request_trends', 'Request trends', 'graph-up', 'Websites', P::MONITORING_VIEW, 'lg', 300, 300, false, true, 'Requests to all websites per hour over the last 24 hours against the day before, the share of errors and the busiest websites, counted from their access logs.', 'websites', 'Websites'),
             new Widget('wordpress', 'WordPress', 'wordpress', 'Websites', P::WEBSITES_VIEW, 'md', 300, 120, false, true, 'WordPress installations: out-of-date core, plugin and theme updates, open issues.', 'wordpress', 'WordPress'),
         ];
         $by = [];

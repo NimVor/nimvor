@@ -8,6 +8,11 @@
  * @var array{state: string, data: array<string, mixed>, at: int} $result
  */
 $state = $result['state'];
+// The live metric tiles draw their own card (they have no title bar, link or refresh button).
+if ($def->frameless) {
+    echo $this->partial('dashboard/widgets/' . $def->id, ['d' => $result['data']]);
+    return;
+}
 ?>
 <div class="card nim-widget h-100" data-widget="<?= e($def->id) ?>" data-state="<?= e($state) ?>">
     <div class="card-header nim-widget-head">
