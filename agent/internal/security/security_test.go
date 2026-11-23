@@ -17,6 +17,7 @@ import (
 const ufwActive = "Status: active\nLogging: on (low)\nDefault: deny (incoming), allow (outgoing), disabled (routed)\n"
 
 func setup(t *testing.T, added string) (*testhost.Host, *Service) {
+	stubSSHProbe(t)
 	t.Helper()
 	h := testhost.New(t)
 	h.Runner.Outputs = map[string]string{
@@ -191,6 +192,7 @@ func TestConfigureSSH(t *testing.T) {
 	defer func() { ConfirmWindow = old }()
 	h, s := setup(t, "ufw allow 22/tcp\n")
 	adminWithKey(t, h)
+	h.Runner.Outputs["systemctl is-active -- ssh.socket"] = "inactive\n" // traditional sshd service
 	want := SSHSettings{Port: 22, PermitRootLogin: "prohibit-password", PasswordAuthentication: false, MaxAuthTries: 4}
 
 	// Another file overrides our setting: refused and rolled back.
@@ -478,7 +480,7 @@ func TestConfigureSSHPortWithSocketActivation(t *testing.T) {
 		t.Fatal(err)
 	}
 	dropIn := "etc/systemd/system/ssh.socket.d/nimvor-port.conf"
-	if body := h.Read(dropIn); !strings.Contains(body, "ListenStream=\nListenStream=2222\n") {
+	if body := h.Read(dropIn); !strings.Contains(body, "ListenStream=\nListenStream=0.0.0.0:2222\n") {
 		t.Fatalf("socket drop-in = %q", body)
 	}
 	if !h.Runner.Called("systemctl daemon-reload") || !h.Runner.Called("systemctl restart -- ssh.socket") {
@@ -513,4 +515,15 @@ func countCalls(h *testhost.Host, call string) int {
 		}
 	}
 	return n
+}
+
+// stubSSHProbe stops tests from connecting to real sockets: every probe
+// answers like an SSH server, and the host has no public addresses.
+func stubSSHProbe(t *testing.T) {
+	t.Helper()
+	oldProbe, oldAddrs, oldWait := SSHProbe, ownAddresses, verifyWait
+	SSHProbe = func(context.Context, string) error { return nil }
+	ownAddresses = func() []string { return nil }
+	verifyWait = 50 * time.Millisecond
+	t.Cleanup(func() { SSHProbe, ownAddresses, verifyWait = oldProbe, oldAddrs, oldWait })
 }

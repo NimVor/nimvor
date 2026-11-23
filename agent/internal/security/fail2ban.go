@@ -95,6 +95,9 @@ type Fail2banSettings struct {
 	IgnoreAddress []string `json:"ignore"`
 	// Journal reads logs from the systemd journal (RHEL: no auth log file).
 	Journal bool `json:"-"`
+	// SSHPorts are the ports the sshd jail watches and bans on (the SSH server's
+	// real ports). Without one the jail keeps fail2ban's own default, port 22.
+	SSHPorts []int `json:"-"`
 }
 
 // Render produces jail.d/nimvor.local.
@@ -125,6 +128,9 @@ func (s Fail2banSettings) Render() (string, error) {
 			return "", fmt.Errorf("unknown jail %q", j)
 		}
 		fmt.Fprintf(&b, "\n[%s]\nenabled = true\n", j)
+		if j == "sshd" && len(s.SSHPorts) > 0 {
+			fmt.Fprintf(&b, "port = %s\n", joinPorts(s.SSHPorts))
+		}
 		if j == "recidive" {
 			b.WriteString("bantime = 1w\nfindtime = 1d\n")
 		}
@@ -139,6 +145,7 @@ func (s *Service) ConfigureFail2ban(ctx context.Context, in Fail2banSettings) er
 		return actions.Failed("fail2ban is not installed.", "Install it under Server → Packages.")
 	}
 	in.Journal = env.Platform.PackageManager() == "dnf"
+	in.SSHPorts = SSHPorts(ctx, env)
 	body, err := in.Render()
 	if err != nil {
 		return actions.InvalidParams(err.Error())
@@ -210,4 +217,68 @@ func (s *Service) Unban(ctx context.Context, jail, ip string) error {
 		return actions.Failed("The address could not be unbanned.", host.Output(out))
 	}
 	return nil
+}
+
+func joinPorts(ports []int) string {
+	var p []string
+	for _, n := range ports {
+		p = append(p, strconv.Itoa(n))
+	}
+	return strings.Join(p, ",")
+}
+
+var sshdJailPort = regexp.MustCompile(`(?m)^(\[sshd\]\nenabled = true\n)(port = [^\n]*\n)?`)
+
+// withSSHJailPort sets the sshd jail's port in a jail file NimVor wrote. It
+// reports false when the file has no enabled sshd jail.
+func withSSHJailPort(body string, ports []int) (string, bool) {
+	if !sshdJailPort.MatchString(body) {
+		return body, false
+	}
+	return sshdJailPort.ReplaceAllString(body, "${1}port = "+joinPorts(ports)+"\n"), true
+}
+
+// syncFail2banSSHPort makes the sshd jail follow the SSH port: its ban rule
+// is bound to the jail's port, so after a port change the new port would
+// have no brute force protection, and addresses banned on the old port would
+// still be refused there. It is best effort (the SSH change does not depend
+// on it); what it changed is added to pending so an unconfirmed SSH change
+// puts the old port back.
+func syncFail2banSSHPort(ctx context.Context, env *host.Env, ports []int, pending *Pending) {
+	if !env.Runner.Available("fail2ban-client") {
+		return
+	}
+	cur, err := env.Root.ReadFile(env.M.Fail2banJail)
+	if err != nil {
+		return
+	}
+	body, ok := withSSHJailPort(string(cur), ports)
+	if !ok || body == string(cur) {
+		return
+	}
+	snap := snapshot(env, env.M.Fail2banJail)
+	set := env.Changes("fail2ban-ssh-port")
+	set.Write(env.M.Fail2banJail, []byte(body), 0o644, agentfs.RootOwner)
+	a, err := set.Commit(func() error {
+		out, err := env.Runner.Run(ctx, "fail2ban-client", "--test")
+		if err != nil {
+			return fmt.Errorf("%s", host.Output(out))
+		}
+		return nil
+	})
+	if err != nil {
+		env.Log.Warn("fail2ban sshd jail port not updated", "error", err)
+		return
+	}
+	running := env.UnitActive(ctx, fail2banUnit)
+	if running {
+		if err := applyFail2ban(ctx, env, true); err != nil {
+			_ = a.Rollback()
+			_ = applyFail2ban(ctx, env, true)
+			env.Log.Warn("fail2ban could not load the new sshd jail port", "error", err)
+			return
+		}
+		pending.ReloadUnits = append(pending.ReloadUnits, fail2banUnit)
+	}
+	pending.Files = append(pending.Files, snap)
 }

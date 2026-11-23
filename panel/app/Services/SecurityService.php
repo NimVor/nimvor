@@ -158,7 +158,19 @@ final class SecurityService
             'max_auth_tries' => (int) ($input['max_auth_tries'] ?? 4),
             'x11_forwarding' => filter_var($input['x11_forwarding'] ?? false, FILTER_VALIDATE_BOOL),
         ];
-        return $this->recordGuarded('ssh.configure', (array) $this->agent->call('ssh.configure', $s, 90), $s);
+        $res = (array) $this->agent->call('ssh.configure', $s, 90);
+        $msg = $this->recordGuarded('ssh.configure', $res, $s);
+        if (empty($res['changed'])) {
+            return $msg;
+        }
+        $verified = array_values(array_filter((array) (((array) ($res['pending'] ?? []))['verified'] ?? []), 'is_string'));
+        $seen = $verified === [] ? '' : ' SSH answered on ' . implode(', ', $verified) . ' from this server.';
+        // The server can only test itself: a firewall in front of it (the provider's, for one) is
+        // only proven by a connection from outside.
+        $cleanup = array_values(array_unique(array_filter((array) (((array) ($res['pending'] ?? []))['cleanup'] ?? []), 'is_string')));
+        $tidy = $cleanup === [] ? '' : ' When you confirm, ' . implode(' and ', $cleanup) . ' will be removed.';
+        return 'Applied.' . $seen . ' Now open a NEW SSH connection to this server on port ' . $s['port']
+            . ' from your own computer, and only confirm when it works.' . $tidy . ' Within 2 minutes without confirmation the change is undone automatically.';
     }
 
     /** @return list<array<string, mixed>> administrators and their SSH keys */

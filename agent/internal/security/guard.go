@@ -49,6 +49,12 @@ type Pending struct {
 	Files       []FileRestore `json:"files,omitempty"`    // restored before Reload
 	ReloadUnits []string      `json:"reload_units,omitempty"`
 	Restart     []string      `json:"restart,omitempty"` // units restarted (after a daemon-reload) once Files are restored
+	// SSH port changes: the old port's firewall rules, removed once the change is
+	// confirmed (never on a rollback, which needs them), and what that removes in words.
+	AfterUFW      [][]string `json:"after_ufw,omitempty"`      // ufw arguments
+	AfterCommands [][]string `json:"after_commands,omitempty"` // firewalld commands (tool first)
+	Cleanup       []string   `json:"cleanup,omitempty"`
+	Verified      []string   `json:"verified,omitempty"` // SSH changes: addresses that answered with an SSH greeting before the change was handed over
 }
 
 // Guard tracks at most one pending change.
@@ -137,9 +143,31 @@ func (g *Guard) Confirm(id string) error {
 	if g.pending == nil || g.pending.ID != id {
 		return actions.NotFound("There is no pending change with this id (it may already have been rolled back).")
 	}
+	p := *g.pending
 	g.clear()
 	g.env.Log.Info("security change confirmed", "id", id)
+	g.afterConfirm(p)
 	return nil
+}
+
+// afterConfirm runs what a confirmed change leaves to tidy up (best effort:
+// the change itself is kept whatever happens here).
+func (g *Guard) afterConfirm(p Pending) {
+	if len(p.AfterUFW) == 0 && len(p.AfterCommands) == 0 {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	for _, args := range p.AfterUFW {
+		if out, err := g.env.Runner.Run(ctx, "ufw", args...); err != nil {
+			g.env.Log.Warn("could not remove a firewall rule after the change was confirmed", "rule", args, "error", host.Output(out))
+		}
+	}
+	if len(p.AfterCommands) > 0 {
+		if err := runFirewalld(ctx, g.env, p.AfterCommands); err != nil {
+			g.env.Log.Warn("could not remove a firewall rule after the change was confirmed", "error", err)
+		}
+	}
 }
 
 // Undo rolls the pending change back now.

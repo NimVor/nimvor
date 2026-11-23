@@ -188,14 +188,16 @@ $strategy = ['allow' => ['Allow', 'nim-good'], 'limit' => ['Allow (rate-limited)
                 ?>
                 <tr data-nim-row data-dt-kind="<?= $port !== '' ? 'port' : 'ip' ?>" data-dt-dir="<?= e($dir === 'route' ? 'in out' : $dir) ?>" title="<?= e((string) $r['spec']) ?>">
                     <td><?= e(($r['proto'] ?? '') === '' ? 'tcp/udp' : (string) $r['proto']) ?></td>
-                    <td class="fw-semibold"><?= $port !== '' ? e(str_replace(',', ', ', $port)) : '<span class="nim-muted">All</span>' ?><?php if (!empty($r['ssh'])): ?> <span class="badge text-bg-light border fw-normal">SSH</span><?php endif; ?></td>
+                    <td class="fw-semibold"><?= $port !== '' ? e(str_replace(',', ', ', $port)) : '<span class="nim-muted">All</span>' ?><?php if (!empty($r['ssh'])): ?> <span class="badge text-bg-light border fw-normal">SSH</span><?php endif; ?><?php if (!empty($r['protected'])): ?> <span class="badge text-bg-light border fw-normal" title="<?= e((string) $r['protected']) ?>">Panel</span><?php endif; ?></td>
                     <td class="small"><?= match ($st) { 'listening' => '<span class="nim-good">Listening</span>', 'local' => '<span class="nim-warn" title="Only on this server (127.0.0.1)">Local only</span>', 'idle' => '<span class="nim-muted">Not listening</span>', default => '<span class="nim-muted">—</span>' } ?></td>
                     <td><span class="<?= e($actClass) ?>"><?= e($act) ?></span></td>
                     <td><?= $dir === 'out' ? 'Outbound' : ($dir === 'route' ? 'Routed' : 'Inbound') ?></td>
                     <td class="small"><?= ($r['from'] ?? '') !== '' ? '<code>' . e((string) $r['from']) . '</code>' : 'All' ?></td>
                     <td class="small"><?= e((string) ($r['comment'] ?? '')) ?></td>
                     <td class="text-end">
-                        <?php if ($canManage): ?>
+                        <?php if (!empty($r['protected'])): ?>
+                            <span class="nim-muted small" title="This rule keeps the <?= e((string) $r['protected']) ?> reachable and cannot be removed here.">Protected</span>
+                        <?php elseif ($canManage): ?>
                             <span class="nim-ops"><form method="post" action="<?= e($this->url('security.firewall.delete')) ?>" data-nim-confirm="Delete the rule “<?= e($r['spec']) ?>”?"><?= $this->csrfField() ?><input type="hidden" name="spec" value="<?= e($r['spec']) ?>"><button class="nim-op is-danger" aria-label="Delete the rule <?= e($r['spec']) ?>">Delete</button></form></span>
                         <?php endif; ?>
                     </td>

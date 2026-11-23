@@ -2590,3 +2590,5 @@ offers). The browser runs as the website's own account in a sandboxed service
 unit, opens only the website's address (mapped to this server) and is stopped
 after 80 seconds. If a picture cannot be taken, the refresh icon says why and the
 letter stays.
+
+See also: [Changing the SSH port](ssh-port.md) and [PHP configuration files](php-config.md).
