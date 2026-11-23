@@ -31,6 +31,9 @@ type Layout struct {
 	// BrotliModule is true while the Nginx Brotli module is loaded: "brotli off;" is only written then (it is an
 	// unknown directive otherwise).
 	BrotliModule bool
+	// Customer holds the accepted directives of the website's php.ini
+	// files (see BuildCustomerLayer); they replace the website-level values.
+	Customer map[string]string
 	// Sendmail is PHP's sendmail_path: NimVor's sendmail, which submits
 	// over SMTP to this machine, where the account's sending limit
 	// applies (empty: PHP's default).
@@ -151,6 +154,8 @@ func body(b *strings.Builder, s Spec, l Layout) {
 	b.WriteString(l.ProtectInclude)
 	acme(b, l)
 	b.WriteString("    location ~ /\\.(?!well-known) {\n        deny all;\n    }\n")
+	// A customer's PHP configuration is never served (".user.ini" is a dot file, covered above).
+	b.WriteString("    location ~* /php\\.ini$ {\n        deny all;\n    }\n")
 	if s.BandwidthExceeded {
 		b.WriteString(bandwidthExceeded)
 		return
@@ -202,6 +207,11 @@ func RenderProxyMap() string {
 // site user, is confined with open_basedir and keeps temp files inside the
 // site.
 func RenderPool(s Spec, l Layout) string {
+	return poolHead(s, l) + renderINI(PoolLines(s, l))
+}
+
+// poolHead is the pool's process settings (everything but the PHP values).
+func poolHead(s Spec, l Layout) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "; %s\n; Website: %s\n\n[nimvor-%s]\n", header, s.Domain, s.Domain)
 	fmt.Fprintf(&b, "user = %s\ngroup = %s\n", s.User, s.User)
@@ -220,20 +230,29 @@ func RenderPool(s Spec, l Layout) string {
 	}
 	b.WriteString(poolEnvLines(s.Env))
 	fmt.Fprintf(&b, "chdir = /\ncatch_workers_output = yes\nslowlog = %s\nrequest_slowlog_timeout = %ds\n", filepath.Join(l.LogDir, "php-slow.log"), p.SlowlogSec)
-	// The website's confinement, then NimVor's defaults; the website's own
-	// directives (validated in Normalize) replace defaults they may change.
+	return b.String()
+}
+
+// PoolLines are the PHP values of a website's pool: NimVor's confinement and
+// defaults, the website's own directives (validated in Normalize) and the
+// customer's php.ini values, each replacing the one before unless it is
+// locked. The plan's limits and the error settings are plain values, so a
+// .user.ini (which PHP applies itself) can change them; LockINI makes them
+// administrator values again.
+func PoolLines(s Spec, l Layout) []iniLine {
+	free := !s.PHP.LockINI
 	defaults := []iniLine{
 		{"open_basedir", s.Root + "/:/usr/share/php/:/dev/urandom", true},
 		{"upload_tmp_dir", l.TmpDir, true},
 		{"session.save_path", l.TmpDir, true},
 		{"sys_temp_dir", l.TmpDir, true},
 		{"error_log", filepath.Join(l.LogDir, "php-error.log"), true},
-		{"log_errors", "On", true},
-		{"display_errors", "Off", true},
-		{"memory_limit", fmt.Sprintf("%dM", s.PHP.MemoryLimitMB), true},
-		{"upload_max_filesize", fmt.Sprintf("%dM", s.PHP.UploadMaxMB), true},
-		{"post_max_size", fmt.Sprintf("%dM", s.PHP.UploadMaxMB), true},
-		{"max_execution_time", fmt.Sprint(s.PHP.MaxExecSeconds), true},
+		{"log_errors", "On", !free},
+		{"display_errors", "Off", !free},
+		{"memory_limit", fmt.Sprintf("%dM", s.PHP.MemoryLimitMB), !free},
+		{"upload_max_filesize", fmt.Sprintf("%dM", s.PHP.UploadMaxMB), !free},
+		{"post_max_size", fmt.Sprintf("%dM", s.PHP.UploadMaxMB), !free},
+		{"max_execution_time", fmt.Sprint(s.PHP.MaxExecSeconds), !free},
 	}
 	// Safer session cookies. They are plain (not admin) values, so the
 	// website's own directives or ini_set() can still change them.
@@ -253,8 +272,7 @@ func RenderPool(s Spec, l Layout) string {
 	if df := DisableFunctionsFor(s.PHP); df != "" {
 		defaults = append(defaults, iniLine{"disable_functions", df, true})
 	}
-	b.WriteString(poolINI(defaults, s.PHP.INI))
-	return b.String()
+	return poolLines(defaults, s.PHP.INI, l.Customer)
 }
 
 // DefaultIndex is written to a new, empty document root: a "coming soon"

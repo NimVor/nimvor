@@ -328,7 +328,44 @@ final class SitesController extends Controller
         if ($site['kind'] !== 'php') {
             return $this->redirectWithError('/sites/' . (int) $id, 'PHP settings only apply to PHP websites.');
         }
-        return $this->render('sites/php', ['site' => $site, 'phpVersions' => $this->service->phpVersions(), 'tab' => 'php', 'profileDefault' => $this->service->defaultPhpProfile()]);
+        return $this->render('sites/php', ['site' => $site, 'phpVersions' => $this->service->phpVersions(), 'tab' => 'php', 'profileDefault' => $this->service->defaultPhpProfile(), 'phpConfig' => $this->service->phpConfig($site)]);
+    }
+
+    /** Looks at the website's php.ini and .user.ini now (they are also picked up on their own within seconds). */
+    public function phpConfigCheck(Request $request, string $id): Response
+    {
+        $site = $this->site($request, $id);
+        if ($site === null || $site['kind'] !== 'php') {
+            return $this->notFound();
+        }
+        $to = '/sites/' . (int) $id . '/php#php-config';
+        try {
+            $cfg = $this->service->checkPhpConfig($site);
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure($to, $e);
+        }
+        if (($cfg['status'] ?? '') === 'error') {
+            return $this->redirectWithError($to, (string) ($cfg['message'] ?? 'The PHP configuration has a problem.'));
+        }
+        return $this->redirectWithSuccess($to, 'The PHP configuration was checked.' . (($cfg['status'] ?? '') === 'pending' ? ' A change is being applied.' : ''));
+    }
+
+    /** Removes the website-level PHP directives set in the panel; the customer's own files stay. */
+    public function phpConfigReset(Request $request, string $id): Response
+    {
+        $site = $this->site($request, $id);
+        if ($site === null || $site['kind'] !== 'php') {
+            return $this->notFound();
+        }
+        $to = '/sites/' . (int) $id . '/php#php-config';
+        try {
+            $this->service->resetPhpOverrides($site, $this->user($request));
+        } catch (ValidationException $e) {
+            return $this->backWithErrors($to, $e, []);
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure($to, $e);
+        }
+        return $this->redirectWithSuccess($to, 'The website-level PHP directives were reset. Your php.ini and .user.ini files were not changed.');
     }
 
     /**
@@ -367,7 +404,7 @@ final class SitesController extends Controller
         $input = array_intersect_key($request->all(), array_flip([
             'php_version', 'memory_limit_mb', 'upload_max_mb', 'max_execution_seconds', 'max_children', 'php_profile', 'disable_functions',
             'pm', 'start_servers', 'min_spare_servers', 'max_spare_servers', 'idle_timeout_seconds', 'max_requests', 'request_timeout_seconds',
-            'slowlog_seconds', 'harden', 'ini',
+            'slowlog_seconds', 'harden', 'lock_ini', 'ini',
         ]));
         $input['aliases'] = implode("\n", $site['aliases']);
         try {

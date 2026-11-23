@@ -106,6 +106,8 @@ return static function (Router $r): void {
     $r->post('/sites/{id}/env', [SiteEnvController::class, 'update'], ['name' => 'sites.env.update', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/nginx', [SitesController::class, 'nginxUpdate'], ['name' => 'sites.nginx.update', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/php', [SitesController::class, 'phpUpdate'], ['name' => 'sites.php.update', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/php-config/check', [SitesController::class, 'phpConfigCheck'], ['name' => 'sites.php.config.check', 'permission' => P::WEBSITES_MANAGE]);
+    $r->post('/sites/{id}/php-config/reset', [SitesController::class, 'phpConfigReset'], ['name' => 'sites.php.config.reset', 'permission' => P::WEBSITES_MANAGE]);
     $r->get('/sites/{id}/redirects', [\NimVor\Http\Controllers\RedirectsController::class, 'show'], ['name' => 'sites.redirects', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/redirects', [\NimVor\Http\Controllers\RedirectsController::class, 'add'], ['name' => 'sites.redirects.add', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/redirects/delete', [\NimVor\Http\Controllers\RedirectsController::class, 'remove'], ['name' => 'sites.redirects.remove', 'permission' => P::WEBSITES_MANAGE]);

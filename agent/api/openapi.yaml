@@ -497,6 +497,8 @@ paths:
               - sites.list
               - sites.page_cache_purge
               - sites.permissions
+              - sites.phpconfig
+              - sites.phpconfig_scan
               - sites.probe
               - sites.usage
               - ssh.configure
@@ -1096,6 +1098,8 @@ x-nimvor-actions:
   sites.list: { mutating: false, description: "NimVor-managed websites present on this server." }
   sites.page_cache_purge: { mutating: true, description: "Empty a website's Nginx page cache (cached PHP pages)." }
   sites.permissions: { mutating: true, description: "Check (dry_run) or repair the ownership and permissions of a website's files: the account's owner, its or the web server's group, no world-writable files, no set-ID files, readable by the owner. Links are never followed." }
+  sites.phpconfig: { mutating: false, description: "A website's php.ini and .user.ini files, what each directive does and the effective PHP settings (read-only)." }
+  sites.phpconfig_scan: { mutating: true, description: "Look at a website's php.ini now and apply a change to its PHP-FPM pool when there is one." }
   sites.probe: { mutating: false, description: "Ask each website for its home page on this server (its own address or loopback, with its name in the Host header) and report the status code and time to first byte, or why nothing answered. Redirects are not followed. Read-only." }
   sites.usage: { mutating: false, description: "Disk use of website directories (read-only)." }
   ssh.configure: { mutating: true, description: "Harden the SSH server (validated with sshd -t, auto-reverted unless confirmed)." }

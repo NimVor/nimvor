@@ -133,75 +133,88 @@ func NormalizeINI(ini map[string]string, root string) (map[string]string, error)
 	out := make(map[string]string, len(ini))
 	for k, v := range ini {
 		d, ok := PHPDirectives[k]
-		field := "php.ini." + k
 		if !ok {
-			return nil, fail(field, "is not a PHP setting a website may change")
+			return nil, fail("php.ini."+k, "is not a PHP setting a website may change")
 		}
-		v = strings.TrimSpace(v)
-		bad := func(what string) error { return fail(field, "must be %s", what) }
-		switch d.kind {
-		case iniBool, iniBoolOrInt:
-			switch strings.ToLower(v) {
-			case "1", "on", "true", "yes":
-				v = "On"
-			case "0", "off", "false", "no":
-				v = "Off"
-			default:
-				n, err := strconv.ParseInt(v, 10, 64)
-				if d.kind == iniBool || err != nil || n < d.lo || n > d.hi {
-					if d.kind == iniBool {
-						return nil, bad("On or Off")
-					}
-					return nil, bad(fmt.Sprintf("On, Off or a number up to %d", d.hi))
-				}
-			}
-		case iniInt:
-			n, err := strconv.ParseInt(v, 10, 64)
-			if err != nil || n < d.lo || n > d.hi {
-				return nil, bad(fmt.Sprintf("a whole number between %d and %d", d.lo, d.hi))
-			}
-			v = strconv.FormatInt(n, 10)
-		case iniSize:
-			v = strings.ToUpper(v)
-			if !sizeRe.MatchString(v) {
-				return nil, bad("a size such as 64M")
-			}
-		case iniPath:
-			if !pathRe.MatchString(v) || strings.Contains(v, "..") || filepath.Clean(v) != v {
-				return nil, bad("an absolute path")
-			}
-			if !strings.HasPrefix(v, filepath.Clean(root)+"/") {
-				return nil, bad("inside the website's folder " + root)
-			}
-		case iniEnum:
-			found := false
-			for _, e := range d.enum {
-				found = found || e == v
-			}
-			if !found {
-				return nil, bad("one of " + strings.Join(d.enum, ", "))
-			}
-		case iniPattern:
-			if !d.re.MatchString(v) {
-				return nil, bad("a valid value")
-			}
-		case iniList:
-			v = strings.ReplaceAll(v, " ", "")
-			if v != "" {
-				items := strings.Split(v, ",")
-				if len(items) > 200 {
-					return nil, bad("at most 200 names")
-				}
-				for _, it := range items {
-					if !identRe.MatchString(it) {
-						return nil, bad("names separated by commas")
-					}
-				}
-			}
+		nv, err := normalizeOne(k, d, v, root)
+		if err != nil {
+			return nil, err
 		}
-		out[k] = v
+		out[k] = nv
 	}
 	return out, nil
+}
+
+// normalizeOne checks one directive's value against its rule and returns
+// the canonical value.
+func normalizeOne(k string, d iniDirective, v, root string) (string, error) {
+	field := "php.ini." + k
+	v = strings.TrimSpace(v)
+	bad := func(what string) error { return fail(field, "must be %s", what) }
+	switch d.kind {
+	case iniBool, iniBoolOrInt:
+		switch strings.ToLower(v) {
+		case "1", "on", "true", "yes":
+			v = "On"
+		case "0", "off", "false", "no":
+			v = "Off"
+		default:
+			n, err := strconv.ParseInt(v, 10, 64)
+			if d.kind == iniBool || err != nil || n < d.lo || n > d.hi {
+				if d.kind == iniBool {
+					return "", bad("On or Off")
+				}
+				return "", bad(fmt.Sprintf("On, Off or a number up to %d", d.hi))
+			}
+		}
+	case iniInt:
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil || n < d.lo || n > d.hi {
+			return "", bad(fmt.Sprintf("a whole number between %d and %d", d.lo, d.hi))
+		}
+		v = strconv.FormatInt(n, 10)
+	case iniSize:
+		v = strings.ToUpper(v)
+		if !sizeRe.MatchString(v) {
+			return "", bad("a size such as 64M")
+		}
+	case iniPath:
+		if !pathRe.MatchString(v) || strings.Contains(v, "..") || filepath.Clean(v) != v {
+			return "", bad("an absolute path")
+		}
+		if !strings.HasPrefix(v, filepath.Clean(root)+"/") {
+			return "", bad("inside the website's folder " + root)
+		}
+	case iniEnum:
+		found := false
+		for _, e := range d.enum {
+			found = found || e == v
+		}
+		if !found {
+			return "", bad("one of " + strings.Join(d.enum, ", "))
+		}
+	case iniPattern:
+		if k == "memory_limit" {
+			v = strings.ToUpper(v)
+		}
+		if !d.re.MatchString(v) {
+			return "", bad("a valid value")
+		}
+	case iniList:
+		v = strings.ReplaceAll(v, " ", "")
+		if v != "" {
+			items := strings.Split(v, ",")
+			if len(items) > 200 {
+				return "", bad("at most 200 names")
+			}
+			for _, it := range items {
+				if !identRe.MatchString(it) {
+					return "", bad("names separated by commas")
+				}
+			}
+		}
+	}
+	return v, nil
 }
 
 // iniLine is one directive of a pool.
@@ -214,6 +227,16 @@ type iniLine struct {
 // own directives (which replace a default of the same name; disable_*
 // lists are joined) and renders them in a stable order.
 func poolINI(defaults []iniLine, ini map[string]string) string {
+	return renderINI(poolLines(defaults, ini, nil))
+}
+
+// poolLines is the merge behind poolINI: NimVor's defaults, then the
+// website's own directives, then the customer's php.ini values. A key
+// appears once (PHP-FPM keeps the first of a repeated pool entry, so a
+// later line would not win). Locked (php_admin_value) keys are never
+// replaced by the customer's values; a PHP-FPM pool cannot be overridden
+// below an admin value.
+func poolLines(defaults []iniLine, ini map[string]string, customer map[string]string) []iniLine {
 	byKey := map[string]int{}
 	lines := append([]iniLine{}, defaults...)
 	for i, l := range lines {
@@ -244,6 +267,27 @@ func poolINI(defaults []iniLine, ini map[string]string) string {
 		byKey[k] = len(lines)
 		lines = append(lines, l)
 	}
+	ckeys := make([]string, 0, len(customer))
+	for k := range customer {
+		ckeys = append(ckeys, k)
+	}
+	sort.Strings(ckeys)
+	for _, k := range ckeys {
+		if i, ok := byKey[k]; ok {
+			if lines[i].admin {
+				continue
+			}
+			lines[i] = iniLine{key: k, value: customer[k]}
+			continue
+		}
+		byKey[k] = len(lines)
+		lines = append(lines, iniLine{key: k, value: customer[k]})
+	}
+	return lines
+}
+
+// renderINI writes pool lines as php_value / php_flag / php_admin_* entries.
+func renderINI(lines []iniLine) string {
 	var b strings.Builder
 	for _, l := range lines {
 		prefix := "php_"

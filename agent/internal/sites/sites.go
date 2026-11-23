@@ -42,6 +42,8 @@ func Register(r *actions.Registry, env *host.Env) {
 	r.Register(actions.Action{Name: "sites.delete", Mutating: true, Description: "Remove a NimVor website's configuration; optionally move its files to the trash.", Handler: m.handleDelete})
 	r.Register(actions.Action{Name: "sites.page_cache_purge", Mutating: true, Description: "Empty a website's Nginx page cache (cached PHP pages).", Handler: m.handlePageCachePurge})
 	r.Register(actions.Action{Name: "sites.inspect", Description: "State of a NimVor website on disk.", Handler: m.handleInspect})
+	r.Register(actions.Action{Name: "sites.phpconfig", Description: "A website's php.ini and .user.ini files, what each directive does and the effective PHP settings (read-only).", Handler: m.handlePHPConfig})
+	r.Register(actions.Action{Name: "sites.phpconfig_scan", Mutating: true, Description: "Look at a website's php.ini now and apply a change to its PHP-FPM pool when there is one.", Handler: m.handlePHPConfigScan})
 	r.Register(actions.Action{Name: "sites.list", Description: "NimVor-managed websites present on this server.", Handler: m.handleList})
 }
 
@@ -170,6 +172,10 @@ func (m *Manager) ApplyIgnoring(ctx context.Context, s Spec, ignore []string) (*
 	}
 	l.HTTP2Direct = e.NginxAtLeast(ctx, 1, 25, 1)
 	l.IPv6 = e.IPv6()
+	if s.Kind == "php" {
+		// The customer's php.ini (see userini.go) is part of the pool.
+		l.Customer = m.customerFor(s, l).Values
+	}
 
 	// 2. Directories (idempotent; permissions are re-applied each time).
 	owner := agentfs.Owner{UID: u.UID, GID: u.GID}
@@ -284,6 +290,7 @@ func (m *Manager) ApplyIgnoring(ctx context.Context, s Spec, ignore []string) (*
 		}
 	}
 	res := &Result{Domain: s.Domain, Changed: append(dirsApplied.Changed, applied.Changed...), Backup: applied.Backup, User: UserInfo{u.Name, u.UID, u.GID}, Created: created}
+	m.recordSite(s, l)
 	if len(applied.Changed) == 0 {
 		m.dropPageCacheIfOff(s)
 		return res, nil
@@ -339,6 +346,15 @@ func (m *Manager) testFPM(ctx context.Context, t fpmTargets) error {
 // reload applies the FPM changes (the distribution's masters first, so a
 // socket moving to an account's master is free) and then Nginx.
 func (m *Manager) reload(ctx context.Context, t fpmTargets) error {
+	if err := m.reloadFPM(ctx, t); err != nil {
+		return err
+	}
+	return m.Env.ReloadNginx(ctx)
+}
+
+// reloadFPM reloads only the PHP-FPM masters a change touches (a graceful
+// reload: running requests finish).
+func (m *Manager) reloadFPM(ctx context.Context, t fpmTargets) error {
 	versions := make([]string, 0, len(t.versions))
 	for v := range t.versions {
 		if m.Env.Runner.Available(fmt.Sprintf(m.Env.M.PHPFPMBinary, v)) {
@@ -361,7 +377,7 @@ func (m *Manager) reload(ctx context.Context, t fpmTargets) error {
 			return err
 		}
 	}
-	return m.Env.ReloadNginx(ctx)
+	return nil
 }
 
 // checkConflicts refuses hostnames already served by configuration that
@@ -504,6 +520,7 @@ func (m *Manager) handleDelete(ctx context.Context, p json.RawMessage) (any, err
 			return nil, host.FailWithValidation("The website was not removed", err)
 		}
 	}
+	m.forgetSite(in.Domain)
 	res := map[string]any{"domain": in.Domain, "removed": applied.Changed, "backup": applied.Backup}
 	var warnings []string
 	if err := m.removePageCache(in.Domain, true); err != nil {

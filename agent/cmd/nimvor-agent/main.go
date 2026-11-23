@@ -40,6 +40,7 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/procmgr"
 	"github.com/NimVor/nimvor/agent/internal/sendmail"
 	"github.com/NimVor/nimvor/agent/internal/server"
+	"github.com/NimVor/nimvor/agent/internal/sites"
 	"github.com/NimVor/nimvor/agent/internal/sslmgr"
 	"github.com/NimVor/nimvor/agent/internal/sysmgr"
 	"github.com/NimVor/nimvor/agent/internal/terminal"
@@ -190,6 +191,9 @@ func run() int {
 	})
 
 	if cfg.AllowWriteActions {
+		// Customers' php.ini files: a change reaches the website's PHP pool
+		// without anyone pressing a button (see sites/phpconfig.go).
+		go (&sites.Manager{Env: env}).WatchPHPConfig(ctx)
 		// An installation the agent stopped in the middle of was never
 		// validated: roll it back before anything else.
 		go func() {
