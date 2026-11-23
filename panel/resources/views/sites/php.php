@@ -31,6 +31,8 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
 
 <p class="small text-body-secondary">PHP settings of <strong><?= e($site['domain']) ?></strong>: the PHP version it runs, its limits, and its own <code>php.ini</code> directives. Everything else about the website is under Settings.</p>
 
+<?= $this->partial('sites/php_config', ['site' => $site, 'phpConfig' => $phpConfig ?? null]) ?>
+
 <form method="post" action="<?= e($this->url('sites.php.update', ['id' => (int) $site['id']])) ?>" data-nim-busy novalidate>
     <?= $this->csrfField() ?>
     <div class="row g-3">
@@ -86,6 +88,11 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
                             <input class="form-control form-control-sm<?= $cls('disable_functions') ?>" name="disable_functions" value="<?= htmlspecialchars((string) $v('disable_functions', '')) ?>" placeholder="exec, system, shell_exec">
                             <div class="form-text">Comma-separated function names to disable.</div>
                         </div>
+                    </div>
+                    <div class="form-check mt-3">
+                        <input type="hidden" name="lock_ini" value="0">
+                        <input class="form-check-input" type="checkbox" id="f-lock-ini" name="lock_ini" value="1"<?= !empty($v('lock_ini', false)) ? ' checked' : '' ?>>
+                        <label class="form-check-label small" for="f-lock-ini">Lock the memory, upload and time limits (the customer's <code>php.ini</code> and <code>.user.ini</code> cannot change them)</label>
                     </div>
                     <details class="mt-3"<?= array_intersect(array_keys($errors ?? []), ['pm', 'start_servers', 'min_spare_servers', 'max_spare_servers', 'idle_timeout_seconds', 'max_requests', 'request_timeout_seconds', 'slowlog_seconds']) !== [] ? ' open' : '' ?>>
                         <summary class="small fw-semibold">Advanced PHP-FPM</summary>

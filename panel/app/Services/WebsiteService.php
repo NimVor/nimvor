@@ -151,7 +151,7 @@ final class WebsiteService
      * process counts and manager, request limits and disabling shell
      * functions.
      */
-    public const SERVER_PHP_SETTINGS = ['max_children', 'harden', 'pm', 'start_servers', 'min_spare_servers', 'max_spare_servers', 'idle_timeout_seconds', 'max_requests', 'request_timeout_seconds', 'slowlog_seconds'];
+    public const SERVER_PHP_SETTINGS = ['max_children', 'harden', 'lock_ini', 'pm', 'start_servers', 'min_spare_servers', 'max_spare_servers', 'idle_timeout_seconds', 'max_requests', 'request_timeout_seconds', 'slowlog_seconds'];
 
     /**
      * @param array<string, mixed> $input
@@ -491,6 +491,56 @@ final class WebsiteService
     }
 
     /**
+     * The website's PHP configuration as the agent sees it: the customer's
+     * php.ini and .user.ini files, what each directive does, the effective
+     * values and where they come from. Null when the agent cannot say.
+     *
+     * @param array<string, mixed> $site
+     * @return array<string, mixed>|null
+     */
+    public function phpConfig(array $site): ?array
+    {
+        try {
+            return (array) json_decode((string) json_encode($this->agent->call('sites.phpconfig', ['domain' => (string) $site['domain']])), true);
+        } catch (AgentException) {
+            return null;
+        }
+    }
+
+    /**
+     * Look at the customer's files now. A website the agent holds no record
+     * of yet (saved before php.ini support) is applied once, so that its
+     * php.ini can take effect from then on.
+     *
+     * @param array<string, mixed> $site
+     * @return array<string, mixed>|null
+     */
+    public function checkPhpConfig(array $site): ?array
+    {
+        $cfg = $this->phpConfig($site);
+        if ($cfg !== null && empty($cfg['managed'])) {
+            $this->apply($site);
+        }
+        try {
+            return (array) json_decode((string) json_encode($this->agent->call('sites.phpconfig_scan', ['domain' => (string) $site['domain']])), true);
+        } catch (AgentException $e) {
+            throw new UserFacingException('The PHP configuration could not be checked.', $e->getMessage(), 'Try again in a moment.');
+        }
+    }
+
+    /**
+     * Remove NimVor's website-level PHP directives (the ones set on this
+     * page). The customer's own php.ini and .user.ini files are never touched.
+     *
+     * @param array<string, mixed> $site
+     * @param array<string, mixed> $actor
+     */
+    public function resetPhpOverrides(array $site, array $actor): void
+    {
+        $this->update($site, ['ini' => [], 'aliases' => implode("\n", $site['aliases'])], $actor);
+    }
+
+    /**
      * Apply the stored state without an audit record of its own (account
      * suspension records its own).
      *
@@ -525,6 +575,7 @@ final class WebsiteService
                 'max_execution_seconds' => (int) ($php['max_execution_seconds'] ?? 60),
                 'max_children' => (int) ($php['max_children'] ?? 5),
                 'harden' => (bool) ($php['harden'] ?? false),
+            ] + (!empty($php['lock_ini']) ? ['lock_ini' => true] : []) + [
                 'profile' => (string) ($php['profile'] ?? ''),
                 'disable_functions' => (string) ($php['disable_functions'] ?? ''),
                 'pm' => (string) ($php['pm'] ?? 'ondemand'),
@@ -865,6 +916,8 @@ final class WebsiteService
             $settings[$k] = $v;
         }
         $settings['harden'] = filter_var($input['harden'] ?? ($existing['php_settings']['harden'] ?? $this->hardenNewSites()), FILTER_VALIDATE_BOOL);
+        // Pin the plan's PHP limits: a customer's php.ini / .user.ini cannot then change them (administrators only).
+        $settings['lock_ini'] = filter_var($input['lock_ini'] ?? ($existing['php_settings']['lock_ini'] ?? false), FILTER_VALIDATE_BOOL);
         // PHP security profile (items 33–35). A new website starts on the
         // configured default (Recommended); an existing website keeps its
         // own profile, so changing the default never alters a live site.

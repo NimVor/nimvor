@@ -43,6 +43,11 @@ type PHPSettings struct {
 	RequestTimeoutSec int `json:"request_timeout_seconds"`
 	// Requests slower than this are logged with a backtrace (php-slow.log).
 	SlowlogSec int `json:"slowlog_seconds"`
+	// LockINI pins the plan's limits (memory, upload size, execution time) and
+	// the error settings as administrator values: neither a .user.ini nor
+	// ini_set() can change them. Off (the default), a customer's .user.ini and
+	// php.ini may.
+	LockINI bool `json:"lock_ini,omitempty"`
 	// INI: php.ini directives of the website (see PHPDirectives).
 	INI map[string]string `json:"ini,omitempty"`
 }

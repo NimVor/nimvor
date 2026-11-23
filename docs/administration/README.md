@@ -302,6 +302,10 @@ process limits and security profile, and the website's own `php.ini` directives.
 **Settings** keeps domains, application type, the document root and request
 limits.
 
+### PHP configuration files (per website)
+
+Customers' `php.ini` and `.user.ini` are applied automatically; see [Per-website php.ini and .user.ini](php-config.md) for how they work, the precedence and the limits.
+
 ### Environment variables (per website)
 
 Website → **Environment** (permission `websites.manage`: the website's owner or

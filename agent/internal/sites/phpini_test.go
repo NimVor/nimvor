@@ -49,8 +49,8 @@ func TestWebsitePHPDirectives(t *testing.T) {
 	pool := RenderPool(s, Layout{Socket: "/run/php/x.sock", LogDir: root + "/logs", TmpDir: root + "/tmp", WebUser: "www-data"})
 	for _, want := range []string{
 		"php_admin_value[open_basedir] = " + root + "/:/usr/share/php/:/dev/urandom\n",
-		"php_admin_flag[display_errors] = on\n",
-		"php_admin_value[post_max_size] = 128M\n",
+		"php_flag[display_errors] = on\n",
+		"php_value[post_max_size] = 128M\n",
 		"php_admin_value[session.save_path] = " + root + "/tmp/sessions\n",
 		"php_admin_value[disable_functions] = exec,passthru,shell_exec,system,proc_open,popen,pcntl_exec,mail\n",
 		"php_admin_flag[allow_url_fopen] = off\n",
@@ -65,6 +65,15 @@ func TestWebsitePHPDirectives(t *testing.T) {
 	}
 	if strings.Count(pool, "[post_max_size]") != 1 || strings.Count(pool, "[display_errors]") != 1 {
 		t.Errorf("a directive appears twice:\n%s", pool)
+	}
+	// With the limits locked, they are administrator values again.
+	locked := s
+	locked.PHP.LockINI = true
+	lp := RenderPool(locked, Layout{Socket: "/run/php/x.sock", LogDir: root + "/logs", TmpDir: root + "/tmp", WebUser: "www-data"})
+	for _, want := range []string{"php_admin_flag[display_errors] = on\n", "php_admin_value[post_max_size] = 128M\n", "php_admin_value[memory_limit] = 256M\n"} {
+		if !strings.Contains(lp, want) {
+			t.Errorf("locked pool lacks %q", want)
+		}
 	}
 	// The server's hardening cannot be removed by the website.
 	ini2, _ := NormalizeINI(map[string]string{"disable_functions": ""}, root)
