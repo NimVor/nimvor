@@ -91,6 +91,12 @@ final class Tickets
         );
     }
 
+    /** Removes a ticket and, with it, every message of it (the replies go through the foreign key). */
+    public function delete(int $id): void
+    {
+        $this->db->run('DELETE FROM tickets WHERE id = ?', [$id]);
+    }
+
     public function setPriority(int $id, string $priority): void
     {
         if (in_array($priority, self::PRIORITIES, true)) {

@@ -115,12 +115,31 @@ final class CaptchaTest extends SiteTestCase
         self::assertSame(1, $this->rows('users'));
     }
 
-    public function testSignedInPeopleAreNotAsked(): void
+    public function testSignedInPeopleAreAskedOnThePublicForms(): void
     {
         $this->createUser('ada@example.test', 'Ada');
         $this->post('/login', ['email' => 'ada@example.test', 'password' => 'a-long-test-password'] + $this->solve('/login'));
-        self::assertStringNotContainsString('captcha_answer', $this->get('/support/contact')->body);
-        self::assertSame(303, $this->post('/support/contact', $this->contact())->status);
+        self::assertStringContainsString('captcha_answer', $this->get('/support/contact')->body);
+        self::assertSame(422, $this->post('/support/contact', $this->contact())->status);
+        self::assertSame(303, $this->post('/support/contact', $this->contact($this->solve('/support/contact')))->status);
+    }
+
+    public function testNewAccountTicketsAndAVisitorsReplyAreChecked(): void
+    {
+        $this->createUser('ada@example.test', 'Ada');
+        $this->post('/login', ['email' => 'ada@example.test', 'password' => 'a-long-test-password'] + $this->solve('/login'));
+        self::assertStringContainsString('captcha_answer', $this->get('/account/tickets/new')->body);
+        $data = ['subject' => 'Billing question', 'message' => 'How do I change my plan?', 'category' => 'sales'];
+        self::assertSame(422, $this->post('/account/tickets/new', $data)->status);
+        self::assertSame(0, $this->rows('tickets'));
+        self::assertSame(303, $this->post('/account/tickets/new', $data + $this->solve('/account/tickets/new'))->status);
+        $this->post('/logout');
+        // A visitor's ticket: answering by the private link needs the check; a signed-in customer's own ticket does not.
+        $r = $this->post('/support/contact', $this->contact($this->solve('/support/contact')));
+        $link = $r->headers['Location'];
+        self::assertStringContainsString('captcha_answer', $this->get($link)->body);
+        self::assertSame(422, $this->post($link . '/reply', ['body' => 'More detail about the problem.'])->status);
+        self::assertSame(303, $this->post($link . '/reply', ['body' => 'More detail about the problem.'] + $this->solve($link))->status);
     }
 
     public function testTheBuildServicesFormIsChecked(): void

@@ -199,4 +199,32 @@ final class TicketsTest extends SiteTestCase
         $r = $this->get('/admin/messages');
         self::assertSame([301, '/admin/tickets'], [$r->status, $r->headers['Location']]);
     }
+
+    public function testTicketsCanBeDeletedOneByOneOrInBulkWithTheirMessages(): void
+    {
+        $a = $this->open(null, 'one@example.test');
+        $b = $this->open(null, 'two@example.test');
+        $c = $this->open(null, 'three@example.test');
+        $this->app->ticketService->customerReply((array) $this->app->tickets->find($a['id']), null, 'A second message for the thread.');
+        $this->loginAs('admin', 'boss@example.test');
+        self::assertStringContainsString('/admin/tickets/' . $a['id'] . '/delete', $this->get('/admin/tickets/' . $a['id'])->body);
+        $res = $this->post('/admin/tickets/' . $a['id'] . '/delete');
+        self::assertSame([303, '/admin/tickets'], [$res->status, $res->headers['Location']]);
+        self::assertNull($this->row('SELECT id FROM tickets WHERE id = ?', [$a['id']]));
+        self::assertSame(0, (int) $this->row('SELECT COUNT(*) c FROM ticket_replies WHERE ticket_id = ?', [$a['id']])['c'], 'its messages went with it');
+        self::assertSame(404, $this->post('/admin/tickets/' . $a['id'] . '/delete')->status);
+        $this->post('/admin/tickets/bulk', ['ids' => [(string) $b['id'], (string) $c['id']], 'action' => 'delete']);
+        self::assertSame(0, $this->rows('tickets'));
+        self::assertSame(404, $this->get($this->url($b))->status, 'the private link of a deleted ticket is gone');
+    }
+
+    public function testOnlyAdministratorsCanDeleteATicket(): void
+    {
+        $t = $this->open();
+        self::assertSame(303, $this->post('/admin/tickets/' . $t['id'] . '/delete')->status);
+        $this->loginAs('client', 'client@example.test');
+        self::assertSame(403, $this->post('/admin/tickets/' . $t['id'] . '/delete')->status);
+        self::assertSame(403, $this->post('/admin/tickets/bulk', ['ids' => [(string) $t['id']], 'action' => 'delete'])->status);
+        self::assertSame(1, $this->rows('tickets'));
+    }
 }

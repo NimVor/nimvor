@@ -71,6 +71,9 @@ final class TicketController extends Controller
         if ($this->app->limiter->hit('ticket:ip:' . $ctx->ip(), 10, 3600)) {
             return $this->app->error($ctx, 429);
         }
+        if (($bad = $this->captchaError($ctx)) !== null) {
+            $v->fail('captcha', $bad);
+        }
         if ($v->fails()) {
             return $this->invalid($ctx, 'account/ticket-new', $v->errors(), ['categories' => Tickets::CATEGORIES]);
         }
@@ -187,7 +190,7 @@ final class TicketController extends Controller
         $action = $ctx->req->input('action');
         $staff = (array) $ctx->user();
         $back = $this->safeNext($ctx->req->input('back'), '/admin/tickets');
-        if ($ids === [] || !in_array($action, ['resolve', 'close', 'assign_me', 'high', 'normal', 'low'], true)) {
+        if ($ids === [] || !in_array($action, ['resolve', 'close', 'assign_me', 'high', 'normal', 'low', 'delete'], true)) {
             $ctx->flash('error', 'Select at least one ticket and choose an action.');
             return $ctx->redirect($back);
         }
@@ -198,6 +201,7 @@ final class TicketController extends Controller
                 continue;
             }
             match ($action) {
+                'delete' => $this->app->tickets->delete($id),
                 'resolve' => $this->app->ticketService->setStatus($t, $staff, 'resolved'),
                 'close' => $this->app->ticketService->setStatus($t, $staff, 'closed'),
                 'assign_me' => $this->app->ticketService->update($t, $staff, ['assignee' => (string) $staff['id']]),
@@ -206,8 +210,21 @@ final class TicketController extends Controller
             $n++;
         }
         $this->app->cache->delete('report:overview');
-        $ctx->flash('success', $n . ' ticket(s) updated.');
+        $ctx->flash('success', $n . ($action === 'delete' ? ' ticket(s) deleted.' : ' ticket(s) updated.'));
         return $ctx->redirect($back);
+    }
+
+    /** @param array<string, string> $params */
+    public function adminDelete(Ctx $ctx, array $params): Response
+    {
+        $t = $this->adminTicket($params);
+        if ($t === null) {
+            return $this->app->error($ctx, 404);
+        }
+        $this->app->tickets->delete((int) $t['id']);
+        $this->app->cache->delete('report:overview');
+        $ctx->flash('success', 'Ticket ' . $t['ref'] . ' was deleted.');
+        return $ctx->redirect('/admin/tickets');
     }
 
     public function cannedList(Ctx $ctx): Response
@@ -298,6 +315,10 @@ final class TicketController extends Controller
         $v->text('body', 2, 5000, 'Reply');
         if ($this->app->limiter->hit('ticket:ip:' . $ctx->ip(), 20, 3600)) {
             return $this->app->error($ctx, 429);
+        }
+        // A visitor answering by the private link is asked; a signed-in customer answering their own ticket is not.
+        if ($userId === null && ($bad = $this->captchaError($ctx)) !== null) {
+            $v->fail('captcha', $bad);
         }
         if ($v->fails()) {
             return $this->invalid($ctx, $template, $v->errors(), $this->thread($t, $base));

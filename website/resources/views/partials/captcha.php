@@ -7,7 +7,7 @@
  * @var array<string, string> $errors
  */
 $errors ??= [];
-if (!$captcha->enabled() || !empty($user)) {
+if (!$captcha->enabled()) {
     return;
 }
 ?>
