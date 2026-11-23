@@ -182,6 +182,10 @@ final class SettingsService
                 'category' => 'security', 'type' => 'bool', 'default' => true,
                 'label' => 'Hosting customers may allow remote database connections', 'help' => 'Customers and resellers may let their database users connect from other hosts. Off: from this server only (administrators still can). Existing remote logins are kept.',
             ],
+            'confirm_password_for_changes' => [
+                'category' => 'security', 'type' => 'bool', 'default' => false,
+                'label' => 'Ask administrators for their password before account changes', 'help' => 'On: creating or changing users, accounts, roles, API tokens and security policies needs the password typed again (valid for 15 minutes). Off (default): a signed-in administrator is not asked again. Adding SSH keys and starting a NimVor update always ask, because they give root access.',
+            ],
             'php_harden_new_sites' => [
                 'category' => 'security', 'type' => 'bool', 'default' => false,
                 'label' => 'Disable shell functions for new websites', 'help' => 'New websites start with exec, system, shell_exec, passthru, proc_open, popen and pcntl_exec disabled. Some applications (for example Composer or queue workers run from PHP) need them; an administrator can turn this off per website.',

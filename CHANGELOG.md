@@ -24,6 +24,7 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Changed
 
+- Security: a signed-in administrator is **no longer asked for their password again** when creating or changing users, accounts, roles, API tokens or security policies (the confirmation sent people back to the page they came from, not to the action). The check is now a setting, **Settings → Security → Ask administrators for their password before account changes**, off by default; turn it on to keep the 15-minute confirmation. Adding SSH keys and starting a NimVor update always ask, because they give root access.
 - The installer no longer sends an anonymous report when it finishes. Telemetry is opt-in: `--telemetry` / `--no-telemetry`, or a question on a terminal (default no; scripts, `--yes` and `nimvor update` are never asked and keep an earlier answer). `installer/telemetry.sh` now only records the answer and install/upgrade events locally.
 - Dashboard: the Small width is now narrower than Medium at every page width (it was wider than Medium between 1000 and 1360 px).
 - Website: the features page covers Dashboard 2.0 (arrangeable widgets, real website checks, security and SSL overview, database and cache overviews, capacity forecast, history charts, alert center) and `nimvor update`.

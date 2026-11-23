@@ -22,8 +22,23 @@ final class StepUpTest extends HttpTestCase
         $this->session->set('_auth_confirmed_at', time() - 3600);
     }
 
+    public function testSignedInAdministratorsAreNotAskedAgainByDefault(): void
+    {
+        $this->login('admin');
+        $db = $this->app->container->get(Connection::class);
+        $user = ['username' => 'newop', 'email' => 'newop@example.test', 'display_name' => 'New', 'password' => 'Another-long-Passw0rd!', 'password_confirmation' => 'Another-long-Passw0rd!', 'role_id' => (string) $db->scalar("SELECT id FROM roles WHERE name = 'operator'"), 'is_active' => '1'];
+        $this->expireConfirmation();
+        $res = $this->post('/users', $user);
+        self::assertStringNotContainsString('confirm-password', (string) $res->header('Location'));
+        self::assertNotNull($db->scalar("SELECT id FROM users WHERE username = 'newop'"), 'the account is created at once');
+        // Root-level changes still ask.
+        $res = $this->post('/security/ssh/keys', ['name' => 'k', 'public_key' => 'ssh-ed25519 AAAA test']);
+        self::assertStringContainsString('/confirm-password', (string) $res->header('Location'));
+    }
+
     public function testSensitiveChangesNeedARecentPassword(): void
     {
+        $this->app->container->get(\NimVor\Services\SettingsService::class)->update(['confirm_password_for_changes' => '1'], 1);
         $this->login('admin');
         $db = $this->app->container->get(Connection::class);
         $user = ['username' => 'newop', 'email' => 'newop@example.test', 'display_name' => 'New', 'password' => 'Another-long-Passw0rd!', 'password_confirmation' => 'Another-long-Passw0rd!', 'role_id' => (string) $db->scalar("SELECT id FROM roles WHERE name = 'operator'"), 'is_active' => '1'];
