@@ -286,7 +286,7 @@ final class PageController extends Controller
     public function sitemap(Ctx $ctx): Response
     {
         $base = (string) $this->app->config['url'];
-        $paths = ['/', '/features', '/get-started', '/resources', '/resources/documentation', '/resources/blog', '/resources/community', '/resources/build-services', '/resources/sponsors', '/resources/videos', '/resources/releases', '/resources/problems', '/resources/stats', '/docs', '/resources/about', '/support', '/support/contact', '/support/privacy'];
+        $paths = ['/', '/features', '/get-started', '/resources', '/resources/documentation', '/resources/blog', '/resources/community', '/resources/build-services', '/resources/sponsors', '/resources/videos', '/resources/releases', '/resources/problems', '/resources/stats', '/docs', '/api-reference', '/resources/about', '/support', '/support/contact', '/support/privacy'];
         foreach ($this->posts() as $p) {
             $paths[] = '/resources/blog/' . $p['slug'];
         }
@@ -295,6 +295,9 @@ final class PageController extends Controller
         }
         foreach ($this->app->releases->history()['releases'] as $rel) {
             $paths[] = '/resources/releases/' . $rel['version'];
+        }
+        foreach ($this->app->apiSpec->tags() as $t) {
+            $paths[] = '/api-reference/' . $t['slug'];
         }
         foreach ($this->app->docs->menu() as $d) {
             if ($d['slug'] !== 'index') {

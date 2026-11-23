@@ -119,10 +119,12 @@ final class ApiController
         return $r->all();
     }
 
+    /** The API description (OpenAPI 3.1, JSON; JSON is also valid YAML, so the old .yaml address keeps working). */
     public function openapi(Request $r): Response
     {
-        $spec = (string) file_get_contents(dirname(__DIR__, 4) . '/resources/api/openapi.yaml');
-        return new Response($spec, 200, ['Content-Type' => 'application/yaml; charset=utf-8']);
+        $spec = (string) file_get_contents(dirname(__DIR__, 4) . '/resources/api/openapi.json');
+        $yaml = str_ends_with($r->path(), '.yaml');
+        return new Response($spec, 200, ['Content-Type' => ($yaml ? 'application/yaml' : 'application/json') . '; charset=utf-8']);
     }
 
     public function me(Request $r): Response

@@ -727,7 +727,8 @@ return static function (Router $r): void {
     $r->get('/audit', [AuditLogController::class, 'index'], ['name' => 'audit', 'permission' => P::AUDIT_VIEW]);
 
     // REST API v1 (bearer tokens; see resources/api/openapi.yaml)
-    $r->get('/api/v1/openapi.yaml', [ApiController::class, 'openapi'], ['name' => 'api.openapi', 'auth' => false]);
+    $r->get('/api/v1/openapi.json', [ApiController::class, 'openapi'], ['name' => 'api.openapi', 'auth' => false]);
+    $r->get('/api/v1/openapi.yaml', [ApiController::class, 'openapi'], ['name' => 'api.openapi.yaml', 'auth' => false]);
     $r->get('/api/v1/me', [ApiController::class, 'me'], ['name' => 'api.me']);
     $r->get('/api/v1/server', [ApiController::class, 'serverInfo'], ['name' => 'api.server', 'permission' => P::SERVER_VIEW]);
     $r->get('/api/v1/websites', [ApiController::class, 'listWebsites'], ['name' => 'api.websites', 'permission' => P::WEBSITES_VIEW]);

@@ -11,6 +11,7 @@
                 <ul>
                     <li><a href="/features">Features</a></li>
                     <li><a href="/docs">Documentation</a></li>
+                    <li><a href="/api-reference">API reference</a></li>
                     <li><a href="/get-started">Install</a></li>
                     <li><a href="/resources/releases">Releases</a></li>
                 </ul>
