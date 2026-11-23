@@ -6,7 +6,11 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
-## [1.10.0] — 2026-11-23
+## [1.10.1] — 2026-11-23
+
+Version files only: 1.10.0 was tagged one commit before its version bump, so it still reported 1.9.0. 1.10.1 is the same code with the right version. Use 1.10.1.
+
+## [1.10.0] — 2026-11-23 (tagged before its version bump; use 1.10.1)
 
 Per-website `php.ini` and `.user.ini`, dashboard top cards as widgets with request trends, a ticket system, captcha on every public form, opt-in telemetry, and a setting for the administrator password prompt.
 
