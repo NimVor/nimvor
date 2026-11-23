@@ -309,6 +309,9 @@ func (s *Service) ConfigureSSH(ctx context.Context, in SSHSettings) (*Pending, e
 		return nil, actions.Failed(fmt.Sprintf("SSH did not answer on port %d, so the previous settings were restored.%s", in.Port, note), err.Error())
 	}
 	pending.Verified = verified
+	if portChange {
+		syncFail2banSSHPort(ctx, env, SSHPorts(ctx, env), &pending)
+	}
 	return s.guard.Start(pending)
 }
 

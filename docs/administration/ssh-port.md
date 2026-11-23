@@ -38,12 +38,22 @@ port**. Anything that fails undoes everything before it.
    from `127.0.0.1`, `::1` (when IPv6 exists) and each of the server's own
    global addresses. Nothing else counts: not the firewall rule, not
    `sshd -T`, not `systemctl show ssh.socket`.
-7. Only then the change is handed to the confirmation window.
+7. **Brute force protection follows the port.** fail2ban's sshd jail bans on the
+   jail's own port (a rule `tcp dport 22 … reject`), so after a move the new port
+   would be unprotected and an address banned on 22 would still be refused
+   there. The jail file NimVor manages gets `port = <ports SSH really listens on>`
+   (checked with `fail2ban-client --test`, then reloaded). This is best effort:
+   if it fails the SSH change still stands. A jail you defined in your own file is not
+   touched. An unconfirmed change puts the old jail port back too.
+8. Only then the change is handed to the confirmation window.
 
 If step 4, 5 or 6 fails, the drop-in and the socket file are put back, systemd
 is reloaded, the socket and service are restarted or reloaded again, and the
 firewall rule is removed. If the old port does not answer after that either,
 the message says to use the provider's console.
+
+Every listed step but the last two is undone on failure; the jail file is part of the
+unconfirmed-change rollback.
 
 ## What the server cannot prove
 
@@ -64,6 +74,7 @@ sshd process and its parent, both with the listening descriptor):
 
 | Finding | Evidence |
 |---|---|
+| **Confirmed on the reported server.** Ubuntu's own `ssh.socket` lists `ListenStream=0.0.0.0:22`, `ListenStream=[::]:22` and `BindIPv6Only=ipv6-only`. The old NimVor drop-in replaced the two lines with a single `ListenStream=2020` but kept the unit's `BindIPv6Only=ipv6-only`, so systemd bound an IPv6-only socket: `ss` showed only `[::]:2020` and IPv4 clients were refused. | `systemctl cat ssh.socket` and `ss -ltnp` from the server. The `bindv6only` sysctl was `0` and is overridden by the unit. |
 | Under socket activation `Port` in `sshd_config` is ignored, and so is a changed `Port` after `SIGHUP` (what `systemctl reload` sends): sshd keeps the socket it was given. | socket on 2021, config changed to `Port 2300`, `kill -HUP`: 2021 still answers, 2300 never listens. |
 | `sshd -T` (the check the old code used to confirm "the settings take effect") prints the **configured** port, so it said 2300 although nothing listened there. | same test; `sshd -T` is read from the files, not from sockets. |
 | The old code verified neither sockets nor connections: after `systemctl reload` it reported success. | `ssh.go` `ConfigureSSH`, last step. |
@@ -71,14 +82,12 @@ sshd process and its parent, both with the listening descriptor):
 | nftables or iptables without UFW/firewalld were never looked at: the port was not opened and nothing said so. The agent could not read those rulesets at all (`nft` and `iptables` were not allowed to list rules). | `fw.Backend`, `execx` allow-list. |
 | UFW `limit` rules answer further connections of an address with a *reject* (ICMP port unreachable) once six connections arrive within 30 seconds: clients print "Connection refused" although the port listens. | UFW's `ufw-user-limit` chain; an administrator retrying a failing login hits it quickly. |
 
-The first three rows were reproduced; the others come from reading the code
+The first row was confirmed on the reported server and the next two were reproduced; the others come from reading the code
 and from the documented behavior of UFW and the kernel (this test machine has
 no IPv6, so the v6-only case could not be run).
 
-Which of these produced the refusal on the reported server cannot be told from
-the output given: `ss` shows a listener, so a missing listener is unlikely, and
-the rest needs the server's own state. To find out on a server that shows the
-problem:
+The first row is what refused the connection on the reported server. The commands
+that showed it, for other servers:
 
 ```bash
 systemctl cat ssh.socket                       # ListenStream lines and drop-ins
@@ -102,6 +111,7 @@ reject rule or a v4/v6 mismatch; a timeout points at a dropping firewall.
 | Listening sockets and greeting probe | `sshport.go` `readListeners`, `SSHProbe`, `verifyListening` |
 | Unmanaged nftables / iptables | `sshport.go` `unmanagedFilterBlocks`, `nftBlocks`, `iptablesBlocks` |
 | Firewall rule really present | `sshport.go` `firewallOpens` |
+| fail2ban sshd jail follows the port | `fail2ban.go` `syncFail2banSSHPort`, `withSSHJailPort` |
 | Ports SSH answers on (for firewall status, brute force protection) | `sshport.go` `SSHPorts` |
 | Read-only `nft list ruleset`, `iptables -S INPUT` | `agent/internal/execx/execx.go` |
 | Panel message | `panel/app/Services/SecurityService.php` `configureSsh` |

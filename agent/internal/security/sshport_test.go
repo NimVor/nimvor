@@ -568,3 +568,70 @@ func TestVerifyListeningRealSSHD(t *testing.T) {
 		t.Fatal("a port nobody listens on was verified")
 	}
 }
+
+const jailFile = "etc/fail2ban/jail.d/nimvor.local"
+
+func withJail(sim *sshSim) {
+	body, _ := Fail2banSettings{Jails: []string{"sshd", "recidive"}, BanMinutes: 60, FindMinutes: 10, MaxRetry: 5, SSHPorts: []int{22}}.Render()
+	os.MkdirAll(filepath.Join(sim.h.Base, "etc/fail2ban/jail.d"), 0o755)
+	os.WriteFile(filepath.Join(sim.h.Base, jailFile), []byte(body), 0o644)
+}
+
+// The sshd jail's ban rule is bound to the jail's port: it must follow the SSH port
+// (after a move to 2020 the jail kept banning on 22 only, leaving 2020 unprotected).
+func TestSSHPortChangeMovesFail2banJail(t *testing.T) {
+	fastConfirm(t)
+	for _, socket := range []bool{false, true} {
+		t.Run(fmt.Sprintf("socket=%v", socket), func(t *testing.T) {
+			sim, s := newSSHSim(t)
+			sim.socketActive = socket
+			withJail(sim)
+			if !strings.Contains(sim.h.Read(jailFile), "[sshd]\nenabled = true\nport = 22\n") {
+				t.Fatalf("jail = %s", sim.h.Read(jailFile))
+			}
+			if _, err := s.ConfigureSSH(context.Background(), sshWant(2020)); err != nil {
+				t.Fatal(err)
+			}
+			body := sim.h.Read(jailFile)
+			if !strings.Contains(body, "[sshd]\nenabled = true\nport = 2020\n") || strings.Contains(body, "port = 22\n") {
+				t.Fatalf("jail not moved:\n%s", body)
+			}
+			if !strings.Contains(body, "[recidive]\nenabled = true\nbantime = 1w") {
+				t.Fatalf("other jails damaged:\n%s", body)
+			}
+			if sim.callIndex("fail2ban-client reload") < 0 {
+				t.Fatalf("fail2ban not reloaded: %v", sim.h.Runner.Calls)
+			}
+			waitRollback(t, s)
+			if !strings.Contains(sim.h.Read(jailFile), "port = 22\n") {
+				t.Fatalf("unconfirmed change left the jail on 2020:\n%s", sim.h.Read(jailFile))
+			}
+		})
+	}
+}
+
+// A failed change leaves the jail alone; no jail file or no sshd jail changes nothing.
+func TestSSHPortChangeFail2banUntouchedOtherwise(t *testing.T) {
+	sim, s := newSSHSim(t)
+	withJail(sim)
+	SSHProbe = func(context.Context, string) error { return fmt.Errorf("connection refused") }
+	if _, err := s.ConfigureSSH(context.Background(), sshWant(2020)); err == nil {
+		t.Fatal("expected failure")
+	}
+	if !strings.Contains(sim.h.Read(jailFile), "port = 22\n") {
+		t.Fatal("jail changed by a failed SSH change")
+	}
+	if got, ok := withSSHJailPort("[DEFAULT]\nbantime = 1m\n", []int{2020}); ok || got != "[DEFAULT]\nbantime = 1m\n" {
+		t.Fatal("a file without an sshd jail was changed")
+	}
+	if _, err := os.Stat(filepath.Join(sim.h.Base, "etc/fail2ban/jail.d/other")); err == nil {
+		t.Fatal("unexpected file")
+	}
+}
+
+func TestFail2banRenderSSHPorts(t *testing.T) {
+	body, err := Fail2banSettings{Jails: []string{"sshd"}, BanMinutes: 10, FindMinutes: 10, MaxRetry: 3, SSHPorts: []int{2020, 22}}.Render()
+	if err != nil || !strings.Contains(body, "[sshd]\nenabled = true\nport = 2020,22\n") {
+		t.Fatalf("%v\n%s", err, body)
+	}
+}
