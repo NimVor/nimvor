@@ -1,8 +1,10 @@
 package security
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/NimVor/nimvor/agent/internal/host"
 )
@@ -22,7 +24,13 @@ func panelPorts(env *host.Env) []string {
 			continue
 		}
 		for _, m := range panelListenRe.FindAllStringSubmatch(string(b), -1) {
-			out = append(out, m[1])
+			dup := false // IPv4 and IPv6 listen lines name the port twice
+			for _, o := range out {
+				dup = dup || o == m[1]
+			}
+			if !dup {
+				out = append(out, m[1])
+			}
 		}
 	}
 	return out
@@ -91,4 +99,85 @@ func atoi(s string) int {
 		n = n*10 + int(c-'0')
 	}
 	return n
+}
+
+// panelWatchEvery is how often the panel's firewall rule is checked.
+var panelWatchEvery = time.Minute
+
+// WatchPanelPort restores the panel's firewall rule when it disappeared (someone ran ufw or
+// firewall-cmd by hand, a firewall was reset). It runs for the life of the agent.
+func (s *Service) WatchPanelPort(ctx context.Context) {
+	t := time.NewTicker(panelWatchEvery)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			s.ensurePanelPort(ctx)
+		}
+	}
+}
+
+// opensPort: any rule that allows the TCP port in, from anyone or from chosen addresses. A panel
+// that an administrator opened to their own address only counts as open: it is not widened.
+func opensPort(rules []Rule, port string) bool {
+	for _, r := range rules {
+		if r.Action != "allow" && r.Action != "limit" || (r.Direction != "" && r.Direction != "in") || (r.Proto != "" && r.Proto != "tcp") {
+			continue
+		}
+		rp := strings.Replace(r.Port, "-", ":", 1)
+		if rp == port || portIn(port, rp) {
+			return true
+		}
+		if names, ok := portAliases[strings.ToLower(rp)]; ok {
+			for _, n := range names {
+				if n == port+"/tcp" {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// ensurePanelPort adds the rule of every panel port no allow rule opens, and returns those ports.
+// It does nothing while a security change awaits confirmation (that change may be rolled back,
+// which would remove what is added now), when the firewall is off, or when it cannot be read.
+func (s *Service) ensurePanelPort(ctx context.Context) []string {
+	env := s.env
+	ports := panelPorts(env)
+	if len(ports) == 0 || s.guard.Busy() != nil {
+		return nil
+	}
+	fw, err := Firewall(ctx, env)
+	if err != nil || !fw.Active {
+		return nil
+	}
+	var restored []string
+	for _, p := range ports {
+		if opensPort(fw.Rules, p) {
+			continue
+		}
+		var err error
+		if fw.Backend == "firewalld" {
+			err = runFirewalld(ctx, env, firewalldCmds(true, addOrRemove("--port="+p+"/tcp", true)))
+		} else {
+			rule := []string{"allow", "proto", "tcp", "from", "any", "to", "any", "port", p, "comment", "nimvor: panel"}
+			// First in the list, so a rule that denies it cannot come before.
+			if out, ierr := env.Runner.Run(ctx, "ufw", append([]string{"insert", "1"}, rule...)...); ierr != nil {
+				// An empty rule list has no position 1.
+				if out2, err2 := env.Runner.Run(ctx, "ufw", rule...); err2 != nil {
+					err = fmt.Errorf("%s / %s", host.Output(out), host.Output(out2))
+				}
+			}
+		}
+		if err != nil {
+			env.Log.Error("the panel's firewall rule is missing and could not be restored", "port", p, "error", err)
+			continue
+		}
+		env.Log.Warn("the panel's firewall rule was missing; it was restored", "port", p)
+		restored = append(restored, p)
+	}
+	return restored
 }

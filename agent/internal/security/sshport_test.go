@@ -112,6 +112,9 @@ func (s *sshSim) respond(id string, args []string) (string, error, bool) {
 			b.WriteString("ufw " + r + "\n")
 		}
 		return b.String(), nil, true
+	case id == "ufw" && len(args) > 2 && args[0] == "insert":
+		s.ufw = append([]string{strings.Join(withoutComment(args[2:]), " ")}, s.ufw...)
+		return "Rule inserted", nil, true
 	case id == "ufw" && len(args) > 0 && (args[0] == "allow" || args[0] == "limit"):
 		s.ufw = append(s.ufw, strings.Join(withoutComment(args), " "))
 		return "Rule added", nil, true
@@ -801,5 +804,87 @@ func TestPanelPortFollowsConfiguration(t *testing.T) {
 	r := Rule{Action: "allow", Port: "8443", Proto: "tcp"}
 	if isPanelPortRule(r, panelPorts(sim.h.Env)) != "" {
 		t.Fatal("the old panel port is still protected after the panel moved")
+	}
+}
+
+// Someone removed the panel's rule behind NimVor's back: the watcher puts it back, first in the list.
+func TestWatchPanelPortRestoresMissingRule(t *testing.T) {
+	sim, s := newSSHSim(t)
+	withPanelPort(sim) // the panel site exists, no rule for 8443
+	got := s.ensurePanelPort(context.Background())
+	if len(got) != 1 || got[0] != "8443" || !sim.hasUFWPort(8443) {
+		t.Fatalf("restored %v, rules %v", got, sim.ufw)
+	}
+	if !strings.HasSuffix(sim.ufw[0], "port 8443") {
+		t.Fatalf("the rule must come first (a deny could precede it): %v", sim.ufw)
+	}
+	if sim.callIndex("ufw insert 1 allow proto tcp from any to any port 8443 comment nimvor: panel") < 0 {
+		t.Fatalf("calls: %v", sim.h.Runner.Calls)
+	}
+	// Present now: nothing more happens.
+	n := len(sim.h.Runner.Calls)
+	if got := s.ensurePanelPort(context.Background()); len(got) != 0 {
+		t.Fatalf("restored again: %v", got)
+	}
+	for _, c := range sim.h.Runner.Calls[n:] {
+		if strings.HasPrefix(c, "ufw insert") || strings.HasPrefix(c, "ufw allow") {
+			t.Fatalf("changed the firewall again: %s", c)
+		}
+	}
+}
+
+func TestWatchPanelPortLeavesDeliberateSetupsAlone(t *testing.T) {
+	ctx := context.Background()
+	t.Run("opened to one address only", func(t *testing.T) {
+		sim, s := newSSHSim(t)
+		withPanelPort(sim, "allow proto tcp from 203.0.113.9 to any port 8443")
+		if got := s.ensurePanelPort(ctx); len(got) != 0 {
+			t.Fatalf("widened a restricted panel rule: %v %v", got, sim.ufw)
+		}
+	})
+	t.Run("covered by a range", func(t *testing.T) {
+		sim, s := newSSHSim(t)
+		withPanelPort(sim, "allow proto tcp from any to any port 8000:9000")
+		if got := s.ensurePanelPort(ctx); len(got) != 0 {
+			t.Fatalf("%v", got)
+		}
+	})
+	t.Run("firewall off", func(t *testing.T) {
+		sim, s := newSSHSim(t)
+		withPanelPort(sim)
+		sim.ufwOn = false
+		if got := s.ensurePanelPort(ctx); len(got) != 0 || sim.hasUFWPort(8443) {
+			t.Fatalf("%v %v", got, sim.ufw)
+		}
+	})
+	t.Run("no panel site", func(t *testing.T) {
+		sim, s := newSSHSim(t)
+		if got := s.ensurePanelPort(ctx); len(got) != 0 || sim.hasUFWPort(8443) {
+			t.Fatalf("%v", got)
+		}
+	})
+	t.Run("a change awaits confirmation", func(t *testing.T) {
+		fastConfirm(t)
+		ConfirmWindow = 5 * time.Second
+		sim, s := newSSHSim(t)
+		withPanelPort(sim)
+		p, err := s.ConfigureSSH(ctx, sshWant(2020))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := s.ensurePanelPort(ctx); len(got) != 0 {
+			t.Fatalf("restored while a change was pending: %v", got)
+		}
+		s.guard.Undo(p.ID)
+	})
+}
+
+func TestWatchPanelPortFirewalldAndEmptyList(t *testing.T) {
+	sim, s := newSSHSim(t)
+	withPanelPort(sim)
+	sim.ufw = nil // an empty list has no position 1: the plain rule is used
+	sim.h.Fail["ufw insert"] = "ERROR: Invalid position '1'"
+	if got := s.ensurePanelPort(context.Background()); len(got) != 1 || !sim.hasUFWPort(8443) {
+		t.Fatalf("%v %v", got, sim.ufw)
 	}
 }

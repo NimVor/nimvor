@@ -8,7 +8,7 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Added
 
-- Firewall: **the panel's own port is protected.** Its allow rule (for example 8443) shows a "Panel" badge and "Protected" instead of a Delete button, deleting it is refused even through the API, and a deny or reject rule that would close the panel's port for everyone (a single port, a range that includes it) is refused; blocking single addresses is still allowed. The port is read from the panel's web server site, so it follows a changed panel port. Someone with root on the server can still use `ufw` or `firewall-cmd` directly.
+- Firewall: **the panel's own port is protected.** Its allow rule (for example 8443) shows a "Panel" badge and "Protected" instead of a Delete button, deleting it is refused even through the API, and a deny or reject rule that would close the panel's port for everyone (a single port, a range that includes it) is refused; blocking single addresses is still allowed. The port is read from the panel's web server site, so it follows a changed panel port. A background check every minute **restores the panel's rule if it disappears** (someone ran `ufw delete` by hand, a firewall was reset); it does nothing while the firewall is off or a change awaits confirmation, and does not widen a panel that was opened to chosen addresses only.
 
 ### Fixed
 

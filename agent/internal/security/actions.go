@@ -36,6 +36,9 @@ func guarded(p *Pending, err error) (any, error) {
 // Register adds security actions.
 func Register(r *actions.Registry, env *host.Env) {
 	s := NewService(env)
+	if env.Cfg.AllowWriteActions {
+		go s.WatchPanelPort(context.Background())
+	}
 	r.Register(actions.Action{Name: "security.audit", Description: "Security checks with findings and remedies (read-only).", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return Audit(ctx, env), nil
 	}})

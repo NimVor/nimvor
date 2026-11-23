@@ -149,3 +149,11 @@ Delete, and the agent refuses the call too), and a `deny` or `reject` rule for
 everyone that covers it (the port itself or a range around it) is refused. Rules
 for single source addresses are fine, so a hostile address can still be blocked.
 If the panel moves to another port, the protection moves with it. `agent/internal/security/panelport.go`.
+
+A background check (every minute, in the agent) also **restores the panel's rule if it
+disappears**, for instance after someone ran `ufw delete` by hand or a firewall was reset.
+The rule is put first in the list (so an earlier `deny` cannot hide it) with the remark
+"nimvor: panel", and a warning is logged. It does nothing while the firewall is off, while a
+security change awaits confirmation (that change may be rolled back), or when some allow
+rule already opens the port, so a panel an administrator opened to their own address only is not
+widened.
