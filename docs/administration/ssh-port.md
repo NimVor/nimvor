@@ -139,3 +139,13 @@ test:
 The real-host VM matrix in CI (Ubuntu 22.04, 24.04, 26.04, AlmaLinux 9/10,
 Rocky 9/10) runs the existing `ConfigureSSH` real-host test; systemd socket
 activation itself is only exercised there on distributions that enable it.
+
+## The panel's port is protected
+
+The panel's own HTTPS port (8443 by default, read from its web server site) is
+treated like SSH is not: the rule that opens exactly that port for everyone
+cannot be deleted (Security → Firewall shows "Panel" and "Protected" instead of
+Delete, and the agent refuses the call too), and a `deny` or `reject` rule for
+everyone that covers it (the port itself or a range around it) is refused. Rules
+for single source addresses are fine, so a hostile address can still be blocked.
+If the panel moves to another port, the protection moves with it. `agent/internal/security/panelport.go`.

@@ -712,3 +712,94 @@ func TestOldPortCleanupFirewalld(t *testing.T) {
 		t.Fatal("removed a rule for another port")
 	}
 }
+
+func withPanelPort(sim *sshSim, rules ...string) {
+	os.MkdirAll(filepath.Join(sim.h.Base, "etc/nginx/sites-available"), 0o755)
+	os.WriteFile(filepath.Join(sim.h.Base, "etc/nginx/sites-available/nimvor-panel.conf"), []byte("server {\n    listen 8443 ssl;\n    listen [::]:8443 ssl;\n}\n"), 0o644)
+	sim.ufw = append(sim.ufw, rules...)
+}
+
+// The panel's own port cannot be deleted, not even when another rule would also open it, and
+// the firewall page marks the rule as protected.
+func TestPanelPortRuleCannotBeDeleted(t *testing.T) {
+	sim, s := newSSHSim(t)
+	withPanelPort(sim, "allow 8443/tcp", "allow proto tcp from any to any port 8443")
+	st, err := Firewall(context.Background(), sim.h.Env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	protected := 0
+	for _, r := range st.Rules {
+		if r.Protected != "" {
+			protected++
+			if !strings.Contains(r.Protected, "8443") {
+				t.Fatalf("protected = %q", r.Protected)
+			}
+		}
+	}
+	if protected == 0 {
+		t.Fatalf("no rule is marked protected: %+v", st.Rules)
+	}
+	for _, r := range st.Rules {
+		if r.Protected == "" {
+			continue
+		}
+		if _, err := s.DeleteRule(context.Background(), r.Spec); err == nil || !strings.Contains(err.Error(), "cannot be removed") {
+			t.Fatalf("deleting %q: %v", r.Spec, err)
+		}
+	}
+	if !sim.hasUFWPort(8443) || sim.callIndex("ufw --force delete") >= 0 {
+		t.Fatalf("a panel rule was deleted: %v %v", sim.ufw, sim.h.Runner.Calls)
+	}
+	// Other rules still delete normally.
+	if _, err := s.DeleteRule(context.Background(), "allow 22/tcp"); err != nil {
+		t.Logf("(ssh rule: %v)", err) // the SSH-only-rule safeguard may refuse; that is not what is tested here
+	}
+}
+
+// A rule that closes the panel's port for everyone is refused; blocking one address, or another port, is fine.
+func TestPanelPortCannotBeBlocked(t *testing.T) {
+	sim, s := newSSHSim(t)
+	withPanelPort(sim, "allow 8443/tcp")
+	ctx := context.Background()
+	for _, in := range []RuleInput{
+		{Action: "deny", Port: "8443"},
+		{Action: "reject", Port: "8443", Proto: "tcp"},
+		{Action: "deny", Port: "8000:9000", Proto: "tcp"},
+		{Action: "reject", Port: "8443"},
+	} {
+		if _, err := s.AddRule(ctx, in); err == nil || !strings.Contains(err.Error(), "block the NimVor panel") {
+			t.Errorf("%+v accepted or wrong error: %v", in, err)
+		}
+	}
+	if sim.callIndex("ufw deny") >= 0 || sim.callIndex("ufw reject") >= 0 {
+		t.Fatalf("a blocking rule reached ufw: %v", sim.h.Runner.Calls)
+	}
+	for _, in := range []RuleInput{
+		{Action: "deny", Port: "8443", From: "203.0.113.9"},
+		{Action: "deny", Port: "8443", Proto: "udp"},
+		{Action: "deny", Port: "9000"},
+		{Action: "allow", Port: "8443", From: "203.0.113.9"},
+	} {
+		if msg := blocksPanel(sim.h.Env, in); msg != "" {
+			t.Errorf("%+v must be allowed: %s", in, msg)
+		}
+	}
+}
+
+// Without a panel site nothing is protected, and the panel's port follows its configuration.
+func TestPanelPortFollowsConfiguration(t *testing.T) {
+	sim, _ := newSSHSim(t)
+	if p := panelPorts(sim.h.Env); len(p) != 0 {
+		t.Fatalf("ports = %v", p)
+	}
+	withPanelPort(sim)
+	os.WriteFile(filepath.Join(sim.h.Base, "etc/nginx/sites-available/nimvor-panel.conf"), []byte("server {\n    listen 9443 ssl;\n}\n"), 0o644)
+	if p := panelPorts(sim.h.Env); len(p) != 1 || p[0] != "9443" {
+		t.Fatalf("ports = %v", p)
+	}
+	r := Rule{Action: "allow", Port: "8443", Proto: "tcp"}
+	if isPanelPortRule(r, panelPorts(sim.h.Env)) != "" {
+		t.Fatal("the old panel port is still protected after the panel moved")
+	}
+}

@@ -43,6 +43,20 @@ final class SecurityAndSystemTest extends HttpTestCase
         self::assertStringContainsString('not installed', (string) $this->flash('error'));
     }
 
+    public function testPanelPortRuleHasNoDeleteButton(): void
+    {
+        $this->agent->succeed('security.pending', ['pending' => null]);
+        $this->agent->succeed('firewall.status', ['installed' => true, 'active' => true, 'default_incoming' => 'deny', 'default_outgoing' => 'allow', 'rules' => [
+            ['spec' => 'allow 8443/tcp', 'action' => 'allow', 'port' => '8443', 'proto' => 'tcp', 'protected' => 'NimVor panel (port 8443)'],
+            ['spec' => 'allow 80/tcp', 'action' => 'allow', 'port' => '80', 'proto' => 'tcp'],
+        ], 'ssh_port' => 22, 'ssh_allowed' => true]);
+        $page = $this->request('GET', '/security/firewall')->body();
+        self::assertStringContainsString('Delete the rule allow 80/tcp', $page);
+        self::assertStringNotContainsString('Delete the rule allow 8443/tcp', $page);
+        self::assertStringContainsString('Protected', $page);
+        self::assertStringContainsString('>Panel<', $page);
+    }
+
     public function testFirewallChangeMustBeConfirmed(): void
     {
         $pending = ['id' => 'abc123abc123', 'kind' => 'firewall', 'summary' => 'firewall: allow proto tcp port 8080', 'deadline' => gmdate('c', time() + 120)];

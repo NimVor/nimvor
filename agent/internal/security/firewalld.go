@@ -211,6 +211,9 @@ func (s *Service) firewalldDelete(ctx context.Context, spec string) (*Pending, e
 	if target == nil {
 		return nil, actions.NotFound("The rule no longer exists.")
 	}
+	if target.Protected != "" {
+		return nil, actions.Conflict(protectedDeleteMessage(*target))
+	}
 	if target.SSH && sshRules == 1 && st.Active {
 		return nil, actions.Conflict(fmt.Sprintf("This rule keeps SSH (port %d) reachable. Add another rule for SSH before deleting it.", st.SSHPort))
 	}
