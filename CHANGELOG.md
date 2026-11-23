@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.10.0] — 2026-11-23
+
+Per-website `php.ini` and `.user.ini`, dashboard top cards as widgets with request trends, a ticket system, captcha on every public form, opt-in telemetry, and a setting for the administrator password prompt.
+
 ### Added
 
 - Websites: **`php.ini` and `.user.ini` per website**, applied automatically. A `.user.ini` is read by PHP-FPM itself (the plan's memory, upload, time and error settings are now plain values so it can change them; administrators can lock them again per website). A customer's `php.ini` is read as text, checked line by line and written into that website's own pool, then PHP-FPM is reloaded gracefully, only when the result changed and only for that PHP version; changes (created, edited, renamed, deleted) are noticed within seconds without an Apply button. Locked settings (`open_basedir`, temp folders, `disable_functions`, error log, mail) cannot be changed by either file. The website's PHP page shows both files, what happened to every line, the effective values with their source and the last detected change; "Reset website overrides" clears only the panel's own directives. New agent actions `sites.phpconfig` and `sites.phpconfig_scan`; verified against a real PHP-FPM. See `docs/administration/php-config.md`.
