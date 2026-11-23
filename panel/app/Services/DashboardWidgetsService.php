@@ -53,6 +53,10 @@ final class DashboardWidgetsService
         }
         try {
             $r = $this->cache->remember($id, 'server', $def->ttl, fn (): array => match ($id) {
+                'tile_cpu', 'tile_memory', 'tile_disk', 'tile_load', 'services_live' => ['_state' => 'ok'],
+                'server_info' => $this->serverInfo(),
+                'websites_summary' => $this->websitesSummary($user),
+                'request_trends' => $this->requestTrends(),
                 'attention' => $this->attention($user),
                 'disk' => $this->disk(),
                 'backups' => $this->backups() + ['attention' => (int) ($this->siteHealth?->overview($user)['counts']['backup'] ?? 0)],
@@ -83,6 +87,113 @@ final class DashboardWidgetsService
         }
         $state = ($r['data']['_state'] ?? 'ok');
         return ['state' => is_string($state) ? $state : 'ok', 'data' => $r['data'], 'at' => $r['at']];
+    }
+
+    /**
+     * The Server card: what the agent reports about the machine.
+     *
+     * @return array<string, mixed>
+     */
+    public function serverInfo(): array
+    {
+        if ($this->agent === null) {
+            throw new AgentException('Agent unavailable');
+        }
+        $info = (array) $this->agent->call('system.info');
+        return ['info' => $info, '_state' => 'ok'];
+    }
+
+    /**
+     * The Websites card: counts and PHP versions from the last discovery, and certificates close to expiry.
+     *
+     * @param array<string, mixed> $user
+     * @return array<string, mixed>
+     */
+    public function websitesSummary(array $user): array
+    {
+        if ($this->discovery === null || $this->settings === null) {
+            throw new AgentException('Discovery unavailable');
+        }
+        $inv = $this->discovery->inventory(false, (int) ($user['id'] ?? 0));
+        $summary = DiscoveryService::summary($inv['data'], $this->settings->int('ssl_warning_days'));
+        $summary['discovered_at'] = $inv['created_at'];
+        return ['summary' => $summary, '_state' => 'ok'];
+    }
+
+    /**
+     * Requests to every website, counted from their access logs: per hour for the last 24 hours against the 24 hours
+     * before, the share of errors, and the busiest websites. A website whose log cannot be read is left out and counted
+     * as such; with no readable log at all there is nothing to show (never a zero).
+     *
+     * @return array<string, mixed>
+     */
+    public function requestTrends(): array
+    {
+        if ($this->agent === null) {
+            throw new AgentException('Agent unavailable');
+        }
+        $sites = $this->db->fetchAll('SELECT domain FROM websites WHERE server_id = ? AND enabled = 1 ORDER BY id LIMIT 30', [$this->server->id()]);
+        $now = intdiv(time(), 3600) * 3600;
+        $cut = $now - 23 * 3600;          // first hour of the last 24 hours
+        $prevCut = $cut - 24 * 3600;      // first hour of the 24 hours before
+        $hours = [];
+        for ($t = $cut; $t <= $now; $t += 3600) {
+            $hours[$t] = 0;
+        }
+        $total = $prev = $refused = 0;
+        $classes = [];
+        $perSite = [];
+        $read = $skipped = 0;
+        foreach ($sites as $s) {
+            try {
+                $r = (array) $this->agent->call('webreport.site', ['domain' => (string) $s['domain'], 'hours' => 48], 30);
+            } catch (AgentException) {
+                $skipped++;
+                continue;
+            }
+            if (empty($r['exists'])) {
+                $skipped++;
+                continue;
+            }
+            $read++;
+            $mine = 0;
+            foreach ((array) ($r['timeline'] ?? []) as $b) {
+                $b = (array) $b;
+                $start = (int) ($b['start'] ?? 0);
+                $n = (int) ($b['requests'] ?? 0);
+                if (isset($hours[$start])) {
+                    $hours[$start] += $n;
+                    $mine += $n;
+                } elseif ($start >= $prevCut && $start < $cut) {
+                    $prev += $n;
+                }
+            }
+            // The agent's status classes cover its whole 48-hour window; they are shown as shares of that window.
+            foreach ((array) ($r['classes'] ?? []) as $k => $n) {
+                if ((int) $k >= 2 && (int) $k <= 5) {
+                    $classes[(int) $k] = ($classes[(int) $k] ?? 0) + (int) $n; // 2 = 2xx … 5 = 5xx
+                }
+            }
+            $refused += (int) ($r['refused'] ?? 0);
+            $total += $mine;
+            if ($mine > 0) {
+                $perSite[(string) $s['domain']] = $mine;
+            }
+        }
+        if ($read === 0) {
+            return ['_state' => $sites === [] ? 'empty' : 'unavailable', 'sites' => count($sites)];
+        }
+        arsort($perSite);
+        $window = array_sum($classes);
+        $errors = (int) (($classes[5] ?? 0) + ($classes[4] ?? 0));
+        return [
+            'hours' => $hours, 'total' => $total, 'previous' => $prev,
+            'change' => $prev > 0 ? round(100 * ($total - $prev) / $prev, 1) : null,
+            'error_share' => $window > 0 ? round(100 * $errors / $window, 1) : null,
+            'server_errors' => (int) ($classes[5] ?? 0), 'refused' => $refused,
+            'top' => array_slice($perSite, 0, 5, true), 'read' => $read, 'skipped' => $skipped,
+            '_state' => 'ok',
+        ];
     }
 
     /**

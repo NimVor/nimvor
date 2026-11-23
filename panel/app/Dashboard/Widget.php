@@ -16,6 +16,7 @@ final class Widget
      * @param int    $refresh    seconds between automatic refreshes in the page (0: only on request)
      * @param int    $ttl        seconds a measurement is kept before it is measured again
      * @param bool   $inline     cheap (the panel's own records): drawn with the page; otherwise loaded after it
+     * @param bool   $frameless  draws its own card (the live metric tiles) instead of the common frame with title bar
      */
     public function __construct(
         public readonly string $id,
@@ -31,6 +32,7 @@ final class Widget
         public readonly string $description = '',
         public readonly string $linkRoute = '',
         public readonly string $linkLabel = '',
+        public readonly bool $frameless = false,
     ) {
     }
 }

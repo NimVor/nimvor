@@ -54,4 +54,38 @@ final class DashboardWidgetsTest extends HttpTestCase
         self::assertStringContainsString('Biggest places', $page);
         self::assertStringContainsString('System and service logs', $page);
     }
+
+    public function testTheTopCardsAreWidgetsDrawnWithThePage(): void
+    {
+        $page = $this->request('GET', '/')->body();
+        foreach (['tile_cpu', 'tile_memory', 'tile_disk', 'tile_load', 'server_info', 'services_live', 'websites_summary'] as $id) {
+            self::assertStringContainsString('data-widget-host="' . $id . '"', $page, $id);
+        }
+        self::assertStringContainsString('data-metric', $page, 'the live poll still finds the cards');
+    }
+
+    public function testRequestTrendsAddUpTheSitesAndSayNotAvailableWithoutLogs(): void
+    {
+        $db = $this->app->container->get(Connection::class);
+        $db->run("INSERT INTO websites (server_id, domain, kind, root, document_root, system_user, owner_id, status, created_at, updated_at) VALUES (1, 'shop.test', 'static', '/h/s', '/h/s/p', 'u1', 1, 'active', 'x', 'x')");
+        $now = intdiv(time(), 3600) * 3600;
+        $this->agent->succeed('webreport.site', [
+            'exists' => true, 'truncated' => false, 'hours' => 48, 'requests' => 900, 'refused' => 10,
+            'classes' => [0, 0, 800, 50, 40, 10],
+            'timeline' => [['start' => $now - 7200, 'requests' => 100, 'refused' => 0], ['start' => $now - 3600, 'requests' => 200, 'refused' => 10]],
+        ]);
+        $res = $this->request('GET', '/dashboard/widgets/request_trends', [], ['accept' => 'application/json', 'x-requested-with' => 'XMLHttpRequest']);
+        $w = (array) json_decode($res->body(), true);
+        self::assertSame(200, $res->status(), $res->body());
+        self::assertSame('ok', $w['state']);
+        self::assertStringContainsString('shop.test', $w['html']);
+    }
+
+    public function testRequestTrendsAreNotAvailableWhenNothingCanBeRead(): void
+    {
+        $res = $this->request('GET', '/dashboard/widgets/request_trends', [], ['accept' => 'application/json', 'x-requested-with' => 'XMLHttpRequest']);
+        $w = (array) json_decode($res->body(), true);
+        self::assertSame(200, $res->status(), $res->body());
+        self::assertNotSame('ok', $w['state']);
+    }
 }
