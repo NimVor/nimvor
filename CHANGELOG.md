@@ -8,7 +8,7 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Changed
 
-- Website: the **product tour video on the home page is new**: five minutes on version 1.10.1 (dashboard widgets, a new account and website, the customer's `php.ini` and `.user.ini`, monitoring, SSL, backups, databases, security, migration, themes and settings), with captions and a **voice narration** (an AI-generated voice; the captions still carry everything, so sound is optional). Recorded on a demo server with sample data.
+- Website: the **product tour video on the home page is new**: five minutes on version 1.10.1 (dashboard widgets, a new account and website, the customer's `php.ini` and `.user.ini`, monitoring, SSL, backups, databases, security, migration, themes and settings), with captions and a **voice narration** (an AI-generated voice) over quiet background music (the captions still carry everything, so sound is optional). Recorded on a demo server with sample data.
 
 ## [1.10.1] — 2026-11-23
 
