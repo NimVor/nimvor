@@ -64,6 +64,7 @@ $back = '/admin/tickets' . $qs($base + ['page' => $result['page'] > 1 ? (string)
             <select class="select" name="action" aria-label="Action for the selected tickets">
                 <option value="">With the selected…</option><option value="assign_me">Assign to me</option><option value="resolve">Mark resolved</option><option value="close">Close</option>
                 <option value="high">Priority: high</option><option value="normal">Priority: normal</option><option value="low">Priority: low</option>
+                <option value="delete">Delete permanently</option>
             </select>
             <button class="btn btn-outline btn-sm" type="submit">Apply</button>
             <span class="muted"><?= (int) $result['total'] ?> ticket<?= $result['total'] === 1 ? '' : 's' ?>, page <?= (int) $result['page'] ?> of <?= (int) $result['pages'] ?></span>

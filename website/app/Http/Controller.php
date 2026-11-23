@@ -40,7 +40,7 @@ abstract class Controller
     /** The text shown when the check in front of a public form failed, or null when it passed (or is off). */
     protected function captchaError(Ctx $ctx): ?string
     {
-        if ($ctx->user() !== null || $this->app->captcha->verify($ctx->req, $ctx->ip())) {
+        if ($this->app->captcha->verify($ctx->req, $ctx->ip())) {
             return null;
         }
         return $this->app->captcha->provider() === 'builtin'

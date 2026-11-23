@@ -30,6 +30,7 @@ $old ??= [];
         <?= $v->csrf() ?>
         <h2 class="h-card mb-0"><?= $ticket['status'] === 'closed' ? 'Reopen with a reply' : 'Add a reply' ?></h2>
         <div class="field"><label for="body">Your message</label><textarea class="textarea" id="body" name="body" maxlength="5000" required><?= e($old['body'] ?? '') ?></textarea><?= $v->error($errors, 'body') ?></div>
+        <?php if (empty($user)): ?><?= $v->partial('partials/captcha', ['errors' => $errors ?? []]) ?><?php endif; ?>
         <div><button class="btn btn-primary" type="submit">Send reply</button></div>
     </form>
     <?php if ($ticket['status'] !== 'closed'): ?>
