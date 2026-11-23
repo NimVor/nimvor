@@ -108,8 +108,12 @@ final class Authenticate implements Middleware
             ]), 403);
         }
         // Step-up: changes to accounts, roles, API tokens and sign-in
-        // policies need the password confirmed in the last 15 minutes.
-        if (in_array($route->name, self::STEP_UP, true) && !$this->auth->recentlyConfirmed()) {
+        // policies need the password confirmed in the last 15 minutes when
+        // the administrator turned that on (Settings → Security); the
+        // root-level ones (SSH keys, the NimVor update) always do.
+        $stepUp = in_array($route->name, self::STEP_UP, true)
+            && (in_array($route->name, self::ALWAYS_STEP_UP, true) || $this->settings->bool('confirm_password_for_changes'));
+        if ($stepUp && !$this->auth->recentlyConfirmed()) {
             $message = 'Confirm your password to continue, then submit again.';
             $back = self::safePath($request->header('Referer'));
             if ($request->wantsJson()) {
@@ -129,6 +133,12 @@ final class Authenticate implements Middleware
         // SSH keys of administrators grant a root-capable login.
         'security.ssh.key_add', 'security.ssh.key_generate', 'security.ssh.key_remove',
         // Runs the installer as root and restarts everything.
+        'nimvor.update.start',
+    ];
+
+    /** Routes that always need a recent password: they give root-level access. */
+    public const ALWAYS_STEP_UP = [
+        'security.ssh.key_add', 'security.ssh.key_generate', 'security.ssh.key_remove',
         'nimvor.update.start',
     ];
 
