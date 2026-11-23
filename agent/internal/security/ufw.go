@@ -144,12 +144,7 @@ func allowsPort(args []string, port int) bool {
 
 // sshPort returns the port sshd listens on (22 when unknown).
 func sshPort(ctx context.Context, env *host.Env) int {
-	if cfg, err := SSHEffective(ctx, env); err == nil {
-		if p, err := strconv.Atoi(strings.Fields(cfg["port"] + " 22")[0]); err == nil {
-			return p
-		}
-	}
-	return 22
+	return SSHPorts(ctx, env)[0]
 }
 
 // Firewall reads UFW state.

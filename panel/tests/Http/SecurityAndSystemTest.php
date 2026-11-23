@@ -197,11 +197,15 @@ final class SecurityAndSystemTest extends HttpTestCase
         $this->agent->succeed('security.pending', ['pending' => null]);
         $this->agent->succeed('ssh.status', ['effective' => ['port' => '22', 'permitrootlogin' => 'without-password', 'passwordauthentication' => 'yes', 'maxauthtries' => '6'], 'root_has_keys' => false, 'admins_with_keys' => [], 'managed_file' => '/etc/ssh/sshd_config.d/00-nimvor.conf']);
         self::assertStringContainsString('add a key before turning off passwords', $this->request('GET', '/security/ssh')->body());
-        $this->agent->succeed('ssh.configure', ['changed' => true, 'pending' => ['id' => 'x']]);
+        $this->agent->succeed('ssh.configure', ['changed' => true, 'pending' => ['id' => 'x', 'verified' => ['127.0.0.1:2222', '[::1]:2222']]]);
         $this->post('/security/ssh', ['port' => '2222', 'permit_root_login' => 'no', 'password_authentication' => '0', 'max_auth_tries' => '3']);
         $call = $this->lastCall('ssh.configure');
         self::assertSame(2222, $call['port']);
         self::assertFalse($call['password_authentication']);
+        // The administrator is told what the server proved and what only a connection from outside can prove.
+        $note = (string) $this->flash('success');
+        self::assertStringContainsString('SSH answered on 127.0.0.1:2222, [::1]:2222', $note);
+        self::assertStringContainsString('NEW SSH connection to this server on port 2222', $note);
 
         // Administrator SSH keys: listed, added and removed (administrators
         // only, with a recently confirmed password), audited.

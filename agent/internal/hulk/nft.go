@@ -172,21 +172,9 @@ func loaded(ctx context.Context, env *host.Env) bool {
 	return err == nil
 }
 
-// sshPorts are the SSH server's ports (22 when unknown).
-func sshPorts(ctx context.Context, env *host.Env) []int {
-	var out []int
-	if eff, err := security.SSHEffective(ctx, env); err == nil {
-		for _, f := range strings.Fields(eff["port"]) {
-			if p, err := strconv.Atoi(f); err == nil && p > 0 && p < 65536 {
-				out = append(out, p)
-			}
-		}
-	}
-	if len(out) == 0 {
-		out = []int{22}
-	}
-	return out
-}
+// sshPorts are the ports SSH answers on (22 when unknown); with socket
+// activation that is the socket's port, not sshd_config's.
+func sshPorts(ctx context.Context, env *host.Env) []int { return security.SSHPorts(ctx, env) }
 
 // Sync applies the wanted state (unchanged state and a loaded table: nothing
 // to do). Blocks are removed by nftables itself when they expire; the panel

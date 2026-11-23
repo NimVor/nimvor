@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Changing the SSH port could be reported as done while SSH refused connections.** The change is now applied in a safe order and only counts once SSH has really answered: the port must not be in use, a firewall NimVor does not manage (plain nftables or iptables) that would drop it stops the change with instructions, UFW/firewalld are opened first and the rule is checked, `sshd -t` and the effective settings are checked, then the daemon is told (a plain `sshd` is reloaded and restarted once if needed; under `ssh.socket` the socket gets one listener per address family, IPv4 and IPv6, and is restarted, or only configured when it is enabled but stopped), and finally the new port must be a listening socket with an SSH greeting on `127.0.0.1`, `::1` and the server's own addresses. If any step fails, the previous SSH settings, the socket file and the firewall rule are put back, and the message says when even the old port stays silent. The panel now tells the administrator to open a new SSH connection from their own computer before confirming (the server cannot test the firewalls in front of it). Brute force protection and the firewall status now use the port SSH really listens on under socket activation. The agent may now run `nft list ruleset` and `iptables -S INPUT` / `ip6tables -S INPUT` (read-only). See `docs/administration/ssh-port.md`.
+
 ### Changed
 
 - Website: the **product tour video on the home page is new**: five minutes on version 1.10.1 (dashboard widgets, a new account and website, the customer's `php.ini` and `.user.ini`, monitoring, SSL, backups, databases, security, migration, themes and settings), with captions and no sound needed. Recorded on a demo server with sample data.

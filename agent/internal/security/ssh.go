@@ -11,6 +11,7 @@ import (
 
 	"github.com/NimVor/nimvor/agent/internal/actions"
 	"github.com/NimVor/nimvor/agent/internal/agentfs"
+	"github.com/NimVor/nimvor/agent/internal/changeset"
 	"github.com/NimVor/nimvor/agent/internal/host"
 	"github.com/NimVor/nimvor/agent/internal/selinux"
 )
@@ -127,8 +128,23 @@ func sshUnit(env *host.Env) string {
 	return "sshd.service"
 }
 
-// ConfigureSSH writes the drop-in, validates it with sshd -t, reloads the
-// SSH server and verifies the effective settings, under the guard.
+// ConfigureSSH writes the drop-in, validates it with sshd -t, applies it and
+// then checks that SSH really answers on the port, under the guard.
+//
+// A port change runs in this order, and every step that fails undoes the
+// steps before it (the previous drop-in and socket drop-in are restored, the
+// firewall rule is removed again, the daemon is reloaded):
+//
+//  1. refuse early: the port is in use, or a packet filter NimVor does not
+//     manage (nftables, iptables) would drop it
+//  2. open the port in the firewall (UFW, firewalld) and check the rule is there
+//  3. SELinux port label
+//  4. write the sshd drop-in, sshd -t, check the effective settings
+//  5. socket activation (ssh.socket) or the daemon: apply the port
+//  6. verify listening sockets and an SSH greeting on every address
+//
+// Only then is the change handed to the guard, which still undoes it unless
+// the administrator confirms from a new connection on the new port.
 func (s *Service) ConfigureSSH(ctx context.Context, in SSHSettings) (*Pending, error) {
 	env := s.env
 	if err := in.validate(); err != nil {
@@ -151,11 +167,23 @@ func (s *Service) ConfigureSSH(ctx context.Context, in SSHSettings) (*Pending, e
 	if err != nil {
 		return nil, actions.Failed("The SSH configuration could not be read.", err.Error())
 	}
-	oldPort, _ := strconv.Atoi(current["port"])
+	oldPort, _ := strconv.Atoi(strings.Fields(current["port"] + " 22")[0])
+	portChange := in.Port != oldPort
+	mode := detectSSHMode(ctx, env)
 
 	pending := Pending{Kind: "ssh", Summary: fmt.Sprintf("SSH: port %d, root login %s, passwords %s", in.Port, in.PermitRootLogin, yesNo(in.PasswordAuthentication))}
-	// Open the new port first if the firewall is active.
-	if in.Port != oldPort {
+
+	if portChange {
+		// 1. Refuse before anything is touched.
+		if l := readListeners(env); l.v4[in.Port] || l.v6[in.Port] {
+			return nil, actions.Conflict(fmt.Sprintf("Port %d is already used by another program. Choose a free port.", in.Port))
+		}
+		if fw, err := Firewall(ctx, env); err != nil || !fw.Active {
+			if why := unmanagedFilterBlocks(ctx, env, in.Port); why != "" {
+				return nil, actions.Conflict(fmt.Sprintf("SSH was not moved to port %d: %s. NimVor does not manage this firewall, so it cannot open the port for you. Allow TCP port %d there first (keep port %d open until the new one works), then try again.", in.Port, why, in.Port, oldPort))
+			}
+		}
+		// 2. Open the new port before SSH moves, and check the rule exists.
 		if fw, err := Firewall(ctx, env); err == nil && fw.Active && fw.Backend == "firewalld" {
 			item := "--port=" + strconv.Itoa(in.Port) + "/tcp"
 			if err := runFirewalld(ctx, env, firewalldCmds(true, addOrRemove(item, true))); err != nil {
@@ -163,14 +191,24 @@ func (s *Service) ConfigureSSH(ctx context.Context, in SSHSettings) (*Pending, e
 			}
 			pending.Commands = append(pending.Commands, firewalldCmds(true, addOrRemove(item, false))...)
 		} else if err == nil && fw.Active {
-			args := []string{"limit", "proto", "tcp", "from", "any", "to", "any", "port", strconv.Itoa(in.Port), "comment", "nimvor: SSH"}
+			action := "allow"
+			for _, r := range fw.Rules {
+				if r.SSH && r.Action == "limit" {
+					action = "limit" // keep the administrator's choice of rate limiting
+				}
+			}
+			args := []string{action, "proto", "tcp", "from", "any", "to", "any", "port", strconv.Itoa(in.Port), "comment", "nimvor: SSH"}
 			if err := s.ufw(ctx, args...); err != nil {
 				return nil, err
 			}
 			pending.UFW = append(pending.UFW, append([]string{"--force", "delete"}, withoutComment(args)...))
 		}
+		if fw, err := Firewall(ctx, env); err == nil && fw.Active && !firewallOpens(ctx, env, in.Port) {
+			undoFirewallNow(ctx, env, pending)
+			return nil, actions.Failed(fmt.Sprintf("The firewall did not take a rule for SSH port %d, so SSH was not moved.", in.Port), "the rule is missing from the firewall's list after it was added")
+		}
 	}
-	// SELinux lets sshd listen only on ports labelled for it.
+	// 3. SELinux lets sshd listen only on ports labelled for it.
 	if err := selinux.Port(ctx, env, "ssh_port_t", in.Port); err != nil {
 		undoFirewallNow(ctx, env, pending)
 		return nil, actions.Failed("SELinux does not allow SSH on port "+strconv.Itoa(in.Port)+".", err.Error())
@@ -179,12 +217,18 @@ func (s *Service) ConfigureSSH(ctx context.Context, in SSHSettings) (*Pending, e
 	unit := sshUnit(env)
 	pending.ReloadUnits = []string{unit}
 
-	undoFirewall := func() {
-		for _, a := range pending.UFW {
-			_, _ = env.Runner.Run(ctx, "ufw", a...)
+	var settle func() // undoes the daemon side after the drop-in was committed
+	undo := func(a *changeset.Applied) {
+		if a != nil {
+			_ = a.Rollback()
 		}
-		_ = runFirewalld(ctx, env, pending.Commands)
+		if settle != nil {
+			settle()
+		}
+		undoFirewallNow(ctx, env, pending)
 	}
+
+	// 4. The sshd drop-in.
 	set := env.Changes("ssh")
 	set.Write(env.M.SSHDropIn, []byte(in.Render()), 0o644, agentfs.RootOwner)
 	a, err := set.Commit(func() error {
@@ -195,7 +239,7 @@ func (s *Service) ConfigureSSH(ctx context.Context, in SSHSettings) (*Pending, e
 		return nil
 	})
 	if err != nil {
-		undoFirewall()
+		undo(nil)
 		return nil, host.FailWithValidation("The SSH settings were not applied", err)
 	}
 	after, err := SSHEffective(ctx, env)
@@ -215,29 +259,56 @@ func (s *Service) ConfigureSSH(ctx context.Context, in SSHSettings) (*Pending, e
 		}
 	}
 	if err != nil {
-		_ = a.Rollback()
-		undoFirewall()
+		undo(a)
 		return nil, actions.Failed("The SSH settings would not take effect, so nothing was changed.", err.Error())
 	}
-	if sshSocketActive(ctx, env) {
-		if err := applySSHSocket(ctx, env, in.Port, &pending); err != nil {
-			_ = a.Rollback()
-			undoFirewall()
+
+	// 5. Apply: the socket decides the port under socket activation (sshd_config's
+	// Port is ignored there), otherwise the daemon re-reads its configuration.
+	settle = func() {
+		for _, f := range pending.Files[1:] {
+			_ = restoreFile(env, f)
+		}
+		if len(pending.Restart) > 0 {
+			_ = env.DaemonReload(ctx)
+			for _, u := range pending.Restart {
+				_, _ = env.Runner.Run(ctx, "systemctl", "restart", "--", u)
+			}
+		}
+		_ = env.Systemctl(ctx, "try-reload-or-restart", unit)
+	}
+	if mode.socket() {
+		if err := applySSHSocket(ctx, env, in.Port, mode, &pending); err != nil {
+			undo(a)
 			return nil, actions.Failed("The SSH port could not be changed, so nothing was changed.", err.Error())
 		}
 	}
-	if err := env.Systemctl(ctx, "reload", unit); err != nil {
-		_ = a.Rollback()
-		undoFirewall()
-		if len(pending.Restart) > 0 {
-			for _, f := range pending.Files {
-				_ = restoreFile(env, f)
-			}
-			_ = env.DaemonReload(ctx)
-			_, _ = env.Runner.Run(ctx, "systemctl", "restart", "--", sshSocketUnit)
-		}
+	verb := "reload"
+	if mode.SocketActive {
+		verb = "try-reload-or-restart" // the service may be stopped: the socket starts it on demand
+	}
+	if err := env.Systemctl(ctx, verb, unit); err != nil {
+		undo(a)
 		return nil, actions.Failed("The SSH server could not be reloaded; the previous settings were restored.", err.Error())
 	}
+
+	// 6. Prove it: sockets are listening and SSH answers on every address.
+	verified, err := verifyListening(ctx, env, in.Port, mode.IPv6)
+	if err != nil && !mode.socket() && portChange {
+		// A reload keeps the old listener on some builds: restart once.
+		if rerr := env.Systemctl(ctx, "restart", unit); rerr == nil {
+			verified, err = verifyListening(ctx, env, in.Port, mode.IPv6)
+		}
+	}
+	if err != nil {
+		undo(a)
+		note := ""
+		if _, perr := verifyListening(ctx, env, oldPort, mode.IPv6); perr != nil && portChange {
+			note = fmt.Sprintf(" The previous port %d does not answer either; use the provider's console to check the SSH service.", oldPort)
+		}
+		return nil, actions.Failed(fmt.Sprintf("SSH did not answer on port %d, so the previous settings were restored.%s", in.Port, note), err.Error())
+	}
+	pending.Verified = verified
 	return s.guard.Start(pending)
 }
 
@@ -262,10 +333,11 @@ func sshSocketDropIn(env *host.Env) string {
 	return filepath.Join(env.M.UnitDir, "ssh.socket.d", "nimvor-port.conf")
 }
 
-// applySSHSocket makes the socket listen on port (the default 22 needs no setting), restarts it (sessions
-// already open stay) and checks that it listens there. What it changed is recorded in pending so an
-// unconfirmed change puts the old port back.
-func applySSHSocket(ctx context.Context, env *host.Env, port int, pending *Pending) error {
+// applySSHSocket makes the socket listen on port, for IPv4 and (when the kernel has it) IPv6.
+// An active socket is restarted (open sessions stay) and checked; a socket that is enabled but stopped
+// (sshd runs on its own for now) only gets its setting, so the next boot comes up on the same port.
+// What it changed is recorded in pending so an unconfirmed change puts the old port back.
+func applySSHSocket(ctx context.Context, env *host.Env, port int, mode sshMode, pending *Pending) error {
 	dropIn := sshSocketDropIn(env)
 	snap := snapshot(env, dropIn)
 	set := env.Changes("ssh-socket")
@@ -276,23 +348,30 @@ func applySSHSocket(ctx context.Context, env *host.Env, port int, pending *Pendi
 		set.Remove(dropIn)
 	} else {
 		set.Mkdir(filepath.Dir(dropIn), 0o755, agentfs.RootOwner)
-		set.Write(dropIn, []byte(fmt.Sprintf("# Written by NimVor: the port SSH listens on (sshd is started by this socket).\n[Socket]\nListenStream=\nListenStream=%d\n", port)), 0o644, agentfs.RootOwner)
+		set.Write(dropIn, []byte(socketDropIn(port, mode.IPv6)), 0o644, agentfs.RootOwner)
 	}
 	if _, err := set.Apply(); err != nil {
 		return err
 	}
 	pending.Files = append(pending.Files, snap)
-	pending.Restart = append(pending.Restart, sshSocketUnit)
+	if mode.SocketActive {
+		pending.Restart = append(pending.Restart, sshSocketUnit)
+	}
 	revert := func() {
 		_ = restoreFile(env, snap)
 		_ = env.DaemonReload(ctx)
-		_, _ = env.Runner.Run(ctx, "systemctl", "restart", "--", sshSocketUnit)
+		if mode.SocketActive {
+			_, _ = env.Runner.Run(ctx, "systemctl", "restart", "--", sshSocketUnit)
+			pending.Restart = pending.Restart[:len(pending.Restart)-1]
+		}
 		pending.Files = pending.Files[:len(pending.Files)-1]
-		pending.Restart = pending.Restart[:len(pending.Restart)-1]
 	}
 	if err := env.DaemonReload(ctx); err != nil {
 		revert()
 		return err
+	}
+	if !mode.SocketActive {
+		return nil
 	}
 	if out, err := env.Runner.Run(ctx, "systemctl", "restart", "--", sshSocketUnit); err != nil {
 		revert()

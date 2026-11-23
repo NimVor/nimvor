@@ -258,6 +258,10 @@ var defaultCandidates = map[string][]string{
 	"make": {"/usr/bin/make"},
 	// SMTP restrictions: only NimVor's own table and rules file (checkArgs).
 	"nft": {"/usr/sbin/nft", "/sbin/nft"},
+	// Read-only: whether a packet filter NimVor does not manage (plain
+	// iptables or nftables) lets a new SSH port in (checkArgs).
+	"iptables":  {"/usr/sbin/iptables", "/sbin/iptables"},
+	"ip6tables": {"/usr/sbin/ip6tables", "/sbin/ip6tables"},
 	// Anti-intrusion: ACL entries that deny a program to an account, and
 	// loading NimVor's audit rules (checkArgs).
 	"setfacl":    {"/usr/bin/setfacl"},
@@ -282,7 +286,8 @@ func nftAllowed(args []string) bool {
 	case "-c -f " + NftRulesFile, "-f " + NftRulesFile, "list table inet nimvor_smtp", "delete table inet nimvor_smtp", "--version",
 		"-c -f " + NftHulkFile, "-f " + NftHulkFile, "list table inet nimvor_hulk", "delete table inet nimvor_hulk",
 		"-c -f " + NftEgressFile, "-f " + NftEgressFile, "list table inet nimvor_egress", "delete table inet nimvor_egress",
-		"-c -f " + NftFloodFile, "list table inet nimvor_flood":
+		"-c -f " + NftFloodFile, "list table inet nimvor_flood",
+		"list ruleset":
 		return true
 	}
 	return false
@@ -928,6 +933,9 @@ func checkArgs(id string, o Opts, args []string) error {
 	}
 	if id == "nft" && !nftAllowed(args) {
 		return fmt.Errorf("%w: nft %s", ErrNotAllowed, strings.Join(args, " "))
+	}
+	if (id == "iptables" || id == "ip6tables") && strings.Join(args, " ") != "-S INPUT" {
+		return fmt.Errorf("%w: %s %s", ErrNotAllowed, id, strings.Join(args, " "))
 	}
 	if id == "setfacl" && !setfaclAllowed(args) {
 		return fmt.Errorf("%w: setfacl %s", ErrNotAllowed, strings.Join(args, " "))

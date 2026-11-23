@@ -48,7 +48,8 @@ type Pending struct {
 	Units       [][2]string   `json:"units,omitempty"`    // systemctl verb and unit, run in order
 	Files       []FileRestore `json:"files,omitempty"`    // restored before Reload
 	ReloadUnits []string      `json:"reload_units,omitempty"`
-	Restart     []string      `json:"restart,omitempty"` // units restarted (after a daemon-reload) once Files are restored
+	Restart     []string      `json:"restart,omitempty"`  // units restarted (after a daemon-reload) once Files are restored
+	Verified    []string      `json:"verified,omitempty"` // SSH changes: addresses that answered with an SSH greeting before the change was handed over
 }
 
 // Guard tracks at most one pending change.
