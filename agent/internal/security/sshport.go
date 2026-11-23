@@ -337,3 +337,34 @@ func SSHPorts(ctx context.Context, env *host.Env) []int {
 	}
 	return out
 }
+
+// oldPortCleanup lists the firewall rules that opened the SSH port that was
+// just left, as the commands that remove them and a description. Only rules
+// that allow exactly that port from anywhere are listed.
+func oldPortCleanup(fw FirewallStatus, oldPort int) (ufw [][]string, cmds [][]string, what []string) {
+	if !fw.Active {
+		return
+	}
+	for _, r := range fw.Rules {
+		if r.Action != "allow" && r.Action != "limit" {
+			continue
+		}
+		if fw.Backend == "firewalld" {
+			switch {
+			case r.Spec == "port "+strconv.Itoa(oldPort)+"/tcp":
+				cmds = append(cmds, firewalldCmds(true, addOrRemove("--port="+strconv.Itoa(oldPort)+"/tcp", false))...)
+			case oldPort == 22 && r.Spec == "service ssh":
+				cmds = append(cmds, firewalldCmds(true, addOrRemove("--service=ssh", false))...)
+			default:
+				continue
+			}
+			what = append(what, "the firewall rule for port "+strconv.Itoa(oldPort))
+			continue
+		}
+		if allowsPort(r.Args, oldPort) {
+			ufw = append(ufw, append([]string{"--force", "delete"}, withoutComment(r.Args)...))
+			what = append(what, "the firewall rule for port "+strconv.Itoa(oldPort))
+		}
+	}
+	return
+}

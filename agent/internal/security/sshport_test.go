@@ -635,3 +635,80 @@ func TestFail2banRenderSSHPorts(t *testing.T) {
 		t.Fatalf("%v\n%s", err, body)
 	}
 }
+
+// After Keep the old port's firewall rule is removed; without Keep the rollback needs it and the
+// new rule goes instead.
+func TestSSHPortChangeRemovesOldRuleAfterConfirm(t *testing.T) {
+	for _, limited := range []bool{false, true} {
+		t.Run(fmt.Sprintf("limit=%v", limited), func(t *testing.T) {
+			fastConfirm(t)
+			sim, s := newSSHSim(t)
+			if limited {
+				sim.ufw = []string{"limit proto tcp from any to any port 22"}
+			}
+			p, err := s.ConfigureSSH(context.Background(), sshWant(2020))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(p.Cleanup) != 1 || p.Cleanup[0] != "the firewall rule for port 22" {
+				t.Fatalf("cleanup = %v", p.Cleanup)
+			}
+			if !sim.hasUFWPort(22) {
+				t.Fatal("the old rule was removed before the change was confirmed")
+			}
+			if err := s.guard.Confirm(p.ID); err != nil {
+				t.Fatal(err)
+			}
+			if sim.hasUFWPort(22) || !sim.hasUFWPort(2020) {
+				t.Fatalf("after Keep the rules must be just 2020: %v", sim.ufw)
+			}
+		})
+	}
+}
+
+func TestSSHPortChangeKeepsOldRuleWhenUnconfirmed(t *testing.T) {
+	fastConfirm(t)
+	sim, s := newSSHSim(t)
+	if _, err := s.ConfigureSSH(context.Background(), sshWant(2020)); err != nil {
+		t.Fatal(err)
+	}
+	waitRollback(t, s)
+	if !sim.hasUFWPort(22) || sim.hasUFWPort(2020) {
+		t.Fatalf("rollback must leave only the old rule: %v", sim.ufw)
+	}
+}
+
+// Unrelated rules are never touched, and a rule that only restricts the source is not "the SSH rule".
+func TestOldPortCleanupSelectsOnlyThatPort(t *testing.T) {
+	fw := FirewallStatus{Active: true, Backend: "ufw", Rules: []Rule{
+		{Spec: "a", Action: "limit", Args: []string{"limit", "proto", "tcp", "from", "any", "to", "any", "port", "22"}},
+		{Spec: "b", Action: "allow", Args: []string{"allow", "proto", "tcp", "from", "203.0.113.5", "to", "any", "port", "22"}},
+		{Spec: "c", Action: "allow", Args: []string{"allow", "proto", "tcp", "from", "any", "to", "any", "port", "2222"}},
+		{Spec: "d", Action: "deny", Args: []string{"deny", "proto", "tcp", "from", "any", "to", "any", "port", "22"}},
+		{Spec: "e", Action: "allow", Args: []string{"allow", "proto", "tcp", "from", "any", "to", "any", "port", "2020"}},
+	}}
+	ufw, cmds, what := oldPortCleanup(fw, 22)
+	if len(ufw) != 1 || strings.Join(ufw[0], " ") != "--force delete limit proto tcp from any to any port 22" || len(cmds) != 0 || len(what) != 1 {
+		t.Fatalf("%v %v %v", ufw, cmds, what)
+	}
+	if u, c, w := oldPortCleanup(FirewallStatus{Active: false, Rules: fw.Rules}, 22); len(u)+len(c)+len(w) != 0 {
+		t.Fatal("an inactive firewall has nothing to clean")
+	}
+}
+
+func TestOldPortCleanupFirewalld(t *testing.T) {
+	fw := FirewallStatus{Active: true, Backend: "firewalld", Rules: []Rule{
+		{Spec: "service ssh", Action: "allow"}, {Spec: "port 2222/tcp", Action: "allow"}, {Spec: "service http", Action: "allow"},
+	}}
+	_, cmds, what := oldPortCleanup(fw, 22)
+	if len(what) != 1 || len(cmds) != 2 || cmds[0][1] != "--remove-service=ssh" || cmds[1][2] != "--remove-service=ssh" {
+		t.Fatalf("%v %v", cmds, what)
+	}
+	_, cmds, _ = oldPortCleanup(fw, 2222)
+	if len(cmds) != 2 || cmds[0][1] != "--remove-port=2222/tcp" {
+		t.Fatalf("%v", cmds)
+	}
+	if _, cmds, _ = oldPortCleanup(fw, 8080); len(cmds) != 0 {
+		t.Fatal("removed a rule for another port")
+	}
+}

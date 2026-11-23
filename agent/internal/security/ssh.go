@@ -310,7 +310,17 @@ func (s *Service) ConfigureSSH(ctx context.Context, in SSHSettings) (*Pending, e
 	}
 	pending.Verified = verified
 	if portChange {
-		syncFail2banSSHPort(ctx, env, SSHPorts(ctx, env), &pending)
+		ports := SSHPorts(ctx, env)
+		syncFail2banSSHPort(ctx, env, ports, &pending)
+		// The old port's rule stays until the change is confirmed (an undo needs it),
+		// and is removed then, unless SSH still listens there.
+		still := false
+		for _, p := range ports {
+			still = still || p == oldPort
+		}
+		if fw, err := Firewall(ctx, env); err == nil && !still {
+			pending.AfterUFW, pending.AfterCommands, pending.Cleanup = oldPortCleanup(fw, oldPort)
+		}
 	}
 	return s.guard.Start(pending)
 }

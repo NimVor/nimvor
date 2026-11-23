@@ -167,8 +167,10 @@ final class SecurityService
         $seen = $verified === [] ? '' : ' SSH answered on ' . implode(', ', $verified) . ' from this server.';
         // The server can only test itself: a firewall in front of it (the provider's, for one) is
         // only proven by a connection from outside.
+        $cleanup = array_values(array_unique(array_filter((array) (((array) ($res['pending'] ?? []))['cleanup'] ?? []), 'is_string')));
+        $tidy = $cleanup === [] ? '' : ' When you confirm, ' . implode(' and ', $cleanup) . ' will be removed.';
         return 'Applied.' . $seen . ' Now open a NEW SSH connection to this server on port ' . $s['port']
-            . ' from your own computer, and only confirm when it works. Within 2 minutes without confirmation the change is undone automatically.';
+            . ' from your own computer, and only confirm when it works.' . $tidy . ' Within 2 minutes without confirmation the change is undone automatically.';
     }
 
     /** @return list<array<string, mixed>> administrators and their SSH keys */

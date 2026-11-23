@@ -17,7 +17,7 @@ port**. Anything that fails undoes everything before it.
 2. **The firewall is opened first.** UFW or firewalld get the rule, and the
    firewall's own list is read again: a rule that is not in it stops the
    change. UFW rules keep the action of the old SSH rule (`allow` or
-   `limit`). The old port stays open.
+   `limit`). The old port stays open for now: an undo needs it.
 3. SELinux gets the port label (RHEL family).
 4. The sshd drop-in `/etc/ssh/sshd_config.d/00-nimvor.conf` is written, checked
    with `sshd -t`, and `sshd -T` must show the wanted values (another file
@@ -45,7 +45,13 @@ port**. Anything that fails undoes everything before it.
    (checked with `fail2ban-client --test`, then reloaded). This is best effort:
    if it fails the SSH change still stands. A jail you defined in your own file is not
    touched. An unconfirmed change puts the old jail port back too.
-8. Only then the change is handed to the confirmation window.
+8. Only then the change is handed to the confirmation window. When you press
+   **Keep**, the firewall rules that opened exactly the old port from anywhere
+   (UFW `allow`/`limit`, firewalld port or the `ssh` service for port 22) are
+   removed, unless SSH still listens on that port. Rules limited to an address,
+   `deny` rules and rules for other ports are never touched. It is best effort and
+   logged: the change stays whatever happens. Unconfirmed, nothing is removed and
+   the new port's rule goes instead.
 
 If step 4, 5 or 6 fails, the drop-in and the socket file are put back, systemd
 is reloaded, the socket and service are restarted or reloaded again, and the
