@@ -7,6 +7,7 @@ namespace NimVorSite\Http;
 use NimVorSite\Core\Ctx;
 use NimVorSite\Core\Response;
 use NimVorSite\Repositories\BuildRequests;
+use NimVorSite\Repositories\Posts;
 use NimVorSite\Support\Text;
 use NimVorSite\Support\Validator;
 
@@ -29,7 +30,7 @@ final class PageController extends Controller
 
     public function home(Ctx $ctx): Response
     {
-        return $ctx->render('pages/home', ['posts' => array_slice($this->posts(), 0, 3), 'servers' => $this->app->stats->headline()]);
+        return $ctx->render('pages/home', ['posts' => array_slice($this->posts(), 0, 3), 'servers' => $this->app->stats->headline(), 'reviews' => $this->reviewData(3)]);
     }
 
     public function releases(Ctx $ctx): Response
@@ -131,7 +132,84 @@ final class PageController extends Controller
         if ($post === null) {
             return $this->app->error($ctx, 404);
         }
-        return $ctx->render('pages/post', ['post' => $post, 'bodyHtml' => Text::html((string) $post['body'])]);
+        return $ctx->render('pages/post', ['post' => $post, 'cover' => Posts::cover($post), 'bodyHtml' => Text::html((string) $post['body'])]);
+    }
+
+    /**
+     * The cover the site draws for a post that has no picture: a gradient chosen from its address, so a post
+     * always looks the same, with the NimVor pen mark. Nothing user-supplied is printed into it.
+     *
+     * @param array<string, string> $params
+     */
+    public function postCover(Ctx $ctx, array $params): Response
+    {
+        $slug = (string) ($params['slug'] ?? '');
+        if ($this->app->posts->bySlug($slug) === null) {
+            return $this->app->error($ctx, 404);
+        }
+        $pairs = [['#0b1d3a', '#1d4ed8'], ['#0b1d3a', '#0f766e'], ['#1e1b4b', '#7c3aed'], ['#0b1d3a', '#c2410c'], ['#052e2b', '#15803d'], ['#172554', '#0e7490']];
+        $h = crc32($slug);
+        [$from, $to] = $pairs[$h % count($pairs)];
+        $angle = 20 + ($h >> 8) % 50;
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="">'
+            . '<defs><linearGradient id="g" gradientTransform="rotate(' . $angle . ')"><stop offset="0" stop-color="' . $from . '"/><stop offset="1" stop-color="' . $to . '"/></linearGradient>'
+            . '<pattern id="p" width="60" height="60" patternUnits="userSpaceOnUse"><path d="M60 0H0v60" fill="none" stroke="#fff" stroke-opacity=".07"/></pattern></defs>'
+            . '<rect width="1200" height="630" fill="url(#g)"/><rect width="1200" height="630" fill="url(#p)"/>'
+            . '<g fill="none" stroke="#fff" stroke-opacity=".9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" transform="translate(500 175) scale(8.5)"><path d="m4 20 1-4L16 5l3 3L8 19z"/><path d="m14 7 3 3"/></g>'
+            . '<text x="60" y="580" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700" fill="#fff" fill-opacity=".85" letter-spacing="1">NimVor</text></svg>';
+        return Response::text($svg, 'image/svg+xml')->header('Cache-Control', 'public, max-age=86400');
+    }
+
+    /** @return array{list: list<array<string, mixed>>, summary: array{count: int, average: float}, trustpilot: string} */
+    private function reviewData(int $limit): array
+    {
+        $d = $this->app->cache->get('reviews:public:' . $limit);
+        if (!is_array($d)) {
+            $d = ['list' => $this->app->reviews->published($limit), 'summary' => $this->app->reviews->summary()];
+            $this->app->cache->set('reviews:public:' . $limit, $d, 300);
+        }
+        return $d + ['trustpilot' => $this->app->siteLinks()['trustpilot']];
+    }
+
+    public function reviews(Ctx $ctx): Response
+    {
+        return $ctx->render('pages/reviews', $this->reviewData(100) + ['old' => $this->prefill($ctx)]);
+    }
+
+    public function reviewSubmit(Ctx $ctx): Response
+    {
+        $v = new Validator($ctx->req->post);
+        $v->text('name', 1, 120, 'name')->text('body', 20, 2000, 'Review');
+        $rating = (int) $v->value('rating');
+        if ($rating < 1 || $rating > 5) {
+            $v->fail('rating', 'Choose 1 to 5 stars.');
+        }
+        foreach (['role' => 120, 'title' => 160] as $f => $max) {
+            if (mb_strlen($v->value($f)) > $max) {
+                $v->fail($f, 'At most ' . $max . ' characters.');
+            }
+        }
+        if ($v->value('website') !== '') {
+            return $this->thanksReview($ctx); // a bot filled the hidden field
+        }
+        if ($this->app->limiter->hit('review:ip:' . $ctx->ip(), 3, 3600)) {
+            return $this->app->error($ctx, 429);
+        }
+        if (($bad = $this->captchaError($ctx)) !== null) {
+            $v->fail('captcha', $bad);
+        }
+        if ($v->fails()) {
+            return $this->invalid($ctx, 'pages/reviews', $v->errors(), $this->reviewData(100));
+        }
+        // A visitor's review is only shown after an administrator has read it.
+        $this->app->reviews->add($v->value('name'), $v->value('role'), $rating, $v->value('title'), $v->value('body'), 'visitor', '', 'pending');
+        return $this->thanksReview($ctx);
+    }
+
+    private function thanksReview(Ctx $ctx): Response
+    {
+        $ctx->flash('success', 'Thank you for your review. It will appear here once we have read it.');
+        return $ctx->redirect('/reviews');
     }
 
     public function community(Ctx $ctx): Response
@@ -286,7 +364,7 @@ final class PageController extends Controller
     public function sitemap(Ctx $ctx): Response
     {
         $base = (string) $this->app->config['url'];
-        $paths = ['/', '/features', '/get-started', '/resources', '/resources/documentation', '/resources/blog', '/resources/community', '/resources/build-services', '/resources/sponsors', '/resources/videos', '/resources/releases', '/resources/problems', '/resources/stats', '/docs', '/api-reference', '/resources/about', '/support', '/support/contact', '/support/privacy'];
+        $paths = ['/', '/features', '/get-started', '/resources', '/resources/documentation', '/resources/blog', '/resources/community', '/resources/build-services', '/resources/sponsors', '/resources/videos', '/resources/releases', '/resources/problems', '/resources/stats', '/docs', '/api-reference', '/resources/about', '/reviews', '/support', '/support/contact', '/support/privacy'];
         foreach ($this->posts() as $p) {
             $paths[] = '/resources/blog/' . $p['slug'];
         }

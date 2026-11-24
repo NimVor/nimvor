@@ -6,19 +6,23 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Website: reviews.** A *Reviews* page (`/reviews`) and a small reviews section on the home page. Visitors can send a review (captcha, a hidden bot field and a per-address limit apply); it is shown only after an administrator publishes it under *Admin → Reviews*, where reviews copied from Trustpilot or sent by customers can also be added by hand. With none published, the home page shows an invitation instead of anything made up.
+- **Website: social icons and a Trustpilot link in the footer.** *Admin → Settings* holds the YouTube, Facebook, X and Reddit addresses (an icon shows only for an address that is set; each must be on the platform's own domain) and the Trustpilot page that "Review us on Trustpilot" opens (default `https://www.trustpilot.com/review/nimvor.com`).
+- **Website: every blog post has a cover image**, on the blog list and at the top of the article: the one set for the post (new *Cover image* field, or `image:` in a guide's header), else the first picture in its text, else a cover the site draws. Upgrade: migration `0008` (`bin/site migrate`, or `website/database/sql/0008_reviews_post_images.sql` on a host without a terminal).
+- **API: a website's own settings** (9 new endpoints, in the API reference): read and change names (aliases), document-root folder, upload limit, proxy address, directory listing and uptime checks (`GET`/`PATCH /websites/{id}/settings`); re-apply a website's configuration (`POST …/reapply`); check and repair the permissions of its files (`GET …/permissions`, `POST …/permissions/repair`); manage environment variables (`GET`/`PATCH …/env`: `set` and `unset`, **values are write-only**, the API lists names only); and read and change the runtime of a Node.js or Python website (`GET`/`PATCH …/runtime`). The same services as the web interface run, so the same validation, check-before-reload and rollback apply. `SiteEnvService` gained `change()` (set/unset without rewriting the whole file). Security headers and cache rules follow in a later change.
+
 ### Changed
 
 - **The panel footer links to the website** (Privacy policy, News, Documentation, Donation, API) on the right, and no longer carries the "Open-source server control panel" text.
 - **API tokens have permissions, and only administrators and resellers have the API.** A token is created with the permissions it may use, chosen in groups on *Profile → API tokens* (Hosting, Server, Security, Administration), or *Everything*; it never has more than its owner, and managing includes viewing. A call outside a token's permissions answers `403 scope_missing` and names the permission. Hosting customers can no longer create or use tokens (`403 api_not_available`); the token page is not shown to them, and tokens they made earlier stop working (nothing is deleted). Existing tokens of administrators and resellers keep working as *Everything*.
 - **The profile page is in tabs** (Account, Security, API tokens) instead of one long page; an address such as `/profile#two-factor` opens the right tab.
+- **Website menus.** *About us* is its own menu item after *Support*; *Sponsors* and *Community & source* moved from *Resources* to *Support*; *Reviews* joined *Resources*. The footer follows.
 
 ### Fixed
 
 - **File manager: copying or moving onto a name that is taken now offers to replace it.** Before, the operation stopped with an "already exists" error. The manager now asks "Replace it?"; on yes, the existing file or folder is moved to the website's trash (restorable) and the copy or move goes ahead. The agent actions `files.copy` and `files.rename` take an `overwrite` flag for this; a file cannot replace itself, something inside it, or a top-level website folder.
-
-### Added
-
-- **API: a website's own settings** (9 new endpoints, in the API reference): read and change names (aliases), document-root folder, upload limit, proxy address, directory listing and uptime checks (`GET`/`PATCH /websites/{id}/settings`); re-apply a website's configuration (`POST …/reapply`); check and repair the permissions of its files (`GET …/permissions`, `POST …/permissions/repair`); manage environment variables (`GET`/`PATCH …/env`: `set` and `unset`, **values are write-only**, the API lists names only); and read and change the runtime of a Node.js or Python website (`GET`/`PATCH …/runtime`). The same services as the web interface run, so the same validation, check-before-reload and rollback apply. `SiteEnvService` gained `change()` (set/unset without rewriting the whole file). Security headers and cache rules follow in a later change.
 
 ## [2.3.0] — 2026-11-24
 

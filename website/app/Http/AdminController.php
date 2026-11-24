@@ -7,6 +7,9 @@ namespace NimVorSite\Http;
 use NimVorSite\Core\Ctx;
 use NimVorSite\Core\Response;
 use NimVorSite\Repositories\BuildRequests;
+use NimVorSite\Repositories\Posts;
+use NimVorSite\Repositories\Reviews;
+use NimVorSite\Core\App;
 use NimVorSite\Repositories\Sponsors;
 use NimVorSite\Services\GitHubException;
 use NimVorSite\Services\PatreonException;
@@ -116,6 +119,9 @@ final class AdminController extends Controller
         if (mb_strlen($v->value('excerpt')) > 400) {
             $v->fail('excerpt', 'The summary can have at most 400 characters.');
         }
+        if (!Posts::validImage($v->value('image'))) {
+            $v->fail('image', 'Enter a path on this site (such as /assets/blog/my-post/cover.jpg) or an https:// address, or leave it empty.');
+        }
         $slug = Text::slug($v->value('slug') !== '' ? $v->value('slug') : $v->value('title'));
         if ($this->app->posts->slugTaken($slug, $id)) {
             $v->fail('slug', 'Another post already uses this address. Change it.');
@@ -123,7 +129,7 @@ final class AdminController extends Controller
         if ($v->fails()) {
             return $this->invalid($ctx, 'admin/post-form', $v->errors(), ['post' => $existing]);
         }
-        $this->app->posts->save($id, $slug, $v->value('title'), $v->value('excerpt'), $v->value('body'), $v->value('status'), (int) $ctx->user()['id']);
+        $this->app->posts->save($id, $slug, $v->value('title'), $v->value('excerpt'), $v->value('body'), $v->value('status'), (int) $ctx->user()['id'], $v->value('image'));
         $this->app->cache->delete('blog:list');
         $this->app->cache->delete('report:overview');
         $ctx->flash('success', 'The post was saved.');
@@ -151,6 +157,119 @@ final class AdminController extends Controller
         $this->app->cache->delete('blog:list');
         $ctx->flash('success', 'Guides loaded: ' . $r['added'] . ' added, ' . $r['updated'] . ' updated, ' . $r['kept'] . ' unchanged or kept as you edited them.');
         return $ctx->redirect('/admin/posts');
+    }
+
+    /** @return array<string, mixed> what the settings page shows */
+    private function settingsPage(): array
+    {
+        $saved = [];
+        foreach (array_keys(App::SOCIAL) as $k) {
+            $saved['social_' . $k] = (string) ($this->app->state->get('site:social_' . $k) ?? '');
+        }
+        $saved['trustpilot'] = (string) ($this->app->state->get('site:trustpilot') ?? '');
+        return ['social' => App::SOCIAL, 'saved' => $saved, 'trustpilotDefault' => App::TRUSTPILOT_DEFAULT];
+    }
+
+    public function settings(Ctx $ctx): Response
+    {
+        return $ctx->render('admin/settings', $this->settingsPage());
+    }
+
+    /** The social profiles shown as icons in the footer and the Trustpilot review address. Empty hides or resets one. */
+    public function settingsSave(Ctx $ctx): Response
+    {
+        $post = $ctx->req->post;
+        $v = new Validator($post);
+        $values = [];
+        $hosts = ['youtube' => '(www\.|m\.)?(youtube\.com|youtu\.be)', 'facebook' => '(www\.|m\.)?(facebook\.com|fb\.com)', 'x' => '(www\.)?(x\.com|twitter\.com)', 'reddit' => '(www\.|old\.)?reddit\.com'];
+        foreach (App::SOCIAL as $k => $label) {
+            $url = $v->value('social_' . $k);
+            if ($url !== '' && preg_match('#^https://' . $hosts[$k] . '/[^\s<>"\']{0,200}$#i', $url) !== 1) {
+                $v->fail('social_' . $k, 'Enter the address of your ' . $label . ' page, starting with https://.');
+            }
+            $values['site:social_' . $k] = $url;
+        }
+        $tp = $v->value('trustpilot');
+        if ($tp !== '' && preg_match('#^https://([a-z]{2,3}\.)?(www\.)?trustpilot\.com/[^\s<>"\']{1,200}$#i', $tp) !== 1) {
+            $v->fail('trustpilot', 'Enter your Trustpilot page, such as ' . App::TRUSTPILOT_DEFAULT . '.');
+        }
+        $values['site:trustpilot'] = $tp;
+        if ($v->fails()) {
+            return $this->invalid($ctx, 'admin/settings', $v->errors(), $this->settingsPage());
+        }
+        foreach ($values as $k => $val) {
+            $this->app->state->set($k, $val);
+        }
+        $this->app->cache->delete('site:links');
+        $this->app->cache->delete('reviews:public:3');
+        $this->app->cache->delete('reviews:public:100');
+        $ctx->flash('success', 'The settings were saved.');
+        return $ctx->redirect('/admin/settings');
+    }
+
+    public function reviews(Ctx $ctx): Response
+    {
+        return $ctx->render('admin/reviews', ['reviews' => $this->app->reviews->all(), 'sources' => Reviews::SOURCES]);
+    }
+
+    /** Adds a review by hand: one copied from Trustpilot, a message from a customer. It is published at once. */
+    public function reviewAdd(Ctx $ctx): Response
+    {
+        $v = new Validator($ctx->req->post);
+        $v->text('name', 1, 120, 'name')->text('body', 10, 2000, 'Review')->in('source', ['trustpilot', 'manual'], 'Choose where it comes from.');
+        $rating = (int) $v->value('rating');
+        if ($rating < 1 || $rating > 5) {
+            $v->fail('rating', 'Choose 1 to 5 stars.');
+        }
+        $url = $v->value('url');
+        if ($url !== '' && preg_match('#^https://[^\s<>"\']{1,240}$#', $url) !== 1) {
+            $v->fail('url', 'Enter an https:// address, or leave it empty.');
+        }
+        foreach (['role' => 120, 'title' => 160] as $f => $max) {
+            if (mb_strlen($v->value($f)) > $max) {
+                $v->fail($f, 'At most ' . $max . ' characters.');
+            }
+        }
+        if ($v->fails()) {
+            return $this->invalid($ctx, 'admin/reviews', $v->errors(), ['reviews' => $this->app->reviews->all(), 'sources' => Reviews::SOURCES]);
+        }
+        $this->app->reviews->add($v->value('name'), $v->value('role'), $rating, $v->value('title'), $v->value('body'), $v->value('source'), $url, 'published');
+        $this->clearReviewCache();
+        $ctx->flash('success', 'The review was added and is shown on the site.');
+        return $ctx->redirect('/admin/reviews');
+    }
+
+    /** @param array<string, string> $params */
+    public function reviewStatus(Ctx $ctx, array $params): Response
+    {
+        $id = $this->intParam($params, 'id');
+        $status = (string) ($ctx->req->post['status'] ?? '');
+        if ($id === null || $this->app->reviews->find($id) === null || !in_array($status, Reviews::STATUSES, true)) {
+            return $this->app->error($ctx, 404);
+        }
+        $this->app->reviews->setStatus($id, $status);
+        $this->clearReviewCache();
+        $ctx->flash('success', $status === 'published' ? 'The review is shown on the site.' : ($status === 'hidden' ? 'The review is hidden.' : 'The review is waiting for approval.'));
+        return $ctx->redirect('/admin/reviews');
+    }
+
+    /** @param array<string, string> $params */
+    public function reviewDelete(Ctx $ctx, array $params): Response
+    {
+        $id = $this->intParam($params, 'id');
+        if ($id === null || $this->app->reviews->find($id) === null) {
+            return $this->app->error($ctx, 404);
+        }
+        $this->app->reviews->delete($id);
+        $this->clearReviewCache();
+        $ctx->flash('success', 'The review was deleted.');
+        return $ctx->redirect('/admin/reviews');
+    }
+
+    private function clearReviewCache(): void
+    {
+        $this->app->cache->delete('reviews:public:3');
+        $this->app->cache->delete('reviews:public:100');
     }
 
     /** @return array<string, mixed> what the sponsors admin page shows */

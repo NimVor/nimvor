@@ -55,6 +55,7 @@ final class App
     public readonly TicketService $ticketService;
     public readonly BuildRequests $requests;
     public readonly Sponsors $sponsors;
+    public readonly \NimVorSite\Repositories\Reviews $reviews;
     public readonly BlogImporter $blogImporter;
     public readonly Videos $videos;
     public readonly VideoStore $videoStore;
@@ -94,6 +95,7 @@ final class App
         $this->blogImporter = new BlogImporter($this->posts, $root . '/content/blog', ($config['blog_autoload'] ?? true) === false ? null : $this->state);
         $this->requests = new BuildRequests($db);
         $this->sponsors = new Sponsors($db);
+        $this->reviews = new \NimVorSite\Repositories\Reviews($db);
         $this->videos = new Videos($db);
         $vcfg = (array) ($config['videos'] ?? []);
         $this->videoStore = new VideoStore((string) ($vcfg['dir'] ?? $root . '/storage/videos'), (int) ($vcfg['max_mb'] ?? 500) * 1048576, $vcfg['move'] ?? null);
@@ -156,6 +158,34 @@ final class App
         return ['github' => $on('github'), 'patreon' => $on('patreon'), 'manual' => $on('manual'), 'patreon_url' => (string) ($this->state->get('sponsors:patreon_url') ?? '')];
     }
 
+    /** The social profiles an administrator can set (key => label), shown as icons in the footer. */
+    public const SOCIAL = ['youtube' => 'YouTube', 'facebook' => 'Facebook', 'x' => 'X', 'reddit' => 'Reddit'];
+    public const TRUSTPILOT_DEFAULT = 'https://www.trustpilot.com/review/nimvor.com';
+
+    /**
+     * The links the footer shows, from Admin → Settings: the social profiles that have an address, and where to
+     * review NimVor on Trustpilot. Cached for five minutes; saving the settings clears it.
+     *
+     * @return array{social: array<string, string>, trustpilot: string}
+     */
+    public function siteLinks(): array
+    {
+        $links = $this->cache->get('site:links');
+        if (!is_array($links)) {
+            $social = [];
+            foreach (array_keys(self::SOCIAL) as $k) {
+                $url = (string) ($this->state->get('site:social_' . $k) ?? '');
+                if ($url !== '') {
+                    $social[$k] = $url;
+                }
+            }
+            $tp = (string) ($this->state->get('site:trustpilot') ?? '');
+            $links = ['social' => $social, 'trustpilot' => $tp !== '' ? $tp : self::TRUSTPILOT_DEFAULT];
+            $this->cache->set('site:links', $links, 300);
+        }
+        return $links;
+    }
+
     public function root(): string
     {
         return $this->root;
@@ -203,6 +233,9 @@ final class App
         $r->add('POST', '/api/v1/installs', [$api, 'install']);
         $r->add('POST', '/api/v1/telemetry/{endpoint}', [$tel, 'receive']);
         $r->add('GET', '/resources/about', [$p, 'about']);
+        $r->add('GET', '/reviews', [$p, 'reviews']);
+        $r->add('POST', '/reviews', [$p, 'reviewSubmit']);
+        $r->add('GET', '/resources/blog/{slug}/cover.svg', [$p, 'postCover']);
         $r->add('GET', '/support', [$p, 'support']);
         $r->add('GET', '/support/contact', [$p, 'contact']);
         $r->add('POST', '/support/contact', [$p, 'contactSubmit']);
@@ -272,6 +305,12 @@ final class App
         $r->add('POST', '/admin/videos/{id}/edit', [$m, 'videoEdit'], 'admin');
         $r->add('POST', '/admin/videos/{id}/publish', [$m, 'videoPublish'], 'admin');
         $r->add('POST', '/admin/videos/{id}/delete', [$m, 'videoDelete'], 'admin');
+        $r->add('GET', '/admin/settings', [$m, 'settings'], 'admin');
+        $r->add('POST', '/admin/settings', [$m, 'settingsSave'], 'admin');
+        $r->add('GET', '/admin/reviews', [$m, 'reviews'], 'admin');
+        $r->add('POST', '/admin/reviews', [$m, 'reviewAdd'], 'admin');
+        $r->add('POST', '/admin/reviews/{id}/status', [$m, 'reviewStatus'], 'admin');
+        $r->add('POST', '/admin/reviews/{id}/delete', [$m, 'reviewDelete'], 'admin');
         $r->add('GET', '/admin/content', [$m, 'content'], 'admin');
         $r->add('POST', '/admin/content/docs-sync', [$m, 'docsSync'], 'admin');
         $r->add('POST', '/admin/sponsors/{id}/delete', [$m, 'sponsorDelete'], 'admin');

@@ -33,7 +33,9 @@ $full = ($v->meta('title') !== '' ? $v->meta('title') . ' · ' : '') . 'NimVor';
             <a href="/admin/posts"<?= $v->active('/admin/posts') ?>><?= $v->icon('pen', 18) ?>Blog</a>
             <a href="/admin/videos"<?= $v->active('/admin/videos') ?>><?= $v->icon('play', 18) ?>Videos</a>
             <a href="/admin/sponsors"<?= $v->active('/admin/sponsors') ?>><?= $v->icon('heart', 18) ?>Sponsors</a>
+            <a href="/admin/reviews"<?= $v->active('/admin/reviews') ?>><?= $v->icon('star', 18) ?>Reviews</a>
             <a href="/admin/content"<?= $v->active('/admin/content') ?>><?= $v->icon('book', 18) ?>Docs and stats</a>
+            <a href="/admin/settings"<?= $v->active('/admin/settings') ?>><?= $v->icon('tool', 18) ?>Settings</a>
             <h5>Your account</h5>
             <a href="/account"><?= $v->icon('users', 18) ?>Client view</a>
         <?php else: ?>

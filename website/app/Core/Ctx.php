@@ -24,6 +24,7 @@ final class Ctx
         $this->view->setCsrfProvider(fn (): string => $this->session->csrfToken());
         $this->view->share('flash', $this->session->pullFlash());
         $this->view->share('user', $this->auth->user());
+        $this->view->share('siteLinks', $this->app->siteLinks());
         return Response::html($this->view->render($template, $data), $status);
     }
 

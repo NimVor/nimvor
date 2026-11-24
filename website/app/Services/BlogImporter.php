@@ -61,21 +61,21 @@ final class BlogImporter
             }
             $existing = $this->posts->bySlugAny($post['slug']);
             if ($existing === null) {
-                $this->posts->importPost($post['slug'], $post['title'], $post['excerpt'], $post['body'], $post['date'], sha1($post['raw']));
+                $this->posts->importPost($post['slug'], $post['title'], $post['excerpt'], $post['body'], $post['date'], sha1($post['raw']), $post['image']);
                 $r['added']++;
             } elseif ((string) ($existing['source_sha'] ?? '') === sha1($post['raw'])) {
                 $r['kept']++;
             } elseif ($existing['source_sha'] === null && !$replaceEdited) {
                 $r['kept']++; // written by hand under Admin: not ours to replace
             } else {
-                $this->posts->importPost($post['slug'], $post['title'], $post['excerpt'], $post['body'], $post['date'], sha1($post['raw']));
+                $this->posts->importPost($post['slug'], $post['title'], $post['excerpt'], $post['body'], $post['date'], sha1($post['raw']), $post['image']);
                 $r['updated']++;
             }
         }
         return $r;
     }
 
-    /** @return array{slug: string, title: string, excerpt: string, date: string, body: string, raw: string}|null */
+    /** @return array{slug: string, title: string, excerpt: string, image: string, date: string, body: string, raw: string}|null */
     public static function parse(string $raw): ?array
     {
         $raw = str_replace("\r\n", "\n", $raw);
@@ -92,6 +92,7 @@ final class BlogImporter
             return null;
         }
         $date = isset($h['date']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $h['date']) === 1 ? $h['date'] : gmdate('Y-m-d');
-        return ['slug' => $h['slug'], 'title' => $h['title'], 'excerpt' => mb_substr($h['excerpt'] ?? '', 0, 400), 'date' => $date, 'body' => trim($m[2]), 'raw' => $raw];
+        $image = Posts::validImage($h['image'] ?? '') ? ($h['image'] ?? '') : '';
+        return ['slug' => $h['slug'], 'title' => $h['title'], 'excerpt' => mb_substr($h['excerpt'] ?? '', 0, 400), 'image' => $image, 'date' => $date, 'body' => trim($m[2]), 'raw' => $raw];
     }
 }

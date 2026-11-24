@@ -14,6 +14,7 @@ $v->set('description', 'News, releases and how-tos from the NimVor project.');
             <div class="grid grid-3">
                 <?php foreach ($posts as $p): ?>
                     <article class="card post-card">
+                        <a class="post-cover" href="/resources/blog/<?= e($p['slug']) ?>" tabindex="-1" aria-hidden="true"><img src="<?= e($p['cover']) ?>" width="1200" height="630" loading="lazy" decoding="async" alt=""></a>
                         <time datetime="<?= e(substr((string) $p['published_at'], 0, 10)) ?>"><?= e(substr((string) $p['published_at'], 0, 10)) ?></time>
                         <h3><a href="/resources/blog/<?= e($p['slug']) ?>"><?= e($p['title']) ?></a></h3>
                         <p class="muted"><?= e($p['excerpt']) ?></p>
