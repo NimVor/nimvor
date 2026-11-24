@@ -54,6 +54,14 @@
             "description": "Deploy a website from its connected Git repository."
         },
         {
+            "name": "Subdomains and redirects",
+            "description": "Subdomains and addon domains of a website, and its redirects.\n\nA subdomain (`blog.example.com`) or an addon domain (a different domain) is a website of its own, with its own document root, running as the same system account as its parent. They show in `GET /websites` too, and removing one is `DELETE /websites/{id}` with its id. Plan limits for subdomains, addon domains and websites apply. The web server configuration is checked before it is reloaded and a refused change is undone.\n\nRedirects are exact-path redirects of one website (up to 100)."
+        },
+        {
+            "name": "Applications",
+            "description": "The one-click application installer: WordPress, Laravel and the other applications the server offers.\n\nOnly applications the token's user may install are listed (a hosting customer sees what the provider made visible). An install creates the application's database and user in the same step, runs in the background and answers `202` with a `job_id` to follow with `GET /jobs/{id}`. Only one install into a folder can run at a time. Check what an install would do first with the `plan` endpoint, which changes nothing."
+        },
+        {
             "name": "Web protection",
             "description": "Per-website protection against abusive traffic: request-rate limits, an allow/deny list and a country restriction.\n\nEach change is written to the website's web server configuration, checked and reloaded; if the server refuses it the change is undone. A suspended account's protection cannot be changed (`409`). The server-wide lists and the ModSecurity firewall are administrator tools and are not part of this API yet."
         },
@@ -104,6 +112,10 @@
         {
             "name": "Cron jobs",
             "description": "Scheduled commands of a website, run as the website's system account.\n\nA change rewrites the server's cron file for the website, which is checked; if the server refuses it the change is undone. A website can have at most 200 jobs and the plan's cron limit applies. A suspended account's jobs do not run (their settings are kept)."
+        },
+        {
+            "name": "Workers",
+            "description": "Background workers of a website: queue workers, Node.js and Python apps and other long-running processes, run by systemd as the website's system account (`nimvor-worker-<name>.service`) and restarted by the rules you set.\n\nA change is written and started by the server; if it refuses it the change is undone. The plan's worker limit applies. The values of a worker's environment variables are never returned (their names are), because they often hold secrets."
         },
         {
             "name": "FTP and SFTP",
@@ -1834,6 +1846,1070 @@
                     },
                     "409": {
                         "$ref": "#/components/responses/Conflict"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/websites/{id}/subdomains": {
+            "get": {
+                "operationId": "listSubdomains",
+                "tags": [
+                    "Subdomains and redirects"
+                ],
+                "summary": "List a website's subdomains",
+                "x-permission": "websites.view",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id (the parent).",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The subdomains.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/ChildWebsite"
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": [
+                                        {
+                                            "id": 24,
+                                            "domain": "blog.bluebird-cafe.example",
+                                            "aliases": [],
+                                            "kind": "php",
+                                            "document_root": "/home/nimvor/sites/blog.bluebird-cafe.example/public_html",
+                                            "https": false,
+                                            "enabled": true,
+                                            "created_at": "2026-11-24T08:00:00Z"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "createSubdomain",
+                "tags": [
+                    "Subdomains and redirects"
+                ],
+                "summary": "Create a subdomain",
+                "description": "Creates `<subdomain>.<website domain>` as a website of the same type and PHP version as its parent. With `dns: true` an `A` record for it is added to the parent's DNS zone (when the parent has one and the server's default address is set).",
+                "x-permission": "websites.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id (the parent).",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "subdomain"
+                                ],
+                                "properties": {
+                                    "subdomain": {
+                                        "type": "string",
+                                        "description": "The label before the parent domain; `www` is not allowed (it is an alias of the website itself).",
+                                        "examples": [
+                                            "blog"
+                                        ]
+                                    },
+                                    "dns": {
+                                        "type": "boolean",
+                                        "default": false,
+                                        "description": "Also add an `A` record to the parent's DNS zone."
+                                    }
+                                }
+                            },
+                            "example": {
+                                "subdomain": "blog",
+                                "dns": true
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "The subdomain.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "allOf": [
+                                                {
+                                                    "$ref": "#/components/schemas/ChildWebsite"
+                                                }
+                                            ],
+                                            "properties": {
+                                                "dns_record_added": {
+                                                    "type": "boolean",
+                                                    "description": "For a subdomain created with `dns: true`: an `A` record was added to the parent's DNS zone. False when there is no zone or the record already existed (add it on the DNS endpoints)."
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "id": 24,
+                                        "domain": "blog.bluebird-cafe.example",
+                                        "aliases": [],
+                                        "kind": "php",
+                                        "document_root": "/home/nimvor/sites/blog.bluebird-cafe.example/public_html",
+                                        "https": false,
+                                        "enabled": true,
+                                        "created_at": "2026-11-24T08:00:00Z",
+                                        "dns_record_added": true
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/websites/{id}/addons": {
+            "get": {
+                "operationId": "listAddonDomains",
+                "tags": [
+                    "Subdomains and redirects"
+                ],
+                "summary": "List a website's addon domains",
+                "x-permission": "websites.view",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id (the parent).",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The addon domains.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/ChildWebsite"
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": [
+                                        {
+                                            "domain": "harbor-books.example",
+                                            "document_root": "/home/nimvor/sites/harbor-books.example/public_html",
+                                            "id": 24,
+                                            "aliases": [],
+                                            "kind": "php",
+                                            "https": false,
+                                            "enabled": true,
+                                            "created_at": "2026-11-24T08:00:00Z"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "createAddonDomain",
+                "tags": [
+                    "Subdomains and redirects"
+                ],
+                "summary": "Add an addon domain",
+                "description": "Hosts another domain as a website of its own under the same system account. The domain must not be a subdomain of the parent (create it as a subdomain). Point the domain's DNS to this server separately.",
+                "x-permission": "websites.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id (the parent).",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "domain"
+                                ],
+                                "properties": {
+                                    "domain": {
+                                        "type": "string",
+                                        "examples": [
+                                            "harbor-books.example"
+                                        ]
+                                    },
+                                    "www": {
+                                        "type": "boolean",
+                                        "default": false,
+                                        "description": "Also serve `www.<domain>`."
+                                    }
+                                }
+                            },
+                            "example": {
+                                "domain": "harbor-books.example",
+                                "www": true
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "The addon domain.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/ChildWebsite"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "domain": "harbor-books.example",
+                                        "aliases": [
+                                            "www.harbor-books.example"
+                                        ],
+                                        "id": 24,
+                                        "kind": "php",
+                                        "document_root": "/home/nimvor/sites/blog.bluebird-cafe.example/public_html",
+                                        "https": false,
+                                        "enabled": true,
+                                        "created_at": "2026-11-24T08:00:00Z"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/websites/{id}/redirects": {
+            "get": {
+                "operationId": "listRedirects",
+                "tags": [
+                    "Subdomains and redirects"
+                ],
+                "summary": "List a website's redirects",
+                "x-permission": "websites.view",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id (the parent).",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The redirects.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Redirect"
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": [
+                                        {
+                                            "from": "/old-menu",
+                                            "to": "https://bluebird-cafe.example/menu",
+                                            "code": 301
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "addRedirect",
+                "tags": [
+                    "Subdomains and redirects"
+                ],
+                "summary": "Add a redirect",
+                "description": "Redirects one exact path. A path can have one redirect (delete it first to replace it) and a page cannot redirect to itself.",
+                "x-permission": "websites.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id (the parent).",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "from",
+                                    "to"
+                                ],
+                                "properties": {
+                                    "from": {
+                                        "type": "string"
+                                    },
+                                    "to": {
+                                        "type": "string"
+                                    },
+                                    "code": {
+                                        "type": "integer",
+                                        "enum": [
+                                            301,
+                                            302
+                                        ],
+                                        "default": 301
+                                    }
+                                }
+                            },
+                            "example": {
+                                "from": "/old-menu",
+                                "to": "https://bluebird-cafe.example/menu",
+                                "code": 301
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "The redirect.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/Redirect"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "from": "/old-menu",
+                                        "to": "https://bluebird-cafe.example/menu",
+                                        "code": 301
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "deleteRedirect",
+                "tags": [
+                    "Subdomains and redirects"
+                ],
+                "summary": "Delete a redirect",
+                "x-permission": "websites.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id (the parent).",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "required": true,
+                        "description": "The redirect's path, exactly as the list shows it (URL-encode it).",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "example": "/old-menu"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "deleted": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "deleted": "/old-menu"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/apps": {
+            "get": {
+                "operationId": "listApps",
+                "tags": [
+                    "Applications"
+                ],
+                "summary": "List the applications that can be installed",
+                "description": "Grouped by category. `installer_enabled` is false when the provider turned the installer off (then the list is empty).",
+                "x-permission": "apps.install",
+                "responses": {
+                    "200": {
+                        "description": "The catalog.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "installer_enabled": {
+                                                    "type": "boolean"
+                                                },
+                                                "categories": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "category": {
+                                                                "type": "string"
+                                                            },
+                                                            "name": {
+                                                                "type": "string"
+                                                            },
+                                                            "apps": {
+                                                                "type": "array",
+                                                                "items": {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "slug": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "name": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "description": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "needs_database": {
+                                                                            "type": "boolean"
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "installer_enabled": true,
+                                        "categories": [
+                                            {
+                                                "category": "blogs-cms",
+                                                "name": "Blogs & CMS",
+                                                "apps": [
+                                                    {
+                                                        "slug": "wordpress",
+                                                        "name": "WordPress",
+                                                        "description": "The world's most popular blog and website builder.",
+                                                        "needs_database": true
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    }
+                }
+            }
+        },
+        "/websites/{id}/apps": {
+            "get": {
+                "operationId": "listWebsiteApps",
+                "tags": [
+                    "Applications"
+                ],
+                "summary": "List a website's installations",
+                "description": "Every install into the website, newest first, with its result. Running installs are brought up to date first.",
+                "x-permission": "apps.install",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The installations.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/AppInstall"
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": [
+                                        {
+                                            "id": 7,
+                                            "app": "wordpress",
+                                            "path": "public_html",
+                                            "status": "succeeded",
+                                            "version": "6.8",
+                                            "error": "",
+                                            "admin_user": "owner",
+                                            "database": "bluebird_wp",
+                                            "job_id": "3f9a1c2b7d4e5a60",
+                                            "created_at": "2026-11-24T08:00:00Z",
+                                            "finished_at": "2026-11-24T08:01:30Z"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    }
+                }
+            }
+        },
+        "/websites/{id}/apps/{app}/plan": {
+            "get": {
+                "operationId": "planAppInstall",
+                "tags": [
+                    "Applications"
+                ],
+                "summary": "Check what an install would do",
+                "description": "A dry run: the requirements, the changes and any conflicts, worked out by the server without changing anything. `409` when the application does not fit the website (for example a PHP application on a static website).",
+                "x-permission": "apps.install",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "app",
+                        "in": "path",
+                        "required": true,
+                        "description": "The application's `slug` from `GET /apps`.",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "example": "wordpress"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The plan.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "ok": true,
+                                        "requirements": [],
+                                        "changes": [
+                                            "Download WordPress into public_html",
+                                            "Create a database"
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/websites/{id}/apps/{app}": {
+            "post": {
+                "operationId": "installApp",
+                "tags": [
+                    "Applications"
+                ],
+                "summary": "Install an application",
+                "description": "Creates a database and user for it, then installs it in the background. For WordPress (and applications built on it) a strong administrator password is generated and returned **once**. Which fields apply depends on the application: `title`, `admin_user` and `admin_email` for WordPress and the applications that create an administrator, `path` for applications that go in their own folder, `migrate` for Laravel. A folder that already has an install running answers `409`.",
+                "x-permission": "apps.install",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "app",
+                        "in": "path",
+                        "required": true,
+                        "description": "The application's `slug` from `GET /apps`.",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "example": "wordpress"
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "title": {
+                                        "type": "string",
+                                        "maxLength": 100,
+                                        "description": "The site's title (WordPress)."
+                                    },
+                                    "admin_user": {
+                                        "type": "string",
+                                        "pattern": "^[A-Za-z0-9._@-]{3,60}$",
+                                        "default": "admin"
+                                    },
+                                    "admin_email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "description": "The administrator's address."
+                                    },
+                                    "path": {
+                                        "type": "string",
+                                        "description": "A new folder name for applications that do not install into the document root.",
+                                        "examples": [
+                                            "app"
+                                        ]
+                                    },
+                                    "migrate": {
+                                        "type": "boolean",
+                                        "description": "Laravel: run the database migrations."
+                                    },
+                                    "target_id": {
+                                        "type": "integer",
+                                        "description": "Install into one of this website's subdomains instead (its website id)."
+                                    }
+                                }
+                            },
+                            "example": {
+                                "title": "Bluebird Café",
+                                "admin_user": "owner",
+                                "admin_email": "owner@bluebird-cafe.example"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "The install started.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "job_id": {
+                                                    "type": "string"
+                                                },
+                                                "website_id": {
+                                                    "type": "integer",
+                                                    "description": "The website it is installed into."
+                                                },
+                                                "admin_user": {
+                                                    "type": "string"
+                                                },
+                                                "admin_password": {
+                                                    "type": "string",
+                                                    "description": "Only for applications that create an administrator. Shown once."
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "job_id": "3f9a1c2b7d4e5a60",
+                                        "website_id": 21,
+                                        "admin_user": "owner",
+                                        "admin_password": "Kq9ZsAa3mR1tVxB7pLw2"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
                     },
                     "429": {
                         "$ref": "#/components/responses/RateLimited"
@@ -10227,6 +11303,752 @@
                 }
             }
         },
+        "/websites/{id}/workers": {
+            "get": {
+                "operationId": "listWorkers",
+                "tags": [
+                    "Workers"
+                ],
+                "summary": "List a website's workers",
+                "description": "With what systemd reports for each.",
+                "x-permission": "workers.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The workers.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Worker"
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": [
+                                        {
+                                            "id": 5,
+                                            "name": "Queue worker",
+                                            "unit": "nimvor-worker-shop-queue-worker.service",
+                                            "command": "php artisan queue:work --sleep=3",
+                                            "directory": "",
+                                            "runtime": "",
+                                            "restart": "always",
+                                            "procs": 2,
+                                            "memory_mb": 512,
+                                            "enabled": true,
+                                            "env_keys": [
+                                                "QUEUE",
+                                                "APP_ENV"
+                                            ],
+                                            "state": {
+                                                "active": "active",
+                                                "sub": "running",
+                                                "running": true,
+                                                "procs_running": 2,
+                                                "memory_bytes": 96468992,
+                                                "active_since": "2026-11-24T08:10:00Z"
+                                            },
+                                            "created_at": "2026-11-24T08:00:00Z",
+                                            "updated_at": "2026-11-24T08:00:00Z"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "createWorker",
+                "tags": [
+                    "Workers"
+                ],
+                "summary": "Create a worker",
+                "description": "Writes the unit, and starts it unless `enabled` is false.",
+                "x-permission": "workers.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "name",
+                                    "command"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "maxLength": 100,
+                                        "examples": [
+                                            "Queue worker"
+                                        ]
+                                    },
+                                    "command": {
+                                        "type": "string",
+                                        "maxLength": 2000,
+                                        "description": "One line, run from `directory` as the website's system account.",
+                                        "examples": [
+                                            "php artisan queue:work --sleep=3"
+                                        ]
+                                    },
+                                    "directory": {
+                                        "type": "string",
+                                        "maxLength": 200,
+                                        "description": "A folder inside the website the command runs from; empty means the website's folder."
+                                    },
+                                    "runtime": {
+                                        "type": "string",
+                                        "description": "`node:<version>` or `python:<version>` of an installed runtime; empty or `system` uses the server's own.",
+                                        "examples": [
+                                            "node:22"
+                                        ]
+                                    },
+                                    "env": {
+                                        "type": "object",
+                                        "additionalProperties": {
+                                            "type": "string"
+                                        },
+                                        "description": "Variables for this worker, names in capitals (up to 50). They are added to the website's own variables; the worker's win. **Replaces the worker's whole set.** The values are never returned.",
+                                        "examples": [
+                                            {
+                                                "QUEUE": "default"
+                                            }
+                                        ]
+                                    },
+                                    "restart": {
+                                        "type": "string",
+                                        "enum": [
+                                            "always",
+                                            "on-failure",
+                                            "no"
+                                        ],
+                                        "default": "always"
+                                    },
+                                    "procs": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 20,
+                                        "default": 1,
+                                        "description": "How many identical copies run."
+                                    },
+                                    "memory_mb": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 65536,
+                                        "default": 0,
+                                        "description": "Memory limit per copy; 0 means none."
+                                    },
+                                    "enabled": {
+                                        "type": "boolean",
+                                        "default": true,
+                                        "description": "False stops the worker; it stays in the list. A suspended account's workers stay stopped."
+                                    }
+                                }
+                            },
+                            "example": {
+                                "name": "Queue worker",
+                                "command": "php artisan queue:work --sleep=3",
+                                "procs": 2,
+                                "memory_mb": 512,
+                                "env": {
+                                    "QUEUE": "default"
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "The worker.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/Worker"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "id": 5,
+                                        "name": "Queue worker",
+                                        "unit": "nimvor-worker-shop-queue-worker.service",
+                                        "command": "php artisan queue:work --sleep=3",
+                                        "directory": "",
+                                        "runtime": "",
+                                        "restart": "always",
+                                        "procs": 2,
+                                        "memory_mb": 512,
+                                        "enabled": true,
+                                        "env_keys": [
+                                            "QUEUE",
+                                            "APP_ENV"
+                                        ],
+                                        "state": {
+                                            "active": "active",
+                                            "sub": "running",
+                                            "running": true,
+                                            "procs_running": 2,
+                                            "memory_bytes": 96468992,
+                                            "active_since": "2026-11-24T08:10:00Z"
+                                        },
+                                        "created_at": "2026-11-24T08:00:00Z",
+                                        "updated_at": "2026-11-24T08:00:00Z"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/websites/{id}/workers/{worker}": {
+            "get": {
+                "operationId": "getWorker",
+                "tags": [
+                    "Workers"
+                ],
+                "summary": "Get a worker",
+                "x-permission": "workers.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "worker",
+                        "in": "path",
+                        "required": true,
+                        "description": "The worker's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The worker.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/Worker"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "id": 5,
+                                        "name": "Queue worker",
+                                        "unit": "nimvor-worker-shop-queue-worker.service",
+                                        "command": "php artisan queue:work --sleep=3",
+                                        "directory": "",
+                                        "runtime": "",
+                                        "restart": "always",
+                                        "procs": 2,
+                                        "memory_mb": 512,
+                                        "enabled": true,
+                                        "env_keys": [
+                                            "QUEUE",
+                                            "APP_ENV"
+                                        ],
+                                        "state": {
+                                            "active": "active",
+                                            "sub": "running",
+                                            "running": true,
+                                            "procs_running": 2,
+                                            "memory_bytes": 96468992,
+                                            "active_since": "2026-11-24T08:10:00Z"
+                                        },
+                                        "created_at": "2026-11-24T08:00:00Z",
+                                        "updated_at": "2026-11-24T08:00:00Z"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "updateWorker",
+                "tags": [
+                    "Workers"
+                ],
+                "summary": "Change a worker",
+                "description": "Only the fields you send change (`env` replaces the whole set). The worker is rewritten and restarted. `{\"enabled\": false}` stops it.",
+                "x-permission": "workers.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "worker",
+                        "in": "path",
+                        "required": true,
+                        "description": "The worker's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "maxLength": 100,
+                                        "examples": [
+                                            "Queue worker"
+                                        ]
+                                    },
+                                    "command": {
+                                        "type": "string",
+                                        "maxLength": 2000,
+                                        "description": "One line, run from `directory` as the website's system account.",
+                                        "examples": [
+                                            "php artisan queue:work --sleep=3"
+                                        ]
+                                    },
+                                    "directory": {
+                                        "type": "string",
+                                        "maxLength": 200,
+                                        "description": "A folder inside the website the command runs from; empty means the website's folder."
+                                    },
+                                    "runtime": {
+                                        "type": "string",
+                                        "description": "`node:<version>` or `python:<version>` of an installed runtime; empty or `system` uses the server's own.",
+                                        "examples": [
+                                            "node:22"
+                                        ]
+                                    },
+                                    "env": {
+                                        "type": "object",
+                                        "additionalProperties": {
+                                            "type": "string"
+                                        },
+                                        "description": "Variables for this worker, names in capitals (up to 50). They are added to the website's own variables; the worker's win. **Replaces the worker's whole set.** The values are never returned.",
+                                        "examples": [
+                                            {
+                                                "QUEUE": "default"
+                                            }
+                                        ]
+                                    },
+                                    "restart": {
+                                        "type": "string",
+                                        "enum": [
+                                            "always",
+                                            "on-failure",
+                                            "no"
+                                        ],
+                                        "default": "always"
+                                    },
+                                    "procs": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 20,
+                                        "default": 1,
+                                        "description": "How many identical copies run."
+                                    },
+                                    "memory_mb": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 65536,
+                                        "default": 0,
+                                        "description": "Memory limit per copy; 0 means none."
+                                    },
+                                    "enabled": {
+                                        "type": "boolean",
+                                        "default": true,
+                                        "description": "False stops the worker; it stays in the list. A suspended account's workers stay stopped."
+                                    }
+                                }
+                            },
+                            "example": {
+                                "procs": 4
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The worker, changed.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/Worker"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "procs": 4,
+                                        "id": 5,
+                                        "name": "Queue worker",
+                                        "unit": "nimvor-worker-shop-queue-worker.service",
+                                        "command": "php artisan queue:work --sleep=3",
+                                        "directory": "",
+                                        "runtime": "",
+                                        "restart": "always",
+                                        "memory_mb": 512,
+                                        "enabled": true,
+                                        "env_keys": [
+                                            "QUEUE",
+                                            "APP_ENV"
+                                        ],
+                                        "state": {
+                                            "active": "active",
+                                            "sub": "running",
+                                            "running": true,
+                                            "procs_running": 2,
+                                            "memory_bytes": 96468992,
+                                            "active_since": "2026-11-24T08:10:00Z"
+                                        },
+                                        "created_at": "2026-11-24T08:00:00Z",
+                                        "updated_at": "2026-11-24T08:00:00Z"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "deleteWorker",
+                "tags": [
+                    "Workers"
+                ],
+                "summary": "Delete a worker",
+                "description": "Stops it and removes its unit.",
+                "x-permission": "workers.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "worker",
+                        "in": "path",
+                        "required": true,
+                        "description": "The worker's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "deleted": {
+                                                    "type": "integer"
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "deleted": 5
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/websites/{id}/workers/{worker}/restart": {
+            "post": {
+                "operationId": "restartWorker",
+                "tags": [
+                    "Workers"
+                ],
+                "summary": "Restart a worker",
+                "description": "Restarts every copy (for example after a deploy). Not available for a suspended account (`409`).",
+                "x-permission": "workers.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "worker",
+                        "in": "path",
+                        "required": true,
+                        "description": "The worker's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The worker.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/Worker"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "id": 5,
+                                        "name": "Queue worker",
+                                        "unit": "nimvor-worker-shop-queue-worker.service",
+                                        "command": "php artisan queue:work --sleep=3",
+                                        "directory": "",
+                                        "runtime": "",
+                                        "restart": "always",
+                                        "procs": 2,
+                                        "memory_mb": 512,
+                                        "enabled": true,
+                                        "env_keys": [
+                                            "QUEUE",
+                                            "APP_ENV"
+                                        ],
+                                        "state": {
+                                            "active": "active",
+                                            "sub": "running",
+                                            "running": true,
+                                            "procs_running": 2,
+                                            "memory_bytes": 96468992,
+                                            "active_since": "2026-11-24T08:10:00Z"
+                                        },
+                                        "created_at": "2026-11-24T08:00:00Z",
+                                        "updated_at": "2026-11-24T08:00:00Z"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
         "/websites/{id}/ftp": {
             "get": {
                 "operationId": "listFtpAccounts",
@@ -13749,6 +15571,60 @@
                     }
                 }
             },
+            "AppInstall": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "app": {
+                        "type": "string"
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "The folder inside the website."
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "running",
+                            "succeeded",
+                            "failed",
+                            "unknown"
+                        ]
+                    },
+                    "version": {
+                        "type": "string"
+                    },
+                    "error": {
+                        "type": "string"
+                    },
+                    "admin_user": {
+                        "type": "string"
+                    },
+                    "database": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "The database created for it."
+                    },
+                    "job_id": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "finished_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    }
+                }
+            },
             "Backup": {
                 "type": "object",
                 "properties": {
@@ -13939,6 +15815,45 @@
                             "string",
                             "null"
                         ],
+                        "format": "date-time"
+                    }
+                }
+            },
+            "ChildWebsite": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "description": "The website's id; use it with the `/websites/{id}` endpoints."
+                    },
+                    "domain": {
+                        "type": "string"
+                    },
+                    "aliases": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "kind": {
+                        "type": "string",
+                        "enum": [
+                            "php",
+                            "static",
+                            "proxy"
+                        ]
+                    },
+                    "document_root": {
+                        "type": "string"
+                    },
+                    "https": {
+                        "type": "boolean"
+                    },
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "created_at": {
+                        "type": "string",
                         "format": "date-time"
                     }
                 }
@@ -14879,6 +16794,31 @@
                     }
                 }
             },
+            "Redirect": {
+                "type": "object",
+                "properties": {
+                    "from": {
+                        "type": "string",
+                        "description": "The path to redirect, starting with `/` (letters, digits and `. _ ~ - /`).",
+                        "examples": [
+                            "/old-menu"
+                        ]
+                    },
+                    "to": {
+                        "type": "string",
+                        "description": "A full address (`https://example.com/new`) or a path (`/new`)."
+                    },
+                    "code": {
+                        "type": "integer",
+                        "enum": [
+                            301,
+                            302
+                        ],
+                        "default": 301,
+                        "description": "`301` permanent, `302` temporary."
+                    }
+                }
+            },
             "ServiceUnit": {
                 "type": "object",
                 "properties": {
@@ -15227,6 +17167,124 @@
                     "created_at": {
                         "type": "string",
                         "format": "date-time"
+                    }
+                }
+            },
+            "Worker": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "unit": {
+                        "type": "string",
+                        "description": "The systemd unit."
+                    },
+                    "env_keys": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Names of the variables set (not their values)."
+                    },
+                    "state": {
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "description": "What systemd reports now; null when the server cannot say.",
+                        "properties": {
+                            "active": {
+                                "type": "string",
+                                "description": "For example `active` or `inactive`."
+                            },
+                            "sub": {
+                                "type": "string"
+                            },
+                            "running": {
+                                "type": "boolean",
+                                "description": "At least one copy is up."
+                            },
+                            "procs_running": {
+                                "type": "integer"
+                            },
+                            "memory_bytes": {
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "active_since": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date-time"
+                            }
+                        }
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "name": {
+                        "type": "string",
+                        "maxLength": 100,
+                        "examples": [
+                            "Queue worker"
+                        ]
+                    },
+                    "command": {
+                        "type": "string",
+                        "maxLength": 2000,
+                        "description": "One line, run from `directory` as the website's system account.",
+                        "examples": [
+                            "php artisan queue:work --sleep=3"
+                        ]
+                    },
+                    "directory": {
+                        "type": "string",
+                        "maxLength": 200,
+                        "description": "A folder inside the website the command runs from; empty means the website's folder."
+                    },
+                    "runtime": {
+                        "type": "string",
+                        "description": "`node:<version>` or `python:<version>` of an installed runtime; empty or `system` uses the server's own.",
+                        "examples": [
+                            "node:22"
+                        ]
+                    },
+                    "restart": {
+                        "type": "string",
+                        "enum": [
+                            "always",
+                            "on-failure",
+                            "no"
+                        ],
+                        "default": "always"
+                    },
+                    "procs": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 20,
+                        "default": 1,
+                        "description": "How many identical copies run."
+                    },
+                    "memory_mb": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 65536,
+                        "default": 0,
+                        "description": "Memory limit per copy; 0 means none."
+                    },
+                    "enabled": {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "False stops the worker; it stays in the list. A suspended account's workers stay stopped."
                     }
                 }
             },
