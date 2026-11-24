@@ -151,6 +151,17 @@ final class FeatureService
         return !in_array($feature, $this->disabledFor($user), true);
     }
 
+    /**
+     * A hosting account that may not see NimVor's scheduled (automatic) backups: the copies that have a
+     * schedule_id are hidden from it, in the web interface and the API alike.
+     *
+     * @param array<string, mixed> $user
+     */
+    public function hidesAutoBackups(array $user): bool
+    {
+        return ($user['role_scope'] ?? 'all') === 'own' && !$this->enabledFor($user, 'auto_backups');
+    }
+
     /** @param array<string, mixed> $user */
     public function permissionAllowed(array $user, string $permission): bool
     {

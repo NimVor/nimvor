@@ -41,6 +41,7 @@ final class ApiController
         private readonly AgentClient $agent,
         private readonly ServerContext $server,
         private readonly \NimVor\Services\NotificationService $notifications,
+        private readonly \NimVor\Services\FeatureService $features,
     ) {
     }
 
@@ -228,12 +229,13 @@ final class ApiController
         if ($s === null) {
             return self::notFound();
         }
-        return $this->guard(function () use ($s): Response {
+        return $this->guard(function () use ($r, $s): Response {
             $this->backups->refresh();
+            $hide = $this->features->hidesAutoBackups($this->user($r));
             return self::ok(array_map(static fn (array $b): array => [
                 'id' => (int) $b['id'], 'backup_id' => $b['backup_id'], 'label' => $b['label'], 'status' => $b['status'], 'size' => (int) $b['size'],
                 'encrypted' => $b['encrypted'], 'parts' => $b['parts'], 'created_at' => $b['created_at'], 'error' => $b['error'],
-            ], $this->backups->list($s)));
+            ], array_values(array_filter($this->backups->list($s), static fn (array $b): bool => !$hide || empty($b['schedule_id'])))));
         });
     }
 
