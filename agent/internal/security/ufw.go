@@ -24,6 +24,8 @@ type Rule struct {
 	From      string `json:"from"`      // "" = anywhere
 	Direction string `json:"direction"` // in, out or route
 	Comment   string `json:"comment"`
+	// Protected names what the rule keeps reachable and so cannot be deleted ("" = deletable).
+	Protected string `json:"protected,omitempty"`
 }
 
 // FirewallStatus is the state of the firewall.
@@ -144,16 +146,17 @@ func allowsPort(args []string, port int) bool {
 
 // sshPort returns the port sshd listens on (22 when unknown).
 func sshPort(ctx context.Context, env *host.Env) int {
-	if cfg, err := SSHEffective(ctx, env); err == nil {
-		if p, err := strconv.Atoi(strings.Fields(cfg["port"] + " 22")[0]); err == nil {
-			return p
-		}
-	}
-	return 22
+	return SSHPorts(ctx, env)[0]
 }
 
-// Firewall reads UFW state.
+// Firewall reads the firewall's state (UFW or firewalld).
 func Firewall(ctx context.Context, env *host.Env) (FirewallStatus, error) {
+	st, err := firewall(ctx, env)
+	markProtected(env, &st)
+	return st, err
+}
+
+func firewall(ctx context.Context, env *host.Env) (FirewallStatus, error) {
 	if useFirewalld(env) {
 		return firewalldStatus(ctx, env)
 	}
@@ -319,6 +322,9 @@ func (s *Service) AddRule(ctx context.Context, in RuleInput) (*Pending, error) {
 	if err != nil {
 		return nil, actions.InvalidParams(err.Error())
 	}
+	if why := blocksPanel(s.env, in); why != "" {
+		return nil, actions.Conflict(why)
+	}
 	if err := s.guard.Busy(); err != nil {
 		return nil, err
 	}
@@ -373,6 +379,9 @@ func (s *Service) DeleteRule(ctx context.Context, spec string) (*Pending, error)
 	}
 	if target == nil {
 		return nil, actions.NotFound("The rule no longer exists.")
+	}
+	if target.Protected != "" {
+		return nil, actions.Conflict(protectedDeleteMessage(*target))
 	}
 	if target.SSH && sshRules == 1 && st.Active {
 		return nil, actions.Conflict(fmt.Sprintf("This rule keeps SSH (port %d) reachable. Add another rule for SSH before deleting it.", st.SSHPort))

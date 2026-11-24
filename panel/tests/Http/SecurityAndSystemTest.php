@@ -43,6 +43,20 @@ final class SecurityAndSystemTest extends HttpTestCase
         self::assertStringContainsString('not installed', (string) $this->flash('error'));
     }
 
+    public function testPanelPortRuleHasNoDeleteButton(): void
+    {
+        $this->agent->succeed('security.pending', ['pending' => null]);
+        $this->agent->succeed('firewall.status', ['installed' => true, 'active' => true, 'default_incoming' => 'deny', 'default_outgoing' => 'allow', 'rules' => [
+            ['spec' => 'allow 8443/tcp', 'action' => 'allow', 'port' => '8443', 'proto' => 'tcp', 'protected' => 'NimVor panel (port 8443)'],
+            ['spec' => 'allow 80/tcp', 'action' => 'allow', 'port' => '80', 'proto' => 'tcp'],
+        ], 'ssh_port' => 22, 'ssh_allowed' => true]);
+        $page = $this->request('GET', '/security/firewall')->body();
+        self::assertStringContainsString('Delete the rule allow 80/tcp', $page);
+        self::assertStringNotContainsString('Delete the rule allow 8443/tcp', $page);
+        self::assertStringContainsString('Protected', $page);
+        self::assertStringContainsString('>Panel<', $page);
+    }
+
     public function testFirewallChangeMustBeConfirmed(): void
     {
         $pending = ['id' => 'abc123abc123', 'kind' => 'firewall', 'summary' => 'firewall: allow proto tcp port 8080', 'deadline' => gmdate('c', time() + 120)];
@@ -197,11 +211,16 @@ final class SecurityAndSystemTest extends HttpTestCase
         $this->agent->succeed('security.pending', ['pending' => null]);
         $this->agent->succeed('ssh.status', ['effective' => ['port' => '22', 'permitrootlogin' => 'without-password', 'passwordauthentication' => 'yes', 'maxauthtries' => '6'], 'root_has_keys' => false, 'admins_with_keys' => [], 'managed_file' => '/etc/ssh/sshd_config.d/00-nimvor.conf']);
         self::assertStringContainsString('add a key before turning off passwords', $this->request('GET', '/security/ssh')->body());
-        $this->agent->succeed('ssh.configure', ['changed' => true, 'pending' => ['id' => 'x']]);
+        $this->agent->succeed('ssh.configure', ['changed' => true, 'pending' => ['id' => 'x', 'verified' => ['127.0.0.1:2222', '[::1]:2222'], 'cleanup' => ['the firewall rule for port 22']]]);
         $this->post('/security/ssh', ['port' => '2222', 'permit_root_login' => 'no', 'password_authentication' => '0', 'max_auth_tries' => '3']);
         $call = $this->lastCall('ssh.configure');
         self::assertSame(2222, $call['port']);
         self::assertFalse($call['password_authentication']);
+        // The administrator is told what the server proved and what only a connection from outside can prove.
+        $note = (string) $this->flash('success');
+        self::assertStringContainsString('SSH answered on 127.0.0.1:2222, [::1]:2222', $note);
+        self::assertStringContainsString('NEW SSH connection to this server on port 2222', $note);
+        self::assertStringContainsString('When you confirm, the firewall rule for port 22 will be removed.', $note);
 
         // Administrator SSH keys: listed, added and removed (administrators
         // only, with a recently confirmed password), audited.
