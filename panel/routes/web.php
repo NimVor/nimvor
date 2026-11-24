@@ -45,6 +45,7 @@ use NimVor\Http\Controllers\ServicesController;
 use NimVor\Http\Controllers\UsersController;
 use NimVor\Http\Controllers\WebsitesController;
 use NimVor\Http\Controllers\Api\ApiController;
+use NimVor\Http\Controllers\Api\AppsApiController;
 use NimVor\Http\Controllers\Api\BackupsApiController;
 use NimVor\Http\Controllers\Api\CronApiController;
 use NimVor\Http\Controllers\Api\DatabasesApiController;
@@ -792,6 +793,10 @@ return static function (Router $r): void {
     $r->add('PATCH', '/api/v1/mail/domains/{id}/mailboxes/{mailbox}/filters/{n}', [MailFiltersApiController::class, 'patchFilter'], ['name' => 'api.mail.filters.patch', 'permission' => P::MAIL_MANAGE]);
     $r->add('DELETE', '/api/v1/mail/domains/{id}/mailboxes/{mailbox}/filters/{n}', [MailFiltersApiController::class, 'deleteFilter'], ['name' => 'api.mail.filters.delete', 'permission' => P::MAIL_MANAGE]);
     $r->add('PUT', '/api/v1/mail/domains/{id}/mailboxes/{mailbox}/responder', [MailFiltersApiController::class, 'setResponder'], ['name' => 'api.mail.responder', 'permission' => P::MAIL_MANAGE]);
+    $r->get('/api/v1/apps', [AppsApiController::class, 'catalog'], ['name' => 'api.apps', 'permission' => P::APPS_INSTALL]);
+    $r->get('/api/v1/websites/{id}/apps', [AppsApiController::class, 'listInstalls'], ['name' => 'api.apps.installs', 'permission' => P::APPS_INSTALL]);
+    $r->get('/api/v1/websites/{id}/apps/{app}/plan', [AppsApiController::class, 'plan'], ['name' => 'api.apps.plan', 'permission' => P::APPS_INSTALL]);
+    $r->post('/api/v1/websites/{id}/apps/{app}', [AppsApiController::class, 'install'], ['name' => 'api.apps.install', 'permission' => P::APPS_INSTALL]);
     $r->add('PUT', '/api/v1/mail/domains/{id}/routing', [MailFiltersApiController::class, 'setRouting'], ['name' => 'api.mail.routing', 'permission' => P::MAIL_MANAGE]);
     $r->post('/api/v1/websites/{id}/deploy', [ApiController::class, 'deployWebsite'], ['name' => 'api.deploy', 'permission' => P::DEPLOY_MANAGE]);
     $r->get('/api/v1/databases', [ApiController::class, 'listDatabases'], ['name' => 'api.databases', 'permission' => P::DATABASES_VIEW]);
