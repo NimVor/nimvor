@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.1.0] — 2026-11-24
+
+The public REST API now also covers the ModSecurity web application firewall (see below). No agent change; upgrade with `sudo nimvor update`.
+
 ### Added
 
 - **API: ModSecurity web application firewall** (15 new endpoints, in the API reference): for server administrators, read the state (`GET /security/modsec`: connector, Core Rule Set, custom rules), change the server-wide settings (`PATCH`: on/off, detection only, paranoia level, thresholds, custom rules on/off), list, add, replace and delete custom rules (`/security/modsec/rules`, a rule is addressed by position and SHA-256 so a rule edited meanwhile is never overwritten), read the events, update the rule packages, install the Nginx connector or the Core Rule Set and roll an installation back (background jobs, `202` + `job_id`); and for a website, read and set its mode (`/websites/{id}/modsec`: off, detection only, on) and its events. An owner sets the mode of their own website; switching rule vendors or single rules off is for administrators (`422` for others). The calls go through `ModSecurityService`, so Nginx checks every change and the previous configuration is kept when it refuses; the custom-rule editing moved out of `ModSecurityController` into the service, and the web page behaves as before.
