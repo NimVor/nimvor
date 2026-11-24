@@ -46,6 +46,7 @@ use NimVor\Http\Controllers\UsersController;
 use NimVor\Http\Controllers\WebsitesController;
 use NimVor\Http\Controllers\Api\ApiController;
 use NimVor\Http\Controllers\Api\CronApiController;
+use NimVor\Http\Controllers\Api\FtpApiController;
 use NimVor\Http\Controllers\Api\DnsApiController;
 use NimVor\Http\Controllers\Api\MailApiController;
 use NimVor\Http\Controllers\Api\UsersApiController;
@@ -801,6 +802,12 @@ return static function (Router $r): void {
     $r->add('DELETE', '/api/v1/websites/{id}/cron/{job}', [CronApiController::class, 'deleteJob'], ['name' => 'api.cron.delete', 'permission' => P::CRON_MANAGE]);
     $r->post('/api/v1/websites/{id}/cron/{job}/run', [CronApiController::class, 'runJob'], ['name' => 'api.cron.run', 'permission' => P::CRON_MANAGE]);
     $r->get('/api/v1/websites/{id}/cron/{job}/runs', [CronApiController::class, 'jobRuns'], ['name' => 'api.cron.runs', 'permission' => P::CRON_VIEW]);
+    $r->get('/api/v1/websites/{id}/ftp', [FtpApiController::class, 'listAccounts'], ['name' => 'api.ftp', 'permission' => P::FTP_MANAGE]);
+    $r->post('/api/v1/websites/{id}/ftp', [FtpApiController::class, 'createAccount'], ['name' => 'api.ftp.create', 'permission' => P::FTP_MANAGE]);
+    $r->add('PATCH', '/api/v1/websites/{id}/ftp/{name}', [FtpApiController::class, 'updateAccount'], ['name' => 'api.ftp.update', 'permission' => P::FTP_MANAGE]);
+    $r->add('DELETE', '/api/v1/websites/{id}/ftp/{name}', [FtpApiController::class, 'deleteAccount'], ['name' => 'api.ftp.delete', 'permission' => P::FTP_MANAGE]);
+    $r->get('/api/v1/websites/{id}/sftp', [FtpApiController::class, 'showSftp'], ['name' => 'api.sftp', 'permission' => P::FTP_MANAGE]);
+    $r->add('PUT', '/api/v1/websites/{id}/sftp', [FtpApiController::class, 'updateSftp'], ['name' => 'api.sftp.update', 'permission' => P::FTP_MANAGE]);
 
     // Own account (any signed-in user)
     $r->get('/profile', [ProfileController::class, 'show'], ['name' => 'profile']);

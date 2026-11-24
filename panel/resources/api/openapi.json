@@ -92,6 +92,10 @@
         {
             "name": "Cron jobs",
             "description": "Scheduled commands of a website, run as the website's system account.\n\nA change rewrites the server's cron file for the website, which is checked; if the server refuses it the change is undone. A website can have at most 200 jobs and the plan's cron limit applies. A suspended account's jobs do not run (their settings are kept)."
+        },
+        {
+            "name": "FTP and SFTP",
+            "description": "FTP accounts and SFTP access of a website.\n\nAn FTP account is a virtual login named `<name>@<website domain>`, confined to one folder of its website; the FTP server uses TLS by default. A website can have at most 25 accounts and the plan's FTP limit applies. SFTP uses the website's own system account, chrooted to its folder; it is off until you enable it. The FTP server itself (install, ports, TLS) is configured by an administrator in the panel."
         }
     ],
     "paths": {
@@ -6611,6 +6615,629 @@
                     }
                 }
             }
+        },
+        "/websites/{id}/ftp": {
+            "get": {
+                "operationId": "listFtpAccounts",
+                "tags": [
+                    "FTP and SFTP"
+                ],
+                "summary": "List a website's FTP accounts",
+                "x-permission": "ftp.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The accounts, and whether the FTP server is running.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "server_ready": {
+                                                    "type": "boolean",
+                                                    "description": "False while the administrator has not set up or has stopped the FTP server; accounts can still be listed."
+                                                },
+                                                "tls": {
+                                                    "type": "string",
+                                                    "description": "`required` or `optional`."
+                                                },
+                                                "accounts": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/FtpAccount"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "server_ready": true,
+                                        "tls": "required",
+                                        "accounts": [
+                                            {
+                                                "login": "designer@bluebird-cafe.example",
+                                                "dir": "public_html",
+                                                "quota_mb": 500
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "createFtpAccount",
+                "tags": [
+                    "FTP and SFTP"
+                ],
+                "summary": "Create an FTP account",
+                "description": "Send `name` (lower-case letters, digits and `. _ -`, up to 31) and either a `password` or `generate: true`. The login becomes `<name>@<website domain>`. A generated password is returned once.",
+                "x-permission": "ftp.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "name"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "description": "The part before the `@`.",
+                                        "examples": [
+                                            "designer"
+                                        ]
+                                    },
+                                    "dir": {
+                                        "type": "string",
+                                        "maxLength": 300,
+                                        "description": "The folder inside the website the account is confined to, for example `public_html`. Empty means the whole website.",
+                                        "examples": [
+                                            "public_html"
+                                        ]
+                                    },
+                                    "quota_mb": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "description": "Disk quota in MB; 0 means none."
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "minLength": 10,
+                                        "maxLength": 128,
+                                        "description": "The new password."
+                                    },
+                                    "generate": {
+                                        "type": "boolean",
+                                        "description": "Generate a strong password instead; it is returned once in the response."
+                                    }
+                                }
+                            },
+                            "example": {
+                                "name": "designer",
+                                "dir": "public_html",
+                                "quota_mb": 500,
+                                "generate": true
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "The account.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "allOf": [
+                                                {
+                                                    "$ref": "#/components/schemas/FtpAccount"
+                                                }
+                                            ],
+                                            "properties": {
+                                                "password": {
+                                                    "type": "string",
+                                                    "description": "Only present when `generate` was true. It is shown once and cannot be read again."
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "login": "designer@bluebird-cafe.example",
+                                        "dir": "public_html",
+                                        "quota_mb": 500,
+                                        "password": "Kq9ZsAa3mR1tVxB7pLw2"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/websites/{id}/ftp/{name}": {
+            "patch": {
+                "operationId": "updateFtpAccount",
+                "tags": [
+                    "FTP and SFTP"
+                ],
+                "summary": "Change an FTP account",
+                "description": "Only the fields you send change. Send `password` or `generate: true` to set a new password; without either the password stays as it is.",
+                "x-permission": "ftp.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "name",
+                        "in": "path",
+                        "required": true,
+                        "description": "The account's name: the part of its login before the `@`.",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "example": "designer"
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "dir": {
+                                        "type": "string",
+                                        "maxLength": 300,
+                                        "description": "The folder inside the website the account is confined to, for example `public_html`. Empty means the whole website.",
+                                        "examples": [
+                                            "public_html"
+                                        ]
+                                    },
+                                    "quota_mb": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "description": "Disk quota in MB; 0 means none."
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "minLength": 10,
+                                        "maxLength": 128,
+                                        "description": "The new password."
+                                    },
+                                    "generate": {
+                                        "type": "boolean",
+                                        "description": "Generate a strong password instead; it is returned once in the response."
+                                    }
+                                }
+                            },
+                            "example": {
+                                "quota_mb": 1000
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The account, changed.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "allOf": [
+                                                {
+                                                    "$ref": "#/components/schemas/FtpAccount"
+                                                }
+                                            ],
+                                            "properties": {
+                                                "password": {
+                                                    "type": "string",
+                                                    "description": "Only present when `generate` was true. It is shown once and cannot be read again."
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "quota_mb": 1000,
+                                        "login": "designer@bluebird-cafe.example",
+                                        "dir": "public_html"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "deleteFtpAccount",
+                "tags": [
+                    "FTP and SFTP"
+                ],
+                "summary": "Delete an FTP account",
+                "description": "The login stops working at once. The files it could reach are kept.",
+                "x-permission": "ftp.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "name",
+                        "in": "path",
+                        "required": true,
+                        "description": "The account's name: the part of its login before the `@`.",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "example": "designer"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "deleted": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "deleted": "designer@bluebird-cafe.example"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/websites/{id}/sftp": {
+            "get": {
+                "operationId": "getSftpAccess",
+                "tags": [
+                    "FTP and SFTP"
+                ],
+                "summary": "Get a website's SFTP access",
+                "x-permission": "ftp.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The SFTP settings.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/SftpAccess"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "enabled": true,
+                                        "password_login": false,
+                                        "keys": [
+                                            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample designer@laptop"
+                                        ],
+                                        "root": "/home/nimvor/sites"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            },
+            "put": {
+                "operationId": "updateSftpAccess",
+                "tags": [
+                    "FTP and SFTP"
+                ],
+                "summary": "Change a website's SFTP access",
+                "description": "Only the fields you send change. `keys` replaces the whole list of authorized keys. A `password` (10–128 characters) sets the account's SFTP password and is only used when `password_login` is true.",
+                "x-permission": "ftp.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "enabled": {
+                                        "type": "boolean"
+                                    },
+                                    "password_login": {
+                                        "type": "boolean"
+                                    },
+                                    "keys": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "description": "Public keys in OpenSSH format."
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "minLength": 10,
+                                        "maxLength": 128
+                                    }
+                                }
+                            },
+                            "example": {
+                                "enabled": true,
+                                "keys": [
+                                    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample designer@laptop"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The SFTP settings, changed.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/SftpAccess"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "enabled": true,
+                                        "password_login": false,
+                                        "keys": [
+                                            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample designer@laptop"
+                                        ],
+                                        "root": "/home/nimvor/sites"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
         }
     },
     "components": {
@@ -6913,6 +7540,23 @@
                     }
                 }
             },
+            "FtpAccount": {
+                "type": "object",
+                "properties": {
+                    "login": {
+                        "type": "string",
+                        "description": "The full login name."
+                    },
+                    "dir": {
+                        "type": "string",
+                        "description": "The folder the account is confined to."
+                    },
+                    "quota_mb": {
+                        "type": "integer",
+                        "description": "Disk quota in MB; 0 means none."
+                    }
+                }
+            },
             "Job": {
                 "type": "object",
                 "required": [
@@ -7173,6 +7817,29 @@
                         "additionalProperties": {
                             "type": "integer"
                         }
+                    }
+                }
+            },
+            "SftpAccess": {
+                "type": "object",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "password_login": {
+                        "type": "boolean",
+                        "description": "Whether a password is accepted besides keys."
+                    },
+                    "keys": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Authorized public keys, one per entry."
+                    },
+                    "root": {
+                        "type": "string",
+                        "description": "The folder that holds the websites; a website's files are under `<root>/<domain>`."
                     }
                 }
             },
