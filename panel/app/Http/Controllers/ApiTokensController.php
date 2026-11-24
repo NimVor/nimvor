@@ -8,6 +8,7 @@ use NimVor\Http\Request;
 use NimVor\Http\Response;
 use NimVor\Http\Session\SessionInterface;
 use NimVor\Services\ApiTokenService;
+use NimVor\Support\UserFacingException;
 use NimVor\Support\ValidationException;
 use NimVor\View\View;
 
@@ -23,15 +24,17 @@ final class ApiTokensController extends Controller
         try {
             $token = $this->tokens->create($this->userId($request), $request->all());
         } catch (ValidationException $e) {
-            return $this->backWithErrors('/profile', $e, $request->all());
+            return $this->backWithErrors('/profile#api', $e, $request->all());
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure('/profile', $e);
         }
         $this->session->flash('api_token', $token);
-        return $this->redirectWithSuccess('/profile', 'Token created. Copy it now: it is shown only once.');
+        return $this->redirectWithSuccess('/profile#api', 'Token created. Copy it now: it is shown only once.');
     }
 
     public function revoke(Request $request, string $id): Response
     {
         $this->tokens->revoke($this->userId($request), (int) $id);
-        return $this->redirectWithSuccess('/profile', 'Token revoked.');
+        return $this->redirectWithSuccess('/profile#api', 'Token revoked.');
     }
 }

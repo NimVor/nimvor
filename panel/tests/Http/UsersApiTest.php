@@ -59,7 +59,7 @@ final class UsersApiTest extends HttpTestCase
 
     private function token(int $userId, string $ability = 'write'): string
     {
-        return $this->app->container->get(ApiTokenService::class)->create($userId, ['name' => 't' . bin2hex(random_bytes(2)), 'ability' => $ability, 'expires_days' => 30]);
+        return $this->app->container->get(ApiTokenService::class)->create($userId, ['name' => 't' . bin2hex(random_bytes(2)), 'ability' => $ability, 'all_scopes' => '1', 'expires_days' => 30]);
     }
 
     private function roleId(string $name): int
@@ -90,8 +90,8 @@ final class UsersApiTest extends HttpTestCase
 
     public function testPermissionsAndReadOnlyTokens(): void
     {
-        $cust = $this->token($this->cust);
-        self::assertSame(403, $this->api('GET', '/api/v1/users', $cust)->status(), 'customers cannot list users');
+        $cust = $this->legacyToken($this->cust);
+        self::assertSame(403, $this->api('GET', '/api/v1/users', $cust)->status(), 'customers have no API');
         self::assertSame(403, $this->api('POST', '/api/v1/users', $cust, ['username' => 'x'])->status());
         $read = $this->token($this->admin, 'read');
         self::assertSame(200, $this->api('GET', '/api/v1/users', $read)->status());
@@ -258,7 +258,7 @@ final class UsersApiTest extends HttpTestCase
     public function testTerminateNeedsTheConfirmationWord(): void
     {
         $admin = $this->token($this->admin);
-        $custToken = $this->token($this->cust);
+        $custToken = $this->legacyToken($this->cust);
         $resellerToken = $this->token($this->reseller);
         $users = $this->app->container->get(UserRepository::class);
         $this->app->container->get(WebsiteService::class)->create(['domain' => 'one.test', 'kind' => 'static'], (array) $users->find($this->cust));
