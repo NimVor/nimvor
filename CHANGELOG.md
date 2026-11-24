@@ -8,7 +8,7 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Changed
 
-- **API tokens have permissions, and only administrators and resellers have the API.** A token is created with the permissions it may use, chosen in groups on *Profile → API tokens* (Hosting, Server, Security, Administration), or *Everything*; it never has more than its owner, and managing includes viewing. A call outside a token's permissions answers `403 scope_missing` and names the permission. Hosting customers can no longer create or use tokens (`403 api_not_available`); the token page is not shown to them, and tokens they made earlier, which can no longer be used, are removed by the upgrade. Existing tokens of administrators and resellers keep working as *Everything*.
+- **API tokens have permissions, and only administrators and resellers have the API.** A token is created with the permissions it may use, chosen in groups on *Profile → API tokens* (Hosting, Server, Security, Administration), or *Everything*; it never has more than its owner, and managing includes viewing. A call outside a token's permissions answers `403 scope_missing` and names the permission. Hosting customers can no longer create or use tokens (`403 api_not_available`); the token page is not shown to them, and tokens they made earlier stop working (nothing is deleted). Existing tokens of administrators and resellers keep working as *Everything*.
 - **The profile page is in tabs** (Account, Security, API tokens) instead of one long page; an address such as `/profile#two-factor` opens the right tab.
 
 ### Added
