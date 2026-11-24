@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -155,5 +156,74 @@ func TestChunkedUploadAndDownload(t *testing.T) {
 	data, _ := base64.StdEncoding.DecodeString(m["data"].(string))
 	if string(data) != parts[1] || m["eof"] != true {
 		t.Fatalf("download = %d bytes eof=%v", len(data), m["eof"])
+	}
+}
+
+// A copy or move onto a name that is taken is refused, unless the caller chose to replace it; the replaced file goes
+// to the website's trash so the choice can be undone.
+func TestCopyAndMoveReplaceOnlyWhenAsked(t *testing.T) {
+	_, r, root := setup(t)
+	write := func(p, c string) { os.WriteFile(filepath.Join(root, p), []byte(c), 0o644) }
+	read := func(p string) string { b, _ := os.ReadFile(filepath.Join(root, p)); return string(b) }
+	write("public_html/a.txt", "new")
+	write("public_html/b.txt", "old")
+
+	for _, op := range []string{"files.copy", "files.rename"} {
+		_, err := do(t, r, op, map[string]any{"from": "public_html/a.txt", "to": "public_html/b.txt"})
+		var ae *actions.Error
+		if !errors.As(err, &ae) || ae.Status != 409 {
+			t.Fatalf("%s onto an existing name: want a 409 conflict, got %v", op, err)
+		}
+		if read("public_html/b.txt") != "old" {
+			t.Fatalf("%s changed the file without being asked", op)
+		}
+	}
+
+	if _, err := do(t, r, "files.copy", map[string]any{"from": "public_html/a.txt", "to": "public_html/b.txt", "overwrite": true}); err != nil {
+		t.Fatal(err)
+	}
+	if read("public_html/b.txt") != "new" || read("public_html/a.txt") != "new" {
+		t.Fatal("the copy did not replace the file, or lost the original")
+	}
+	list, err := do(t, r, "files.trash_list", map[string]any{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	items := list.(map[string]any)["items"].([]TrashItem)
+	if len(items) != 1 || items[0].Path != "public_html/b.txt" {
+		t.Fatalf("the replaced file is not in the trash: %+v", items)
+	}
+
+	// A move replaces too, and a folder can replace a file.
+	write("public_html/c.txt", "moved")
+	if _, err := do(t, r, "files.rename", map[string]any{"from": "public_html/c.txt", "to": "public_html/b.txt", "overwrite": true}); err != nil {
+		t.Fatal(err)
+	}
+	if read("public_html/b.txt") != "moved" {
+		t.Fatal("the move did not replace the file")
+	}
+	if _, err := os.Stat(filepath.Join(root, "public_html/c.txt")); err == nil {
+		t.Fatal("the moved file is still at its old place")
+	}
+	if _, err := do(t, r, "files.rename", map[string]any{"from": "public_html/css", "to": "public_html/b.txt", "overwrite": true}); err != nil {
+		t.Fatal(err)
+	}
+	if fi, err := os.Stat(filepath.Join(root, "public_html/b.txt")); err != nil || !fi.IsDir() {
+		t.Fatal("the folder did not replace the file")
+	}
+
+	// Nothing may replace itself, something inside it, or a top-level folder.
+	for _, c := range []map[string]any{
+		{"from": "public_html/a.txt", "to": "public_html/a.txt", "overwrite": true},
+		{"from": "public_html/b.txt/x", "to": "public_html/b.txt", "overwrite": true},
+		{"from": "public_html/a.txt", "to": "public_html", "overwrite": true},
+		{"from": "public_html/a.txt", "to": "logs", "overwrite": true},
+	} {
+		if _, err := do(t, r, "files.copy", c); err == nil {
+			t.Errorf("accepted %v", c)
+		}
+	}
+	if read("public_html/a.txt") != "new" {
+		t.Fatal("a refused replacement changed the source")
 	}
 }

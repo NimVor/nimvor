@@ -772,7 +772,7 @@ x-nimvor-actions:
   ffmpeg.uninstall: { mutating: true, description: "Remove the FFmpeg package (job); refused when other packages need it. The group and, on Debian/Ubuntu, the mode override stay, so a later install is limited at once." }
   files.chmod: { mutating: true, description: "Change permissions of a file or folder." }
   files.compress: { mutating: true, description: "Create a .zip or .tar.gz of files and folders of a website (job)." }
-  files.copy: { mutating: true, description: "Copy a file or folder." }
+  files.copy: { mutating: true, description: "Copy a file or folder. With overwrite, an existing destination is replaced (the old one goes to the website's trash)." }
   files.delete: { mutating: true, description: "Delete files or folders: moved to the website's trash (restorable), or removed for good with permanent." }
   files.deleted_trash_purge: { mutating: true, description: "Delete, for good, what was moved to the server's trash when a website or mailbox was removed more than older_than_days days ago (1 to 3650)." }
   files.download: { mutating: false, description: "Read a chunk of a website file (base64)." }
@@ -780,7 +780,7 @@ x-nimvor-actions:
   files.list: { mutating: false, description: "List a folder of a website." }
   files.mkdir: { mutating: true, description: "Create a folder." }
   files.read: { mutating: false, description: "Open a text file of a website." }
-  files.rename: { mutating: true, description: "Rename or move a file or folder." }
+  files.rename: { mutating: true, description: "Rename or move a file or folder. With overwrite, an existing destination is replaced (the old one goes to the website's trash)." }
   files.search: { mutating: false, description: "Find files by name in a website." }
   files.trash_delete: { mutating: true, description: "Delete trash items permanently." }
   files.trash_empty: { mutating: true, description: "Empty a website's trash, or only what was deleted more than older_than_days days ago." }

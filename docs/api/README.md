@@ -29,14 +29,17 @@ on the website: **<https://nimvor.com/api-reference>**. It is generated from the
 description, which every panel also serves at `/api/v1/openapi.json` (the old `/api/v1/openapi.yaml`
 address returns the same document; JSON is valid YAML).
 
-Versioned under `/api/v1`. Create a token under *Profile → API tokens* (permission *Create personal
-API tokens*); it is shown once.
+Versioned under `/api/v1`. **The API is for administrators and resellers**; hosting customers do not
+have it. Create a token under *Profile → API tokens*; it is shown once. Choose what it may do, in
+groups (Hosting, Server, Security, Administration) or tick *Everything*: a token only ever has
+permissions its owner holds, and a call that needs another answers `403 scope_missing` naming the
+permission. Managing something includes viewing it.
 
 ```bash
 curl -s -H "Authorization: Bearer nimvor_…" https://panel.example.com/api/v1/websites
 ```
 
-- Tokens act with their owner's permissions and resource scope; read-only tokens are refused on
+- Tokens act as their owner, within the permissions they were given and the owner's resource scope; read-only tokens are refused on
   modifying requests. They can expire and be revoked; every use updates *last used*, and changes are
   audited.
 - The API is sessionless: no cookies, no CSRF token. 120 requests per minute per token.

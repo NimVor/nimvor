@@ -88,6 +88,20 @@ abstract class HttpTestCase extends TestCase
         return $this->app->handle(new Request($method, $path, $query, $body, ['REMOTE_ADDR' => $this->remoteIp], $headers, $raw));
     }
 
+    /**
+     * A token written straight into the table, the way one made before API tokens were limited to administrators and
+     * resellers exists (the service refuses to create one for a hosting customer now).
+     */
+    protected function legacyToken(int $userId, string $ability = 'write'): string
+    {
+        $raw = 'nimvor_' . bin2hex(random_bytes(20));
+        $this->app->container->get(\NimVor\Database\Connection::class)->run(
+            'INSERT INTO api_tokens (user_id, name, token_hash, prefix, ability, expires_at, created_at) VALUES (?, ?, ?, ?, ?, NULL, ?)',
+            [$userId, 'legacy', hash('sha256', $raw), substr($raw, 0, 12), $ability, gmdate('c')]
+        );
+        return $raw;
+    }
+
     /** @param array<string, mixed> $body */
     protected function post(string $path, array $body = []): Response
     {

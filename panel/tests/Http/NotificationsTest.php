@@ -299,8 +299,9 @@ final class NotificationsTest extends HttpTestCase
         $mine = (int) $n->notify('a', 'job', 'error', 'Backup shop.test failed', ['website_id' => $this->site, 'job_id' => 'aaaaaaaaaaaaaaaa']);
         $n->notify('b', 'job', 'error', 'Backup other.test failed', ['website_id' => $this->strangerSite]);
         $tokens = $this->app->container->get(\NimVor\Services\ApiTokenService::class);
-        $read = $tokens->create($this->customer, ['name' => 'r', 'ability' => 'read', 'expires_days' => 30]);
-        $write = $tokens->create($this->customer, ['name' => 'w', 'ability' => 'write', 'expires_days' => 30]);
+        // A reseller sees the notifications of their customers' websites (not a stranger's); hosting customers have no API.
+        $read = $tokens->create($this->reseller, ['name' => 'r', 'ability' => 'read', 'all_scopes' => '1', 'expires_days' => 30]);
+        $write = $tokens->create($this->reseller, ['name' => 'w', 'ability' => 'write', 'all_scopes' => '1', 'expires_days' => 30]);
         $api = fn (string $method, string $path, string $token, array $json = [], array $query = []) => $this->app->handle(new \NimVor\Http\Request(
             $method, $path, $query, [], ['REMOTE_ADDR' => '192.0.2.50'], ['content-type' => 'application/json', 'authorization' => 'Bearer ' . $token], $json === [] ? '' : (string) json_encode($json)
         ));
@@ -332,7 +333,7 @@ final class NotificationsTest extends HttpTestCase
         self::assertSame(403, $this->post('/notifications/email', ['notify_email' => '1'])->status());
         self::assertNull($this->db->scalar('SELECT read_at FROM notification_reads WHERE notification_id = ?', [$id]));
         self::assertStringNotContainsString('data-nim-bell', $this->request('GET', '/')->body());
-        $token = $this->app->container->get(\NimVor\Services\ApiTokenService::class)->create($uid, ['name' => 't', 'ability' => 'write', 'expires_days' => 1]);
+        $token = $this->legacyToken($uid);
         $res = $this->app->handle(new \NimVor\Http\Request('GET', '/api/v1/notifications', [], [], ['REMOTE_ADDR' => '192.0.2.50'], ['authorization' => 'Bearer ' . $token], ''));
         self::assertSame(403, $res->status());
     }

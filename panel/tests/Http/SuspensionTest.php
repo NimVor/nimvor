@@ -61,7 +61,7 @@ final class SuspensionTest extends HttpTestCase
     public function testSuspendingACustomerTurnsEverythingOffAndBackOn(): void
     {
         $site = $this->site($this->cust, 'shop.test');
-        $token = $this->app->container->get(ApiTokenService::class)->create($this->cust, ['name' => 't', 'ability' => 'read', 'expires_days' => 30]);
+        $token = $this->legacyToken($this->cust, 'read');
         $this->agent->requests = [];
         $this->login('admin');
         $this->post('/users/' . $this->cust . '/suspend', ['reason' => 'Unpaid invoice']);

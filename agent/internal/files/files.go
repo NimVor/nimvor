@@ -340,6 +340,41 @@ func (s *Site) Rename(from, to string) error {
 	return friendly(s.rename(from, to))
 }
 
+// PrepareReplace makes room at `to` for `from` when the caller chose to replace what is there: the existing file or
+// folder moves to the website's trash (so the replacement can be undone) and the copy or move that follows finds the
+// name free. A file cannot replace itself, nothing is replaced by something that lies inside it, and the website's
+// top-level folders are never replaced. If `to` does not exist nothing happens.
+func (s *Site) PrepareReplace(from, to string, now time.Time) error {
+	from, err := clean(from)
+	if err != nil {
+		return err
+	}
+	to, err = clean(to)
+	if err != nil {
+		return err
+	}
+	if from == to {
+		return actions.InvalidParams("a file or folder cannot replace itself")
+	}
+	if strings.HasPrefix(from+"/", to+"/") {
+		return actions.InvalidParams("a folder cannot be replaced by something inside it")
+	}
+	if strings.HasPrefix(to+"/", from+"/") {
+		return actions.InvalidParams("a folder cannot be moved or copied into itself")
+	}
+	if protected[to] {
+		return actions.InvalidParams("the website's top-level folders cannot be replaced")
+	}
+	if _, err := s.root.Lstat(from); err != nil {
+		return friendly(err)
+	}
+	if _, err := s.root.Lstat(to); err != nil {
+		return nil
+	}
+	_, err = s.Trash([]string{to}, now)
+	return err
+}
+
 // Delete removes files and folders (recursively).
 func (s *Site) Delete(paths []string) (int, error) {
 	n := 0
@@ -731,21 +766,35 @@ func Register(r *actions.Registry, env *host.Env) {
 		var in base
 		return with(p, &in, func(s *Site) (any, error) { return nil, s.Mkdir(in.Path) })
 	}})
-	r.Register(actions.Action{Name: "files.rename", Mutating: true, Description: "Rename or move a file or folder.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "files.rename", Mutating: true, Description: "Rename or move a file or folder. With overwrite, an existing destination is replaced (the old one goes to the website's trash).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in struct {
-			Domain string `json:"domain"`
-			From   string `json:"from"`
-			To     string `json:"to"`
-		}
-		return with(p, &in, func(s *Site) (any, error) { return nil, s.Rename(in.From, in.To) })
-	}})
-	r.Register(actions.Action{Name: "files.copy", Mutating: true, Description: "Copy a file or folder.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
-		var in struct {
-			Domain string `json:"domain"`
-			From   string `json:"from"`
-			To     string `json:"to"`
+			Domain    string `json:"domain"`
+			From      string `json:"from"`
+			To        string `json:"to"`
+			Overwrite bool   `json:"overwrite"`
 		}
 		return with(p, &in, func(s *Site) (any, error) {
+			if in.Overwrite {
+				if err := s.PrepareReplace(in.From, in.To, env.Now()); err != nil {
+					return nil, err
+				}
+			}
+			return nil, s.Rename(in.From, in.To)
+		})
+	}})
+	r.Register(actions.Action{Name: "files.copy", Mutating: true, Description: "Copy a file or folder. With overwrite, an existing destination is replaced (the old one goes to the website's trash).", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
+		var in struct {
+			Domain    string `json:"domain"`
+			From      string `json:"from"`
+			To        string `json:"to"`
+			Overwrite bool   `json:"overwrite"`
+		}
+		return with(p, &in, func(s *Site) (any, error) {
+			if in.Overwrite {
+				if err := s.PrepareReplace(in.From, in.To, env.Now()); err != nil {
+					return nil, err
+				}
+			}
 			n, err := s.Copy(in.From, in.To)
 			return map[string]any{"copied": n}, err
 		})

@@ -27,6 +27,7 @@
                     if (!res.ok || body.success === false) {
                         var err = new Error((body.error && body.error.message) || 'Request failed');
                         err.details = body.error || {};
+                        err.status = res.status;
                         throw err;
                     }
                     return body;
@@ -1294,6 +1295,42 @@
             });
         });
     })();
+
+    // Tabs that follow the address: <div data-nim-hash-tabs> holds .nim-subtabs buttons (data-bs-target="#pane") and the
+    // panes. An address such as /profile#two-factor opens the tab whose pane contains that element and scrolls to it;
+    // switching tabs updates the address, so a reload, or a form that redirects back, returns to the same tab.
+    function openHashTab() {
+        var root = document.querySelector('[data-nim-hash-tabs]');
+        var id = decodeURIComponent((location.hash || '').slice(1));
+        var target = root && id ? document.getElementById(id) : null;
+        if (!root || !target || !window.bootstrap || !root.contains(target)) { return; }
+        var pane = target.classList.contains('tab-pane') ? target : target.closest('.tab-pane');
+        var button = pane && root.querySelector('[data-bs-target="#' + pane.id + '"]');
+        if (button) { bootstrap.Tab.getOrCreateInstance(button).show(); }
+        if (pane && pane !== target) { setTimeout(function () { target.scrollIntoView({ block: 'start' }); }, 200); }
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        var root = document.querySelector('[data-nim-hash-tabs]');
+        if (!root) { return; }
+        root.addEventListener('shown.bs.tab', function (e) { history.replaceState(history.state, '', e.target.getAttribute('data-bs-target')); });
+        openHashTab();
+    });
+    window.addEventListener('hashchange', openHashTab);
+
+    // API token form: "Everything" hides the list of permissions; ticking a manage permission ticks its view permission.
+    document.addEventListener('change', function (e) {
+        var all = e.target.closest && e.target.closest('[data-nim-scope-all]');
+        if (all) {
+            var box = document.querySelector(all.getAttribute('data-nim-scope-all'));
+            if (box) { box.classList.toggle('d-none', all.checked); }
+            return;
+        }
+        var cb = e.target;
+        if (cb.matches && cb.matches('input[name="scopes[]"]') && cb.checked && /\.manage$/.test(cb.value)) {
+            var view = document.querySelector('input[name="scopes[]"][value="' + cb.value.replace(/\.manage$/, '.view') + '"]');
+            if (view) { view.checked = true; }
+        }
+    });
 
     // Check-list helpers: <button data-nim-check-all="#box"> / data-nim-check-none
     // tick or untick every enabled checkbox inside #box.

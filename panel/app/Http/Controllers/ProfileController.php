@@ -30,6 +30,7 @@ final class ProfileController extends Controller
         private readonly \NimVor\Services\AuditLogger $audit,
         private readonly \NimVor\Security\WebAuthn $webAuthn,
         private readonly \NimVor\Services\SettingsService $settings,
+        private readonly \NimVor\Http\Router $router,
     ) {
         parent::__construct($view, $session);
     }
@@ -40,7 +41,9 @@ final class ProfileController extends Controller
         return $this->render('profile/show', [
             'profile' => $user,
             'permissions' => $this->authorizer->permissions((int) $user['role_id']),
+            'mayUseApi' => \NimVor\Services\ApiTokenService::mayUseApi($user),
             'tokens' => $this->tokens->forUser((int) $user['id']),
+            'scopeGroups' => \NimVor\Services\ApiTokenService::mayUseApi($user) ? $this->tokens->scopeGroups($user, $this->apiPermissions()) : [],
             'newToken' => $this->session->pullFlash('api_token'),
             'twoFactor' => $this->twoFactor->status((int) $user['id']),
             'setupSecret' => $this->session->get(self::SETUP_KEY),
@@ -50,6 +53,18 @@ final class ProfileController extends Controller
             'recoveryCodes' => $this->session->pullFlash('recovery_codes'),
             'securityKeys' => $this->webAuthn->credentials((int) $user['id']),
         ]);
+    }
+
+    /** @return list<string> the permissions the API's endpoints ask for */
+    private function apiPermissions(): array
+    {
+        $out = [];
+        foreach ($this->router->routes() as $route) {
+            if (str_starts_with($route->pattern, '/api/v1/') && $route->permission !== null) {
+                $out[$route->permission] = true;
+            }
+        }
+        return array_keys($out);
     }
 
     public function password(Request $request): Response

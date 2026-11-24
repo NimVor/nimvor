@@ -25,7 +25,7 @@ final class MailApiTest extends HttpTestCase
     {
         parent::setUp();
         $this->admin = $this->seedUser('admin', 'admin');
-        $this->cust = $this->seedUser('cust', 'customer');
+        $this->cust = $this->seedUser('cust', 'reseller');
         $users = $this->app->container->get(UserRepository::class);
         $sites = $this->app->container->get(WebsiteService::class);
         $this->custSite = $sites->create(['domain' => 'shop.test', 'kind' => 'static'], (array) $users->find($this->cust));
@@ -56,7 +56,7 @@ final class MailApiTest extends HttpTestCase
 
     private function token(int $userId, string $ability = 'write'): string
     {
-        return $this->app->container->get(ApiTokenService::class)->create($userId, ['name' => 't' . bin2hex(random_bytes(2)), 'ability' => $ability, 'expires_days' => 30]);
+        return $this->app->container->get(ApiTokenService::class)->create($userId, ['name' => 't' . bin2hex(random_bytes(2)), 'ability' => $ability, 'all_scopes' => '1', 'expires_days' => 30]);
     }
 
     private function domain(string $token): int
@@ -169,7 +169,7 @@ final class MailApiTest extends HttpTestCase
         $did = $this->domain($cust);
         // The administrator sees it; another customer's token does not.
         self::assertSame(200, $this->api('GET', "/api/v1/mail/domains/$did", $admin)->status());
-        $other = $this->seedUser('other', 'customer');
+        $other = $this->seedUser('other', 'reseller');
         $otherToken = $this->token($other);
         foreach ([['GET', "/api/v1/mail/domains/$did"], ['GET', "/api/v1/mail/domains/$did/mailboxes"], ['POST', "/api/v1/mail/domains/$did/mailboxes"], ['GET', "/api/v1/mail/domains/$did/aliases"], ['DELETE', "/api/v1/mail/domains/$did"], ['POST', "/api/v1/mail/domains/$did/dns"], ['GET', "/api/v1/mail/domains/$did/dns-check"]] as [$m, $p]) {
             self::assertSame(404, $this->api($m, $p, $otherToken, ['local' => 'x', 'password' => 'Correct-Horse-9'])->status(), $m . ' ' . $p);

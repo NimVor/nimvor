@@ -125,7 +125,12 @@ $topHost = (string) ($topStatus['hostname'] ?? '');
             <?= $content ?>
         </main>
         <footer class="nim-footer">
-            NimVor <?= e($app_version ?? '') ?> · Open-source server control panel
+            <span>NimVor <?= e($app_version ?? '') ?></span>
+            <nav class="nim-footer-links" aria-label="NimVor website">
+                <?php foreach (['Privacy policy' => '/support/privacy', 'News' => '/resources/blog', 'Documentation' => '/docs', 'Donation' => '/sponsor', 'API' => '/api-reference'] as $label => $path): ?>
+                    <a href="https://nimvor.com<?= e($path) ?>" target="_blank" rel="noopener noreferrer"><?= e($label) ?></a>
+                <?php endforeach; ?>
+            </nav>
         </footer>
     </div>
 </div>
