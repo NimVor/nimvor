@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.4.0] — 2026-11-24
+
+API tokens now carry chosen permissions and only administrators and resellers have the API; the website settings join the API; the profile page is in tabs; the panel footer links to the website; the file manager can replace on copy and move (a small agent change); and the website gains reviews, social links, blog covers and a new menu layout. Upgrade the panel and agent with `sudo nimvor update`; the website needs `bin/site migrate` (migration 0008).
+
 ### Added
 
 - **Website: reviews.** A *Reviews* page (`/reviews`) and a small reviews section on the home page. Visitors can send a review (captcha, a hidden bot field and a per-address limit apply); it is shown only after an administrator publishes it under *Admin → Reviews*, where reviews copied from Trustpilot or sent by customers can also be added by hand. With none published, the home page shows an invitation instead of anything made up.
