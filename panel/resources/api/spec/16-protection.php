@@ -18,7 +18,7 @@ $sample = ['status' => 403, 'max' => 200, 'rules' => [$rule]];
 
 return [
     'tags' => [
-        ['name' => 'Web protection', 'description' => "Per-website protection against abusive traffic: request-rate limits, an allow/deny list and a country restriction.\n\nEach change is written to the website's web server configuration, checked and reloaded; if the server refuses it the change is undone. A suspended account's protection cannot be changed (`409`). The server-wide lists are an administrator tool and are not part of this API yet; the ModSecurity firewall is under *ModSecurity*."],
+        ['name' => 'Web protection', 'description' => "Per-website protection against abusive traffic: request-rate limits, an allow/deny list and a country restriction.\n\nEach change is written to the website's web server configuration, checked and reloaded; if the server refuses it the change is undone. A suspended account's protection cannot be changed (`409`). The server-wide allow/deny list (administrators) is under `/security/access-list`, and the ModSecurity firewall under *ModSecurity*."],
     ],
     'schemas' => [
         'TrafficLimit' => [

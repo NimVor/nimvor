@@ -63,7 +63,7 @@
         },
         {
             "name": "Web protection",
-            "description": "Per-website protection against abusive traffic: request-rate limits, an allow/deny list and a country restriction.\n\nEach change is written to the website's web server configuration, checked and reloaded; if the server refuses it the change is undone. A suspended account's protection cannot be changed (`409`). The server-wide lists are an administrator tool and are not part of this API yet; the ModSecurity firewall is under *ModSecurity*."
+            "description": "Per-website protection against abusive traffic: request-rate limits, an allow/deny list and a country restriction.\n\nEach change is written to the website's web server configuration, checked and reloaded; if the server refuses it the change is undone. A suspended account's protection cannot be changed (`409`). The server-wide allow/deny list (administrators) is under `/security/access-list`, and the ModSecurity firewall under *ModSecurity*."
         },
         {
             "name": "ModSecurity",
@@ -5704,6 +5704,621 @@
                     },
                     "404": {
                         "$ref": "#/components/responses/NotFound"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/security/access-list": {
+            "get": {
+                "operationId": "getServerAccessList",
+                "tags": [
+                    "Web protection"
+                ],
+                "summary": "Get the server-wide allow/deny list",
+                "description": "Entries by address, browser or URL that apply to **every** website on the server, before each website's own list. An `allow` entry lets that visitor through even when another entry or a country restriction would refuse them. Server administrators only (`403` for others).",
+                "x-permission": "security.view",
+                "responses": {
+                    "200": {
+                        "description": "The list.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "status": {
+                                                    "type": "integer",
+                                                    "enum": [
+                                                        403,
+                                                        404,
+                                                        444
+                                                    ],
+                                                    "description": "What a refused visitor gets: 403, 404, or 444 (the connection is closed without an answer)."
+                                                },
+                                                "max": {
+                                                    "type": "integer",
+                                                    "description": "The most entries the server-wide list can have."
+                                                },
+                                                "rules": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/AccessRule"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "status": 403,
+                                        "max": 1000,
+                                        "rules": [
+                                            {
+                                                "kind": "ip",
+                                                "action": "deny",
+                                                "value": "203.0.113.0/24",
+                                                "note": "scanner"
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "addServerAccessRule",
+                "tags": [
+                    "Web protection"
+                ],
+                "summary": "Add an entry to the server-wide list",
+                "description": "Adds the entry, or changes the action and note of the entry with the same kind and value. The web server configuration is checked before it is reloaded and the change is undone if it refuses. Returns the whole list. Server administrators only (`403` for others).",
+                "x-permission": "security.manage",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "kind",
+                                    "action",
+                                    "value"
+                                ],
+                                "properties": {
+                                    "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                            "ip",
+                                            "ua",
+                                            "url"
+                                        ]
+                                    },
+                                    "action": {
+                                        "type": "string",
+                                        "enum": [
+                                            "deny",
+                                            "allow"
+                                        ]
+                                    },
+                                    "value": {
+                                        "type": "string"
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "maxLength": 200
+                                    }
+                                }
+                            },
+                            "example": {
+                                "kind": "ip",
+                                "action": "deny",
+                                "value": "203.0.113.0/24",
+                                "note": "scanner"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "The list.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "status": {
+                                                    "type": "integer",
+                                                    "enum": [
+                                                        403,
+                                                        404,
+                                                        444
+                                                    ],
+                                                    "description": "What a refused visitor gets: 403, 404, or 444 (the connection is closed without an answer)."
+                                                },
+                                                "max": {
+                                                    "type": "integer",
+                                                    "description": "The most entries the server-wide list can have."
+                                                },
+                                                "rules": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/AccessRule"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "status": 403,
+                                        "max": 1000,
+                                        "rules": [
+                                            {
+                                                "kind": "ip",
+                                                "action": "deny",
+                                                "value": "203.0.113.0/24",
+                                                "note": "scanner"
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "deleteServerAccessRule",
+                "tags": [
+                    "Web protection"
+                ],
+                "summary": "Remove an entry from the server-wide list",
+                "description": "Name the entry by its `kind` and `value`, as the list shows them, in the query string. Returns the list. Server administrators only (`403` for others).",
+                "x-permission": "security.manage",
+                "parameters": [
+                    {
+                        "required": true,
+                        "name": "kind",
+                        "in": "query",
+                        "description": "The entry's kind (`ip`, `ua`, `url`).",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "ip",
+                                "ua",
+                                "url"
+                            ]
+                        }
+                    },
+                    {
+                        "required": true,
+                        "name": "value",
+                        "in": "query",
+                        "description": "The entry's value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The list.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "status": {
+                                                    "type": "integer",
+                                                    "enum": [
+                                                        403,
+                                                        404,
+                                                        444
+                                                    ],
+                                                    "description": "What a refused visitor gets: 403, 404, or 444 (the connection is closed without an answer)."
+                                                },
+                                                "max": {
+                                                    "type": "integer",
+                                                    "description": "The most entries the server-wide list can have."
+                                                },
+                                                "rules": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/AccessRule"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "rules": [],
+                                        "status": 403,
+                                        "max": 1000
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/security/access-list/status": {
+            "put": {
+                "operationId": "setServerAccessStatus",
+                "tags": [
+                    "Web protection"
+                ],
+                "summary": "Set what a refused visitor gets (server-wide)",
+                "description": "Server administrators only (`403` for others).",
+                "x-permission": "security.manage",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "status"
+                                ],
+                                "properties": {
+                                    "status": {
+                                        "type": "integer",
+                                        "enum": [
+                                            403,
+                                            404,
+                                            444
+                                        ]
+                                    }
+                                }
+                            },
+                            "example": {
+                                "status": 404
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The list.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "status": {
+                                                    "type": "integer",
+                                                    "enum": [
+                                                        403,
+                                                        404,
+                                                        444
+                                                    ],
+                                                    "description": "What a refused visitor gets: 403, 404, or 444 (the connection is closed without an answer)."
+                                                },
+                                                "max": {
+                                                    "type": "integer",
+                                                    "description": "The most entries the server-wide list can have."
+                                                },
+                                                "rules": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/AccessRule"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "status": 404,
+                                        "max": 1000,
+                                        "rules": [
+                                            {
+                                                "kind": "ip",
+                                                "action": "deny",
+                                                "value": "203.0.113.0/24",
+                                                "note": "scanner"
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/security/access-list/import": {
+            "post": {
+                "operationId": "importServerAccessList",
+                "tags": [
+                    "Web protection"
+                ],
+                "summary": "Import entries into the server-wide list",
+                "description": "One entry per line, such as `deny ip 203.0.113.0/24  # scanner`. `mode`: `merge` (default) adds the entries and updates those that exist, `replace` makes the list exactly these entries. The list can have at most 1000 entries. Server administrators only (`403` for others).",
+                "x-permission": "security.manage",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "text"
+                                ],
+                                "properties": {
+                                    "text": {
+                                        "type": "string"
+                                    },
+                                    "mode": {
+                                        "type": "string",
+                                        "enum": [
+                                            "merge",
+                                            "replace"
+                                        ],
+                                        "default": "merge"
+                                    }
+                                }
+                            },
+                            "example": {
+                                "text": "deny ip 203.0.113.0/24  # scanner\nallow ip 192.0.2.10",
+                                "mode": "merge"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The list.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "status": {
+                                                    "type": "integer",
+                                                    "enum": [
+                                                        403,
+                                                        404,
+                                                        444
+                                                    ],
+                                                    "description": "What a refused visitor gets: 403, 404, or 444 (the connection is closed without an answer)."
+                                                },
+                                                "max": {
+                                                    "type": "integer",
+                                                    "description": "The most entries the server-wide list can have."
+                                                },
+                                                "rules": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/AccessRule"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "status": 403,
+                                        "max": 1000,
+                                        "rules": [
+                                            {
+                                                "kind": "ip",
+                                                "action": "deny",
+                                                "value": "203.0.113.0/24",
+                                                "note": "scanner"
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/security/access-list/export": {
+            "get": {
+                "operationId": "exportServerAccessList",
+                "tags": [
+                    "Web protection"
+                ],
+                "summary": "Export the server-wide list as text",
+                "description": "The list as text, one entry per line, in the format the import reads. Server administrators only (`403` for others).",
+                "x-permission": "security.view",
+                "responses": {
+                    "200": {
+                        "description": "The text.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "text": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "text": "deny ip 203.0.113.0/24  # scanner\n"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
                     },
                     "429": {
                         "$ref": "#/components/responses/RateLimited"
