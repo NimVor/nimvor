@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.1.0] — 2026-11-24
+
+The public REST API now also covers the ModSecurity web application firewall (see below). No agent change; upgrade with `sudo nimvor update`.
+
 ### Added
 
 - **API: mail server administration** (21 new endpoints, in the API reference, server administrators only): read the mail queue and one message's headers and act on queued messages (`/mail/admin/queue`: delete, retry, requeue, hold, release, flush), read the mail server's status and change Postfix and Dovecot settings (`/mail/admin/server`, only the settings sent), the latest log lines, a troubleshooter that traces how mail for an address is delivered, mailbox permission repair and delivery reports; greylisting (`/mail/admin/greylisting`: settings, trusted hosts, trusted mail providers and updating their ranges, the records and cleaning them up) and the outgoing sending limits per website account (`/mail/admin/sending-limits`: change limits, reset an account). They call the same services as the web interface: the queue, status, settings, troubleshooter and report logic moved out of `MailAdminController` into `MailAdminService`, greylisting out of `MailGreylistController` into `MailGreylistService`, and `MailRateService` now records its own audit entries, so both interfaces validate and audit alike; the mail server still checks every Postfix/Dovecot change and puts the previous values back when it refuses. The web pages behave as before.
