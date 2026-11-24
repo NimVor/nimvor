@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.0.1] — 2026-11-24
+
+Version files only: the `v2.0.0` tag was published one commit before its version bump, so it still reports 1.10.1. 2.0.1 is the same code with the right version. Use 2.0.1 (everything described under 2.0.0 applies).
+
 ## [2.0.0] — 2026-11-24
 
 **The public REST API is now documented and covers the panel.** About 150 endpoints (users and accounts, DNS, email and filters, cron, FTP/SFTP, HTTPS, backups, firewall, PHP, services, databases, subdomains/addons/redirects, workers, application installer, web protection) are described in an OpenAPI 3.1 file served at `/api/v1/openapi.json` and in the API reference on the website. Every endpoint calls the same services as the web interface, so the same validation, limits, audit and rollback apply. The version moves to 2.0.0 for this milestone; no agent change, and existing 1.x installations upgrade with `sudo nimvor update`.

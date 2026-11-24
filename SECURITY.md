@@ -13,7 +13,8 @@ mitigation within 30 days, coordinating disclosure with the reporter.
 
 | Version | Supported |
 |---|---|
-| 2.0.0 | yes — latest release |
+| 2.0.1 | yes — latest release |
+| 2.0.0 | no — upgrade with `nimvor update` |
 | 1.10.1 | no — upgrade with `nimvor update` |
 | 1.10.0 | no — tagged before its version files were updated; upgrade with `installer/upgrade.sh` |
 | 1.9.0 | no — upgrade with `installer/upgrade.sh` |
