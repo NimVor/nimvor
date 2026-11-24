@@ -47,6 +47,7 @@ use NimVor\Http\Controllers\WebsitesController;
 use NimVor\Http\Controllers\Api\ApiController;
 use NimVor\Http\Controllers\Api\CronApiController;
 use NimVor\Http\Controllers\Api\FtpApiController;
+use NimVor\Http\Controllers\Api\SslApiController;
 use NimVor\Http\Controllers\Api\DnsApiController;
 use NimVor\Http\Controllers\Api\MailApiController;
 use NimVor\Http\Controllers\Api\UsersApiController;
@@ -808,6 +809,11 @@ return static function (Router $r): void {
     $r->add('DELETE', '/api/v1/websites/{id}/ftp/{name}', [FtpApiController::class, 'deleteAccount'], ['name' => 'api.ftp.delete', 'permission' => P::FTP_MANAGE]);
     $r->get('/api/v1/websites/{id}/sftp', [FtpApiController::class, 'showSftp'], ['name' => 'api.sftp', 'permission' => P::FTP_MANAGE]);
     $r->add('PUT', '/api/v1/websites/{id}/sftp', [FtpApiController::class, 'updateSftp'], ['name' => 'api.sftp.update', 'permission' => P::FTP_MANAGE]);
+    $r->get('/api/v1/websites/{id}/ssl', [SslApiController::class, 'show'], ['name' => 'api.ssl', 'permission' => P::SSL_VIEW]);
+    $r->add('PUT', '/api/v1/websites/{id}/ssl/custom', [SslApiController::class, 'installCustom'], ['name' => 'api.ssl.custom', 'permission' => P::SSL_MANAGE]);
+    $r->post('/api/v1/websites/{id}/ssl/renew', [SslApiController::class, 'renew'], ['name' => 'api.ssl.renew', 'permission' => P::SSL_MANAGE]);
+    $r->add('PATCH', '/api/v1/websites/{id}/ssl/options', [SslApiController::class, 'options'], ['name' => 'api.ssl.options', 'permission' => P::SSL_MANAGE]);
+    $r->add('DELETE', '/api/v1/websites/{id}/ssl', [SslApiController::class, 'disable'], ['name' => 'api.ssl.disable', 'permission' => P::SSL_MANAGE]);
 
     // Own account (any signed-in user)
     $r->get('/profile', [ProfileController::class, 'show'], ['name' => 'profile']);

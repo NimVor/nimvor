@@ -30,7 +30,15 @@ final class OpenApi
             /** @var array{tags?: list<array<string, mixed>>, paths?: array<string, mixed>, schemas?: array<string, mixed>} $part */
             $part = require $file;
             $tags = array_merge($tags, $part['tags'] ?? []);
-            $paths = array_merge($paths, $part['paths'] ?? []);
+            // Spec files may add methods to a path another file started, but never redefine one.
+            foreach ((array) ($part['paths'] ?? []) as $path => $methods) {
+                foreach ((array) $methods as $method => $op) {
+                    if (isset($paths[$path][$method])) {
+                        throw new \LogicException("Duplicate operation: $method $path");
+                    }
+                    $paths[$path][$method] = $op;
+                }
+            }
             $schemas = array_merge($schemas, $part['schemas'] ?? []);
         }
         ksort($schemas);
