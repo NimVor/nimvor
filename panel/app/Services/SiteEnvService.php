@@ -69,31 +69,13 @@ final class SiteEnvService
             }
             [$name, $value] = explode('=', $line, 2);
             $name = trim($name);
-            if (preg_match('/^[A-Z][A-Z0-9_]{0,63}$/', $name) !== 1) {
-                throw new ValidationException(['env' => "Line {$n}: “{$name}” is not a valid name. Start with a capital letter and use capital letters, digits and _ (at most 64 characters)."]);
-            }
-            if (in_array($name, self::RESERVED, true)) {
-                throw new ValidationException(['env' => "Line {$n}: {$name} is reserved by the system."]);
-            }
-            foreach (self::RESERVED_PREFIXES as $p) {
-                if (str_starts_with($name, $p)) {
-                    throw new ValidationException(['env' => "Line {$n}: names starting with {$p} are reserved by the system."]);
-                }
-            }
+            self::checkName($name, "Line {$n}: ");
             $value = trim($value);
             $len = strlen($value);
             if ($len >= 2 && (($value[0] === '"' && $value[$len - 1] === '"') || ($value[0] === "'" && $value[$len - 1] === "'"))) {
                 $value = substr($value, 1, -1);
             }
-            if (str_contains($value, "'")) {
-                throw new ValidationException(['env' => "Line {$n}: {$name}: a value may not contain a single quote (’)."]);
-            }
-            if (preg_match('/[\x00-\x1f\x7f]/', $value) === 1) {
-                throw new ValidationException(['env' => "Line {$n}: {$name}: a value may not contain control characters."]);
-            }
-            if (strlen($value) > self::MAX_VALUE) {
-                throw new ValidationException(['env' => "Line {$n}: {$name}: the value is longer than " . self::MAX_VALUE . ' characters.']);
-            }
+            self::checkValue($name, $value, "Line {$n}: ");
             if (isset($vars[$name])) {
                 throw new ValidationException(['env' => "Line {$n}: {$name} is set twice."]);
             }
@@ -105,6 +87,36 @@ final class SiteEnvService
         return $vars;
     }
 
+    /** @throws ValidationException */
+    private static function checkName(string $name, string $where): void
+    {
+        if (preg_match('/^[A-Z][A-Z0-9_]{0,63}$/', $name) !== 1) {
+            throw new ValidationException(['env' => "{$where}“{$name}” is not a valid name. Start with a capital letter and use capital letters, digits and _ (at most 64 characters)."]);
+        }
+        if (in_array($name, self::RESERVED, true)) {
+            throw new ValidationException(['env' => "{$where}{$name} is reserved by the system."]);
+        }
+        foreach (self::RESERVED_PREFIXES as $p) {
+            if (str_starts_with($name, $p)) {
+                throw new ValidationException(['env' => "{$where}names starting with {$p} are reserved by the system."]);
+            }
+        }
+    }
+
+    /** @throws ValidationException */
+    private static function checkValue(string $name, string $value, string $where): void
+    {
+        if (str_contains($value, "'")) {
+            throw new ValidationException(['env' => "{$where}{$name}: a value may not contain a single quote (’)."]);
+        }
+        if (preg_match('/[\x00-\x1f\x7f]/', $value) === 1) {
+            throw new ValidationException(['env' => "{$where}{$name}: a value may not contain control characters."]);
+        }
+        if (strlen($value) > self::MAX_VALUE) {
+            throw new ValidationException(['env' => "{$where}{$name}: the value is longer than " . self::MAX_VALUE . ' characters.']);
+        }
+    }
+
     /**
      * Stores and applies the variables. When the agent refuses them the previous set is put back.
      *
@@ -114,7 +126,43 @@ final class SiteEnvService
      */
     public function save(array $site, string $text, array $actor): string
     {
-        $vars = self::parse($text);
+        return $this->saveVars($site, self::parse($text), $actor);
+    }
+
+    /**
+     * Change some variables and leave the others as they are: `$set` adds or replaces, `$unset` removes. The
+     * result is checked as a whole (names, value length, at most 100 variables) before anything is stored.
+     *
+     * @param array<string, mixed> $site
+     * @param array<string, string> $set
+     * @param list<string> $unset
+     * @param array<string, mixed> $actor
+     */
+    public function change(array $site, array $set, array $unset, array $actor): string
+    {
+        $vars = $this->store->get((int) $site['id']);
+        foreach ($unset as $name) {
+            unset($vars[$name]);
+        }
+        foreach ($set as $name => $value) {
+            $name = (string) $name;
+            self::checkName($name, '');
+            self::checkValue($name, (string) $value, '');
+            $vars[$name] = (string) $value;
+        }
+        if (count($vars) > self::MAX_VARS) {
+            throw new ValidationException(['env' => 'At most ' . self::MAX_VARS . ' variables.']);
+        }
+        return $this->saveVars($site, $vars, $actor);
+    }
+
+    /**
+     * @param array<string, mixed> $site
+     * @param array<string, string> $vars
+     * @param array<string, mixed> $actor
+     */
+    private function saveVars(array $site, array $vars, array $actor): string
+    {
         $id = (int) $site['id'];
         $before = $this->store->get($id);
         if ($before === $vars) {

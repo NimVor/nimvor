@@ -37,11 +37,17 @@ final class ApiIsolationTest extends HttpTestCase
     public function testReadOnlyTokensCannotWriteAnywhere(): void
     {
         $admin = $this->seedUser('admin', 'admin');
-        $read = $this->app->container->get(ApiTokenService::class)->create($admin, ['name' => 'ro', 'ability' => 'read', 'expires_days' => 1]);
+        $tokens = $this->app->container->get(ApiTokenService::class);
+        // A token may make ApiTokenService::RATE_PER_MINUTE requests a minute, and the API has more write routes than
+        // that: a new read-only token every 50 requests keeps this test about permissions, not about the limiter.
+        $read = '';
         $writes = 0;
         foreach (self::apiRoutes() as [$method, $path]) {
             if ($method === 'GET') {
                 continue;
+            }
+            if ($writes % 50 === 0) {
+                $read = $tokens->create($admin, ['name' => 'ro' . $writes, 'ability' => 'read', 'expires_days' => 1]);
             }
             $before = count($this->agent->requests);
             $res = $this->api($method, (string) preg_replace('/\{\w+\}/', '1', $path), $read, ['domain' => 'ro.test', 'name' => 'ro_db', 'kind' => 'static']);
@@ -60,10 +66,15 @@ final class ApiIsolationTest extends HttpTestCase
         $now = gmdate('c');
         $db->run("INSERT INTO websites (server_id, owner_id, domain, system_user, root, document_root, kind, created_at, updated_at) VALUES (1, ?, 'victim.test', 'victim', '/home/nimvor/victim.test', '/home/nimvor/victim.test/public_html', 'static', ?, ?)", [$bob, $now, $now]);
         $victim = (int) $db->scalar("SELECT id FROM websites WHERE domain = 'victim.test'");
-        $token = $this->app->container->get(ApiTokenService::class)->create($alice, ['name' => 'rw', 'ability' => 'write', 'expires_days' => 1]);
+        $tokens = $this->app->container->get(ApiTokenService::class);
+        $token = $tokens->create($alice, ['name' => 'rw', 'ability' => 'write', 'expires_days' => 1]);
+        $sent = 0;
         foreach (self::apiRoutes() as [$method, $path]) {
             if (!str_contains($path, '{id}') || str_starts_with($path, '/api/v1/jobs')) {
                 continue;
+            }
+            if ($sent++ > 0 && $sent % 50 === 0) {
+                $token = $tokens->create($alice, ['name' => 'rw' . $sent, 'ability' => 'write', 'expires_days' => 1]); // the per-token rate limit
             }
             $before = count($this->agent->requests);
             $res = $this->api($method, strtr($path, ['{id}' => (string) $victim]), $token, ['confirm' => 'victim.test']);
