@@ -44,7 +44,7 @@ final class ApiIsolationTest extends HttpTestCase
                 continue;
             }
             $before = count($this->agent->requests);
-            $res = $this->api($method, strtr($path, ['{id}' => '1']), $read, ['domain' => 'ro.test', 'name' => 'ro_db', 'kind' => 'static']);
+            $res = $this->api($method, (string) preg_replace('/\{\w+\}/', '1', $path), $read, ['domain' => 'ro.test', 'name' => 'ro_db', 'kind' => 'static']);
             self::assertSame(403, $res->status(), "{$method} {$path} with a read-only token");
             self::assertCount($before, $this->agent->requests, "{$method} {$path} reached the agent with a read-only token");
             $writes++;
