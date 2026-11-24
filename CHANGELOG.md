@@ -6,16 +6,6 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
-### Changed
-
-- **The panel footer links to the website** (Privacy policy, News, Documentation, Donation, API) on the right, and no longer carries the "Open-source server control panel" text.
-- **API tokens have permissions, and only administrators and resellers have the API.** A token is created with the permissions it may use, chosen in groups on *Profile → API tokens* (Hosting, Server, Security, Administration), or *Everything*; it never has more than its owner, and managing includes viewing. A call outside a token's permissions answers `403 scope_missing` and names the permission. Hosting customers can no longer create or use tokens (`403 api_not_available`); the token page is not shown to them, and tokens they made earlier stop working (nothing is deleted). Existing tokens of administrators and resellers keep working as *Everything*.
-- **The profile page is in tabs** (Account, Security, API tokens) instead of one long page; an address such as `/profile#two-factor` opens the right tab.
-
-### Fixed
-
-- **File manager: copying or moving onto a name that is taken now offers to replace it.** Before, the operation stopped with an "already exists" error. The manager now asks "Replace it?"; on yes, the existing file or folder is moved to the website's trash (restorable) and the copy or move goes ahead. The agent actions `files.copy` and `files.rename` take an `overwrite` flag for this; a file cannot replace itself, something inside it, or a top-level website folder.
-
 ### Added
 
 - **Website: reviews.** A *Reviews* page (`/reviews`) and a small reviews section on the home page. Visitors can send a review (captcha, a hidden bot field and a per-address limit apply); it is shown only after an administrator publishes it under *Admin → Reviews*, where reviews copied from Trustpilot or sent by customers can also be added by hand. With none published, the home page shows an invitation instead of anything made up.
@@ -25,7 +15,14 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Changed
 
+- **The panel footer links to the website** (Privacy policy, News, Documentation, Donation, API) on the right, and no longer carries the "Open-source server control panel" text.
+- **API tokens have permissions, and only administrators and resellers have the API.** A token is created with the permissions it may use, chosen in groups on *Profile → API tokens* (Hosting, Server, Security, Administration), or *Everything*; it never has more than its owner, and managing includes viewing. A call outside a token's permissions answers `403 scope_missing` and names the permission. Hosting customers can no longer create or use tokens (`403 api_not_available`); the token page is not shown to them, and tokens they made earlier stop working (nothing is deleted). Existing tokens of administrators and resellers keep working as *Everything*.
+- **The profile page is in tabs** (Account, Security, API tokens) instead of one long page; an address such as `/profile#two-factor` opens the right tab.
 - **Website menus.** *About us* is its own menu item after *Support*; *Sponsors* and *Community & source* moved from *Resources* to *Support*; *Reviews* joined *Resources*. The footer follows.
+
+### Fixed
+
+- **File manager: copying or moving onto a name that is taken now offers to replace it.** Before, the operation stopped with an "already exists" error. The manager now asks "Replace it?"; on yes, the existing file or folder is moved to the website's trash (restorable) and the copy or move goes ahead. The agent actions `files.copy` and `files.rename` take an `overwrite` flag for this; a file cannot replace itself, something inside it, or a top-level website folder.
 
 ## [2.3.0] — 2026-11-24
 
