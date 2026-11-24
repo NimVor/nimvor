@@ -35,7 +35,7 @@ final class ProtectionApiTest extends HttpTestCase
     {
         parent::setUp();
         $this->admin = $this->seedUser('admin', 'admin');
-        $this->cust = $this->seedUser('cust', 'customer');
+        $this->cust = $this->seedUser('cust', 'reseller');
         $this->db = $this->app->container->get(Connection::class);
         foreach ([['shop.test', $this->cust], ['blog.test', $this->admin]] as [$d, $o]) {
             $this->db->run("INSERT INTO websites (server_id, domain, kind, root, document_root, system_user, owner_id, status, created_at, updated_at) VALUES (1, ?, 'static', ?, ?, ?, ?, 'active', 'x', 'x')", [$d, '/home/u/' . $d, '/home/u/' . $d . '/public_html', 'u' . $o, $o]);
@@ -63,7 +63,7 @@ final class ProtectionApiTest extends HttpTestCase
 
     private function token(int $userId, string $ability = 'write'): string
     {
-        return $this->app->container->get(ApiTokenService::class)->create($userId, ['name' => 't' . bin2hex(random_bytes(2)), 'ability' => $ability, 'expires_days' => 30]);
+        return $this->app->container->get(ApiTokenService::class)->create($userId, ['name' => 't' . bin2hex(random_bytes(2)), 'ability' => $ability, 'all_scopes' => '1', 'expires_days' => 30]);
     }
 
     public function testTrafficLimits(): void

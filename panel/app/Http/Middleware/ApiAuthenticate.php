@@ -52,6 +52,9 @@ final class ApiAuthenticate implements Middleware
         }
         $user = $auth['user'];
         $this->audit->setActor((int) $user['id'], (string) $user['username'] . ' (api)');
+        if (!ApiTokenService::mayUseApi($user)) {
+            return self::error(403, 'api_not_available', 'The API is for administrators and resellers.');
+        }
         if (!$this->tokens->hit((int) $auth['token']['id'])) {
             return self::error(429, 'rate_limited', 'Too many requests; at most ' . ApiTokenService::RATE_PER_MINUTE . ' per minute per token.');
         }
@@ -65,6 +68,16 @@ final class ApiAuthenticate implements Middleware
         if ($route->permission !== null && !$this->authorizer->can($user, $route->permission)) {
             $this->audit->record('security.access_denied', 'route', $request->path(), AuditLogger::DENIED, ['permission' => $route->permission, 'via' => 'api']);
             return self::error(403, 'forbidden', 'The token\'s user lacks the permission ' . $route->permission . '.');
+        }
+        // A token limited to chosen permissions may only call endpoints that need one of them (endpoints that need
+        // none, such as /me and /jobs, stay open to every valid token).
+        $scopes = $auth['token']['scopes'] ?? null;
+        if ($scopes !== null && $route->permission !== null) {
+            $allowed = (array) json_decode((string) $scopes, true);
+            if (!in_array($route->permission, $allowed, true)) {
+                $this->audit->record('security.access_denied', 'route', $request->path(), AuditLogger::DENIED, ['scope' => $route->permission, 'via' => 'api']);
+                return self::error(403, 'scope_missing', 'This token was not given the permission ' . $route->permission . '.', ['permission' => $route->permission]);
+            }
         }
         $serverHeader = $request->header('x-nimvor-server');
         if ($serverHeader !== '') {

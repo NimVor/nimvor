@@ -3,7 +3,7 @@
     "info": {
         "title": "NimVor panel API",
         "version": "1",
-        "description": "The NimVor panel API manages websites, databases, backups, SSL certificates, deployments and more\nover HTTPS and JSON. Every endpoint uses the same services as the web interface, so validation,\nplan limits, ownership scope, auditing and the agent's safety checks are the same.\n\n**Authentication.** Create a token under *Profile → API tokens* (it is shown once) and send it as\n`Authorization: Bearer nimvor_…`. A token acts with its owner's permissions and ownership scope (a hosting\ncustomer only sees their own websites). A *read-only* token may only use `GET`. Tokens can expire and\nbe revoked. There are no cookies and no CSRF token.\n\n**Responses.** Success: `{\"success\": true, \"data\": …}`. Failure: `{\"success\": false, \"error\": {\"code\", \"message\", …}}`\nwith `reason`/`action` (what went wrong and what to do) or `fields` (one message per invalid input).\n\n**Long operations** answer `202 Accepted` with a `job_id`; poll `GET /jobs/{id}` until `done` is true.\n\n**Limits.** 120 requests per minute per token (`429 rate_limited`). Select another managed server with the\n`X-NimVor-Server` header.",
+        "description": "The NimVor panel API manages websites, databases, backups, SSL certificates, deployments and more\nover HTTPS and JSON. Every endpoint uses the same services as the web interface, so validation,\nplan limits, ownership scope, auditing and the agent's safety checks are the same.\n\n**Authentication.** Create a token under *Profile → API tokens* (it is shown once) and send it as\n`Authorization: Bearer nimvor_…`. **The API is for administrators and resellers**; hosting customers have no\nAPI access (`403 api_not_available`). A token acts as its owner, with the owner's ownership scope (a reseller\nonly sees their own and their customers' objects), and only for the permissions it was given when it was\ncreated: like the privileges of a WHM token, they are chosen in groups, or *Everything* gives all the owner\nmay do. An endpoint the token has no permission for answers `403 scope_missing` and names the permission\n(shown on each operation as `x-permission`). A *read-only* token may only use `GET`. Tokens can expire and\nbe revoked. There are no cookies and no CSRF token.\n\n**Responses.** Success: `{\"success\": true, \"data\": …}`. Failure: `{\"success\": false, \"error\": {\"code\", \"message\", …}}`\nwith `reason`/`action` (what went wrong and what to do) or `fields` (one message per invalid input).\n\n**Long operations** answer `202 Accepted` with a `job_id`; poll `GET /jobs/{id}` until `done` is true.\n\n**Limits.** 120 requests per minute per token (`429 rate_limited`). Select another managed server with the\n`X-NimVor-Server` header.",
         "license": {
             "name": "MIT",
             "url": "https://opensource.org/licenses/MIT"
@@ -22368,7 +22368,7 @@
                 }
             },
             "Forbidden": {
-                "description": "The token may not do this: it is read-only, or its user lacks the permission or the hosting plan lacks the feature.",
+                "description": "The token may not do this: it is read-only, it was not given the permission (`scope_missing`), its user lacks it or the hosting plan lacks the feature, or the user is a hosting customer (`api_not_available`).",
                 "content": {
                     "application/json": {
                         "schema": {

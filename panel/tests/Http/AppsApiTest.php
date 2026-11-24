@@ -26,7 +26,7 @@ final class AppsApiTest extends HttpTestCase
     {
         parent::setUp();
         $this->admin = $this->seedUser('admin', 'admin');
-        $this->cust = $this->seedUser('cust', 'customer');
+        $this->cust = $this->seedUser('cust', 'reseller');
         $users = $this->app->container->get(UserRepository::class);
         $sites = $this->app->container->get(WebsiteService::class);
         $this->agent->succeed('sites.apply', ['changed' => []]);
@@ -59,7 +59,7 @@ final class AppsApiTest extends HttpTestCase
 
     private function token(int $userId, string $ability = 'write'): string
     {
-        return $this->app->container->get(ApiTokenService::class)->create($userId, ['name' => 't' . bin2hex(random_bytes(2)), 'ability' => $ability, 'expires_days' => 30]);
+        return $this->app->container->get(ApiTokenService::class)->create($userId, ['name' => 't' . bin2hex(random_bytes(2)), 'ability' => $ability, 'all_scopes' => '1', 'expires_days' => 30]);
     }
 
     public function testCatalogForTheTokensUser(): void

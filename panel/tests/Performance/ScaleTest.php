@@ -22,7 +22,7 @@ final class ScaleTest extends HttpTestCase
     {
         $db = $this->app->container->get(Connection::class);
         $admin = $this->seedUser('admin', 'admin');
-        $cust = $this->seedUser('cust', 'customer');
+        $cust = $this->seedUser('cust', 'reseller');
         $now = gmdate('c');
         $inventory = [];
         $db->pdo()->beginTransaction();
@@ -79,7 +79,7 @@ final class ScaleTest extends HttpTestCase
             $measure('GET ' . $path, fn (): int => $this->request('GET', $path)->status());
         }
         $measure('GET /notifications?show=all', fn (): int => $this->request('GET', '/notifications', [], [], '', ['show' => 'all'])->status());
-        $token = $this->app->container->get(ApiTokenService::class)->create($admin, ['name' => 'perf', 'ability' => 'read', 'expires_days' => 1]);
+        $token = $this->app->container->get(ApiTokenService::class)->create($admin, ['name' => 'perf', 'ability' => 'read', 'all_scopes' => '1', 'expires_days' => 1]);
         $measure('API GET /api/v1/websites', fn (): int => $this->app->handle(new Request('GET', '/api/v1/websites', [], [], ['REMOTE_ADDR' => '192.0.2.9'], ['authorization' => 'Bearer ' . $token], ''))->status());
         $this->session = new \NimVor\Http\Session\ArraySession();
         $this->app = $this->makeApp();
