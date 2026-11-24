@@ -11,6 +11,7 @@ use NimVor\Http\Response;
 use NimVor\Http\Session\SessionInterface;
 use NimVor\Repositories\WebsiteRepository;
 use NimVor\Services\AuditLogger;
+use NimVor\Services\FtpAccountService;
 use NimVor\Services\JobTracker;
 use NimVor\Services\ServerContext;
 use NimVor\Support\UserFacingException;
@@ -24,8 +25,7 @@ use NimVor\View\View;
  */
 final class FtpController extends SiteController
 {
-    /** Accounts per website (a safety limit, not a plan limit). */
-    public const MAX_ACCOUNTS = 25;
+    public const MAX_ACCOUNTS = FtpAccountService::MAX_ACCOUNTS;
 
     public function __construct(
         View $view,
@@ -36,8 +36,7 @@ final class FtpController extends SiteController
         private readonly AuditLogger $audit,
         private readonly JobTracker $jobs,
         private readonly \NimVor\Services\SiteOverview $overview,
-        private readonly \NimVor\Services\PlanLimits $limits,
-        private readonly \NimVor\Services\FtpUsage $ftpUsage,
+        private readonly FtpAccountService $accounts,
     ) {
         parent::__construct($view, $session, $sites, $server);
     }
@@ -137,7 +136,7 @@ final class FtpController extends SiteController
         $status = null;
         $error = null;
         try {
-            $status = (array) $this->agent->call('ftp.status', ['user' => (string) $site['system_user']]);
+            $status = $this->accounts->status($site);
         } catch (AgentException $e) {
             $error = $e;
         }
@@ -160,76 +159,28 @@ final class FtpController extends SiteController
     /** The login name of an account of this website: <name>@<domain>. */
     public static function login(string $name, string $domain): string
     {
-        return strtolower(trim($name)) . '@' . strtolower($domain);
+        return FtpAccountService::login($name, $domain);
     }
 
     public function saveAccount(Request $request, string $id): Response
     {
         return $this->act($request, $id, 'ftp', function (array $site) use ($request): string {
-            $domain = (string) $site['domain'];
-            $name = strtolower(trim($request->string('name')));
             $existing = $request->input('existing') === '1';
-            if ($existing) {
-                // Editing: the full login name comes back as is.
-                $login = $name;
-                if (!str_ends_with($login, '@' . strtolower($domain))) {
-                    throw new UserFacingException('This account does not belong to the website.');
-                }
-            } else {
-                if (!preg_match('/^[a-z0-9][a-z0-9._-]{0,30}$/', $name)) {
-                    throw new ValidationException(['name' => 'Use up to 31 lower-case letters, digits and . _ -']);
-                }
-                $login = self::login($name, $domain);
-                if (strlen($login) > 64) {
-                    throw new ValidationException(['name' => 'The full login (' . $login . ') would be longer than 64 characters.']);
-                }
+            $res = $this->accounts->save($site, [
+                'name' => $request->string('name'), 'dir' => $request->string('dir'), 'password' => $request->string('password'),
+                'generate' => $request->input('generate') === '1', 'quota_mb' => $request->input('quota_mb', 0),
+            ], $existing);
+            if ($res['generated']) {
+                $this->session->flash('secret', ['title' => 'FTP password for ' . $res['login'], 'user' => $res['login'], 'password' => $res['password']]);
             }
-            $dir = trim($request->string('dir'), " /");
-            if (preg_match('#(^|/)\.\.(/|$)#', $dir) || strlen($dir) > 300) {
-                throw new ValidationException(['dir' => 'Enter a folder inside the website, e.g. public_html.']);
-            }
-            $password = $request->string('password');
-            $generated = false;
-            if ($request->input('generate') === '1') {
-                $password = rtrim(strtr(base64_encode(random_bytes(15)), '+/', 'Aa'), '=');
-                $generated = true;
-            }
-            if ($password !== '' && (strlen($password) < 10 || strlen($password) > 128)) {
-                throw new ValidationException(['password' => 'Use 10–128 characters, or generate one.']);
-            }
-            if (!$existing) {
-                if ($password === '') {
-                    throw new ValidationException(['password' => 'Enter a password or generate one.']);
-                }
-                $count = count((array) (((array) $this->agent->call('ftp.status', ['user' => (string) $site['system_user']]))['accounts'] ?? []));
-                if ($count >= self::MAX_ACCOUNTS) {
-                    throw new UserFacingException('This website already has ' . self::MAX_ACCOUNTS . ' FTP accounts.');
-                }
-                $this->limits->assertCanCreate('ftp_accounts', $site['owner_id'] === null ? null : (int) $site['owner_id'], 1, fn (array $owners): int => $this->ftpUsage->count($owners));
-            }
-            $quota = max(0, (int) $request->input('quota_mb', 0));
-            $params = ['name' => $login, 'user' => (string) $site['system_user'], 'dir' => $dir, 'quota_mb' => $quota];
-            if ($password !== '') {
-                $params['password'] = $password;
-            }
-            $this->agent->call('ftp.account_save', $params);
-            $this->audit->record($existing ? 'ftp.account_update' : 'ftp.account_create', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['account' => $login, 'dir' => $dir, 'quota_mb' => $quota, 'password_changed' => $password !== '']);
-            if ($generated) {
-                $this->session->flash('secret', ['title' => 'FTP password for ' . $login, 'user' => $login, 'password' => $password]);
-            }
-            return $existing ? 'FTP account ' . $login . ' saved.' : 'FTP account ' . $login . ' created.';
+            return $existing ? 'FTP account ' . $res['login'] . ' saved.' : 'FTP account ' . $res['login'] . ' created.';
         });
     }
 
     public function deleteAccount(Request $request, string $id): Response
     {
         return $this->act($request, $id, 'ftp', function (array $site) use ($request): string {
-            $login = strtolower(trim($request->string('name')));
-            if (!str_ends_with($login, '@' . strtolower((string) $site['domain']))) {
-                throw new UserFacingException('This account does not belong to the website.');
-            }
-            $this->agent->call('ftp.account_delete', ['name' => $login, 'user' => (string) $site['system_user']]);
-            $this->audit->record('ftp.account_delete', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['account' => $login]);
+            $login = $this->accounts->delete($site, $request->string('name'));
             return 'FTP account ' . $login . ' deleted. Its files are kept.';
         });
     }
@@ -238,18 +189,7 @@ final class FtpController extends SiteController
     {
         return $this->act($request, $id, 'ftp', function (array $site) use ($request): string {
             $enabled = $request->input('enabled') === '1';
-            $keys = array_values(array_filter(array_map('trim', preg_split('/\R/', $request->string('keys')) ?: []), static fn (string $k): bool => $k !== '' && !str_starts_with($k, '#')));
-            $passwordLogin = $request->input('password_login') === '1';
-            $password = $request->string('sftp_password');
-            if ($password !== '' && (strlen($password) < 10 || strlen($password) > 128)) {
-                throw new ValidationException(['sftp_password' => 'Use 10–128 characters.']);
-            }
-            $params = ['user' => (string) $site['system_user'], 'enabled' => $enabled, 'keys' => $keys, 'password_login' => $passwordLogin];
-            if ($password !== '') {
-                $params['password'] = $password;
-            }
-            $this->agent->call('sftp.configure', $params, 60);
-            $this->audit->record('sftp.configure', 'website', (string) $site['id'], AuditLogger::SUCCESS, ['enabled' => $enabled, 'keys' => count($keys), 'password_login' => $passwordLogin, 'password_changed' => $password !== '']);
+            $this->accounts->sftp($site, $enabled, preg_split('/\R/', $request->string('keys')) ?: [], $request->input('password_login') === '1', $request->string('sftp_password'));
             return $enabled ? 'SFTP access saved.' : 'SFTP access turned off.';
         });
     }
