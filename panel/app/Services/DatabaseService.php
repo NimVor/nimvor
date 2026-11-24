@@ -125,9 +125,11 @@ final class DatabaseService
     public function createUser(array $input, array $actor): array
     {
         $serverId = $this->server->id();
-        $username = $this->prefix($actor) . strtolower(trim((string) ($input['username'] ?? '')));
+        $typed = strtolower(trim((string) ($input['username'] ?? '')));
+        $username = $this->prefix($actor) . $typed;
         $host = $this->allowedHost(self::hostFrom($input, $actor), $actor);
-        if (!preg_match('/^[a-z0-9_]{1,32}$/', $username) || $this->repo->userTaken($serverId, $username, $host)) {
+        // The account prefix alone is not a name.
+        if ($typed === '' || !preg_match('/^[a-z0-9_]{1,32}$/', $username) || $this->repo->userTaken($serverId, $username, $host)) {
             throw new ValidationException(['username' => 'Use up to 32 lowercase letters, digits or underscores (not already used).']);
         }
         $siteId = filter_var($input['website_id'] ?? null, FILTER_VALIDATE_INT) ?: null;
