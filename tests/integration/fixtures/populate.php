@@ -31,7 +31,7 @@ foreach ([['fx-admin', 'admin'], ['fx-reseller', 'reseller'], ['fx-customer', 'c
 }
 $db->run('UPDATE users SET parent_id = ? WHERE id = ?', [$ids['fx-reseller'], $ids['fx-customer']]);
 
-$token = $c->get(\NimVor\Services\ApiTokenService::class)->create($ids['fx-admin'], ['name' => 'fixture', 'ability' => 'write', 'expires_days' => 365]);
+$token = $c->get(\NimVor\Services\ApiTokenService::class)->create($ids['fx-admin'], ['name' => 'fixture', 'ability' => 'write', 'all_scopes' => '1', 'expires_days' => 365]);
 $c->get(\NimVor\Repositories\SettingRepository::class)->set('panel_name', 'Fixture Hosting', null);
 
 $crypto = $c->get(\NimVor\Security\Crypto::class);
