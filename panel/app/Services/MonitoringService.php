@@ -20,6 +20,8 @@ use NimVor\Support\Logger;
 final class MonitoringService
 {
     private const RETENTION_DAYS = 30;
+    /** Seconds between two measurements of a website's disk use. */
+    private const USAGE_EVERY = 3600;
 
     /** @var \Closure(string, string): bool|null test hook for webhook delivery */
     public ?\Closure $sender = null;
@@ -79,11 +81,16 @@ final class MonitoringService
      */
     private function quotas(int $now): array
     {
-        $sites = $this->db->fetchAll('SELECT id, domain FROM websites WHERE server_id = ?', [$this->server->id()]);
-        $last = (string) $this->db->scalar('SELECT MIN(measured_at) FROM website_usage u JOIN websites w ON w.id = u.website_id WHERE w.server_id = ?', [$this->server->id()]);
-        $measured = (int) $this->db->scalar('SELECT COUNT(*) FROM website_usage u JOIN websites w ON w.id = u.website_id WHERE w.server_id = ?', [$this->server->id()]);
-        if ($sites !== [] && ($measured < count($sites) || strtotime($last) < $now - 3600)) {
-            $byDomain = array_column($sites, 'id', 'domain');
+        // Disk use is measured at most hourly per website, whatever the answer was: a website without a folder
+        // on disk, or a measurement that failed or timed out, is asked for again after the hour, not on every pass
+        // (walking every file of every website is the heaviest thing the scheduler asks of the agent).
+        $due = $this->db->fetchAll('SELECT id, domain FROM websites WHERE server_id = ? AND (usage_checked_at IS NULL OR usage_checked_at < ?)', [$this->server->id(), gmdate('c', $now - self::USAGE_EVERY)]);
+        if ($due !== []) {
+            $byDomain = array_column($due, 'id', 'domain');
+            // Marked before asking: if this process is stopped meanwhile, the next pass does not start it again.
+            foreach ($due as $d) {
+                $this->db->run('UPDATE websites SET usage_checked_at = ? WHERE id = ?', [gmdate('c', $now), (int) $d['id']]);
+            }
             try {
                 $rows = (array) $this->agent->call('sites.usage', ['domains' => array_keys($byDomain)], 300);
             } catch (AgentException $e) {
