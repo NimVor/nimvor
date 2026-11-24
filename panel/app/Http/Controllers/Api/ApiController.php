@@ -87,7 +87,11 @@ final class ApiController
         } catch (AgentException $e) {
             return ApiAuthenticate::error(502, $e->errorCode() !== '' ? $e->errorCode() : 'agent_error', $e->getMessage(), ['reason' => $e->reason()]);
         } catch (UserFacingException $e) {
-            return ApiAuthenticate::error($e->status() >= 400 ? $e->status() : 409, 'rejected', $e->getMessage(), ['reason' => $e->reason(), 'action' => $e->remedy()]);
+            if ($e->status() === 404) {
+                return self::notFound();
+            }
+            // A refusal by a rule of the panel (the exception's default status, 400) is a conflict with the current state.
+            return ApiAuthenticate::error($e->status() === 400 ? 409 : $e->status(), $e->status() === 403 ? 'forbidden' : 'rejected', $e->getMessage(), ['reason' => $e->reason(), 'action' => $e->remedy()]);
         }
     }
 

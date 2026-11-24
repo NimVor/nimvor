@@ -45,6 +45,7 @@ use NimVor\Http\Controllers\ServicesController;
 use NimVor\Http\Controllers\UsersController;
 use NimVor\Http\Controllers\WebsitesController;
 use NimVor\Http\Controllers\Api\ApiController;
+use NimVor\Http\Controllers\Api\UsersApiController;
 use NimVor\Http\Controllers\AccountsController;
 use NimVor\Http\Controllers\ApiTokensController;
 use NimVor\Http\Router;
@@ -746,6 +747,18 @@ return static function (Router $r): void {
     $r->get('/api/v1/jobs/{id}', [ApiController::class, 'job'], ['name' => 'api.jobs']);
     $r->get('/api/v1/notifications', [ApiController::class, 'listNotifications'], ['name' => 'api.notifications', 'permission' => P::NOTIFICATIONS_VIEW]);
     $r->post('/api/v1/notifications/read', [ApiController::class, 'readNotifications'], ['name' => 'api.notifications.read', 'permission' => P::NOTIFICATIONS_VIEW]);
+    // Users, hosting accounts and plans
+    $r->get('/api/v1/users', [UsersApiController::class, 'listUsers'], ['name' => 'api.users', 'permission' => P::USERS_VIEW]);
+    $r->post('/api/v1/users', [UsersApiController::class, 'createUser'], ['name' => 'api.users.create', 'permission' => P::USERS_MANAGE]);
+    $r->get('/api/v1/users/{id}', [UsersApiController::class, 'showUser'], ['name' => 'api.users.show', 'permission' => P::USERS_VIEW]);
+    $r->add('PATCH', '/api/v1/users/{id}', [UsersApiController::class, 'updateUser'], ['name' => 'api.users.update', 'permission' => P::USERS_MANAGE]);
+    $r->add('DELETE', '/api/v1/users/{id}', [UsersApiController::class, 'deleteUser'], ['name' => 'api.users.delete', 'permission' => P::USERS_MANAGE]);
+    $r->post('/api/v1/users/{id}/suspend', [UsersApiController::class, 'suspend'], ['name' => 'api.users.suspend', 'permission' => P::USERS_MANAGE]);
+    $r->post('/api/v1/users/{id}/unsuspend', [UsersApiController::class, 'unsuspend'], ['name' => 'api.users.unsuspend', 'permission' => P::USERS_MANAGE]);
+    $r->add('PUT', '/api/v1/users/{id}/plan', [UsersApiController::class, 'changePlan'], ['name' => 'api.users.plan', 'permission' => P::USERS_MANAGE]);
+    $r->post('/api/v1/users/{id}/terminate', [UsersApiController::class, 'terminate'], ['name' => 'api.users.terminate', 'permission' => P::USERS_MANAGE]);
+    $r->get('/api/v1/plans', [UsersApiController::class, 'listPlans'], ['name' => 'api.plans', 'permission' => P::USERS_VIEW]);
+    $r->post('/api/v1/accounts', [UsersApiController::class, 'createAccount'], ['name' => 'api.accounts.create', 'permission' => P::USERS_MANAGE]);
 
     // Own account (any signed-in user)
     $r->get('/profile', [ProfileController::class, 'show'], ['name' => 'profile']);
