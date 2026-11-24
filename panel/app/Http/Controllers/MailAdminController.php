@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace NimVor\Http\Controllers;
 
-use NimVor\Agent\AgentClient;
 use NimVor\Agent\AgentException;
 use NimVor\Hosting\Scope;
 use NimVor\Http\Request;
 use NimVor\Http\Response;
 use NimVor\Http\Session\SessionInterface;
-use NimVor\Services\AuditLogger;
+use NimVor\Services\MailAdminService;
 use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
 use NimVor\View\View;
 
 /**
@@ -20,13 +20,12 @@ use NimVor\View\View;
  */
 final class MailAdminController extends Controller
 {
-    public const RANGES = ['1h' => 3600, '24h' => 86400, '7d' => 604800, '30d' => 2592000];
+    public const RANGES = MailAdminService::RANGES;
 
     public function __construct(
         View $view,
         SessionInterface $session,
-        private readonly AgentClient $agent,
-        private readonly AuditLogger $audit,
+        private readonly MailAdminService $admin,
         private readonly \NimVor\Services\MailService $mail,
     ) {
         parent::__construct($view, $session);
@@ -45,7 +44,7 @@ final class MailAdminController extends Controller
         $q = null;
         $error = null;
         try {
-            $q = (array) $this->agent->call('mail.queue', [], 60);
+            $q = $this->admin->queue();
         } catch (AgentException $e) {
             $error = $e;
         }
@@ -58,11 +57,11 @@ final class MailAdminController extends Controller
             return $r;
         }
         try {
-            $res = (array) $this->agent->call('mail.queue_message', ['id' => $id]);
-        } catch (AgentException $e) {
+            $headers = $this->admin->message($id);
+        } catch (AgentException | ValidationException $e) {
             return Response::json(['success' => false, 'error' => ['message' => $e->getMessage()]], 404);
         }
-        return Response::json(['success' => true, 'headers' => (array) ($res['headers'] ?? [])]);
+        return Response::json(['success' => true, 'headers' => $headers]);
     }
 
     public function queueAction(Request $request): Response
@@ -71,18 +70,17 @@ final class MailAdminController extends Controller
             return $r;
         }
         $action = $request->string('action');
-        $ids = array_values(array_filter(array_map('strval', (array) $request->input('ids', [])), static fn (string $i): bool => preg_match('/^[0-9A-Za-z]{6,20}$/', $i) === 1));
+        $ids = array_map('strval', (array) $request->input('ids', []));
         try {
-            if ($action !== 'flush' && $ids === []) {
-                throw new UserFacingException('Select messages first.');
-            }
-            $res = (array) $this->agent->call('mail.queue_action', ['action' => $action, 'ids' => $ids], 120);
+            $res = $this->admin->queueAction($action, $ids);
+        } catch (ValidationException $e) {
+            return $this->redirectWithError('/mail/admin/queue', implode(' ', $e->errors()));
         } catch (UserFacingException $e) {
             return $this->redirectWithFailure('/mail/admin/queue', $e);
         }
-        $this->audit->record('mail.queue_' . $action, 'server', 'mail', AuditLogger::SUCCESS, ['count' => count($ids)]);
+        $n = (int) $res['count'];
         $done = ['delete' => 'deleted', 'retry' => 'sent for delivery', 'hold' => 'put on hold', 'release' => 'released', 'requeue' => 'requeued'];
-        return $this->redirectWithSuccess('/mail/admin/queue', $action === 'flush' ? 'Delivery of every deferred message is being retried.' : count($ids) . ' message(s) ' . ($done[$action] ?? $action) . '.');
+        return $this->redirectWithSuccess('/mail/admin/queue', $action === 'flush' ? 'Delivery of every deferred message is being retried.' : $n . ' message(s) ' . ($done[$action] ?? $action) . '.');
     }
 
     public function reports(Request $request): Response
@@ -91,20 +89,16 @@ final class MailAdminController extends Controller
             return $r;
         }
         $range = (string) $request->query('range', '24h');
-        $seconds = self::RANGES[$range] ?? 86400;
         $filters = ['address' => trim((string) $request->query('address', '')), 'status' => (string) $request->query('status', '')];
         $tab = $request->query('view', '') === 'stats' ? 'stats' : 'reports';
         $rep = null;
         $error = null;
         try {
-            $rep = (array) $this->agent->call('mail.report', [
-                'since' => gmdate('c', time() - $seconds), 'until' => gmdate('c'),
-                'address' => mb_substr($filters['address'], 0, 254), 'status' => $filters['status'], 'limit' => 500,
-            ], 120);
+            $rep = $this->admin->report($range, $filters['address'], $filters['status']);
         } catch (AgentException $e) {
             $error = $e;
         }
-        return $this->render('mail/admin/reports', ['tab' => $tab, 'report' => $rep === null ? null : json_decode((string) json_encode($rep['report']), true), 'source' => (string) ($rep['source'] ?? ''), 'range' => $range, 'filters' => $filters, 'agentError' => $error]);
+        return $this->render('mail/admin/reports', ['tab' => $tab, 'report' => $rep === null ? null : $rep['report'], 'source' => (string) ($rep['source'] ?? ''), 'range' => $range, 'filters' => $filters, 'agentError' => $error]);
     }
 
     public function server(Request $request): Response
@@ -116,8 +110,8 @@ final class MailAdminController extends Controller
         $log = null;
         $error = null;
         try {
-            $status = json_decode((string) json_encode($this->agent->call('mail.server_status', [], 60)), true);
-            $log = json_decode((string) json_encode($this->agent->call('mail.log_tail', ['lines' => 100], 60)), true);
+            $status = $this->admin->serverStatus();
+            $log = $this->admin->logTail(100);
         } catch (AgentException $e) {
             $error = $e;
         }
@@ -139,11 +133,10 @@ final class MailAdminController extends Controller
             }
         }
         try {
-            $this->agent->call('mail.settings_set', ['postfix' => (object) $pf, 'dovecot' => (object) $dc], 120);
+            $this->admin->setSettings($pf, $dc);
         } catch (UserFacingException $e) {
             return $this->redirectWithFailure('/mail/admin/server#mail-postfix', $e);
         }
-        $this->audit->record('mail.settings', 'server', 'mail', AuditLogger::SUCCESS, ['postfix' => $pf, 'dovecot' => $dc]);
         return $this->redirectWithSuccess('/mail/admin/server#mail-postfix', 'Mail server settings applied.');
     }
 
@@ -158,7 +151,7 @@ final class MailAdminController extends Controller
         $error = null;
         if ($address !== '') {
             try {
-                $trace = (array) json_decode((string) json_encode($this->agent->call('mail.trace', ['address' => $address], 60)), true);
+                $trace = $this->admin->trace($address);
             } catch (UserFacingException $e) {
                 $error = $e;
             }
@@ -171,14 +164,11 @@ final class MailAdminController extends Controller
         if ($r = $this->denied($request)) {
             return $r;
         }
-        $domain = strtolower($request->string('domain'));
         try {
-            $res = (array) $this->agent->call('mail.repair_permissions', ['domain' => $domain], 600);
+            $res = $this->admin->repair($request->string('domain'));
         } catch (UserFacingException $e) {
-            $this->audit->record('mail.repair_permissions', 'server', $domain !== '' ? $domain : 'mail', AuditLogger::FAILURE, ['error' => $e->getMessage()]);
             return $this->redirectWithFailure('/mail/admin/tools', $e);
         }
-        $this->audit->record('mail.repair_permissions', 'server', $domain !== '' ? $domain : 'mail', AuditLogger::SUCCESS, ['fixed' => (int) ($res['fixed'] ?? 0)]);
         $skipped = count((array) ($res['skipped'] ?? []));
         return $this->redirectWithSuccess('/mail/admin/tools', sprintf('Checked %d folder(s) and %d file(s); fixed %d.', (int) ($res['dirs'] ?? 0), (int) ($res['files'] ?? 0), (int) ($res['fixed'] ?? 0)) . ($skipped > 0 ? ' Skipped ' . $skipped . ' link(s) or special file(s): ' . implode(', ', array_slice(array_map('strval', (array) $res['skipped']), 0, 5)) . '.' : ''));
     }

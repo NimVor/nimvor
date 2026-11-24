@@ -9,7 +9,6 @@ use NimVor\Hosting\Scope;
 use NimVor\Http\Request;
 use NimVor\Http\Response;
 use NimVor\Http\Session\SessionInterface;
-use NimVor\Services\AuditLogger;
 use NimVor\Services\MailRateService;
 use NimVor\Support\UserFacingException;
 use NimVor\View\View;
@@ -27,7 +26,6 @@ final class MailRateController extends Controller
         View $view,
         SessionInterface $session,
         private readonly MailRateService $rates,
-        private readonly AuditLogger $audit,
     ) {
         parent::__construct($view, $session);
     }
@@ -57,18 +55,11 @@ final class MailRateController extends Controller
         if ($r = $this->denied($request)) {
             return $r;
         }
-        $details = [];
         try {
-            $state = $this->rates->state();
-            $known = array_map('strval', (array) ($state['accounts'] ?? []));
-            $cfg = MailRateService::validate(['enabled' => $request->input('enabled'), 'per_hour' => $request->input('per_hour'), 'accounts' => $request->input('accounts')], $known);
-            $details = $cfg;
-            $this->rates->save($cfg, !empty($state['config']['enabled']));
+            $cfg = $this->rates->configure(['enabled' => $request->input('enabled'), 'per_hour' => $request->input('per_hour'), 'accounts' => $request->input('accounts')]);
         } catch (UserFacingException $e) {
-            $this->audit->record('mail.rate_settings', 'server', 'mail-limits', AuditLogger::FAILURE, $details + ['error' => $e->getMessage()]);
             return $this->redirectWithFailure(self::BACK, $e);
         }
-        $this->audit->record('mail.rate_settings', 'server', 'mail-limits', AuditLogger::SUCCESS, $details);
         return $this->redirectWithSuccess(self::BACK, $cfg['enabled'] ? 'Mail sending limits saved; they are on.' : 'Mail sending limits saved; they are off.');
     }
 
@@ -79,12 +70,10 @@ final class MailRateController extends Controller
         }
         $account = $request->string('account');
         try {
-            $this->rates->reset($account);
+            $this->rates->resetAccount($account);
         } catch (UserFacingException $e) {
-            $this->audit->record('mail.rate_reset', 'server', $account !== '' ? $account : 'all', AuditLogger::FAILURE, ['error' => $e->getMessage()]);
             return $this->redirectWithFailure(self::BACK, $e);
         }
-        $this->audit->record('mail.rate_reset', 'server', $account !== '' ? $account : 'all', AuditLogger::SUCCESS);
         return $this->redirectWithSuccess(self::BACK, $account !== '' ? $account . ' may send again this hour.' : 'All accounts may send again this hour.');
     }
 }

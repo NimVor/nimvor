@@ -28,6 +28,7 @@ final class MailRateService
         private readonly WebsiteRepository $sites,
         private readonly ServerContext $server,
         private readonly WebsiteService $websites,
+        private readonly AuditLogger $audit,
         private readonly ?NotificationService $notifications = null,
     ) {
     }
@@ -100,6 +101,40 @@ final class MailRateService
             }
         }
         $this->agent->call('mail.rate_set', ['enabled' => $cfg['enabled'], 'per_hour' => $cfg['per_hour'], 'accounts' => (object) $cfg['accounts']], 180);
+    }
+
+    /**
+     * Validate, save and audit new limits (a refused change is audited too).
+     *
+     * @param array<string, mixed> $input enabled, per_hour, accounts (name => limit or '' for the default)
+     * @return array{enabled: bool, per_hour: int, accounts: array<string, int>}
+     */
+    public function configure(array $input): array
+    {
+        $details = [];
+        try {
+            $state = $this->state();
+            $cfg = self::validate($input, array_map('strval', (array) ($state['accounts'] ?? [])));
+            $details = $cfg;
+            $this->save($cfg, !empty($state['config']['enabled']));
+        } catch (UserFacingException $e) {
+            $this->audit->record('mail.rate_settings', 'server', 'mail-limits', AuditLogger::FAILURE, $details + ['error' => $e->getMessage()]);
+            throw $e;
+        }
+        $this->audit->record('mail.rate_settings', 'server', 'mail-limits', AuditLogger::SUCCESS, $details);
+        return $cfg;
+    }
+
+    /** Let one website account (or every account when empty) send again this hour; audited. */
+    public function resetAccount(string $account): void
+    {
+        try {
+            $this->reset($account);
+        } catch (UserFacingException $e) {
+            $this->audit->record('mail.rate_reset', 'server', $account !== '' ? $account : 'all', AuditLogger::FAILURE, ['error' => $e->getMessage()]);
+            throw $e;
+        }
+        $this->audit->record('mail.rate_reset', 'server', $account !== '' ? $account : 'all', AuditLogger::SUCCESS);
     }
 
     public function reset(string $account): void

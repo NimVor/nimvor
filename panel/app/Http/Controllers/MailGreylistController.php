@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace NimVor\Http\Controllers;
 
-use NimVor\Agent\AgentClient;
 use NimVor\Agent\AgentException;
 use NimVor\Hosting\Scope;
 use NimVor\Http\Request;
 use NimVor\Http\Response;
 use NimVor\Http\Session\SessionInterface;
-use NimVor\Services\AuditLogger;
+use NimVor\Services\MailGreylistService;
 use NimVor\Support\UserFacingException;
+use NimVor\Support\ValidationException;
 use NimVor\View\View;
 
 /**
@@ -21,15 +21,14 @@ use NimVor\View\View;
  */
 final class MailGreylistController extends Controller
 {
-    public const SORTS = ['ip', 'from', 'to', 'deferred', 'accepted', 'created', 'block_expire', 'must_retry', 'record_expire'];
-    public const STATUSES = ['deferring' => 'Deferring', 'waiting' => 'Retry accepted', 'passed' => 'Passed', 'expired' => 'Expired'];
+    public const SORTS = MailGreylistService::SORTS;
+    public const STATUSES = MailGreylistService::STATUSES;
     private const BACK = '/mail/admin/greylisting';
 
     public function __construct(
         View $view,
         SessionInterface $session,
-        private readonly AgentClient $agent,
-        private readonly AuditLogger $audit,
+        private readonly MailGreylistService $grey,
     ) {
         parent::__construct($view, $session);
     }
@@ -39,52 +38,16 @@ final class MailGreylistController extends Controller
         return Scope::isAll($this->user($request)) ? null : $this->render('errors/error', ['title' => 'Access denied', 'message' => 'Email administration is for server administrators.', 'status' => 403], 403);
     }
 
-    /** @return array<string, mixed> */
-    private function state(): array
-    {
-        return json_decode((string) json_encode($this->agent->call('mail.greylist_get', [], 60)), true);
-    }
-
-    /**
-     * The request for mail.greylist_set from the current configuration.
-     *
-     * @param array<string, mixed> $cfg
-     * @return array<string, mixed>
-     */
-    private static function params(array $cfg): array
-    {
-        $providers = [];
-        foreach ((array) ($cfg['providers'] ?? []) as $id => $p) {
-            $providers[(string) $id] = ['trust' => !empty($p['trust']), 'auto_update' => !empty($p['auto_update'])];
-        }
-        return [
-            'enabled' => !empty($cfg['enabled']),
-            'deferral' => (int) ($cfg['deferral'] ?? 5),
-            'resend' => (int) ($cfg['resend'] ?? 240),
-            'expire' => (int) ($cfg['expire'] ?? 4320),
-            'spf_bypass' => !empty($cfg['spf_bypass']),
-            'auto_trust_new' => !empty($cfg['auto_trust_new']),
-            'trusted' => array_values(array_map(static fn (array $t): array => ['range' => (string) $t['range'], 'comment' => (string) ($t['comment'] ?? '')], (array) ($cfg['trusted'] ?? []))),
-            'providers' => (object) $providers,
-        ];
-    }
-
-    /**
-     * Applies a change to the configuration.
-     *
-     * @param callable(array<string, mixed>): array<string, mixed> $change
-     * @param array<string, mixed> $details
-     */
-    private function change(string $action, callable $change, string $done, array $details = [], string $to = self::BACK): Response
+    /** @param callable(): void $apply */
+    private function apply(callable $apply, string $done, string $to = self::BACK): Response
     {
         try {
-            $params = $change(self::params((array) ($this->state()['config'] ?? [])));
-            $this->agent->call('mail.greylist_set', $params, 180);
+            $apply();
+        } catch (ValidationException $e) {
+            return $this->redirectWithError($to, implode(' ', $e->errors()));
         } catch (UserFacingException $e) {
-            $this->audit->record($action, 'server', 'greylisting', AuditLogger::FAILURE, $details + ['error' => $e->getMessage()]);
             return $this->redirectWithFailure($to, $e);
         }
-        $this->audit->record($action, 'server', 'greylisting', AuditLogger::SUCCESS, $details);
         return $this->redirectWithSuccess($to, $done);
     }
 
@@ -96,7 +59,7 @@ final class MailGreylistController extends Controller
         $state = null;
         $error = null;
         try {
-            $state = $this->state();
+            $state = $this->grey->state();
         } catch (AgentException $e) {
             $error = $e;
         }
@@ -116,7 +79,7 @@ final class MailGreylistController extends Controller
             'spf_bypass' => $request->input('spf_bypass') === '1',
             'auto_trust_new' => $request->input('auto_trust_new') === '1',
         ];
-        return $this->change('mail.greylist_settings', static fn (array $p): array => array_replace($p, $in), $in['enabled'] ? 'Greylisting settings saved; greylisting is on.' : 'Greylisting settings saved; greylisting is off.', $in, self::BACK . '#greylist-settings');
+        return $this->apply(fn () => $this->grey->saveSettings($in), $in['enabled'] ? 'Greylisting settings saved; greylisting is on.' : 'Greylisting settings saved; greylisting is off.', self::BACK . '#greylist-settings');
     }
 
     public function saveTrusted(Request $request): Response
@@ -125,20 +88,8 @@ final class MailGreylistController extends Controller
             return $r;
         }
         $range = trim($request->string('range'));
-        $comment = trim($request->string('comment'));
         $index = $request->input('index');
-        if ($range === '') {
-            return $this->redirectWithError(self::BACK . '#trusted', 'Enter an IP address or range.');
-        }
-        return $this->change('mail.greylist_trusted', static function (array $p) use ($range, $comment, $index): array {
-            $entry = ['range' => $range, 'comment' => $comment];
-            if (is_string($index) && ctype_digit($index) && isset($p['trusted'][(int) $index])) {
-                $p['trusted'][(int) $index] = $entry;
-            } else {
-                $p['trusted'][] = $entry;
-            }
-            return $p;
-        }, 'Trusted host ' . $range . ' saved.', ['range' => $range, 'comment' => $comment], self::BACK . '#trusted');
+        return $this->apply(fn () => $this->grey->saveTrusted($range, $request->string('comment'), is_string($index) && ctype_digit($index) ? (int) $index : null), 'Trusted host ' . $range . ' saved.', self::BACK . '#trusted');
     }
 
     public function deleteTrusted(Request $request, string $n): Response
@@ -146,13 +97,12 @@ final class MailGreylistController extends Controller
         if ($r = $this->denied($request)) {
             return $r;
         }
-        return $this->change('mail.greylist_trusted_delete', static function (array $p) use ($n): array {
-            if (!ctype_digit($n) || !isset($p['trusted'][(int) $n])) {
+        return $this->apply(function () use ($n): void {
+            if (!ctype_digit($n)) {
                 throw new UserFacingException('That trusted host no longer exists.');
             }
-            array_splice($p['trusted'], (int) $n, 1);
-            return $p;
-        }, 'Trusted host removed.', ['index' => (int) $n], self::BACK . '#trusted');
+            $this->grey->deleteTrusted((int) $n);
+        }, 'Trusted host removed.', self::BACK . '#trusted');
     }
 
     public function saveProviders(Request $request): Response
@@ -162,14 +112,7 @@ final class MailGreylistController extends Controller
         }
         $trust = array_map('strval', (array) $request->input('trust', []));
         $auto = array_map('strval', (array) $request->input('auto_update', []));
-        return $this->change('mail.greylist_providers', static function (array $p) use ($trust, $auto): array {
-            $providers = [];
-            foreach (array_keys((array) $p['providers']) as $id) {
-                $providers[$id] = ['trust' => in_array($id, $trust, true), 'auto_update' => in_array($id, $auto, true)];
-            }
-            $p['providers'] = (object) $providers;
-            return $p;
-        }, 'Mail providers saved.', ['trusted' => $trust], self::BACK . '#providers');
+        return $this->apply(fn () => $this->grey->saveProviders($trust, $auto), 'Mail providers saved.', self::BACK . '#providers');
     }
 
     public function updateProviders(Request $request): Response
@@ -177,30 +120,14 @@ final class MailGreylistController extends Controller
         if ($r = $this->denied($request)) {
             return $r;
         }
-        try {
-            $this->agent->call('mail.greylist_update_providers', ['all' => true], 300);
-        } catch (UserFacingException $e) {
-            return $this->redirectWithFailure(self::BACK . '#providers', $e);
-        }
-        $this->audit->record('mail.greylist_update_providers', 'server', 'greylisting');
-        return $this->redirectWithSuccess(self::BACK . '#providers', 'Provider address ranges updated from their SPF records.');
+        return $this->apply(fn () => $this->grey->updateProviders(), 'Provider address ranges updated from their SPF records.', self::BACK . '#providers');
     }
 
     /** @return array{search: string, status: string, sort: string, dir: string, page: int, per: int} */
     public static function query(Request $request): array
     {
         $get = static fn (string $k): string => is_scalar($v = $request->query($k, '')) ? trim((string) $v) : '';
-        $status = $get('status');
-        $sort = $get('sort');
-        $per = (int) $get('per');
-        return [
-            'search' => mb_substr($get('search'), 0, 200),
-            'status' => isset(self::STATUSES[$status]) ? $status : '',
-            'sort' => in_array($sort, self::SORTS, true) ? $sort : 'created',
-            'dir' => $get('dir') === 'asc' ? 'asc' : 'desc',
-            'page' => max(1, min(100000, (int) $get('page'))),
-            'per' => in_array($per, [25, 50, 100, 250], true) ? $per : 50,
-        ];
+        return MailGreylistService::normalizeQuery(['search' => $get('search'), 'status' => $get('status'), 'sort' => $get('sort'), 'dir' => $get('dir'), 'page' => (int) $get('page'), 'per' => (int) $get('per')]);
     }
 
     public function report(Request $request): Response
@@ -212,9 +139,7 @@ final class MailGreylistController extends Controller
         $report = null;
         $error = null;
         try {
-            $report = json_decode((string) json_encode($this->agent->call('mail.greylist_report', [
-                'search' => $q['search'], 'status' => $q['status'], 'sort' => $q['sort'], 'desc' => $q['dir'] === 'desc', 'page' => $q['page'], 'per' => $q['per'],
-            ], 60)), true);
+            $report = $this->grey->report($q);
         } catch (AgentException $e) {
             $error = $e;
         }
@@ -243,11 +168,10 @@ final class MailGreylistController extends Controller
             return $this->redirectWithError($back, 'Unknown operation.');
         }
         try {
-            $res = (array) $this->agent->call('mail.greylist_cleanup', ['op' => $op, 'triplets' => array_slice($triplets, 0, 1000)], 60);
+            $removed = $this->grey->cleanup($op, $triplets);
         } catch (UserFacingException $e) {
             return $this->redirectWithFailure($back, $e);
         }
-        $this->audit->record('mail.greylist_cleanup', 'server', 'greylisting', AuditLogger::SUCCESS, ['op' => $op, 'count' => count($triplets)]);
-        return $this->redirectWithSuccess($back, (int) ($res['removed'] ?? 0) . ' record(s) removed.');
+        return $this->redirectWithSuccess($back, $removed . ' record(s) removed.');
     }
 }
