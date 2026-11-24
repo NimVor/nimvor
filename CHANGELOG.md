@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **API: the server-wide allow/deny list** (6 new endpoints, in the API reference, server administrators only): read the list that applies to every website on the server (`GET /security/access-list`), add or change an entry (`POST`), remove one by its kind and value (`DELETE ?kind=&value=`), choose what a refused visitor gets (`PUT …/status`), import entries from text, merging or replacing (`POST …/import`) and export the list as text (`GET …/export`). They call `AccessListService` with no website, as the web interface does: every entry is validated, the web server configuration is checked before it is reloaded, a refused change is undone, the list holds at most 1000 entries and every change is audited. A website's own list is under `/websites/{id}/access-list`. This completes the web protection part of the API; the ModSecurity firewall and mail server administration were added in 2.1.0 and 2.2.0.
+
 ## [2.2.0] — 2026-11-24
 
 The public REST API now also covers the mail server's administration, and the scheduler no longer walks every website's files on every pass (the cause of `nimvor-agent` using 20% CPU or more in bursts on servers with a website that has no folder). Upgrade with `sudo nimvor update`; it applies one database migration (0083) and changes the panel only (the agent's only change is its version number).
