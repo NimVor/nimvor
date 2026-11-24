@@ -129,7 +129,7 @@ final class Permissions
         self::DASHBOARD_VIEW, self::NOTIFICATIONS_VIEW, self::WEBSITES_VIEW, self::WEBSITES_MANAGE, self::PHP_VIEW,
         self::DATABASES_VIEW, self::DATABASES_MANAGE, self::SSL_VIEW, self::SSL_MANAGE,
         self::FILES_MANAGE, self::LOGS_VIEW, self::CRON_VIEW, self::CRON_MANAGE, self::WORKERS_MANAGE,
-        self::DEPLOY_MANAGE, self::BACKUPS_VIEW, self::BACKUPS_MANAGE, self::APPS_INSTALL, self::FTP_MANAGE, self::DNS_MANAGE, self::MAIL_MANAGE,
+        self::DEPLOY_MANAGE, self::BACKUPS_VIEW, self::BACKUPS_MANAGE, self::APPS_INSTALL, self::API_TOKENS, self::FTP_MANAGE, self::DNS_MANAGE, self::MAIL_MANAGE,
     ];
 
     /**
@@ -141,7 +141,7 @@ final class Permissions
      */
     public static function ownScopeAllowed(): array
     {
-        return array_merge(self::HOSTING_SELF, [self::USERS_VIEW, self::USERS_MANAGE, self::PLANS_MANAGE, self::API_TOKENS]);
+        return array_merge(self::HOSTING_SELF, [self::USERS_VIEW, self::USERS_MANAGE, self::PLANS_MANAGE]);
     }
 
     /**
@@ -165,7 +165,7 @@ final class Permissions
                 'permissions' => array_merge(self::HOSTING_SELF, [
                     self::MONITORING_VIEW, self::SERVER_VIEW, self::SERVICES_VIEW, self::SERVICES_MANAGE, self::SYSTEM_USERS_VIEW,
                     self::PHP_MANAGE, self::REDIS_MANAGE, self::DISCOVERY_RUN, self::SECURITY_VIEW, self::AUDIT_VIEW,
-                    self::MONGO_VIEW, self::MONGO_MANAGE, self::POSTGRES_MANAGE, self::API_TOKENS,
+                    self::MONGO_VIEW, self::MONGO_MANAGE, self::POSTGRES_MANAGE,
                 ]),
             ],
             'viewer' => [
@@ -181,7 +181,7 @@ final class Permissions
                 'label' => 'Reseller',
                 'description' => 'Manages their own customers and those customers\' websites within plan limits.',
                 'scope' => 'own',
-                'permissions' => array_merge(self::HOSTING_SELF, [self::USERS_VIEW, self::USERS_MANAGE, self::PLANS_MANAGE, self::API_TOKENS]),
+                'permissions' => array_merge(self::HOSTING_SELF, [self::USERS_VIEW, self::USERS_MANAGE, self::PLANS_MANAGE]),
             ],
             'customer' => [
                 'label' => 'Hosting customer',
