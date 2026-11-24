@@ -6,6 +6,14 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The panel footer links to the website** (Privacy policy, News, Documentation, Donation, API) on the right, and no longer carries the "Open-source server control panel" text.
+
+### Fixed
+
+- **File manager: copying or moving onto a name that is taken now offers to replace it.** Before, the operation stopped with an "already exists" error. The manager now asks "Replace it?"; on yes, the existing file or folder is moved to the website's trash (restorable) and the copy or move goes ahead. The agent actions `files.copy` and `files.rename` take an `overwrite` flag for this; a file cannot replace itself, something inside it, or a top-level website folder.
+
 ### Added
 
 - **API: a website's own settings** (9 new endpoints, in the API reference): read and change names (aliases), document-root folder, upload limit, proxy address, directory listing and uptime checks (`GET`/`PATCH /websites/{id}/settings`); re-apply a website's configuration (`POST …/reapply`); check and repair the permissions of its files (`GET …/permissions`, `POST …/permissions/repair`); manage environment variables (`GET`/`PATCH …/env`: `set` and `unset`, **values are write-only**, the API lists names only); and read and change the runtime of a Node.js or Python website (`GET`/`PATCH …/runtime`). The same services as the web interface run, so the same validation, check-before-reload and rollback apply. `SiteEnvService` gained `change()` (set/unset without rewriting the whole file). Security headers and cache rules follow in a later change.

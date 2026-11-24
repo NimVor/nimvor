@@ -113,7 +113,10 @@
 .nim-sidebar-toggle { font-size: 1.5rem; padding: 0; color: var(--bs-body-color); }
 
 .nim-content { padding: 1.5rem; flex: 1; }
-.nim-footer { padding: 1rem 1.5rem; font-size: .75rem; color: var(--bs-secondary-color); }
+.nim-footer { padding: 1rem 1.5rem; font-size: .75rem; color: var(--bs-secondary-color); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .25rem 1.25rem; }
+.nim-footer-links { display: flex; flex-wrap: wrap; gap: .25rem 1rem; }
+.nim-footer-links a { color: inherit; text-decoration: none; }
+.nim-footer-links a:hover, .nim-footer-links a:focus-visible { color: var(--bs-body-color); text-decoration: underline; }
 
 @media (max-width: 575.98px) {
     .nim-metric-value { font-size: 1.35rem; }

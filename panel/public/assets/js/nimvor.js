@@ -27,6 +27,7 @@
                     if (!res.ok || body.success === false) {
                         var err = new Error((body.error && body.error.message) || 'Request failed');
                         err.details = body.error || {};
+                        err.status = res.status;
                         throw err;
                     }
                     return body;
