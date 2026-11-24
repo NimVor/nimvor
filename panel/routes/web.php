@@ -45,6 +45,7 @@ use NimVor\Http\Controllers\ServicesController;
 use NimVor\Http\Controllers\UsersController;
 use NimVor\Http\Controllers\WebsitesController;
 use NimVor\Http\Controllers\Api\ApiController;
+use NimVor\Http\Controllers\Api\DnsApiController;
 use NimVor\Http\Controllers\Api\UsersApiController;
 use NimVor\Http\Controllers\AccountsController;
 use NimVor\Http\Controllers\ApiTokensController;
@@ -759,6 +760,23 @@ return static function (Router $r): void {
     $r->post('/api/v1/users/{id}/terminate', [UsersApiController::class, 'terminate'], ['name' => 'api.users.terminate', 'permission' => P::USERS_MANAGE]);
     $r->get('/api/v1/plans', [UsersApiController::class, 'listPlans'], ['name' => 'api.plans', 'permission' => P::USERS_VIEW]);
     $r->post('/api/v1/accounts', [UsersApiController::class, 'createAccount'], ['name' => 'api.accounts.create', 'permission' => P::USERS_MANAGE]);
+    // DNS zones and records
+    $r->get('/api/v1/dns/zones', [DnsApiController::class, 'listZones'], ['name' => 'api.dns.zones', 'permission' => P::DNS_MANAGE]);
+    $r->post('/api/v1/dns/zones', [DnsApiController::class, 'createZone'], ['name' => 'api.dns.zones.create', 'permission' => P::DNS_MANAGE]);
+    $r->get('/api/v1/dns/zones/{id}', [DnsApiController::class, 'showZone'], ['name' => 'api.dns.zones.show', 'permission' => P::DNS_MANAGE]);
+    $r->add('PATCH', '/api/v1/dns/zones/{id}', [DnsApiController::class, 'updateZone'], ['name' => 'api.dns.zones.update', 'permission' => P::DNS_MANAGE]);
+    $r->add('DELETE', '/api/v1/dns/zones/{id}', [DnsApiController::class, 'deleteZone'], ['name' => 'api.dns.zones.delete', 'permission' => P::DNS_MANAGE]);
+    $r->post('/api/v1/dns/zones/{id}/sync', [DnsApiController::class, 'syncZone'], ['name' => 'api.dns.zones.sync', 'permission' => P::DNS_MANAGE]);
+    $r->get('/api/v1/dns/zones/{id}/export', [DnsApiController::class, 'exportZone'], ['name' => 'api.dns.zones.export', 'permission' => P::DNS_MANAGE]);
+    $r->post('/api/v1/dns/zones/{id}/import', [DnsApiController::class, 'importZone'], ['name' => 'api.dns.zones.import', 'permission' => P::DNS_MANAGE]);
+    $r->get('/api/v1/dns/zones/{id}/records', [DnsApiController::class, 'listRecords'], ['name' => 'api.dns.records', 'permission' => P::DNS_MANAGE]);
+    $r->post('/api/v1/dns/zones/{id}/records', [DnsApiController::class, 'createRecord'], ['name' => 'api.dns.records.create', 'permission' => P::DNS_MANAGE]);
+    $r->post('/api/v1/dns/zones/{id}/records/bulk', [DnsApiController::class, 'bulkRecords'], ['name' => 'api.dns.records.bulk', 'permission' => P::DNS_MANAGE]);
+    $r->add('PUT', '/api/v1/dns/zones/{id}/records/{record}', [DnsApiController::class, 'updateRecord'], ['name' => 'api.dns.records.update', 'permission' => P::DNS_MANAGE]);
+    $r->add('DELETE', '/api/v1/dns/zones/{id}/records/{record}', [DnsApiController::class, 'deleteRecord'], ['name' => 'api.dns.records.delete', 'permission' => P::DNS_MANAGE]);
+    $r->get('/api/v1/dns/zones/{id}/dnssec', [DnsApiController::class, 'dnssec'], ['name' => 'api.dns.dnssec', 'permission' => P::DNS_MANAGE]);
+    $r->post('/api/v1/dns/zones/{id}/dnssec/enable', [DnsApiController::class, 'dnssecEnable'], ['name' => 'api.dns.dnssec.enable', 'permission' => P::DNS_MANAGE]);
+    $r->post('/api/v1/dns/zones/{id}/dnssec/disable', [DnsApiController::class, 'dnssecDisable'], ['name' => 'api.dns.dnssec.disable', 'permission' => P::DNS_MANAGE]);
 
     // Own account (any signed-in user)
     $r->get('/profile', [ProfileController::class, 'show'], ['name' => 'profile']);
