@@ -94,6 +94,10 @@
             "description": "Addresses that forward to one or more other addresses, including a catch-all for every other address of the domain."
         },
         {
+            "name": "Email filters",
+            "description": "Mail filters and the auto-responder of a mailbox, and the routing of an email domain.\n\nFilters run on delivery, in list order. A filter has conditions (all of them or any of them) and actions. The whole set is written to the mail server in one go, so a change is all or nothing. A customer only reaches the mailboxes of their own email domains."
+        },
+        {
             "name": "Cron jobs",
             "description": "Scheduled commands of a website, run as the website's system account.\n\nA change rewrites the server's cron file for the website, which is checked; if the server refuses it the change is undone. A website can have at most 200 jobs and the plan's cron limit applies. A suspended account's jobs do not run (their settings are kept)."
         },
@@ -7005,6 +7009,1099 @@
                 }
             }
         },
+        "/mail/domains/{id}/mailboxes/{mailbox}/filters": {
+            "get": {
+                "operationId": "getMailboxFilters",
+                "tags": [
+                    "Email filters"
+                ],
+                "summary": "Get a mailbox's filters and auto-responder",
+                "x-permission": "mail.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The email domain's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "mailbox",
+                        "in": "path",
+                        "required": true,
+                        "description": "The mailbox's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The filters in the order they run, and the auto-responder.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "filters": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/MailFilter"
+                                                    }
+                                                },
+                                                "responder": {
+                                                    "$ref": "#/components/schemas/MailResponder"
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "filters": [
+                                            {
+                                                "index": 0,
+                                                "name": "Newsletters",
+                                                "enabled": true,
+                                                "match": "any",
+                                                "rules": [
+                                                    {
+                                                        "part": "list-id",
+                                                        "match": "contains",
+                                                        "value": "news"
+                                                    },
+                                                    {
+                                                        "part": "from",
+                                                        "match": "ends",
+                                                        "value": "@newsletter.example"
+                                                    }
+                                                ],
+                                                "actions": [
+                                                    {
+                                                        "type": "fileinto",
+                                                        "value": "Newsletters"
+                                                    },
+                                                    {
+                                                        "type": "mark_read",
+                                                        "value": ""
+                                                    }
+                                                ]
+                                            }
+                                        ],
+                                        "responder": {
+                                            "enabled": true,
+                                            "subject": "Out of office",
+                                            "body": "I am away until 5 December.\nFor urgent matters write to help@bluebird-cafe.example.",
+                                            "days": 3,
+                                            "start": "2026-11-27",
+                                            "end": "2026-12-05"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "addMailboxFilter",
+                "tags": [
+                    "Email filters"
+                ],
+                "summary": "Add a filter",
+                "description": "Adds the filter at the end of the list (a mailbox can have up to 50). Conditions and actions are checked before anything is sent to the mail server.",
+                "x-permission": "mail.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The email domain's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "mailbox",
+                        "in": "path",
+                        "required": true,
+                        "description": "The mailbox's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "name",
+                                    "rules",
+                                    "actions"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "maxLength": 100,
+                                        "examples": [
+                                            "Newsletters"
+                                        ]
+                                    },
+                                    "enabled": {
+                                        "type": "boolean",
+                                        "default": true
+                                    },
+                                    "match": {
+                                        "type": "string",
+                                        "enum": [
+                                            "all",
+                                            "any"
+                                        ],
+                                        "default": "all",
+                                        "description": "`all`: every condition must match; `any`: one is enough."
+                                    },
+                                    "rules": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 20,
+                                        "items": {
+                                            "type": "object",
+                                            "required": [
+                                                "part",
+                                                "value"
+                                            ],
+                                            "properties": {
+                                                "part": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "from",
+                                                        "to",
+                                                        "cc",
+                                                        "reply-to",
+                                                        "subject",
+                                                        "list-id",
+                                                        "body"
+                                                    ],
+                                                    "description": "What to look at."
+                                                },
+                                                "match": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "contains",
+                                                        "not-contains",
+                                                        "is",
+                                                        "not-is",
+                                                        "begins",
+                                                        "not-begins",
+                                                        "ends",
+                                                        "not-ends"
+                                                    ],
+                                                    "default": "contains"
+                                                },
+                                                "value": {
+                                                    "type": "string",
+                                                    "maxLength": 500
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "actions": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 20,
+                                        "items": {
+                                            "type": "object",
+                                            "required": [
+                                                "type"
+                                            ],
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "fileinto",
+                                                        "redirect",
+                                                        "redirect_copy",
+                                                        "mark_read",
+                                                        "discard",
+                                                        "stop"
+                                                    ],
+                                                    "description": "`fileinto` moves to a folder, `redirect` forwards, `redirect_copy` keeps a copy and forwards, `mark_read`, `discard` deletes, `stop` skips the filters after this one."
+                                                },
+                                                "value": {
+                                                    "type": "string",
+                                                    "maxLength": 255,
+                                                    "description": "The folder for `fileinto`; the address for `redirect` and `redirect_copy`. Not used by the others."
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "example": {
+                                "name": "Newsletters",
+                                "match": "any",
+                                "rules": [
+                                    {
+                                        "part": "list-id",
+                                        "match": "contains",
+                                        "value": "news"
+                                    },
+                                    {
+                                        "part": "from",
+                                        "match": "ends",
+                                        "value": "@newsletter.example"
+                                    }
+                                ],
+                                "actions": [
+                                    {
+                                        "type": "fileinto",
+                                        "value": "Newsletters"
+                                    },
+                                    {
+                                        "type": "mark_read",
+                                        "value": ""
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "The filter.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/MailFilter"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "index": 0,
+                                        "name": "Newsletters",
+                                        "enabled": true,
+                                        "match": "any",
+                                        "rules": [
+                                            {
+                                                "part": "list-id",
+                                                "match": "contains",
+                                                "value": "news"
+                                            },
+                                            {
+                                                "part": "from",
+                                                "match": "ends",
+                                                "value": "@newsletter.example"
+                                            }
+                                        ],
+                                        "actions": [
+                                            {
+                                                "type": "fileinto",
+                                                "value": "Newsletters"
+                                            },
+                                            {
+                                                "type": "mark_read",
+                                                "value": ""
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/mail/domains/{id}/mailboxes/{mailbox}/filters/{n}": {
+            "put": {
+                "operationId": "replaceMailboxFilter",
+                "tags": [
+                    "Email filters"
+                ],
+                "summary": "Replace a filter",
+                "description": "Replaces the whole filter at this position (name, conditions and actions).",
+                "x-permission": "mail.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The email domain's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "mailbox",
+                        "in": "path",
+                        "required": true,
+                        "description": "The mailbox's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "n",
+                        "in": "path",
+                        "required": true,
+                        "description": "The filter's `index` in the list (0 is the first). Filters run in this order and deleting one renumbers the ones after it, so read the list again before changing by index.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "name",
+                                    "rules",
+                                    "actions"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "maxLength": 100,
+                                        "examples": [
+                                            "Newsletters"
+                                        ]
+                                    },
+                                    "enabled": {
+                                        "type": "boolean",
+                                        "default": true
+                                    },
+                                    "match": {
+                                        "type": "string",
+                                        "enum": [
+                                            "all",
+                                            "any"
+                                        ],
+                                        "default": "all",
+                                        "description": "`all`: every condition must match; `any`: one is enough."
+                                    },
+                                    "rules": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 20,
+                                        "items": {
+                                            "type": "object",
+                                            "required": [
+                                                "part",
+                                                "value"
+                                            ],
+                                            "properties": {
+                                                "part": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "from",
+                                                        "to",
+                                                        "cc",
+                                                        "reply-to",
+                                                        "subject",
+                                                        "list-id",
+                                                        "body"
+                                                    ],
+                                                    "description": "What to look at."
+                                                },
+                                                "match": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "contains",
+                                                        "not-contains",
+                                                        "is",
+                                                        "not-is",
+                                                        "begins",
+                                                        "not-begins",
+                                                        "ends",
+                                                        "not-ends"
+                                                    ],
+                                                    "default": "contains"
+                                                },
+                                                "value": {
+                                                    "type": "string",
+                                                    "maxLength": 500
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "actions": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 20,
+                                        "items": {
+                                            "type": "object",
+                                            "required": [
+                                                "type"
+                                            ],
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "fileinto",
+                                                        "redirect",
+                                                        "redirect_copy",
+                                                        "mark_read",
+                                                        "discard",
+                                                        "stop"
+                                                    ],
+                                                    "description": "`fileinto` moves to a folder, `redirect` forwards, `redirect_copy` keeps a copy and forwards, `mark_read`, `discard` deletes, `stop` skips the filters after this one."
+                                                },
+                                                "value": {
+                                                    "type": "string",
+                                                    "maxLength": 255,
+                                                    "description": "The folder for `fileinto`; the address for `redirect` and `redirect_copy`. Not used by the others."
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "example": {
+                                "name": "Newsletters",
+                                "rules": [
+                                    {
+                                        "part": "list-id",
+                                        "match": "contains",
+                                        "value": "news"
+                                    },
+                                    {
+                                        "part": "from",
+                                        "match": "ends",
+                                        "value": "@newsletter.example"
+                                    }
+                                ],
+                                "actions": [
+                                    {
+                                        "type": "fileinto",
+                                        "value": "Newsletters"
+                                    },
+                                    {
+                                        "type": "mark_read",
+                                        "value": ""
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The filter.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/MailFilter"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "index": 0,
+                                        "name": "Newsletters",
+                                        "enabled": true,
+                                        "match": "any",
+                                        "rules": [
+                                            {
+                                                "part": "list-id",
+                                                "match": "contains",
+                                                "value": "news"
+                                            },
+                                            {
+                                                "part": "from",
+                                                "match": "ends",
+                                                "value": "@newsletter.example"
+                                            }
+                                        ],
+                                        "actions": [
+                                            {
+                                                "type": "fileinto",
+                                                "value": "Newsletters"
+                                            },
+                                            {
+                                                "type": "mark_read",
+                                                "value": ""
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "toggleMailboxFilter",
+                "tags": [
+                    "Email filters"
+                ],
+                "summary": "Turn a filter on or off",
+                "description": "Only `enabled` can be changed this way; to change the conditions or actions replace the filter with `PUT`.",
+                "x-permission": "mail.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The email domain's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "mailbox",
+                        "in": "path",
+                        "required": true,
+                        "description": "The mailbox's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "n",
+                        "in": "path",
+                        "required": true,
+                        "description": "The filter's `index` in the list (0 is the first). Filters run in this order and deleting one renumbers the ones after it, so read the list again before changing by index.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "enabled"
+                                ],
+                                "properties": {
+                                    "enabled": {
+                                        "type": "boolean"
+                                    }
+                                }
+                            },
+                            "example": {
+                                "enabled": false
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The filter.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/MailFilter"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "enabled": false,
+                                        "index": 0,
+                                        "name": "Newsletters",
+                                        "match": "any",
+                                        "rules": [
+                                            {
+                                                "part": "list-id",
+                                                "match": "contains",
+                                                "value": "news"
+                                            },
+                                            {
+                                                "part": "from",
+                                                "match": "ends",
+                                                "value": "@newsletter.example"
+                                            }
+                                        ],
+                                        "actions": [
+                                            {
+                                                "type": "fileinto",
+                                                "value": "Newsletters"
+                                            },
+                                            {
+                                                "type": "mark_read",
+                                                "value": ""
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "deleteMailboxFilter",
+                "tags": [
+                    "Email filters"
+                ],
+                "summary": "Delete a filter",
+                "description": "The filters after it move up one position.",
+                "x-permission": "mail.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The email domain's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "mailbox",
+                        "in": "path",
+                        "required": true,
+                        "description": "The mailbox's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "n",
+                        "in": "path",
+                        "required": true,
+                        "description": "The filter's `index` in the list (0 is the first). Filters run in this order and deleting one renumbers the ones after it, so read the list again before changing by index.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "deleted": {
+                                                    "type": "integer"
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "deleted": 0
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/mail/domains/{id}/mailboxes/{mailbox}/responder": {
+            "put": {
+                "operationId": "setMailboxResponder",
+                "tags": [
+                    "Email filters"
+                ],
+                "summary": "Set the auto-responder",
+                "description": "Replaces the auto-responder (vacation message). When `enabled` is true a subject and a message are required. The mailbox's filters are not changed.",
+                "x-permission": "mail.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The email domain's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "mailbox",
+                        "in": "path",
+                        "required": true,
+                        "description": "The mailbox's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "enabled"
+                                ],
+                                "properties": {
+                                    "enabled": {
+                                        "type": "boolean"
+                                    },
+                                    "subject": {
+                                        "type": "string",
+                                        "maxLength": 200
+                                    },
+                                    "body": {
+                                        "type": "string",
+                                        "maxLength": 10000
+                                    },
+                                    "days": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 30,
+                                        "default": 1
+                                    },
+                                    "start": {
+                                        "type": "string",
+                                        "description": "`YYYY-MM-DD` or empty."
+                                    },
+                                    "end": {
+                                        "type": "string",
+                                        "description": "`YYYY-MM-DD` or empty; not before `start`."
+                                    }
+                                }
+                            },
+                            "example": {
+                                "enabled": true,
+                                "subject": "Out of office",
+                                "body": "I am away until 5 December.\nFor urgent matters write to help@bluebird-cafe.example.",
+                                "days": 3,
+                                "start": "2026-11-27",
+                                "end": "2026-12-05"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The auto-responder.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/MailResponder"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "enabled": true,
+                                        "subject": "Out of office",
+                                        "body": "I am away until 5 December.\nFor urgent matters write to help@bluebird-cafe.example.",
+                                        "days": 3,
+                                        "start": "2026-11-27",
+                                        "end": "2026-12-05"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/mail/domains/{id}/routing": {
+            "put": {
+                "operationId": "setMailDomainRouting",
+                "tags": [
+                    "Email domains"
+                ],
+                "summary": "Set where a domain's mail is delivered",
+                "description": "`local`: this server keeps the mail. `remote`: the domain's mail is handled by another server (this one only sends). `backup`: this server accepts mail when the main server is down and passes it on later. Remember to point the domain's MX records accordingly.",
+                "x-permission": "mail.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The email domain's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "routing"
+                                ],
+                                "properties": {
+                                    "routing": {
+                                        "type": "string",
+                                        "enum": [
+                                            "local",
+                                            "backup",
+                                            "remote"
+                                        ]
+                                    }
+                                }
+                            },
+                            "example": {
+                                "routing": "local"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Changed.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer"
+                                                },
+                                                "domain": {
+                                                    "type": "string"
+                                                },
+                                                "routing": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "id": 5,
+                                        "domain": "bluebird-cafe.example",
+                                        "routing": "local"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
         "/websites/{id}/cron": {
             "get": {
                 "operationId": "listCronJobs",
@@ -11931,6 +13028,140 @@
                     "created_at": {
                         "type": "string",
                         "format": "date-time"
+                    }
+                }
+            },
+            "MailFilter": {
+                "type": "object",
+                "properties": {
+                    "index": {
+                        "type": "integer",
+                        "description": "Position in the list; use it in the path of the other filter endpoints."
+                    },
+                    "name": {
+                        "type": "string",
+                        "maxLength": 100,
+                        "examples": [
+                            "Newsletters"
+                        ]
+                    },
+                    "enabled": {
+                        "type": "boolean",
+                        "default": true
+                    },
+                    "match": {
+                        "type": "string",
+                        "enum": [
+                            "all",
+                            "any"
+                        ],
+                        "default": "all",
+                        "description": "`all`: every condition must match; `any`: one is enough."
+                    },
+                    "rules": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 20,
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "part",
+                                "value"
+                            ],
+                            "properties": {
+                                "part": {
+                                    "type": "string",
+                                    "enum": [
+                                        "from",
+                                        "to",
+                                        "cc",
+                                        "reply-to",
+                                        "subject",
+                                        "list-id",
+                                        "body"
+                                    ],
+                                    "description": "What to look at."
+                                },
+                                "match": {
+                                    "type": "string",
+                                    "enum": [
+                                        "contains",
+                                        "not-contains",
+                                        "is",
+                                        "not-is",
+                                        "begins",
+                                        "not-begins",
+                                        "ends",
+                                        "not-ends"
+                                    ],
+                                    "default": "contains"
+                                },
+                                "value": {
+                                    "type": "string",
+                                    "maxLength": 500
+                                }
+                            }
+                        }
+                    },
+                    "actions": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 20,
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "type"
+                            ],
+                            "properties": {
+                                "type": {
+                                    "type": "string",
+                                    "enum": [
+                                        "fileinto",
+                                        "redirect",
+                                        "redirect_copy",
+                                        "mark_read",
+                                        "discard",
+                                        "stop"
+                                    ],
+                                    "description": "`fileinto` moves to a folder, `redirect` forwards, `redirect_copy` keeps a copy and forwards, `mark_read`, `discard` deletes, `stop` skips the filters after this one."
+                                },
+                                "value": {
+                                    "type": "string",
+                                    "maxLength": 255,
+                                    "description": "The folder for `fileinto`; the address for `redirect` and `redirect_copy`. Not used by the others."
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "MailResponder": {
+                "type": "object",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "subject": {
+                        "type": "string",
+                        "maxLength": 200
+                    },
+                    "body": {
+                        "type": "string",
+                        "maxLength": 10000
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 30,
+                        "description": "Answer the same sender again only after this many days."
+                    },
+                    "start": {
+                        "type": "string",
+                        "description": "`YYYY-MM-DD`: start answering on this date; empty means now."
+                    },
+                    "end": {
+                        "type": "string",
+                        "description": "`YYYY-MM-DD`: stop after this date; empty means until turned off."
                     }
                 }
             },
