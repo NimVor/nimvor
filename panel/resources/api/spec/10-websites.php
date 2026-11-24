@@ -43,7 +43,7 @@ return [
                 'id' => ['type' => 'integer'],
                 'backup_id' => ['type' => 'string', 'description' => 'The backup\'s identifier on the server.'],
                 'label' => ['type' => 'string'],
-                'status' => ['type' => 'string', 'enum' => ['running', 'complete', 'failed']],
+                'status' => ['type' => 'string', 'enum' => ['running', 'completed', 'failed']],
                 'size' => ['type' => 'integer', 'description' => 'Bytes.'],
                 'encrypted' => ['type' => 'boolean'],
                 'parts' => ['description' => 'What the backup contains (files, databases).'],
@@ -168,7 +168,7 @@ return [
                 'parameters' => [$id, $server],
                 'responses' => [
                     '200' => O::res('The backups, newest first.', ['type' => 'array', 'items' => O::ref('Backup')], [[
-                        'id' => 12, 'backup_id' => '20261123T200100Z-3f9a1c', 'label' => 'before upgrade', 'status' => 'complete', 'size' => 73400320,
+                        'id' => 12, 'backup_id' => '20261123T200100Z-3f9a1c', 'label' => 'before upgrade', 'status' => 'completed', 'size' => 73400320,
                         'encrypted' => true, 'parts' => ['files', 'databases'], 'created_at' => '2026-11-23T20:01:00Z', 'error' => null,
                     ]]),
                     '404' => O::err('NotFound'),
