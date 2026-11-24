@@ -45,6 +45,7 @@ use NimVor\Http\Controllers\ServicesController;
 use NimVor\Http\Controllers\UsersController;
 use NimVor\Http\Controllers\WebsitesController;
 use NimVor\Http\Controllers\Api\ApiController;
+use NimVor\Http\Controllers\Api\CronApiController;
 use NimVor\Http\Controllers\Api\DnsApiController;
 use NimVor\Http\Controllers\Api\MailApiController;
 use NimVor\Http\Controllers\Api\UsersApiController;
@@ -792,6 +793,14 @@ return static function (Router $r): void {
     $r->get('/api/v1/mail/domains/{id}/aliases', [MailApiController::class, 'listAliases'], ['name' => 'api.mail.aliases', 'permission' => P::MAIL_MANAGE]);
     $r->post('/api/v1/mail/domains/{id}/aliases', [MailApiController::class, 'saveAlias'], ['name' => 'api.mail.aliases.save', 'permission' => P::MAIL_MANAGE]);
     $r->add('DELETE', '/api/v1/mail/domains/{id}/aliases/{alias}', [MailApiController::class, 'deleteAlias'], ['name' => 'api.mail.aliases.delete', 'permission' => P::MAIL_MANAGE]);
+    // Cron jobs of a website
+    $r->get('/api/v1/websites/{id}/cron', [CronApiController::class, 'listJobs'], ['name' => 'api.cron', 'permission' => P::CRON_VIEW]);
+    $r->post('/api/v1/websites/{id}/cron', [CronApiController::class, 'createJob'], ['name' => 'api.cron.create', 'permission' => P::CRON_MANAGE]);
+    $r->get('/api/v1/websites/{id}/cron/{job}', [CronApiController::class, 'showJob'], ['name' => 'api.cron.show', 'permission' => P::CRON_VIEW]);
+    $r->add('PATCH', '/api/v1/websites/{id}/cron/{job}', [CronApiController::class, 'updateJob'], ['name' => 'api.cron.update', 'permission' => P::CRON_MANAGE]);
+    $r->add('DELETE', '/api/v1/websites/{id}/cron/{job}', [CronApiController::class, 'deleteJob'], ['name' => 'api.cron.delete', 'permission' => P::CRON_MANAGE]);
+    $r->post('/api/v1/websites/{id}/cron/{job}/run', [CronApiController::class, 'runJob'], ['name' => 'api.cron.run', 'permission' => P::CRON_MANAGE]);
+    $r->get('/api/v1/websites/{id}/cron/{job}/runs', [CronApiController::class, 'jobRuns'], ['name' => 'api.cron.runs', 'permission' => P::CRON_VIEW]);
 
     // Own account (any signed-in user)
     $r->get('/profile', [ProfileController::class, 'show'], ['name' => 'profile']);
