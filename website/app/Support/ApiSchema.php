@@ -31,6 +31,24 @@ final class ApiSchema
         return $node;
     }
 
+    /**
+     * Resolves a schema and merges its `allOf` parts into one (properties and required fields).
+     *
+     * @param array<string, mixed> $schema
+     * @return array<string, mixed>
+     */
+    private function flatten(array $schema): array
+    {
+        $schema = $this->resolve($schema);
+        foreach ((array) ($schema['allOf'] ?? []) as $part) {
+            $part = $this->flatten((array) $part);
+            $schema['properties'] = (array) ($part['properties'] ?? []) + (array) ($schema['properties'] ?? []);
+            $schema['required'] = array_merge((array) ($schema['required'] ?? []), (array) ($part['required'] ?? []));
+        }
+        unset($schema['allOf']);
+        return $schema;
+    }
+
     /** The schema's type in words: `string`, `integer[]`, `object`, `string|null`. */
     public function type(array $schema): string
     {
@@ -59,7 +77,7 @@ final class ApiSchema
      */
     public function rows(array $schema, string $prefix = '', int $depth = 0): array
     {
-        $schema = $this->resolve($schema);
+        $schema = $this->flatten($schema);
         if (($schema['type'] ?? '') === 'array' && isset($schema['items'])) {
             $schema = $this->resolve((array) $schema['items']);
             $prefix = $prefix === '' ? '[]' : $prefix . '[]';
