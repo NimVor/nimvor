@@ -8,7 +8,14 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Added
 
+- **Website: reviews.** A *Reviews* page (`/reviews`) and a small reviews section on the home page. Visitors can send a review (captcha, a hidden bot field and a per-address limit apply); it is shown only after an administrator publishes it under *Admin → Reviews*, where reviews copied from Trustpilot or sent by customers can also be added by hand. With none published, the home page shows an invitation instead of anything made up.
+- **Website: social icons and a Trustpilot link in the footer.** *Admin → Settings* holds the YouTube, Facebook, X and Reddit addresses (an icon shows only for an address that is set; each must be on the platform's own domain) and the Trustpilot page that "Review us on Trustpilot" opens (default `https://www.trustpilot.com/review/nimvor.com`).
+- **Website: every blog post has a cover image**, on the blog list and at the top of the article: the one set for the post (new *Cover image* field, or `image:` in a guide's header), else the first picture in its text, else a cover the site draws. Upgrade: migration `0008` (`bin/site migrate`, or `website/database/sql/0008_reviews_post_images.sql` on a host without a terminal).
 - **API: a website's own settings** (9 new endpoints, in the API reference): read and change names (aliases), document-root folder, upload limit, proxy address, directory listing and uptime checks (`GET`/`PATCH /websites/{id}/settings`); re-apply a website's configuration (`POST …/reapply`); check and repair the permissions of its files (`GET …/permissions`, `POST …/permissions/repair`); manage environment variables (`GET`/`PATCH …/env`: `set` and `unset`, **values are write-only**, the API lists names only); and read and change the runtime of a Node.js or Python website (`GET`/`PATCH …/runtime`). The same services as the web interface run, so the same validation, check-before-reload and rollback apply. `SiteEnvService` gained `change()` (set/unset without rewriting the whole file). Security headers and cache rules follow in a later change.
+
+### Changed
+
+- **Website menus.** *About us* is its own menu item after *Support*; *Sponsors* and *Community & source* moved from *Resources* to *Support*; *Reviews* joined *Resources*. The footer follows.
 
 ## [2.3.0] — 2026-11-24
 

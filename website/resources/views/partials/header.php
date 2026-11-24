@@ -14,10 +14,8 @@
                     <a href="/api-reference"><span class="ico"><?= $v->icon('code', 20) ?></span><span>API reference<small>Every panel endpoint</small></span></a>
                     <a href="/resources/videos"><span class="ico"><?= $v->icon('play', 20) ?></span><span>Videos<small>Walkthroughs of the panel</small></span></a>
                     <a href="/resources/blog"><span class="ico"><?= $v->icon('pen', 20) ?></span><span>Blog<small>News and how-tos</small></span></a>
-                    <a href="/resources/community"><span class="ico"><?= $v->icon('git', 20) ?></span><span>Community &amp; source<small>GitHub, issues, contributing</small></span></a>
                     <a href="/resources/build-services"><span class="ico"><?= $v->icon('tool', 20) ?></span><span>Build services<small>Migrations, installs, custom work</small></span></a>
-                    <a href="/resources/sponsors"><span class="ico"><?= $v->icon('heart', 20) ?></span><span>Sponsors<small>Who keeps NimVor free</small></span></a>
-                    <a href="/resources/about"><span class="ico"><?= $v->icon('info', 20) ?></span><span>About us<small>The project and its rules</small></span></a>
+                    <a href="/reviews"><span class="ico"><?= $v->icon('star', 20) ?></span><span>Reviews<small>What people say about NimVor</small></span></a>
                 </div>
             </div>
             <div class="has-menu">
@@ -25,8 +23,11 @@
                 <div class="menu">
                     <a href="/support/contact"><span class="ico"><?= $v->icon('chat', 20) ?></span><span>Contact us<small>Write to the project</small></span></a>
                     <a href="/support/privacy"><span class="ico"><?= $v->icon('lock', 20) ?></span><span>Privacy policy<small>What this site stores</small></span></a>
+                    <a href="/resources/community"><span class="ico"><?= $v->icon('git', 20) ?></span><span>Community &amp; source<small>GitHub, issues, contributing</small></span></a>
+                    <a href="/resources/sponsors"><span class="ico"><?= $v->icon('heart', 20) ?></span><span>Sponsors<small>Who keeps NimVor free</small></span></a>
                 </div>
             </div>
+            <a href="/resources/about"<?= $v->active('/resources/about') ?>>About us</a>
         </nav>
         <div class="header-cta">
             <?php if ($user !== null): ?>

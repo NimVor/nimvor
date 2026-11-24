@@ -724,3 +724,28 @@ a.row-cell:hover .arrow { transform: translateX(6px); }
 .api-card span { font-size: .9rem; color: var(--muted); line-height: 1.5; }
 .api-card small { font-family: var(--mono); font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--orange-ink); margin-top: auto; }
 .api-unavailable { padding-block: 72px; }
+
+/* Blog covers */
+.post-card { overflow: hidden; }
+.post-card .post-cover { display: block; margin: -30px -30px 20px; background: var(--band); }
+.post-card .post-cover img { display: block; width: 100%; height: auto; aspect-ratio: 1200 / 630; object-fit: cover; }
+.post-hero { margin: 0 0 28px; }
+.post-hero img { display: block; width: 100%; height: auto; aspect-ratio: 1200 / 630; object-fit: cover; border: 1px solid var(--rule); }
+
+/* Reviews */
+.stars { color: #e0a100; letter-spacing: .12em; font-size: 1.15rem; line-height: 1; }
+.stars .off { color: #c9d1de; }
+.rating-sum { margin: 0 0 26px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.review { margin: 0; display: flex; flex-direction: column; gap: 12px; }
+.review h3 { margin: 0; font-size: 1.1rem; }
+.review blockquote { margin: 0; flex: 1; }
+.review blockquote p { margin: 0; }
+.review figcaption { font-size: .92rem; }
+
+/* Footer: social icons and the Trustpilot link */
+.site-footer .social { list-style: none; display: flex; flex-wrap: wrap; gap: 10px; padding: 0; margin: 18px 0 0; }
+.site-footer .social a { display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid rgba(255, 255, 255, .28); color: #fff; transition: background .15s, border-color .15s; }
+.site-footer .social a:hover, .site-footer .social a:focus-visible { background: var(--orange); border-color: var(--orange); }
+.site-footer .trustpilot-link { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; color: #fff; font-weight: 600; }
+.site-footer .trustpilot-link svg { color: #00b67a; fill: currentColor; }
+.site-footer .trustpilot-link:hover { text-decoration: underline; }

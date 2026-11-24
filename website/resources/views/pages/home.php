@@ -111,6 +111,8 @@ $v->set('description', 'NimVor is a free, open-source hosting control panel for 
 </section>
 <?php endif; ?>
 
+<?= $v->partial('partials/reviews-strip', ['reviews' => $reviews ?? ['list' => [], 'summary' => ['count' => 0, 'average' => 0.0], 'trustpilot' => '']]) ?>
+
 <section class="section section-soft">
     <div class="container split">
         <div><span class="eyebrow">Good questions</span><h2>Before you install.</h2><p class="lead">Short answers to what people ask first.</p></div>

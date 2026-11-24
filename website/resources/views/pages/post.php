@@ -2,6 +2,7 @@
 /** @var \NimVorSite\Core\View $v */
 /** @var array<string, mixed> $post */
 /** @var string $bodyHtml */
+/** @var string $cover */
 $v->layout('layouts/site');
 $v->set('title', (string) $post['title']);
 $v->set('description', (string) $post['excerpt']);
@@ -10,6 +11,7 @@ $v->set('description', (string) $post['excerpt']);
 <section class="section">
     <div class="container">
         <article class="prose">
+            <figure class="post-hero"><img src="<?= e($cover) ?>" width="1200" height="630" decoding="async" alt=""></figure>
             <p class="post-meta"><time datetime="<?= e(substr((string) $post['published_at'], 0, 10)) ?>"><?= e(substr((string) $post['published_at'], 0, 10)) ?></time><?= !empty($post['author']) ? ' · ' . e($post['author']) : '' ?></p>
             <?= $bodyHtml ?>
             <p class="mt-4"><a href="/resources/blog">&larr; All posts</a></p>

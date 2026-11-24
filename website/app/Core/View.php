@@ -166,6 +166,11 @@ final class View
             'play' => '<path d="M8 5.5v13l11-6.5z"/>',
             'bell' => '<path d="M6 17v-6a6 6 0 0 1 12 0v6l2 2H4z"/><path d="M10 21a2 2 0 0 0 4 0"/>',
             'cloud' => '<path d="M7 18a4 4 0 0 1-.6-7.9A6 6 0 0 1 18 9.5 4.3 4.3 0 0 1 17.5 18z"/>',
+            'youtube' => '<rect x="2.5" y="5.5" width="19" height="13" rx="4"/><path d="m10 9.5 5 2.5-5 2.5z"/>',
+            'facebook' => '<path d="M14 21v-8h3l.6-3.5H14V7.6c0-1 .5-1.8 1.9-1.8h1.8V2.8A19 19 0 0 0 15 2.6c-2.7 0-4.5 1.6-4.5 4.6v2.3H7.5V13h3v8z"/>',
+            'x' => '<path d="M4.5 4.5 19.5 19.5M19.5 4.5l-15 15"/>',
+            'reddit' => '<circle cx="12" cy="14" r="6.5"/><path d="M9.3 16.3c1.5 1.1 4 1.1 5.4 0M12 7.6l1.1-4 3.9.9"/><circle cx="9.4" cy="13.2" r=".9"/><circle cx="14.6" cy="13.2" r=".9"/><path d="M5.6 11.6A1.9 1.9 0 1 1 7.2 9M18.4 11.6A1.9 1.9 0 1 0 16.8 9"/>',
+            'star' => '<path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8L3.5 9.7l5.9-.9z"/>',
         ];
         $p = $paths[$name] ?? '';
         return '<svg class="icon" width="' . $size . '" height="' . $size . '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' . $p . '</svg>';
