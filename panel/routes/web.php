@@ -50,6 +50,7 @@ use NimVor\Http\Controllers\Api\CronApiController;
 use NimVor\Http\Controllers\Api\FirewallApiController;
 use NimVor\Http\Controllers\Api\FtpApiController;
 use NimVor\Http\Controllers\Api\PhpApiController;
+use NimVor\Http\Controllers\Api\ServicesApiController;
 use NimVor\Http\Controllers\Api\SslApiController;
 use NimVor\Http\Controllers\Api\DnsApiController;
 use NimVor\Http\Controllers\Api\MailApiController;
@@ -769,6 +770,10 @@ return static function (Router $r): void {
     $r->post('/api/v1/websites/{id}/php/reload', [PhpApiController::class, 'reload'], ['name' => 'api.php.reload', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/api/v1/websites/{id}/php/check', [PhpApiController::class, 'check'], ['name' => 'api.php.check', 'permission' => P::WEBSITES_MANAGE]);
     $r->add('DELETE', '/api/v1/websites/{id}/php/ini', [PhpApiController::class, 'reset'], ['name' => 'api.php.ini.reset', 'permission' => P::WEBSITES_MANAGE]);
+    $r->get('/api/v1/services', [ServicesApiController::class, 'list'], ['name' => 'api.services', 'permission' => P::SERVICES_VIEW]);
+    $r->get('/api/v1/services/nimvor', [ServicesApiController::class, 'nimvor'], ['name' => 'api.services.nimvor', 'permission' => P::SERVICES_VIEW]);
+    $r->post('/api/v1/services/control', [ServicesApiController::class, 'control'], ['name' => 'api.services.control', 'permission' => P::SERVICES_MANAGE]);
+    $r->post('/api/v1/services/nimvor/{key}/restart', [ServicesApiController::class, 'restartNimvor'], ['name' => 'api.services.nimvor.restart', 'permission' => P::SERVICES_MANAGE]);
     $r->post('/api/v1/websites/{id}/deploy', [ApiController::class, 'deployWebsite'], ['name' => 'api.deploy', 'permission' => P::DEPLOY_MANAGE]);
     $r->get('/api/v1/databases', [ApiController::class, 'listDatabases'], ['name' => 'api.databases', 'permission' => P::DATABASES_VIEW]);
     $r->post('/api/v1/databases', [ApiController::class, 'createDatabase'], ['name' => 'api.databases.create', 'permission' => P::DATABASES_MANAGE]);
