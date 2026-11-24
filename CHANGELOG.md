@@ -6,6 +6,12 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.0.0] — 2026-11-24
+
+**The public REST API is now documented and covers the panel.** About 150 endpoints (users and accounts, DNS, email and filters, cron, FTP/SFTP, HTTPS, backups, firewall, PHP, services, databases, subdomains/addons/redirects, workers, application installer, web protection) are described in an OpenAPI 3.1 file served at `/api/v1/openapi.json` and in the API reference on the website. Every endpoint calls the same services as the web interface, so the same validation, limits, audit and rollback apply. The version moves to 2.0.0 for this milestone; no agent change, and existing 1.x installations upgrade with `sudo nimvor update`.
+
+**API behaviour change:** a refusal based on a rule (not on input) now answers `409 rejected` (was `400`), and a missing item `404 not_found`, as the API description says. Clients that matched on `400` for such refusals should handle `409`.
+
 ### Added
 
 - **API: web protection of a website** (12 new endpoints, in the API reference): request-rate limits (`/websites/{id}/traffic-limits`: list, add or replace by name, switch on/off, delete, and what an over-limit visitor gets), the allow/deny list of addresses, browsers and URLs (`/websites/{id}/access-list`: read, add, delete, refusal answer, import from text) and the country restriction (`/websites/{id}/countries`: read, set to refuse or allow only selected countries, or off). They call `SiteTrafficService`, `AccessListService` and `SiteCountryService` like the web interface, so every rule is validated before the server is asked, the website's web server configuration is checked before it is reloaded, a refused change is undone, a suspended account's protection cannot be changed, and a country restriction needs the address database to be loaded.
