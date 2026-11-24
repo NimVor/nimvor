@@ -60,6 +60,30 @@ final class FilesTest extends HttpTestCase
         self::assertSame('restore', $this->lastCall('files.extract')['dest']);
     }
 
+    public function testCopyAndMoveCanReplaceAnExistingNameAndAConflictIsReported(): void
+    {
+        $api = '/sites/' . $this->siteId . '/files/api';
+        $this->agent->succeed('files.copy', ['copied' => 1]);
+        $this->agent->succeed('files.rename', []);
+        // Without "overwrite" nothing is replaced (the agent answers 409 for a taken name); with it the flag reaches the agent.
+        $this->post($api, ['op' => 'copy', 'from' => 'public_html/a.txt', 'to' => 'public_html/b.txt']);
+        self::assertArrayNotHasKey('overwrite', $this->lastCall('files.copy'));
+        $this->post($api, ['op' => 'copy', 'from' => 'public_html/a.txt', 'to' => 'public_html/b.txt', 'overwrite' => true]);
+        self::assertTrue($this->lastCall('files.copy')['overwrite']);
+        $this->post($api, ['op' => 'rename', 'from' => 'public_html/a.txt', 'to' => 'public_html/b.txt', 'overwrite' => true]);
+        self::assertTrue($this->lastCall('files.rename')['overwrite']);
+    }
+
+    public function testFooterLinksToTheWebsiteAndHasNoTagline(): void
+    {
+        $html = $this->request('GET', '/profile')->body();
+        self::assertStringNotContainsString('Open-source server control panel', $html);
+        foreach (['/support/privacy', '/resources/blog', '/docs', '/sponsor', '/api-reference'] as $path) {
+            self::assertStringContainsString('href="https://nimvor.com' . $path . '"', $html, $path);
+        }
+        self::assertStringContainsString('rel="noopener noreferrer"', $html);
+    }
+
     public function testTrashOperations(): void
     {
         $api = '/sites/' . $this->siteId . '/files/api';

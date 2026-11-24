@@ -543,6 +543,14 @@
     function sequential(items, fn) {
         return items.reduce(function (p, it) { return p.then(function () { return fn(it); }); }, Promise.resolve());
     }
+    // "name already exists there": replace it (the old one goes to the website's trash) or leave it and skip.
+    function confirmReplace(name, folder) {
+        return dialog('Replace ' + name + '?', function (b) {
+            b.appendChild(el('p', null, '“' + name + '” already exists in ' + (folder ? '“' + folder + '”' : 'the website root') + '.'));
+            b.appendChild(el('p', 'form-text mb-0', 'Replace it? The existing one is moved to the website\'s trash, so you can restore it from there.'));
+            return function () { return { replace: true }; };
+        }, 'Replace', true).then(function (v) { return !!v; });
+    }
     function transfer(kind) {
         var sel = selectedEntries(); if (!sel.length) { return; }
         dialog((kind === 'copy' ? 'Copy ' : 'Move ') + sel.length + ' item' + (sel.length > 1 ? 's' : ''), function (b) {
@@ -554,7 +562,15 @@
             sequential(sel, function (e) {
                 var to = join(v.to, e.name);
                 if (to === e.path) { return kind === 'copy' ? call('copy', { from: e.path, to: e.path + '-copy' }) : null; }
-                return call(kind === 'copy' ? 'copy' : 'rename', { from: e.path, to: to });
+                var op = kind === 'copy' ? 'copy' : 'rename';
+                return call(op, { from: e.path, to: to }).catch(function (err) {
+                    // The name is taken: ask, and replace only when told to (the old one goes to the trash).
+                    if (err.status !== 409) { throw err; }
+                    return confirmReplace(e.name, v.to).then(function (yes) {
+                        if (!yes) { return null; }
+                        return call(op, { from: e.path, to: to, overwrite: true });
+                    });
+                });
             }).then(function () {
                 NimVor.toast(kind === 'copy' ? 'Copied.' : 'Moved.', 'success');
                 refreshTreeAt(state.cwd); refreshTreeAt(v.to); load();
