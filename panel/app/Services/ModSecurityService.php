@@ -157,6 +157,49 @@ final class ModSecurityService
     }
 
     /**
+     * Add, replace or delete one custom rule; the whole set is checked again by the agent (nginx -t) and
+     * the previous set is kept if it refuses. A rule is addressed by its position and the SHA-256 of its text, so
+     * a change made meanwhile is never overwritten by mistake.
+     *
+     * @return array{deleted: bool, added: bool, rules: int, custom_enabled: bool}
+     */
+    public function changeRule(string $op, ?int $index, string $sha256, string $text, string $comment, int $userId): array
+    {
+        $rules = self::splitRules($this->customRules());
+        if ($index !== null) {
+            if (!isset($rules[$index]) || !hash_equals(hash('sha256', $rules[$index]['text']), strtolower($sha256))) {
+                throw new UserFacingException('The custom rules changed since they were read. Read them again and retry.');
+            }
+        }
+        if ($op === 'delete') {
+            if ($index === null) {
+                throw new UserFacingException('Choose a rule to delete.');
+            }
+            array_splice($rules, $index, 1);
+            $n = $this->saveCustomRules(self::joinRules($rules), $userId);
+            return ['deleted' => true, 'added' => false, 'rules' => $n, 'custom_enabled' => $this->customEnabled()];
+        }
+        $text = trim(str_replace("\r\n", "\n", $text));
+        if ($text === '') {
+            throw new ValidationException(['rule' => 'Enter the rule.']);
+        }
+        $new = ['text' => $text, 'comment' => trim(str_replace(["\r\n", "\r"], "\n", mb_substr($comment, 0, 500)))];
+        if ($index === null) {
+            $rules[] = $new;
+        } else {
+            $rules[$index] = $new;
+        }
+        $n = $this->saveCustomRules(self::joinRules($rules), $userId);
+        return ['deleted' => false, 'added' => $index === null, 'rules' => $n, 'custom_enabled' => $this->customEnabled()];
+    }
+
+    /** Whether the server-wide "Custom rules" switch is on. */
+    public function customEnabled(): bool
+    {
+        return !empty(($this->status()['config']['custom']['enabled'] ?? false));
+    }
+
+    /**
      * A website's setting (from the agent's status).
      *
      * @param array<string, mixed> $status

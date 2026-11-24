@@ -108,40 +108,19 @@ final class ModSecurityController extends Controller
     public function saveRule(Request $request): Response
     {
         return $this->act($request, '/security/modsec#custom', function () use ($request): string {
-            $rules = ModSecurityService::splitRules($this->modsec->customRules());
-            $text = trim(str_replace("\r\n", "\n", (string) $request->input('rule', '')));
-            $comment = trim(str_replace(["\r\n", "\r"], "\n", mb_substr((string) $request->input('comment', ''), 0, 500)));
             $index = $request->input('index', '');
-            $op = $request->string('op');
-            $target = null;
-            if ($index !== '' && $index !== null) {
-                $i = (int) $index;
-                // The rule must still be the one the page showed.
-                if (!isset($rules[$i]) || !hash_equals(hash('sha256', $rules[$i]['text']), $request->string('sha'))) {
-                    throw new \NimVor\Support\UserFacingException('The custom rules changed since the page was loaded. Reload the page and try again.');
-                }
-                $target = $i;
-            }
-            if ($op === 'delete') {
-                if ($target === null) {
-                    throw new \NimVor\Support\UserFacingException('Choose a rule to delete.');
-                }
-                array_splice($rules, $target, 1);
-                $this->modsec->saveCustomRules(ModSecurityService::joinRules($rules), $this->userId($request));
+            $r = $this->modsec->changeRule(
+                $request->string('op'),
+                $index !== '' && $index !== null ? (int) $index : null,
+                $request->string('sha'),
+                (string) $request->input('rule', ''),
+                (string) $request->input('comment', ''),
+                $this->userId($request),
+            );
+            if ($r['deleted']) {
                 return 'Rule deleted; Nginx accepted the remaining rules.';
             }
-            if ($text === '') {
-                throw new \NimVor\Support\UserFacingException('Enter the rule.');
-            }
-            $new = ['text' => $text, 'comment' => $comment];
-            if ($target === null) {
-                $rules[] = $new;
-            } else {
-                $rules[$target] = $new;
-            }
-            $this->modsec->saveCustomRules(ModSecurityService::joinRules($rules), $this->userId($request));
-            $on = !empty(($this->modsec->status()['config']['custom']['enabled'] ?? false));
-            return ($target === null ? 'Rule added' : 'Rule saved') . '; Nginx accepted it.' . ($on ? '' : ' Turn "Custom rules" on in the server-wide settings to use them.');
+            return ($r['added'] ? 'Rule added' : 'Rule saved') . '; Nginx accepted it.' . ($r['custom_enabled'] ? '' : ' Turn "Custom rules" on in the server-wide settings to use them.');
         });
     }
 

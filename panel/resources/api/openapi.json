@@ -63,7 +63,11 @@
         },
         {
             "name": "Web protection",
-            "description": "Per-website protection against abusive traffic: request-rate limits, an allow/deny list and a country restriction.\n\nEach change is written to the website's web server configuration, checked and reloaded; if the server refuses it the change is undone. A suspended account's protection cannot be changed (`409`). The server-wide lists and the ModSecurity firewall are administrator tools and are not part of this API yet."
+            "description": "Per-website protection against abusive traffic: request-rate limits, an allow/deny list and a country restriction.\n\nEach change is written to the website's web server configuration, checked and reloaded; if the server refuses it the change is undone. A suspended account's protection cannot be changed (`409`). The server-wide lists are an administrator tool and are not part of this API yet; the ModSecurity firewall is under *ModSecurity*."
+        },
+        {
+            "name": "ModSecurity",
+            "description": "The ModSecurity web application firewall. Server administrators set it up (on/off, the OWASP Core Rule Set, custom rules, installation, updates); a website's owner may switch the website between off, detection only and on, but cannot change rule vendors or single rules.\n\nEvery change is checked by the web server (`nginx -t`) and the previous configuration is kept when it refuses. Installation, updates and rollbacks run in the background and answer `202` with a `job_id`."
         },
         {
             "name": "Databases",
@@ -4323,6 +4327,1379 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/security/modsec": {
+            "get": {
+                "operationId": "getModSecurity",
+                "tags": [
+                    "ModSecurity"
+                ],
+                "summary": "Get ModSecurity's state",
+                "description": "Whether it is on and loaded, the Nginx connector's state, the Core Rule Set and the custom rules. Server administrators only (`403` for others).",
+                "x-permission": "security.view",
+                "responses": {
+                    "200": {
+                        "description": "The state.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "enabled": true,
+                                        "active": true,
+                                        "module_loaded": true,
+                                        "detection_only": false,
+                                        "connector": {
+                                            "state": "functional",
+                                            "reason": ""
+                                        },
+                                        "crs": {
+                                            "enabled": true,
+                                            "installed": true,
+                                            "version": "4.0.0",
+                                            "paranoia": 1,
+                                            "inbound_threshold": 5,
+                                            "outbound_threshold": 4
+                                        },
+                                        "custom": {
+                                            "enabled": true,
+                                            "rules": 1
+                                        },
+                                        "packages_available": true,
+                                        "audit_log_bytes": 20480,
+                                        "vendors": [
+                                            {
+                                                "id": "crs",
+                                                "name": "OWASP Core Rule Set",
+                                                "description": "General attack detection."
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "configureModSecurity",
+                "tags": [
+                    "ModSecurity"
+                ],
+                "summary": "Change the server-wide settings",
+                "description": "Only what is sent changes. Turning it on needs the connector to be installed and usable. With `detection_only`, websites set to block only log until blocking is allowed. Server administrators only (`403` for others).",
+                "x-permission": "security.manage",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "enabled": {
+                                        "type": "boolean"
+                                    },
+                                    "detection_only": {
+                                        "type": "boolean"
+                                    },
+                                    "crs": {
+                                        "type": "object",
+                                        "properties": {
+                                            "enabled": {
+                                                "type": "boolean"
+                                            },
+                                            "paranoia": {
+                                                "type": "integer",
+                                                "minimum": 1,
+                                                "maximum": 4
+                                            },
+                                            "inbound_threshold": {
+                                                "type": "integer",
+                                                "minimum": 2,
+                                                "maximum": 1000
+                                            },
+                                            "outbound_threshold": {
+                                                "type": "integer",
+                                                "minimum": 2,
+                                                "maximum": 1000
+                                            }
+                                        }
+                                    },
+                                    "custom": {
+                                        "type": "object",
+                                        "properties": {
+                                            "enabled": {
+                                                "type": "boolean"
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "example": {
+                                "enabled": true,
+                                "crs": {
+                                    "paranoia": 2
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The state after the change.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "enabled": true,
+                                        "active": true,
+                                        "module_loaded": true,
+                                        "detection_only": false,
+                                        "connector": {
+                                            "state": "functional",
+                                            "reason": ""
+                                        },
+                                        "crs": {
+                                            "enabled": true,
+                                            "installed": true,
+                                            "version": "4.0.0",
+                                            "paranoia": 1,
+                                            "inbound_threshold": 5,
+                                            "outbound_threshold": 4
+                                        },
+                                        "custom": {
+                                            "enabled": true,
+                                            "rules": 1
+                                        },
+                                        "packages_available": true,
+                                        "audit_log_bytes": 20480,
+                                        "vendors": [
+                                            {
+                                                "id": "crs",
+                                                "name": "OWASP Core Rule Set",
+                                                "description": "General attack detection."
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/security/modsec/rules": {
+            "get": {
+                "operationId": "listModSecurityRules",
+                "tags": [
+                    "ModSecurity"
+                ],
+                "summary": "List the custom rules",
+                "description": "`enabled` says whether the server-wide \"custom rules\" switch is on; `next_id` is a free rule id. Server administrators only (`403` for others).",
+                "x-permission": "security.view",
+                "responses": {
+                    "200": {
+                        "description": "The rules.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "rules": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/ModSecurityRule"
+                                                    }
+                                                },
+                                                "enabled": {
+                                                    "type": "boolean"
+                                                },
+                                                "next_id": {
+                                                    "type": "integer"
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "rules": [
+                                            {
+                                                "index": 0,
+                                                "id": 10001,
+                                                "phase": "2",
+                                                "action": "deny",
+                                                "message": "Block probes",
+                                                "comment": "Block probes",
+                                                "rule": "SecRule REQUEST_URI \"@contains /probe\" \"id:10001,phase:2,deny,status:403,msg:'Block probes'\"",
+                                                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                                            }
+                                        ],
+                                        "enabled": true,
+                                        "next_id": 10002
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "addModSecurityRule",
+                "tags": [
+                    "ModSecurity"
+                ],
+                "summary": "Add a custom rule",
+                "description": "The whole set is checked by Nginx; nothing changes when it refuses. The rules file is at most 64 KiB. Server administrators only (`403` for others).",
+                "x-permission": "security.manage",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "rule"
+                                ],
+                                "properties": {
+                                    "rule": {
+                                        "type": "string"
+                                    },
+                                    "comment": {
+                                        "type": "string",
+                                        "maxLength": 500
+                                    }
+                                }
+                            },
+                            "example": {
+                                "rule": "SecRule REQUEST_URI \"@contains /probe\" \"id:10001,phase:2,deny,status:403,msg:'Block probes'\"",
+                                "comment": "Block probes"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "The rule added.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "rule": {
+                                                    "$ref": "#/components/schemas/ModSecurityRule"
+                                                },
+                                                "rules": {
+                                                    "type": "integer"
+                                                },
+                                                "custom_enabled": {
+                                                    "type": "boolean"
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "rule": {
+                                            "index": 0,
+                                            "id": 10001,
+                                            "phase": "2",
+                                            "action": "deny",
+                                            "message": "Block probes",
+                                            "comment": "Block probes",
+                                            "rule": "SecRule REQUEST_URI \"@contains /probe\" \"id:10001,phase:2,deny,status:403,msg:'Block probes'\"",
+                                            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                                        },
+                                        "rules": 1,
+                                        "custom_enabled": true
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/security/modsec/rules/{index}": {
+            "put": {
+                "operationId": "saveModSecurityRule",
+                "tags": [
+                    "ModSecurity"
+                ],
+                "summary": "Replace a custom rule",
+                "description": "Send the `sha256` you read; if the rule changed meanwhile the answer is `409`. Server administrators only (`403` for others).",
+                "x-permission": "security.manage",
+                "parameters": [
+                    {
+                        "name": "index",
+                        "in": "path",
+                        "required": true,
+                        "description": "The rule's position.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "rule",
+                                    "sha256"
+                                ],
+                                "properties": {
+                                    "rule": {
+                                        "type": "string"
+                                    },
+                                    "comment": {
+                                        "type": "string"
+                                    },
+                                    "sha256": {
+                                        "type": "string"
+                                    }
+                                }
+                            },
+                            "example": {
+                                "rule": "SecRule REQUEST_URI \"@contains /probe\" \"id:10001,phase:2,deny,status:403,msg:'Block probes'\"",
+                                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The rule.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "rule": {
+                                                    "$ref": "#/components/schemas/ModSecurityRule"
+                                                },
+                                                "rules": {
+                                                    "type": "integer"
+                                                },
+                                                "custom_enabled": {
+                                                    "type": "boolean"
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "rule": {
+                                            "index": 0,
+                                            "id": 10001,
+                                            "phase": "2",
+                                            "action": "deny",
+                                            "message": "Block probes",
+                                            "comment": "Block probes",
+                                            "rule": "SecRule REQUEST_URI \"@contains /probe\" \"id:10001,phase:2,deny,status:403,msg:'Block probes'\"",
+                                            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                                        },
+                                        "rules": 1,
+                                        "custom_enabled": true
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "deleteModSecurityRule",
+                "tags": [
+                    "ModSecurity"
+                ],
+                "summary": "Delete a custom rule",
+                "description": "Pass the rule's `sha256` as a query parameter. Server administrators only (`403` for others).",
+                "x-permission": "security.manage",
+                "parameters": [
+                    {
+                        "name": "index",
+                        "in": "path",
+                        "required": true,
+                        "description": "The rule's position.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "sha256",
+                        "in": "query",
+                        "required": false,
+                        "description": "The rule's SHA-256, as listed.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "deleted": {
+                                                    "type": "boolean"
+                                                },
+                                                "rules": {
+                                                    "type": "integer"
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "deleted": true,
+                                        "rules": 0
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/security/modsec/events": {
+            "get": {
+                "operationId": "listModSecurityEvents",
+                "tags": [
+                    "ModSecurity"
+                ],
+                "summary": "Recent firewall events",
+                "description": "Requests ModSecurity logged or blocked, newest first. Server administrators only (`403` for others).",
+                "x-permission": "security.view",
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "description": "How many events (1–200).",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 200,
+                            "default": 50
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The events.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "events": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "events": [
+                                            {
+                                                "time": "2026-11-24T07:30:00Z",
+                                                "host": "shop.example.com",
+                                                "client_ip": "203.0.113.9",
+                                                "method": "GET",
+                                                "uri": "/?q=<script>",
+                                                "status": 403,
+                                                "engine": "On",
+                                                "rules": [
+                                                    {
+                                                        "id": "941100",
+                                                        "message": "XSS Attack Detected",
+                                                        "severity": "CRITICAL"
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/security/modsec/update": {
+            "post": {
+                "operationId": "updateModSecurityRules",
+                "tags": [
+                    "ModSecurity"
+                ],
+                "summary": "Update the rule packages",
+                "description": "Runs in the background. Server administrators only (`403` for others).",
+                "x-permission": "security.manage",
+                "responses": {
+                    "202": {
+                        "description": "The background job.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "job_id": {
+                                                    "type": "string",
+                                                    "description": "Follow it with `GET /jobs/{id}`."
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "job_id": "job_123"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/security/modsec/install": {
+            "post": {
+                "operationId": "installModSecurity",
+                "tags": [
+                    "ModSecurity"
+                ],
+                "summary": "Install or upgrade the Nginx connector",
+                "description": "A transaction on the server: everything is backed up first and rolled back if a step fails. `method`: `auto` uses packages where possible, `source` builds the connector. Server administrators only (`403` for others).",
+                "x-permission": "security.manage",
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "method": {
+                                        "type": "string",
+                                        "enum": [
+                                            "auto",
+                                            "source"
+                                        ],
+                                        "default": "auto"
+                                    },
+                                    "upgrade": {
+                                        "type": "boolean"
+                                    },
+                                    "nginx_source_sha256": {
+                                        "type": "string",
+                                        "description": "SHA-256 of the Nginx source, for `source`."
+                                    }
+                                }
+                            },
+                            "example": {
+                                "method": "auto"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "The background job.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "job_id": {
+                                                    "type": "string",
+                                                    "description": "Follow it with `GET /jobs/{id}`."
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "job_id": "job_123"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/security/modsec/crs": {
+            "post": {
+                "operationId": "installModSecurityCrs",
+                "tags": [
+                    "ModSecurity"
+                ],
+                "summary": "Install the OWASP Core Rule Set",
+                "description": "It starts in detection only. Server administrators only (`403` for others).",
+                "x-permission": "security.manage",
+                "responses": {
+                    "202": {
+                        "description": "The background job.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "job_id": {
+                                                    "type": "string",
+                                                    "description": "Follow it with `GET /jobs/{id}`."
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "job_id": "job_123"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/security/modsec/installs": {
+            "get": {
+                "operationId": "listModSecurityInstalls",
+                "tags": [
+                    "ModSecurity"
+                ],
+                "summary": "List installations",
+                "description": "Installation records, newest first, each with an `id` you can roll back. Server administrators only (`403` for others).",
+                "x-permission": "security.view",
+                "responses": {
+                    "200": {
+                        "description": "The records.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "installs": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "installs": [
+                                            {
+                                                "id": "20261124T073000Z-ab12",
+                                                "method": "auto"
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/security/modsec/installs/{id}/rollback": {
+            "post": {
+                "operationId": "rollbackModSecurityInstall",
+                "tags": [
+                    "ModSecurity"
+                ],
+                "summary": "Roll back an installation",
+                "description": "Runs in the background; nothing changes if Nginx would not accept the result. Server administrators only (`403` for others).",
+                "x-permission": "security.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The installation's id.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "The background job.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "job_id": {
+                                                    "type": "string",
+                                                    "description": "Follow it with `GET /jobs/{id}`."
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "job_id": "job_123"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/websites/{id}/modsec": {
+            "get": {
+                "operationId": "getWebsiteModSecurity",
+                "tags": [
+                    "ModSecurity"
+                ],
+                "summary": "Get a website's web firewall",
+                "description": "`mode` is `off`, `detect` (log only) or `on` (block attacks). `available` is false when ModSecurity is not loaded on the server.",
+                "x-permission": "websites.view",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The website's setting.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "domain": "shop.example.com",
+                                        "mode": "on",
+                                        "vendors_off": [],
+                                        "disabled_rules": [],
+                                        "available": true,
+                                        "detection_only_server": false
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            },
+            "put": {
+                "operationId": "setWebsiteModSecurity",
+                "tags": [
+                    "ModSecurity"
+                ],
+                "summary": "Set a website's web firewall",
+                "description": "Everyone who manages the website sets `mode`. `vendors_off` (`crs`, `custom`) and `disabled_rules` (up to 200 rule ids) are for server administrators; others get `422`. Only what is sent changes.",
+                "x-permission": "websites.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "mode": {
+                                        "type": "string",
+                                        "enum": [
+                                            "off",
+                                            "detect",
+                                            "on"
+                                        ]
+                                    },
+                                    "vendors_off": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "enum": [
+                                                "crs",
+                                                "custom"
+                                            ]
+                                        }
+                                    },
+                                    "disabled_rules": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "integer"
+                                        }
+                                    }
+                                }
+                            },
+                            "example": {
+                                "mode": "detect"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The website's setting.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "mode": "detect",
+                                        "domain": "shop.example.com",
+                                        "vendors_off": [],
+                                        "disabled_rules": [],
+                                        "available": true,
+                                        "detection_only_server": false
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/websites/{id}/modsec/events": {
+            "get": {
+                "operationId": "listWebsiteModSecurityEvents",
+                "tags": [
+                    "ModSecurity"
+                ],
+                "summary": "A website's firewall events",
+                "x-permission": "websites.view",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "description": "How many events (1–200).",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 200,
+                            "default": 50
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The events.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "events": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "events": [
+                                            {
+                                                "time": "2026-11-24T07:30:00Z",
+                                                "host": "shop.example.com",
+                                                "client_ip": "203.0.113.9",
+                                                "method": "GET",
+                                                "uri": "/?q=<script>",
+                                                "status": 403,
+                                                "engine": "On",
+                                                "rules": [
+                                                    {
+                                                        "id": "941100",
+                                                        "message": "XSS Attack Detected",
+                                                        "severity": "CRITICAL"
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
                     },
                     "429": {
                         "$ref": "#/components/responses/RateLimited"
@@ -16576,6 +17953,43 @@
                     "created_at": {
                         "type": "string",
                         "format": "date-time"
+                    }
+                }
+            },
+            "ModSecurityRule": {
+                "type": "object",
+                "properties": {
+                    "index": {
+                        "type": "integer",
+                        "description": "Position in the custom rules file; it changes when an earlier rule is deleted."
+                    },
+                    "id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "description": "The rule's `id:` (custom rules use 10000–99999)."
+                    },
+                    "phase": {
+                        "type": "string"
+                    },
+                    "action": {
+                        "type": "string"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "comment": {
+                        "type": "string",
+                        "description": "The comment lines above the rule."
+                    },
+                    "rule": {
+                        "type": "string",
+                        "description": "The rule text (directive and continuation lines)."
+                    },
+                    "sha256": {
+                        "type": "string",
+                        "description": "SHA-256 of `rule`. Send it back to change or delete the rule, so a rule edited meanwhile is never overwritten."
                     }
                 }
             },
