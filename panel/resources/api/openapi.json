@@ -58,6 +58,10 @@
             "description": "Subdomains and addon domains of a website, and its redirects.\n\nA subdomain (`blog.example.com`) or an addon domain (a different domain) is a website of its own, with its own document root, running as the same system account as its parent. They show in `GET /websites` too, and removing one is `DELETE /websites/{id}` with its id. Plan limits for subdomains, addon domains and websites apply. The web server configuration is checked before it is reloaded and a refused change is undone.\n\nRedirects are exact-path redirects of one website (up to 100)."
         },
         {
+            "name": "Applications",
+            "description": "The one-click application installer: WordPress, Laravel and the other applications the server offers.\n\nOnly applications the token's user may install are listed (a hosting customer sees what the provider made visible). An install creates the application's database and user in the same step, runs in the background and answers `202` with a `job_id` to follow with `GET /jobs/{id}`. Only one install into a folder can run at a time. Check what an install would do first with the `plan` endpoint, which changes nothing."
+        },
+        {
             "name": "Databases",
             "description": "MySQL and MariaDB databases and their users."
         },
@@ -2480,6 +2484,425 @@
                     },
                     "404": {
                         "$ref": "#/components/responses/NotFound"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/apps": {
+            "get": {
+                "operationId": "listApps",
+                "tags": [
+                    "Applications"
+                ],
+                "summary": "List the applications that can be installed",
+                "description": "Grouped by category. `installer_enabled` is false when the provider turned the installer off (then the list is empty).",
+                "x-permission": "apps.install",
+                "responses": {
+                    "200": {
+                        "description": "The catalog.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "installer_enabled": {
+                                                    "type": "boolean"
+                                                },
+                                                "categories": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "category": {
+                                                                "type": "string"
+                                                            },
+                                                            "name": {
+                                                                "type": "string"
+                                                            },
+                                                            "apps": {
+                                                                "type": "array",
+                                                                "items": {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "slug": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "name": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "description": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "needs_database": {
+                                                                            "type": "boolean"
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "installer_enabled": true,
+                                        "categories": [
+                                            {
+                                                "category": "blogs-cms",
+                                                "name": "Blogs & CMS",
+                                                "apps": [
+                                                    {
+                                                        "slug": "wordpress",
+                                                        "name": "WordPress",
+                                                        "description": "The world's most popular blog and website builder.",
+                                                        "needs_database": true
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    }
+                }
+            }
+        },
+        "/websites/{id}/apps": {
+            "get": {
+                "operationId": "listWebsiteApps",
+                "tags": [
+                    "Applications"
+                ],
+                "summary": "List a website's installations",
+                "description": "Every install into the website, newest first, with its result. Running installs are brought up to date first.",
+                "x-permission": "apps.install",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The installations.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/AppInstall"
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": [
+                                        {
+                                            "id": 7,
+                                            "app": "wordpress",
+                                            "path": "public_html",
+                                            "status": "succeeded",
+                                            "version": "6.8",
+                                            "error": "",
+                                            "admin_user": "owner",
+                                            "database": "bluebird_wp",
+                                            "job_id": "3f9a1c2b7d4e5a60",
+                                            "created_at": "2026-11-24T08:00:00Z",
+                                            "finished_at": "2026-11-24T08:01:30Z"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    }
+                }
+            }
+        },
+        "/websites/{id}/apps/{app}/plan": {
+            "get": {
+                "operationId": "planAppInstall",
+                "tags": [
+                    "Applications"
+                ],
+                "summary": "Check what an install would do",
+                "description": "A dry run: the requirements, the changes and any conflicts, worked out by the server without changing anything. `409` when the application does not fit the website (for example a PHP application on a static website).",
+                "x-permission": "apps.install",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "app",
+                        "in": "path",
+                        "required": true,
+                        "description": "The application's `slug` from `GET /apps`.",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "example": "wordpress"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The plan.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "ok": true,
+                                        "requirements": [],
+                                        "changes": [
+                                            "Download WordPress into public_html",
+                                            "Create a database"
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/websites/{id}/apps/{app}": {
+            "post": {
+                "operationId": "installApp",
+                "tags": [
+                    "Applications"
+                ],
+                "summary": "Install an application",
+                "description": "Creates a database and user for it, then installs it in the background. For WordPress (and applications built on it) a strong administrator password is generated and returned **once**. Which fields apply depends on the application: `title`, `admin_user` and `admin_email` for WordPress and the applications that create an administrator, `path` for applications that go in their own folder, `migrate` for Laravel. A folder that already has an install running answers `409`.",
+                "x-permission": "apps.install",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "app",
+                        "in": "path",
+                        "required": true,
+                        "description": "The application's `slug` from `GET /apps`.",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "example": "wordpress"
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "title": {
+                                        "type": "string",
+                                        "maxLength": 100,
+                                        "description": "The site's title (WordPress)."
+                                    },
+                                    "admin_user": {
+                                        "type": "string",
+                                        "pattern": "^[A-Za-z0-9._@-]{3,60}$",
+                                        "default": "admin"
+                                    },
+                                    "admin_email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "description": "The administrator's address."
+                                    },
+                                    "path": {
+                                        "type": "string",
+                                        "description": "A new folder name for applications that do not install into the document root.",
+                                        "examples": [
+                                            "app"
+                                        ]
+                                    },
+                                    "migrate": {
+                                        "type": "boolean",
+                                        "description": "Laravel: run the database migrations."
+                                    },
+                                    "target_id": {
+                                        "type": "integer",
+                                        "description": "Install into one of this website's subdomains instead (its website id)."
+                                    }
+                                }
+                            },
+                            "example": {
+                                "title": "Bluebird Café",
+                                "admin_user": "owner",
+                                "admin_email": "owner@bluebird-cafe.example"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "The install started.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "job_id": {
+                                                    "type": "string"
+                                                },
+                                                "website_id": {
+                                                    "type": "integer",
+                                                    "description": "The website it is installed into."
+                                                },
+                                                "admin_user": {
+                                                    "type": "string"
+                                                },
+                                                "admin_password": {
+                                                    "type": "string",
+                                                    "description": "Only for applications that create an administrator. Shown once."
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "job_id": "3f9a1c2b7d4e5a60",
+                                        "website_id": 21,
+                                        "admin_user": "owner",
+                                        "admin_password": "Kq9ZsAa3mR1tVxB7pLw2"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationFailed"
@@ -13700,6 +14123,60 @@
             }
         },
         "schemas": {
+            "AppInstall": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "app": {
+                        "type": "string"
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "The folder inside the website."
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "running",
+                            "succeeded",
+                            "failed",
+                            "unknown"
+                        ]
+                    },
+                    "version": {
+                        "type": "string"
+                    },
+                    "error": {
+                        "type": "string"
+                    },
+                    "admin_user": {
+                        "type": "string"
+                    },
+                    "database": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "The database created for it."
+                    },
+                    "job_id": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "finished_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    }
+                }
+            },
             "Backup": {
                 "type": "object",
                 "properties": {
