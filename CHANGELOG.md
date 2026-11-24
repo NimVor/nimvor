@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **API: a website's own settings** (9 new endpoints, in the API reference): read and change names (aliases), document-root folder, upload limit, proxy address, directory listing and uptime checks (`GET`/`PATCH /websites/{id}/settings`); re-apply a website's configuration (`POST …/reapply`); check and repair the permissions of its files (`GET …/permissions`, `POST …/permissions/repair`); manage environment variables (`GET`/`PATCH …/env`: `set` and `unset`, **values are write-only**, the API lists names only); and read and change the runtime of a Node.js or Python website (`GET`/`PATCH …/runtime`). The same services as the web interface run, so the same validation, check-before-reload and rollback apply. `SiteEnvService` gained `change()` (set/unset without rewriting the whole file). Security headers and cache rules follow in a later change.
+
 ## [2.3.0] — 2026-11-24
 
 The public REST API now also covers the server-wide allow/deny list. Panel only; the agent's only change is its version number. Upgrade with `sudo nimvor update`.
