@@ -155,8 +155,12 @@ over HTTPS and JSON. Every endpoint uses the same services as the web interface,
 plan limits, ownership scope, auditing and the agent's safety checks are the same.
 
 **Authentication.** Create a token under *Profile → API tokens* (it is shown once) and send it as
-`Authorization: Bearer nimvor_…`. A token acts with its owner's permissions and ownership scope (a hosting
-customer only sees their own websites). A *read-only* token may only use `GET`. Tokens can expire and
+`Authorization: Bearer nimvor_…`. **The API is for administrators and resellers**; hosting customers have no
+API access (`403 api_not_available`). A token acts as its owner, with the owner's ownership scope (a reseller
+only sees their own and their customers' objects), and only for the permissions it was given when it was
+created: like the privileges of a WHM token, they are chosen in groups, or *Everything* gives all the owner
+may do. An endpoint the token has no permission for answers `403 scope_missing` and names the permission
+(shown on each operation as `x-permission`). A *read-only* token may only use `GET`. Tokens can expire and
 be revoked. There are no cookies and no CSRF token.
 
 **Responses.** Success: `{"success": true, "data": …}`. Failure: `{"success": false, "error": {"code", "message", …}}`
@@ -201,7 +205,7 @@ MD;
         ]]];
         return [
             'Unauthorized' => $r('The token is missing, wrong, expired or revoked.', 'unauthorized', 'A valid API token is required (Authorization: Bearer nimvor_…).'),
-            'Forbidden' => $r('The token may not do this: it is read-only, or its user lacks the permission or the hosting plan lacks the feature.', 'forbidden', "The token's user lacks the permission websites.manage."),
+            'Forbidden' => $r('The token may not do this: it is read-only, it was not given the permission (`scope_missing`), its user lacks it or the hosting plan lacks the feature, or the user is a hosting customer (`api_not_available`).', 'forbidden', "The token's user lacks the permission websites.manage."),
             'NotFound' => $r('It does not exist, or it is not visible to this token.', 'not_found', 'Not found, or not visible to this token.'),
             'Conflict' => $r('The change was refused (for example a limit, a name already in use or a safety check); `reason` and `action` say why and what to do.', 'rejected', 'This domain is already used by another website.', ['reason' => 'domain exists', 'action' => 'Choose another domain.']),
             'ValidationFailed' => $r('An input is invalid; `fields` names each one.', 'validation_failed', 'Please correct the highlighted fields.', ['fields' => ['domain' => 'Enter a valid domain name.']]),

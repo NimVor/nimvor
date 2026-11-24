@@ -33,7 +33,7 @@ final class ApiTest extends HttpTestCase
 
     private function token(int $userId, string $ability = 'write'): string
     {
-        return $this->app->container->get(ApiTokenService::class)->create($userId, ['name' => 't' . bin2hex(random_bytes(2)), 'ability' => $ability, 'expires_days' => 30]);
+        return $this->app->container->get(ApiTokenService::class)->create($userId, ['name' => 't' . bin2hex(random_bytes(2)), 'ability' => $ability, 'all_scopes' => '1', 'expires_days' => 30]);
     }
 
     public function testAuthenticationAndAbilities(): void
@@ -77,7 +77,7 @@ final class ApiTest extends HttpTestCase
     public function testScopeAndPermissions(): void
     {
         $admin = $this->seedUser('admin', 'admin');
-        $cust = $this->seedUser('cust', 'customer');
+        $cust = $this->seedUser('cust', 'reseller');
         $viewer = $this->seedUser('view', 'viewer');
         $users = $this->app->container->get(UserRepository::class);
         $sites = $this->app->container->get(WebsiteService::class);
@@ -119,7 +119,7 @@ final class ApiTest extends HttpTestCase
     {
         $this->seedUser('admin', 'admin');
         $this->login('admin');
-        $this->post('/profile/tokens', ['name' => 'ci', 'ability' => 'read', 'expires_days' => '30']);
+        $this->post('/profile/tokens', ['name' => 'ci', 'ability' => 'read', 'all_scopes' => '1', 'expires_days' => '30']);
         $token = (string) $this->session->pullFlash('api_token');
         self::assertMatchesRegularExpression('/^nimvor_[a-f0-9]{40}$/', $token);
         $db = $this->app->container->get(Connection::class);

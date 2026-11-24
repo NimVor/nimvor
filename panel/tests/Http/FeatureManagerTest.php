@@ -99,8 +99,7 @@ final class FeatureManagerTest extends HttpTestCase
     {
         $list = $this->app->container->get(FeatureService::class)->save(null, ['name' => 'Basic', 'features' => $this->except(['mysql', 'redis', 'stats'])], 1);
         $this->db->run('UPDATE plans SET feature_list_id = ? WHERE id = ?', [$list, $this->plan]);
-        $token = $this->app->container->get(ApiTokenService::class)->create($this->cust, ['name' => 't', 'ability' => 'write', 'expires_days' => 30]);
-        $this->login('cust');
+                $this->login('cust');
 
         $site = $this->request('GET', '/sites/' . $this->site)->body();
         self::assertStringNotContainsString('/sites/' . $this->site . '/databases', $site);
@@ -117,7 +116,9 @@ final class FeatureManagerTest extends HttpTestCase
         self::assertSame(200, $this->request('GET', '/sites/' . $this->site . '/files')->status());
         self::assertGreaterThan(0, (int) $this->db->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'security.access_denied' AND details LIKE '%feature%'"));
 
-        // The API follows the same rules.
+        // The API follows the same rules (for a reseller on the same plan; hosting customers have no API).
+        $this->db->run("UPDATE users SET role_id = (SELECT id FROM roles WHERE name = 'reseller') WHERE id = ?", [$this->cust]);
+        $token = $this->app->container->get(ApiTokenService::class)->create($this->cust, ['name' => 't', 'ability' => 'write', 'all_scopes' => '1', 'expires_days' => 30]);
         $api = fn (string $path) => $this->app->handle(new Request('GET', $path, [], [], ['REMOTE_ADDR' => '192.0.2.50'], ['authorization' => 'Bearer ' . $token]));
         self::assertSame(403, $api('/api/v1/databases')->status());
         self::assertSame(200, $api('/api/v1/websites')->status());

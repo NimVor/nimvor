@@ -5,13 +5,18 @@ declare(strict_types=1);
 namespace NimVor\Services;
 
 use NimVor\Database\Connection;
+use NimVor\Hosting\Scope;
 use NimVor\Repositories\UserRepository;
+use NimVor\Security\Authorizer;
+use NimVor\Security\Permissions;
 use NimVor\Support\ValidationException;
 
 /**
  * Personal API tokens. Only a SHA-256 hash is stored; the token is shown
  * once when created. A token acts as its user (same permissions and
- * ownership scope); "read" tokens may only make GET requests.
+ * ownership scope); "read" tokens may only make GET requests. A token can be
+ * limited to chosen permissions (its scopes); without scopes it may do
+ * everything its user may. Only administrators and resellers use the API.
  */
 final class ApiTokenService
 {
@@ -21,13 +26,57 @@ final class ApiTokenService
         private readonly Connection $db,
         private readonly UserRepository $users,
         private readonly AuditLogger $audit,
+        private readonly Authorizer $authorizer,
     ) {
+    }
+
+    /** Who may have and use API tokens: server administrators and resellers; hosting customers do not. */
+    public static function mayUseApi(?array $user): bool
+    {
+        return $user !== null && (Scope::isAll($user) || ($user['role_name'] ?? '') === 'reseller');
+    }
+
+    /**
+     * The permissions a token of $user can be limited to, grouped for the form: only those the user holds and some
+     * API endpoint asks for.
+     *
+     * @param list<string> $apiPermissions the permissions the API routes require
+     * @return array<string, list<array{key: string, label: string}>> group => permissions
+     */
+    public function scopeGroups(array $user, array $apiPermissions): array
+    {
+        $own = $this->authorizer->permissions((int) $user['role_id']);
+        $out = [];
+        foreach (Permissions::all() as $key => $meta) {
+            if ($key !== Permissions::API_TOKENS && in_array($key, $apiPermissions, true) && in_array($key, $own, true)) {
+                $out[(string) $meta['group']][] = ['key' => $key, 'label' => (string) $meta['label']];
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * @param list<string> $keys
+     * @return list<string> $keys with the view permission of every manage permission chosen (managing needs viewing)
+     */
+    public static function withViews(array $keys): array
+    {
+        $known = Permissions::all();
+        foreach ($keys as $k) {
+            $view = preg_replace('/\.manage$/', '.view', $k);
+            if ($view !== $k && isset($known[$view])) {
+                $keys[] = $view;
+            }
+        }
+        $keys = array_values(array_unique($keys));
+        sort($keys);
+        return $keys;
     }
 
     /** @return list<array<string, mixed>> */
     public function forUser(int $userId): array
     {
-        return $this->db->fetchAll('SELECT id, name, prefix, ability, expires_at, last_used_at, last_used_ip, created_at FROM api_tokens WHERE user_id = ? ORDER BY id DESC', [$userId]);
+        return $this->db->fetchAll('SELECT id, name, prefix, ability, scopes, expires_at, last_used_at, last_used_ip, created_at FROM api_tokens WHERE user_id = ? ORDER BY id DESC', [$userId]);
     }
 
     /**
@@ -37,6 +86,10 @@ final class ApiTokenService
     public function create(int $userId, array $input): string
     {
         $errors = [];
+        $user = $this->users->find($userId);
+        if (!self::mayUseApi($user)) {
+            throw new \NimVor\Support\UserFacingException('API tokens are for administrators and resellers.', status: 403);
+        }
         $name = trim((string) ($input['name'] ?? ''));
         if ($name === '' || mb_strlen($name) > 60) {
             $errors['name'] = 'Name the token (e.g. the tool that uses it).';
@@ -49,6 +102,18 @@ final class ApiTokenService
         if ($days < 0 || $days > 3650) {
             $errors['expires_days'] = 'Choose 0 (never) to 3650 days.';
         }
+        // Everything (no limit), or a list of permissions the user holds.
+        $scopes = null;
+        if (($input['all_scopes'] ?? '') !== '1') {
+            $chosen = array_values(array_filter(is_array($input['scopes'] ?? null) ? $input['scopes'] : [], 'is_string'));
+            $own = $this->authorizer->permissions((int) $user['role_id']);
+            $chosen = array_values(array_intersect($chosen, $own, array_keys(Permissions::all())));
+            if ($chosen === []) {
+                $errors['scopes'] = 'Choose what the token may do, or tick Everything.';
+            } else {
+                $scopes = array_values(array_intersect(self::withViews($chosen), $own));
+            }
+        }
         if (count($this->forUser($userId)) >= 20) {
             $errors['name'] = 'You have 20 tokens; revoke one first.';
         }
@@ -57,10 +122,10 @@ final class ApiTokenService
         }
         $token = 'nimvor_' . bin2hex(random_bytes(20));
         $this->db->run(
-            'INSERT INTO api_tokens (user_id, name, token_hash, prefix, ability, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [$userId, $name, hash('sha256', $token), substr($token, 0, 12), $ability, $days > 0 ? gmdate('c', time() + $days * 86400) : null, gmdate('c')]
+            'INSERT INTO api_tokens (user_id, name, token_hash, prefix, ability, scopes, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [$userId, $name, hash('sha256', $token), substr($token, 0, 12), $ability, $scopes === null ? null : json_encode($scopes, JSON_THROW_ON_ERROR), $days > 0 ? gmdate('c', time() + $days * 86400) : null, gmdate('c')]
         );
-        $this->audit->record('api.token_create', 'user', (string) $userId, AuditLogger::SUCCESS, ['name' => $name, 'ability' => $ability, 'expires_days' => $days]);
+        $this->audit->record('api.token_create', 'user', (string) $userId, AuditLogger::SUCCESS, ['name' => $name, 'ability' => $ability, 'scopes' => $scopes ?? 'everything', 'expires_days' => $days]);
         return $token;
     }
 

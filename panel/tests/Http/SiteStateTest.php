@@ -278,7 +278,7 @@ final class SiteStateTest extends HttpTestCase
     public function testTheApiFollowsTheSameRules(): void
     {
         $tokens = $this->app->container->get(ApiTokenService::class);
-        $custToken = $tokens->create($this->custUser, ['name' => 'rw', 'ability' => 'write', 'expires_days' => 1]);
+        $custToken = $this->legacyToken($this->custUser); // a customer has no API; the web rules are tested above
         foreach (['enable', 'disable'] as $verb) {
             $res = $this->api('POST', '/api/v1/websites/' . $this->siteId . '/' . $verb, $custToken);
             self::assertContains($res->status(), [403, 409, 422, 400], 'customer ' . $verb . ': ' . $res->body());
@@ -287,7 +287,7 @@ final class SiteStateTest extends HttpTestCase
         self::assertSame(0, $this->calls('sites.apply'));
 
         // Disabled by the administrator: the customer cannot delete it through the API.
-        $adminToken = $tokens->create($this->adminUser, ['name' => 'rw', 'ability' => 'write', 'expires_days' => 1]);
+        $adminToken = $tokens->create($this->adminUser, ['name' => 'rw', 'ability' => 'write', 'all_scopes' => '1', 'expires_days' => 1]);
         self::assertSame(200, $this->api('POST', '/api/v1/websites/' . $this->siteId . '/disable', $adminToken)->status());
         self::assertSame(0, $this->enabled($this->siteId));
         $res = $this->api('DELETE', '/api/v1/websites/' . $this->siteId, $custToken);
