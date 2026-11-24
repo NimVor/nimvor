@@ -104,6 +104,10 @@
         {
             "name": "Firewall",
             "description": "The server's firewall (UFW or firewalld), its protections and the confirmation of changes. Needs the security permissions, which hosting customers do not have.\n\n**Every change is guarded.** The agent applies it, then undoes it automatically after **two minutes** unless you confirm it with `POST /security/confirm`. So a rule that cuts you off heals itself: check that you can still reach the server, then confirm. The agent also refuses a change that would remove SSH or the panel's own port (`502`, with a `reason`). Only one change can wait at a time.\n\nA rule is named by its `spec`, exactly as `GET /security/firewall` lists it."
+        },
+        {
+            "name": "PHP settings",
+            "description": "The PHP version, limits and `php.ini` directives of a PHP website.\n\nA change writes the website's PHP-FPM pool, which is checked with `php-fpm -t` before it is reloaded; if the server refuses it the previous settings are restored. Process limits, hardening and the security profile are the administrator's: a hosting customer who sends them gets `422` naming the fields. The customer's own `php.ini` and `.user.ini` files are never changed by the API."
         }
     ],
     "paths": {
@@ -9257,6 +9261,599 @@
                     }
                 }
             }
+        },
+        "/websites/{id}/php": {
+            "get": {
+                "operationId": "getWebsitePhp",
+                "tags": [
+                    "PHP settings"
+                ],
+                "summary": "Get a website's PHP settings",
+                "description": "The stored settings, plus `effective`: what PHP really uses (from the pool, the website's `php.ini` and `.user.ini`, and where each value comes from), or null when the server cannot say.",
+                "x-permission": "websites.view",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id. Only PHP websites have PHP settings (`409` otherwise).",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The settings.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "allOf": [
+                                                {
+                                                    "$ref": "#/components/schemas/PhpSettings"
+                                                }
+                                            ],
+                                            "properties": {
+                                                "effective": {
+                                                    "type": [
+                                                        "object",
+                                                        "null"
+                                                    ],
+                                                    "description": "The configuration PHP-FPM uses now."
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "php_version": "8.3",
+                                        "installed_versions": [
+                                            "8.2",
+                                            "8.3",
+                                            "8.4"
+                                        ],
+                                        "memory_limit_mb": 256,
+                                        "upload_max_mb": 64,
+                                        "max_execution_seconds": 60,
+                                        "max_children": 5,
+                                        "pm": "ondemand",
+                                        "start_servers": 0,
+                                        "min_spare_servers": 0,
+                                        "max_spare_servers": 0,
+                                        "idle_timeout_seconds": 10,
+                                        "max_requests": 500,
+                                        "request_timeout_seconds": 0,
+                                        "slowlog_seconds": 10,
+                                        "harden": true,
+                                        "lock_ini": false,
+                                        "php_profile": "recommended",
+                                        "disable_functions": "",
+                                        "ini": {
+                                            "display_errors": "Off",
+                                            "max_input_vars": "5000"
+                                        },
+                                        "effective": null
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "updateWebsitePhp",
+                "tags": [
+                    "PHP settings"
+                ],
+                "summary": "Change a website's PHP settings",
+                "description": "Only the fields you send change (except `ini`, which replaces the set). The website's other settings, domains and aliases stay as they are.",
+                "x-permission": "websites.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id. Only PHP websites have PHP settings (`409` otherwise).",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "php_version": {
+                                        "type": "string",
+                                        "description": "One of `installed_versions`. Changing it moves the website to that version's PHP-FPM.",
+                                        "examples": [
+                                            "8.3"
+                                        ]
+                                    },
+                                    "memory_limit_mb": {
+                                        "type": "integer",
+                                        "minimum": 32,
+                                        "maximum": 8192
+                                    },
+                                    "upload_max_mb": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 4096,
+                                        "description": "The largest upload (`upload_max_filesize`, `post_max_size` and the web server's body limit)."
+                                    },
+                                    "max_execution_seconds": {
+                                        "type": "integer",
+                                        "minimum": 5,
+                                        "maximum": 3600
+                                    },
+                                    "php_profile": {
+                                        "type": "string",
+                                        "enum": [
+                                            "",
+                                            "recommended",
+                                            "balanced",
+                                            "compatibility",
+                                            "custom"
+                                        ],
+                                        "description": "The security profile, which decides the functions that are disabled. `custom` uses `disable_functions`. Administrators only."
+                                    },
+                                    "disable_functions": {
+                                        "type": "string",
+                                        "description": "With the `custom` profile: PHP functions to disable, separated by commas. Administrators only."
+                                    },
+                                    "max_children": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 200,
+                                        "description": "The most PHP processes the website may run at once. Administrators only."
+                                    },
+                                    "pm": {
+                                        "type": "string",
+                                        "enum": [
+                                            "ondemand",
+                                            "dynamic",
+                                            "static"
+                                        ],
+                                        "description": "The PHP-FPM process manager. Administrators only."
+                                    },
+                                    "start_servers": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 200,
+                                        "description": "For `dynamic`; 0 lets the server choose. Administrators only."
+                                    },
+                                    "min_spare_servers": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 200,
+                                        "description": "For `dynamic`; 0 lets the server choose. Administrators only."
+                                    },
+                                    "max_spare_servers": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 200,
+                                        "description": "For `dynamic`; 0 lets the server choose. Administrators only."
+                                    },
+                                    "idle_timeout_seconds": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 3600,
+                                        "description": "For `ondemand`: seconds before an idle process stops. Administrators only."
+                                    },
+                                    "max_requests": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 100000,
+                                        "description": "Requests a process serves before it is replaced. Administrators only."
+                                    },
+                                    "request_timeout_seconds": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 86400,
+                                        "description": "Stops a request after this long; 0 means no limit. Administrators only."
+                                    },
+                                    "slowlog_seconds": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 3600,
+                                        "description": "Requests slower than this are written to the slow log. Administrators only."
+                                    },
+                                    "harden": {
+                                        "type": "boolean",
+                                        "description": "Extra hardening of the PHP pool. Administrators only."
+                                    },
+                                    "lock_ini": {
+                                        "type": "boolean",
+                                        "description": "Pin the plan's PHP limits so a `php.ini` or `.user.ini` cannot change them. Administrators only."
+                                    },
+                                    "ini": {
+                                        "type": "object",
+                                        "additionalProperties": {
+                                            "type": "string"
+                                        },
+                                        "description": "The website's own `php.ini` directives, as `name: value`. **Replaces the whole set** (send `{}` to clear it, or use `DELETE …/php/ini`). Only the directives of the panel's list are accepted; paths must lie inside the website's folder.",
+                                        "examples": [
+                                            {
+                                                "display_errors": "Off",
+                                                "max_input_vars": "5000"
+                                            }
+                                        ]
+                                    }
+                                }
+                            },
+                            "example": {
+                                "php_version": "8.4",
+                                "memory_limit_mb": 512,
+                                "ini": {
+                                    "display_errors": "Off"
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The settings, changed.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/PhpSettings"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "php_version": "8.4",
+                                        "memory_limit_mb": 512,
+                                        "installed_versions": [
+                                            "8.2",
+                                            "8.3",
+                                            "8.4"
+                                        ],
+                                        "upload_max_mb": 64,
+                                        "max_execution_seconds": 60,
+                                        "max_children": 5,
+                                        "pm": "ondemand",
+                                        "start_servers": 0,
+                                        "min_spare_servers": 0,
+                                        "max_spare_servers": 0,
+                                        "idle_timeout_seconds": 10,
+                                        "max_requests": 500,
+                                        "request_timeout_seconds": 0,
+                                        "slowlog_seconds": 10,
+                                        "harden": true,
+                                        "lock_ini": false,
+                                        "php_profile": "recommended",
+                                        "disable_functions": "",
+                                        "ini": {
+                                            "display_errors": "Off",
+                                            "max_input_vars": "5000"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/websites/{id}/php/reload": {
+            "post": {
+                "operationId": "reloadWebsitePhp",
+                "tags": [
+                    "PHP settings"
+                ],
+                "summary": "Reload PHP-FPM",
+                "description": "Reloads the PHP-FPM service of the website's PHP version (gracefully: running requests finish). It also reloads the other websites on that version.",
+                "x-permission": "websites.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id. Only PHP websites have PHP settings (`409` otherwise).",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Reloaded.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "reloaded": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "reloaded": "PHP 8.3"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/websites/{id}/php/check": {
+            "post": {
+                "operationId": "checkWebsitePhpConfig",
+                "tags": [
+                    "PHP settings"
+                ],
+                "summary": "Check the website's php.ini now",
+                "description": "Reads the website's own `php.ini` and `.user.ini` now (the server also notices changes within seconds) and reports whether PHP-FPM accepted them. `status` is `ok`, `pending` (a change is being applied) or `error` with a `message`.",
+                "x-permission": "websites.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id. Only PHP websites have PHP settings (`409` otherwise).",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The scan.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "status": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "ok",
+                                                        "pending",
+                                                        "error"
+                                                    ]
+                                                },
+                                                "message": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "status": "ok"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/websites/{id}/php/ini": {
+            "delete": {
+                "operationId": "resetWebsitePhpIni",
+                "tags": [
+                    "PHP settings"
+                ],
+                "summary": "Clear the directives set through the panel",
+                "description": "Removes the `ini` directives set through the panel or the API. The customer's own `php.ini` and `.user.ini` files are not changed.",
+                "x-permission": "websites.manage",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id. Only PHP websites have PHP settings (`409` otherwise).",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The settings, with `ini` empty.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/PhpSettings"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "ini": {},
+                                        "php_version": "8.3",
+                                        "installed_versions": [
+                                            "8.2",
+                                            "8.3",
+                                            "8.4"
+                                        ],
+                                        "memory_limit_mb": 256,
+                                        "upload_max_mb": 64,
+                                        "max_execution_seconds": 60,
+                                        "max_children": 5,
+                                        "pm": "ondemand",
+                                        "start_servers": 0,
+                                        "min_spare_servers": 0,
+                                        "max_spare_servers": 0,
+                                        "idle_timeout_seconds": 10,
+                                        "max_requests": 500,
+                                        "request_timeout_seconds": 0,
+                                        "slowlog_seconds": 10,
+                                        "harden": true,
+                                        "lock_ini": false,
+                                        "php_profile": "recommended",
+                                        "disable_functions": ""
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
         }
     },
     "components": {
@@ -9994,6 +10591,134 @@
                     "created_at": {
                         "type": "string",
                         "format": "date-time"
+                    }
+                }
+            },
+            "PhpSettings": {
+                "type": "object",
+                "properties": {
+                    "installed_versions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "PHP versions with PHP-FPM installed on this server."
+                    },
+                    "php_version": {
+                        "type": "string",
+                        "description": "One of `installed_versions`. Changing it moves the website to that version's PHP-FPM.",
+                        "examples": [
+                            "8.3"
+                        ]
+                    },
+                    "memory_limit_mb": {
+                        "type": "integer",
+                        "minimum": 32,
+                        "maximum": 8192
+                    },
+                    "upload_max_mb": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 4096,
+                        "description": "The largest upload (`upload_max_filesize`, `post_max_size` and the web server's body limit)."
+                    },
+                    "max_execution_seconds": {
+                        "type": "integer",
+                        "minimum": 5,
+                        "maximum": 3600
+                    },
+                    "php_profile": {
+                        "type": "string",
+                        "enum": [
+                            "",
+                            "recommended",
+                            "balanced",
+                            "compatibility",
+                            "custom"
+                        ],
+                        "description": "The security profile, which decides the functions that are disabled. `custom` uses `disable_functions`. Administrators only."
+                    },
+                    "disable_functions": {
+                        "type": "string",
+                        "description": "With the `custom` profile: PHP functions to disable, separated by commas. Administrators only."
+                    },
+                    "max_children": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 200,
+                        "description": "The most PHP processes the website may run at once. Administrators only."
+                    },
+                    "pm": {
+                        "type": "string",
+                        "enum": [
+                            "ondemand",
+                            "dynamic",
+                            "static"
+                        ],
+                        "description": "The PHP-FPM process manager. Administrators only."
+                    },
+                    "start_servers": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 200,
+                        "description": "For `dynamic`; 0 lets the server choose. Administrators only."
+                    },
+                    "min_spare_servers": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 200,
+                        "description": "For `dynamic`; 0 lets the server choose. Administrators only."
+                    },
+                    "max_spare_servers": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 200,
+                        "description": "For `dynamic`; 0 lets the server choose. Administrators only."
+                    },
+                    "idle_timeout_seconds": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 3600,
+                        "description": "For `ondemand`: seconds before an idle process stops. Administrators only."
+                    },
+                    "max_requests": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100000,
+                        "description": "Requests a process serves before it is replaced. Administrators only."
+                    },
+                    "request_timeout_seconds": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 86400,
+                        "description": "Stops a request after this long; 0 means no limit. Administrators only."
+                    },
+                    "slowlog_seconds": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 3600,
+                        "description": "Requests slower than this are written to the slow log. Administrators only."
+                    },
+                    "harden": {
+                        "type": "boolean",
+                        "description": "Extra hardening of the PHP pool. Administrators only."
+                    },
+                    "lock_ini": {
+                        "type": "boolean",
+                        "description": "Pin the plan's PHP limits so a `php.ini` or `.user.ini` cannot change them. Administrators only."
+                    },
+                    "ini": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        },
+                        "description": "The website's own `php.ini` directives, as `name: value`. **Replaces the whole set** (send `{}` to clear it, or use `DELETE …/php/ini`). Only the directives of the panel's list are accepted; paths must lie inside the website's folder.",
+                        "examples": [
+                            {
+                                "display_errors": "Off",
+                                "max_input_vars": "5000"
+                            }
+                        ]
                     }
                 }
             },
