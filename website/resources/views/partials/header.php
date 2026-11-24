@@ -11,6 +11,7 @@
                 <button class="nav-link" type="button" aria-expanded="false" aria-haspopup="true">Resources <?= $v->icon('arrow', 12) ?></button>
                 <div class="menu">
                     <a href="/docs"><span class="ico"><?= $v->icon('book', 20) ?></span><span>Documentation<small>Install, administer, extend</small></span></a>
+                    <a href="/api-reference"><span class="ico"><?= $v->icon('code', 20) ?></span><span>API reference<small>Every panel endpoint</small></span></a>
                     <a href="/resources/videos"><span class="ico"><?= $v->icon('play', 20) ?></span><span>Videos<small>Walkthroughs of the panel</small></span></a>
                     <a href="/resources/blog"><span class="ico"><?= $v->icon('pen', 20) ?></span><span>Blog<small>News and how-tos</small></span></a>
                     <a href="/resources/community"><span class="ico"><?= $v->icon('git', 20) ?></span><span>Community &amp; source<small>GitHub, issues, contributing</small></span></a>

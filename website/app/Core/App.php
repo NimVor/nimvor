@@ -12,6 +12,7 @@ use NimVorSite\Http\AdminController;
 use NimVorSite\Http\AuthController;
 use NimVorSite\Http\PageController;
 use NimVorSite\Http\ApiController;
+use NimVorSite\Http\ApiDocsController;
 use NimVorSite\Http\TelemetryController;
 use NimVorSite\Http\DocsController;
 use NimVorSite\Repositories\BuildRequests;
@@ -30,6 +31,7 @@ use NimVorSite\Repositories\Visits;
 use NimVorSite\Services\Auth;
 use NimVorSite\Services\Captcha;
 use NimVorSite\Services\CurlHttp;
+use NimVorSite\Services\ApiSpec;
 use NimVorSite\Services\DocsService;
 use NimVorSite\Services\GitHub;
 use NimVorSite\Services\Http;
@@ -64,6 +66,7 @@ final class App
     public readonly Installs $installs;
     public readonly GitHub $github;
     public readonly DocsService $docsService;
+    public readonly ApiSpec $apiSpec;
     public readonly Problems $problems;
     public readonly Releases $releases;
     public readonly SponsorSync $sponsorSync;
@@ -103,6 +106,7 @@ final class App
         $ghConfig = ['repo' => (string) ($gh['repo'] ?? 'NimVor/nimvor'), 'branch' => (string) ($gh['branch'] ?? 'main'), 'token' => (string) ($gh['token'] ?? '')];
         $this->github = new GitHub($http ?? new CurlHttp(), $ghConfig);
         $this->docsService = new DocsService($this->docs, $this->state, $this->github, $ghConfig['branch']);
+        $this->apiSpec = new ApiSpec($this->state, $this->github);
         $this->problems = new Problems($this->github, $cache);
         $this->releases = new Releases($this->github, $cache);
         $pt = (array) ($config['patreon'] ?? []);
@@ -167,6 +171,7 @@ final class App
         $t = new TicketController($this);
         $d = new DocsController($this);
         $api = new ApiController($this);
+        $apid = new ApiDocsController($this);
         $tel = new TelemetryController($this);
 
         $r->add('GET', '/', [$p, 'home']);
@@ -188,6 +193,9 @@ final class App
         $r->add('GET', '/resources/releases/{version}', [$p, 'release']);
         $r->add('GET', '/resources/problems', [$p, 'problems']);
         $r->add('GET', '/resources/stats', [$p, 'stats']);
+        $r->add('GET', '/api-reference', [$apid, 'overview']);
+        $r->add('GET', '/api-reference/search', [$apid, 'search']);
+        $r->add('GET', '/api-reference/{tag}', [$apid, 'tag']);
         $r->add('GET', '/docs', [$d, 'show']);
         $r->add('GET', '/docs/search', [$d, 'search']);
         $r->add('GET', '/docs/{a}', [$d, 'show']);

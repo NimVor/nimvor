@@ -1,0 +1,29 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Builds resources/api/openapi.json from resources/api/spec/*.php.
+ * Run it after changing the API; a test fails when the committed file is stale.
+ *
+ *   bin/build-openapi            write the file
+ *   bin/build-openapi --check    exit 1 when the file is stale
+ */
+
+require dirname(__DIR__) . '/vendor/autoload.php';
+
+use NimVor\Api\OpenApi;
+
+$target = dirname(__DIR__) . '/resources/api/openapi.json';
+$built = OpenApi::encode(OpenApi::build());
+if (in_array('--check', $argv, true)) {
+    $have = is_file($target) ? (string) file_get_contents($target) : '';
+    if ($have !== $built) {
+        fwrite(STDERR, "resources/api/openapi.json is stale: run bin/build-openapi\n");
+        exit(1);
+    }
+    exit(0);
+}
+file_put_contents($target, $built);
+echo 'Wrote ' . $target . ' (' . strlen($built) . " bytes)\n";

@@ -1,0 +1,2272 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "NimVor panel API",
+        "version": "1",
+        "description": "The NimVor panel API manages websites, databases, backups, SSL certificates, deployments and more\nover HTTPS and JSON. Every endpoint uses the same services as the web interface, so validation,\nplan limits, ownership scope, auditing and the agent's safety checks are the same.\n\n**Authentication.** Create a token under *Profile → API tokens* (it is shown once) and send it as\n`Authorization: Bearer nimvor_…`. A token acts with its owner's permissions and ownership scope (a hosting\ncustomer only sees their own websites). A *read-only* token may only use `GET`. Tokens can expire and\nbe revoked. There are no cookies and no CSRF token.\n\n**Responses.** Success: `{\"success\": true, \"data\": …}`. Failure: `{\"success\": false, \"error\": {\"code\", \"message\", …}}`\nwith `reason`/`action` (what went wrong and what to do) or `fields` (one message per invalid input).\n\n**Long operations** answer `202 Accepted` with a `job_id`; poll `GET /jobs/{id}` until `done` is true.\n\n**Limits.** 120 requests per minute per token (`429 rate_limited`). Select another managed server with the\n`X-NimVor-Server` header.",
+        "license": {
+            "name": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
+        }
+    },
+    "servers": [
+        {
+            "url": "/api/v1",
+            "description": "Your panel, for example https://panel.example.com/api/v1"
+        }
+    ],
+    "security": [
+        {
+            "bearer": []
+        }
+    ],
+    "tags": [
+        {
+            "name": "Account",
+            "description": "Who the token belongs to and which server it acts on."
+        },
+        {
+            "name": "Server",
+            "description": "System information and current metrics of a managed server."
+        },
+        {
+            "name": "Jobs",
+            "description": "Background jobs. Long operations (backups, deployments) return a `job_id`; follow it here."
+        },
+        {
+            "name": "Notifications",
+            "description": "Job results and alerts the token's user may see."
+        },
+        {
+            "name": "Websites",
+            "description": "Create, inspect, enable, disable and delete websites. Changes are validated (`nginx -t`, `php-fpm -t`), applied and rolled back on failure, exactly as in the web interface."
+        },
+        {
+            "name": "SSL",
+            "description": "HTTPS certificates for a website."
+        },
+        {
+            "name": "Backups",
+            "description": "Website backups (files and databases), optionally encrypted."
+        },
+        {
+            "name": "Deployments",
+            "description": "Deploy a website from its connected Git repository."
+        },
+        {
+            "name": "Databases",
+            "description": "MySQL and MariaDB databases and their users."
+        }
+    ],
+    "paths": {
+        "/me": {
+            "get": {
+                "operationId": "getMe",
+                "tags": [
+                    "Account"
+                ],
+                "summary": "The token's user and the selected server",
+                "description": "Use it to check a token. It needs no permission beyond a valid token.",
+                "responses": {
+                    "200": {
+                        "description": "The user, the token and the server it acts on.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer"
+                                                },
+                                                "username": {
+                                                    "type": "string"
+                                                },
+                                                "role": {
+                                                    "type": "string",
+                                                    "description": "The role name, for example `admin` or `customer`."
+                                                },
+                                                "scope": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "all",
+                                                        "own"
+                                                    ],
+                                                    "description": "`own`: only the user's own resources are visible."
+                                                },
+                                                "token": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "name": {
+                                                            "type": "string"
+                                                        },
+                                                        "ability": {
+                                                            "type": "string",
+                                                            "enum": [
+                                                                "read",
+                                                                "write"
+                                                            ]
+                                                        },
+                                                        "expires_at": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ],
+                                                            "format": "date-time"
+                                                        }
+                                                    }
+                                                },
+                                                "server_id": {
+                                                    "type": "integer"
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "id": 1,
+                                        "username": "admin",
+                                        "role": "admin",
+                                        "scope": "all",
+                                        "token": {
+                                            "name": "deploy script",
+                                            "ability": "write",
+                                            "expires_at": "2027-02-21T09:00:00Z"
+                                        },
+                                        "server_id": 1
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    }
+                }
+            }
+        },
+        "/server": {
+            "get": {
+                "operationId": "getServer",
+                "tags": [
+                    "Server"
+                ],
+                "summary": "System information and current metrics",
+                "description": "Operating system, kernel, CPU, uptime and network interfaces, with the latest CPU, memory, disk, load and network sample.",
+                "x-permission": "server.view",
+                "parameters": [
+                    {
+                        "$ref": "#/components/parameters/Server"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Information and the latest sample.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "info": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "agent_version": {
+                                                            "type": "string"
+                                                        },
+                                                        "os": {
+                                                            "type": "object",
+                                                            "description": "Distribution name and version."
+                                                        },
+                                                        "system": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "hostname": {
+                                                                    "type": "string"
+                                                                },
+                                                                "kernel": {
+                                                                    "type": "string"
+                                                                },
+                                                                "architecture": {
+                                                                    "type": "string"
+                                                                },
+                                                                "cpu": {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "model": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "cores": {
+                                                                            "type": "integer"
+                                                                        }
+                                                                    }
+                                                                },
+                                                                "uptime_seconds": {
+                                                                    "type": "number"
+                                                                },
+                                                                "boot_time": {
+                                                                    "type": "string",
+                                                                    "format": "date-time"
+                                                                },
+                                                                "timezone": {
+                                                                    "type": "string"
+                                                                },
+                                                                "interfaces": {
+                                                                    "type": "array",
+                                                                    "items": {
+                                                                        "type": "object",
+                                                                        "properties": {
+                                                                            "name": {
+                                                                                "type": "string"
+                                                                            },
+                                                                            "mac": {
+                                                                                "type": "string"
+                                                                            },
+                                                                            "up": {
+                                                                                "type": "boolean"
+                                                                            },
+                                                                            "addresses": {
+                                                                                "type": "array",
+                                                                                "items": {
+                                                                                    "type": "string"
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                "metrics": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "timestamp": {
+                                                            "type": "string",
+                                                            "format": "date-time"
+                                                        },
+                                                        "cpu_percent": {
+                                                            "type": "number"
+                                                        },
+                                                        "memory": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "total_bytes": {
+                                                                    "type": "integer"
+                                                                },
+                                                                "available_bytes": {
+                                                                    "type": "integer"
+                                                                },
+                                                                "used_bytes": {
+                                                                    "type": "integer"
+                                                                },
+                                                                "used_percent": {
+                                                                    "type": "number"
+                                                                },
+                                                                "swap_total_bytes": {
+                                                                    "type": "integer"
+                                                                },
+                                                                "swap_used_bytes": {
+                                                                    "type": "integer"
+                                                                }
+                                                            }
+                                                        },
+                                                        "load": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "load1": {
+                                                                    "type": "number"
+                                                                },
+                                                                "load5": {
+                                                                    "type": "number"
+                                                                },
+                                                                "load15": {
+                                                                    "type": "number"
+                                                                },
+                                                                "procs_running": {
+                                                                    "type": "integer"
+                                                                },
+                                                                "procs_total": {
+                                                                    "type": "integer"
+                                                                }
+                                                            }
+                                                        },
+                                                        "uptime_seconds": {
+                                                            "type": "number"
+                                                        },
+                                                        "disks": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "object",
+                                                                "properties": {
+                                                                    "mount": {
+                                                                        "type": "string"
+                                                                    },
+                                                                    "total_bytes": {
+                                                                        "type": "integer"
+                                                                    },
+                                                                    "used_bytes": {
+                                                                        "type": "integer"
+                                                                    },
+                                                                    "free_bytes": {
+                                                                        "type": "integer"
+                                                                    },
+                                                                    "used_percent": {
+                                                                        "type": "number"
+                                                                    }
+                                                                }
+                                                            }
+                                                        },
+                                                        "network": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "object",
+                                                                "properties": {
+                                                                    "rx_bytes_per_sec": {
+                                                                        "type": "number"
+                                                                    },
+                                                                    "tx_bytes_per_sec": {
+                                                                        "type": "number"
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "info": {
+                                            "agent_version": "1.10.1",
+                                            "os": {
+                                                "name": "Ubuntu",
+                                                "version": "24.04"
+                                            },
+                                            "system": {
+                                                "hostname": "ns1",
+                                                "kernel": "6.8.0-60-generic",
+                                                "architecture": "amd64",
+                                                "cpu": {
+                                                    "model": "AMD EPYC 7282",
+                                                    "cores": 4
+                                                },
+                                                "uptime_seconds": 864000.5,
+                                                "timezone": "UTC"
+                                            }
+                                        },
+                                        "metrics": {
+                                            "timestamp": "2026-11-23T20:00:00Z",
+                                            "cpu_percent": 7.4,
+                                            "memory": {
+                                                "total_bytes": 8217247744,
+                                                "used_bytes": 2147483648,
+                                                "used_percent": 26.1
+                                            },
+                                            "load": {
+                                                "load1": 0.12,
+                                                "load5": 0.2,
+                                                "load15": 0.18
+                                            },
+                                            "disks": [
+                                                {
+                                                    "mount": "/",
+                                                    "total_bytes": 214748364800,
+                                                    "used_bytes": 64424509440,
+                                                    "free_bytes": 150323855360,
+                                                    "used_percent": 30
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/jobs/{id}": {
+            "get": {
+                "operationId": "getJob",
+                "tags": [
+                    "Jobs"
+                ],
+                "summary": "Status and log of a background job",
+                "description": "Only jobs started by the token's user are visible. Poll until `done` is true, passing the returned `offset` to receive only new log lines.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The `job_id` returned when the job was started.",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{16}$"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "required": false,
+                        "description": "Byte offset in the job log to read from.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "default": 0
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The job and its log since `offset`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/JobStatus"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "job": {
+                                            "id": "3f9a1c2b7d4e5a60",
+                                            "kind": "backup.site",
+                                            "target": "example.com",
+                                            "status": "running",
+                                            "created_at": "2026-11-23T20:01:00Z",
+                                            "started_at": "2026-11-23T20:01:01Z"
+                                        },
+                                        "log": "Archiving website files of example.com…\n",
+                                        "offset": 41,
+                                        "done": false,
+                                        "kind": "backup.site"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/notifications": {
+            "get": {
+                "operationId": "listNotifications",
+                "tags": [
+                    "Notifications"
+                ],
+                "summary": "Notifications, newest first",
+                "x-permission": "notifications.view",
+                "parameters": [
+                    {
+                        "name": "unread",
+                        "in": "query",
+                        "required": false,
+                        "description": "Only unread notifications.",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "1"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "description": "How many to return.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 200,
+                            "default": 50
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The notifications.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Notification"
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": [
+                                        {
+                                            "id": 41,
+                                            "server_id": 1,
+                                            "website_id": 7,
+                                            "domain": "example.com",
+                                            "kind": "job",
+                                            "severity": "success",
+                                            "title": "Backup example.com finished",
+                                            "body": "",
+                                            "job_id": "3f9a1c2b7d4e5a60",
+                                            "read": false,
+                                            "created_at": "2026-11-23T20:03:10Z"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    }
+                }
+            }
+        },
+        "/notifications/read": {
+            "post": {
+                "operationId": "markNotificationsRead",
+                "tags": [
+                    "Notifications"
+                ],
+                "summary": "Mark notifications as read",
+                "description": "Give `ids` or `all: true`. Needs a read/write token.",
+                "x-permission": "notifications.view",
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "ids": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "integer"
+                                        },
+                                        "description": "The notification ids to mark."
+                                    },
+                                    "all": {
+                                        "type": "boolean",
+                                        "description": "Mark every notification of this user."
+                                    }
+                                }
+                            },
+                            "example": {
+                                "ids": [
+                                    41,
+                                    42
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "How many were marked and how many remain unread.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "marked": {
+                                                    "type": "integer"
+                                                },
+                                                "unread": {
+                                                    "type": "integer"
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "marked": 2,
+                                        "unread": 5
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    }
+                }
+            }
+        },
+        "/websites": {
+            "get": {
+                "operationId": "listWebsites",
+                "tags": [
+                    "Websites"
+                ],
+                "summary": "List websites",
+                "description": "The websites visible to the token (a hosting customer only sees their own).",
+                "x-permission": "websites.view",
+                "parameters": [
+                    {
+                        "$ref": "#/components/parameters/Server"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The websites.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Website"
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": [
+                                        {
+                                            "id": 7,
+                                            "domain": "shop.example.com",
+                                            "aliases": [
+                                                "www.shop.example.com"
+                                            ],
+                                            "kind": "php",
+                                            "php_version": "8.3",
+                                            "document_root": "/home/shop/shop.example.com/public_html",
+                                            "system_user": "shop",
+                                            "https": false,
+                                            "enabled": true,
+                                            "status": "active",
+                                            "owner_id": 3,
+                                            "created_at": "2026-11-23T19:40:00Z"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "createWebsite",
+                "tags": [
+                    "Websites"
+                ],
+                "summary": "Create a website",
+                "description": "Validated against the hosting plan's limits, written as an nginx site (and a PHP-FPM pool for `php`), checked with `nginx -t` / `php-fpm -t`, applied, and rolled back on failure.",
+                "x-permission": "websites.manage",
+                "parameters": [
+                    {
+                        "$ref": "#/components/parameters/Server"
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "domain"
+                                ],
+                                "properties": {
+                                    "domain": {
+                                        "type": "string",
+                                        "description": "The primary host name.",
+                                        "examples": [
+                                            "shop.example.com"
+                                        ]
+                                    },
+                                    "aliases": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "description": "Other host names.",
+                                        "examples": [
+                                            [
+                                                "www.shop.example.com"
+                                            ]
+                                        ]
+                                    },
+                                    "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                            "php",
+                                            "static",
+                                            "proxy"
+                                        ],
+                                        "default": "php"
+                                    },
+                                    "php_version": {
+                                        "type": "string",
+                                        "description": "One of the PHP versions installed on the server (for `php` websites).",
+                                        "examples": [
+                                            "8.3"
+                                        ]
+                                    },
+                                    "proxy_pass": {
+                                        "type": "string",
+                                        "description": "Required for `proxy`: where requests are forwarded.",
+                                        "examples": [
+                                            "http://127.0.0.1:3000"
+                                        ]
+                                    },
+                                    "system_user": {
+                                        "type": "string",
+                                        "description": "The Linux account to run as (administrators; defaults to a name derived from the domain)."
+                                    }
+                                }
+                            },
+                            "example": {
+                                "domain": "shop.example.com",
+                                "aliases": [
+                                    "www.shop.example.com"
+                                ],
+                                "kind": "php",
+                                "php_version": "8.3"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "The new website.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/Website"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "id": 7,
+                                        "domain": "shop.example.com",
+                                        "aliases": [
+                                            "www.shop.example.com"
+                                        ],
+                                        "kind": "php",
+                                        "php_version": "8.3",
+                                        "document_root": "/home/shop/shop.example.com/public_html",
+                                        "system_user": "shop",
+                                        "https": false,
+                                        "enabled": true,
+                                        "status": "active",
+                                        "owner_id": 3,
+                                        "created_at": "2026-11-23T19:40:00Z"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/websites/{id}": {
+            "get": {
+                "operationId": "getWebsite",
+                "tags": [
+                    "Websites"
+                ],
+                "summary": "Get a website",
+                "x-permission": "websites.view",
+                "parameters": [
+                    {
+                        "$ref": "#/components/parameters/Id"
+                    },
+                    {
+                        "$ref": "#/components/parameters/Server"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The website.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/Website"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "id": 7,
+                                        "domain": "shop.example.com",
+                                        "aliases": [
+                                            "www.shop.example.com"
+                                        ],
+                                        "kind": "php",
+                                        "php_version": "8.3",
+                                        "document_root": "/home/shop/shop.example.com/public_html",
+                                        "system_user": "shop",
+                                        "https": false,
+                                        "enabled": true,
+                                        "status": "active",
+                                        "owner_id": 3,
+                                        "created_at": "2026-11-23T19:40:00Z"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "deleteWebsite",
+                "tags": [
+                    "Websites"
+                ],
+                "summary": "Delete a website",
+                "description": "Removes the web server configuration and the PHP-FPM pool. **Files and the Linux account are kept** unless you ask for them to be removed (the account is kept anyway while another website uses it).",
+                "x-permission": "websites.manage",
+                "parameters": [
+                    {
+                        "$ref": "#/components/parameters/Id"
+                    },
+                    {
+                        "$ref": "#/components/parameters/Server"
+                    },
+                    {
+                        "name": "remove_files",
+                        "in": "query",
+                        "required": false,
+                        "description": "Also delete the website's files.",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "0",
+                                "1"
+                            ],
+                            "default": "0"
+                        }
+                    },
+                    {
+                        "name": "remove_user",
+                        "in": "query",
+                        "required": false,
+                        "description": "Also delete the Linux account (when no other website uses it).",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "0",
+                                "1"
+                            ],
+                            "default": "0"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted; `warnings` lists what could not be cleaned up.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "deleted": {
+                                                    "type": "integer"
+                                                },
+                                                "warnings": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "deleted": 7,
+                                        "warnings": []
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/websites/{id}/enable": {
+            "post": {
+                "operationId": "enableWebsite",
+                "tags": [
+                    "Websites"
+                ],
+                "summary": "Enable a website",
+                "description": "Serves the website again after it was disabled.",
+                "x-permission": "websites.manage",
+                "parameters": [
+                    {
+                        "$ref": "#/components/parameters/Id"
+                    },
+                    {
+                        "$ref": "#/components/parameters/Server"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The website, enabled.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/Website"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "enabled": true,
+                                        "status": "active",
+                                        "id": 7,
+                                        "domain": "shop.example.com",
+                                        "aliases": [
+                                            "www.shop.example.com"
+                                        ],
+                                        "kind": "php",
+                                        "php_version": "8.3",
+                                        "document_root": "/home/shop/shop.example.com/public_html",
+                                        "system_user": "shop",
+                                        "https": false,
+                                        "owner_id": 3,
+                                        "created_at": "2026-11-23T19:40:00Z"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/websites/{id}/disable": {
+            "post": {
+                "operationId": "disableWebsite",
+                "tags": [
+                    "Websites"
+                ],
+                "summary": "Disable a website",
+                "description": "Stops serving the website; its files and data stay.",
+                "x-permission": "websites.manage",
+                "parameters": [
+                    {
+                        "$ref": "#/components/parameters/Id"
+                    },
+                    {
+                        "$ref": "#/components/parameters/Server"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The website, disabled.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/Website"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "enabled": false,
+                                        "status": "disabled",
+                                        "id": 7,
+                                        "domain": "shop.example.com",
+                                        "aliases": [
+                                            "www.shop.example.com"
+                                        ],
+                                        "kind": "php",
+                                        "php_version": "8.3",
+                                        "document_root": "/home/shop/shop.example.com/public_html",
+                                        "system_user": "shop",
+                                        "https": false,
+                                        "owner_id": 3,
+                                        "created_at": "2026-11-23T19:40:00Z"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/websites/{id}/ssl": {
+            "post": {
+                "operationId": "issueWebsiteSsl",
+                "tags": [
+                    "SSL"
+                ],
+                "summary": "Issue a Let's Encrypt certificate and turn HTTPS on",
+                "description": "The domain (and aliases) must resolve to this server. The certificate is issued, installed, the web server configuration is checked and reloaded, and HTTP redirects to HTTPS. Renewal is automatic.",
+                "x-permission": "ssl.manage",
+                "parameters": [
+                    {
+                        "$ref": "#/components/parameters/Id"
+                    },
+                    {
+                        "$ref": "#/components/parameters/Server"
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "description": "Contact address for expiry notices."
+                                    },
+                                    "include_aliases": {
+                                        "type": "boolean",
+                                        "default": true,
+                                        "description": "Cover the aliases in the same certificate."
+                                    },
+                                    "staging": {
+                                        "type": "boolean",
+                                        "default": false,
+                                        "description": "Use Let's Encrypt's test environment (the certificate is not trusted)."
+                                    }
+                                }
+                            },
+                            "example": {
+                                "email": "admin@example.com",
+                                "include_aliases": true
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The website, with `https` true.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/Website"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "https": true,
+                                        "id": 7,
+                                        "domain": "shop.example.com",
+                                        "aliases": [
+                                            "www.shop.example.com"
+                                        ],
+                                        "kind": "php",
+                                        "php_version": "8.3",
+                                        "document_root": "/home/shop/shop.example.com/public_html",
+                                        "system_user": "shop",
+                                        "enabled": true,
+                                        "status": "active",
+                                        "owner_id": 3,
+                                        "created_at": "2026-11-23T19:40:00Z"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/websites/{id}/backups": {
+            "get": {
+                "operationId": "listWebsiteBackups",
+                "tags": [
+                    "Backups"
+                ],
+                "summary": "List a website's backups",
+                "x-permission": "backups.view",
+                "parameters": [
+                    {
+                        "$ref": "#/components/parameters/Id"
+                    },
+                    {
+                        "$ref": "#/components/parameters/Server"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The backups, newest first.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Backup"
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": [
+                                        {
+                                            "id": 12,
+                                            "backup_id": "20261123T200100Z-3f9a1c",
+                                            "label": "before upgrade",
+                                            "status": "complete",
+                                            "size": 73400320,
+                                            "encrypted": true,
+                                            "parts": [
+                                                "files",
+                                                "databases"
+                                            ],
+                                            "created_at": "2026-11-23T20:01:00Z",
+                                            "error": null
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "createWebsiteBackup",
+                "tags": [
+                    "Backups"
+                ],
+                "summary": "Start a backup",
+                "description": "Runs in the background: the response is `202` with a `job_id`; follow it with `GET /jobs/{id}`.",
+                "x-permission": "backups.manage",
+                "parameters": [
+                    {
+                        "$ref": "#/components/parameters/Id"
+                    },
+                    {
+                        "$ref": "#/components/parameters/Server"
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "files": {
+                                        "type": "boolean",
+                                        "default": true,
+                                        "description": "Include the website's files."
+                                    },
+                                    "databases": {
+                                        "type": "boolean",
+                                        "default": true,
+                                        "description": "Include its databases."
+                                    },
+                                    "encrypt": {
+                                        "type": "boolean",
+                                        "default": true,
+                                        "description": "Encrypt the archive."
+                                    },
+                                    "label": {
+                                        "type": "string",
+                                        "description": "A note shown in the backup list."
+                                    }
+                                }
+                            },
+                            "example": {
+                                "files": true,
+                                "databases": true,
+                                "label": "before upgrade"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "The backup started.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/Job"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "job_id": "3f9a1c2b7d4e5a60"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/websites/{id}/deploy": {
+            "post": {
+                "operationId": "deployWebsite",
+                "tags": [
+                    "Deployments"
+                ],
+                "summary": "Deploy from the connected Git repository",
+                "description": "Pulls the repository connected under the website's Deploy tab and runs its steps, in the background. `202` with a `job_id`.",
+                "x-permission": "deploy.manage",
+                "parameters": [
+                    {
+                        "$ref": "#/components/parameters/Id"
+                    },
+                    {
+                        "$ref": "#/components/parameters/Server"
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "The deployment started.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/Job"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "job_id": "9b1d4e5a603f9a1c"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/databases": {
+            "get": {
+                "operationId": "listDatabases",
+                "tags": [
+                    "Databases"
+                ],
+                "summary": "List databases",
+                "x-permission": "databases.view",
+                "parameters": [
+                    {
+                        "$ref": "#/components/parameters/Server"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The databases visible to the token.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Database"
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": [
+                                        {
+                                            "id": 4,
+                                            "name": "shop_wp",
+                                            "website_id": 7,
+                                            "created_at": "2026-11-23T19:45:00Z"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "createDatabase",
+                "tags": [
+                    "Databases"
+                ],
+                "summary": "Create a database, optionally with a user",
+                "description": "Hosting customers' names get their account prefix. When `create_user` is true a user with all privileges on this database is created and **its generated password is returned once**, in this response only (unless `store_password` keeps it encrypted in the panel).",
+                "x-permission": "databases.manage",
+                "parameters": [
+                    {
+                        "$ref": "#/components/parameters/Server"
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "name"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "pattern": "^[a-z0-9_]{1,64}$",
+                                        "description": "Lowercase letters, digits and underscores.",
+                                        "examples": [
+                                            "shop_wp"
+                                        ]
+                                    },
+                                    "website_id": {
+                                        "type": "integer",
+                                        "description": "Link the database to one of the token's websites."
+                                    },
+                                    "create_user": {
+                                        "type": "boolean",
+                                        "default": false,
+                                        "description": "Also create a user with all privileges on it."
+                                    },
+                                    "username": {
+                                        "type": "string",
+                                        "pattern": "^[a-z0-9_]{1,32}$",
+                                        "description": "The user's name (default: derived from the database name)."
+                                    },
+                                    "store_password": {
+                                        "type": "boolean",
+                                        "default": false,
+                                        "description": "Keep the generated password, encrypted, so it can be shown in the panel later."
+                                    }
+                                }
+                            },
+                            "example": {
+                                "name": "shop_wp",
+                                "website_id": 7,
+                                "create_user": true
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created. `user` and `password` are present only when a user was created.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "database_id": {
+                                                    "type": "integer"
+                                                },
+                                                "user": {
+                                                    "type": "string"
+                                                },
+                                                "password": {
+                                                    "type": "string",
+                                                    "description": "Shown once."
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "database_id": 4,
+                                        "user": "shop_wp",
+                                        "password": "Qm7vR2x9…"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/Conflict"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "bearer": {
+                "type": "http",
+                "scheme": "bearer",
+                "description": "A personal API token (Profile → API tokens): `Authorization: Bearer nimvor_…`."
+            }
+        },
+        "parameters": {
+            "Id": {
+                "name": "id",
+                "in": "path",
+                "required": true,
+                "description": "The numeric id.",
+                "schema": {
+                    "type": "integer",
+                    "minimum": 1
+                }
+            },
+            "Server": {
+                "name": "X-NimVor-Server",
+                "in": "header",
+                "required": false,
+                "description": "The id of the managed server to act on. Default: the server the panel runs on.",
+                "schema": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schemas": {
+            "Backup": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "backup_id": {
+                        "type": "string",
+                        "description": "The backup's identifier on the server."
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "running",
+                            "complete",
+                            "failed"
+                        ]
+                    },
+                    "size": {
+                        "type": "integer",
+                        "description": "Bytes."
+                    },
+                    "encrypted": {
+                        "type": "boolean"
+                    },
+                    "parts": {
+                        "description": "What the backup contains (files, databases)."
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "error": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
+            },
+            "Database": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "website_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "description": "The website it belongs to, if linked."
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "Job": {
+                "type": "object",
+                "required": [
+                    "job_id"
+                ],
+                "description": "A background job that was started.",
+                "properties": {
+                    "job_id": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{16}$",
+                        "description": "Pass it to `GET /jobs/{id}`."
+                    }
+                }
+            },
+            "JobStatus": {
+                "type": "object",
+                "properties": {
+                    "job": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "string"
+                            },
+                            "kind": {
+                                "type": "string",
+                                "description": "What the job does, for example `backup.site`."
+                            },
+                            "target": {
+                                "type": "string"
+                            },
+                            "status": {
+                                "type": "string",
+                                "enum": [
+                                    "queued",
+                                    "running",
+                                    "succeeded",
+                                    "failed"
+                                ]
+                            },
+                            "error": {
+                                "type": "string",
+                                "description": "Why it failed (only when `status` is `failed`)."
+                            },
+                            "result": {
+                                "description": "What the job produced, if anything."
+                            },
+                            "created_at": {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            "started_at": {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            "finished_at": {
+                                "type": "string",
+                                "format": "date-time"
+                            }
+                        }
+                    },
+                    "log": {
+                        "type": "string",
+                        "description": "Log output since `offset` (at most 256 KiB per call)."
+                    },
+                    "offset": {
+                        "type": "integer",
+                        "description": "Pass as `offset` on the next call to get only newer output."
+                    },
+                    "done": {
+                        "type": "boolean",
+                        "description": "True once the job has finished (succeeded or failed)."
+                    },
+                    "kind": {
+                        "type": "string"
+                    }
+                }
+            },
+            "Notification": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "server_id": {
+                        "type": "integer"
+                    },
+                    "website_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "domain": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "kind": {
+                        "type": "string",
+                        "description": "For example `job`, `alert`."
+                    },
+                    "severity": {
+                        "type": "string",
+                        "enum": [
+                            "info",
+                            "success",
+                            "warning",
+                            "error"
+                        ]
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "body": {
+                        "type": "string"
+                    },
+                    "job_id": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "read": {
+                        "type": "boolean"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "Website": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "domain": {
+                        "type": "string",
+                        "description": "The primary host name."
+                    },
+                    "aliases": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Other host names served by the same website."
+                    },
+                    "kind": {
+                        "type": "string",
+                        "enum": [
+                            "php",
+                            "static",
+                            "proxy"
+                        ],
+                        "description": "`php`: PHP-FPM; `static`: files only; `proxy`: reverse proxy to an application."
+                    },
+                    "php_version": {
+                        "type": "string",
+                        "description": "For `php` websites, for example `8.3`."
+                    },
+                    "document_root": {
+                        "type": "string"
+                    },
+                    "system_user": {
+                        "type": "string",
+                        "description": "The Linux account the website runs as."
+                    },
+                    "https": {
+                        "type": "boolean",
+                        "description": "True once a certificate is installed and HTTPS is on."
+                    },
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "status": {
+                        "type": "string",
+                        "description": "For example `active`, `pending`, `disabled`."
+                    },
+                    "owner_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "description": "The panel user who owns it."
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "Error": {
+                "type": "object",
+                "required": [
+                    "success",
+                    "error"
+                ],
+                "properties": {
+                    "success": {
+                        "const": false
+                    },
+                    "error": {
+                        "type": "object",
+                        "required": [
+                            "code",
+                            "message"
+                        ],
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "description": "A stable machine-readable code.",
+                                "enum": [
+                                    "unauthorized",
+                                    "forbidden",
+                                    "read_only_token",
+                                    "rate_limited",
+                                    "not_found",
+                                    "unknown_server",
+                                    "validation_failed",
+                                    "rejected",
+                                    "agent_unavailable",
+                                    "agent_error"
+                                ]
+                            },
+                            "message": {
+                                "type": "string",
+                                "description": "What happened, in plain words."
+                            },
+                            "reason": {
+                                "type": "string",
+                                "description": "Why (technical detail, also in the panel log)."
+                            },
+                            "action": {
+                                "type": "string",
+                                "description": "What to do about it."
+                            },
+                            "fields": {
+                                "type": "object",
+                                "description": "Input name → what is wrong with it.",
+                                "additionalProperties": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "responses": {
+            "Unauthorized": {
+                "description": "The token is missing, wrong, expired or revoked.",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/Error"
+                        },
+                        "example": {
+                            "success": false,
+                            "error": {
+                                "code": "unauthorized",
+                                "message": "A valid API token is required (Authorization: Bearer nimvor_…)."
+                            }
+                        }
+                    }
+                }
+            },
+            "Forbidden": {
+                "description": "The token may not do this: it is read-only, or its user lacks the permission or the hosting plan lacks the feature.",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/Error"
+                        },
+                        "example": {
+                            "success": false,
+                            "error": {
+                                "code": "forbidden",
+                                "message": "The token's user lacks the permission websites.manage."
+                            }
+                        }
+                    }
+                }
+            },
+            "NotFound": {
+                "description": "It does not exist, or it is not visible to this token.",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/Error"
+                        },
+                        "example": {
+                            "success": false,
+                            "error": {
+                                "code": "not_found",
+                                "message": "Not found, or not visible to this token."
+                            }
+                        }
+                    }
+                }
+            },
+            "Conflict": {
+                "description": "The change was refused (for example a limit, a name already in use or a safety check); `reason` and `action` say why and what to do.",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/Error"
+                        },
+                        "example": {
+                            "success": false,
+                            "error": {
+                                "code": "rejected",
+                                "message": "This domain is already used by another website.",
+                                "reason": "domain exists",
+                                "action": "Choose another domain."
+                            }
+                        }
+                    }
+                }
+            },
+            "ValidationFailed": {
+                "description": "An input is invalid; `fields` names each one.",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/Error"
+                        },
+                        "example": {
+                            "success": false,
+                            "error": {
+                                "code": "validation_failed",
+                                "message": "Please correct the highlighted fields.",
+                                "fields": {
+                                    "domain": "Enter a valid domain name."
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "RateLimited": {
+                "description": "More than 120 requests in a minute with this token.",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/Error"
+                        },
+                        "example": {
+                            "success": false,
+                            "error": {
+                                "code": "rate_limited",
+                                "message": "Too many requests; at most 120 per minute per token."
+                            }
+                        }
+                    }
+                }
+            },
+            "AgentError": {
+                "description": "The server could not carry the change out (the agent refused it or is unavailable). Nothing was changed.",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/Error"
+                        },
+                        "example": {
+                            "success": false,
+                            "error": {
+                                "code": "agent_error",
+                                "message": "The web server configuration was not applied.",
+                                "reason": "nginx -t failed"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
