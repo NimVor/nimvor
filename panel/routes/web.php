@@ -46,6 +46,7 @@ use NimVor\Http\Controllers\UsersController;
 use NimVor\Http\Controllers\WebsitesController;
 use NimVor\Http\Controllers\Api\ApiController;
 use NimVor\Http\Controllers\Api\DnsApiController;
+use NimVor\Http\Controllers\Api\MailApiController;
 use NimVor\Http\Controllers\Api\UsersApiController;
 use NimVor\Http\Controllers\AccountsController;
 use NimVor\Http\Controllers\ApiTokensController;
@@ -777,6 +778,20 @@ return static function (Router $r): void {
     $r->get('/api/v1/dns/zones/{id}/dnssec', [DnsApiController::class, 'dnssec'], ['name' => 'api.dns.dnssec', 'permission' => P::DNS_MANAGE]);
     $r->post('/api/v1/dns/zones/{id}/dnssec/enable', [DnsApiController::class, 'dnssecEnable'], ['name' => 'api.dns.dnssec.enable', 'permission' => P::DNS_MANAGE]);
     $r->post('/api/v1/dns/zones/{id}/dnssec/disable', [DnsApiController::class, 'dnssecDisable'], ['name' => 'api.dns.dnssec.disable', 'permission' => P::DNS_MANAGE]);
+    // Email domains, mailboxes and aliases
+    $r->get('/api/v1/mail/domains', [MailApiController::class, 'listDomains'], ['name' => 'api.mail.domains', 'permission' => P::MAIL_MANAGE]);
+    $r->post('/api/v1/mail/domains', [MailApiController::class, 'createDomain'], ['name' => 'api.mail.domains.create', 'permission' => P::MAIL_MANAGE]);
+    $r->get('/api/v1/mail/domains/{id}', [MailApiController::class, 'showDomain'], ['name' => 'api.mail.domains.show', 'permission' => P::MAIL_MANAGE]);
+    $r->add('DELETE', '/api/v1/mail/domains/{id}', [MailApiController::class, 'deleteDomain'], ['name' => 'api.mail.domains.delete', 'permission' => P::MAIL_MANAGE]);
+    $r->post('/api/v1/mail/domains/{id}/dns', [MailApiController::class, 'publishDns'], ['name' => 'api.mail.dns.publish', 'permission' => P::MAIL_MANAGE]);
+    $r->get('/api/v1/mail/domains/{id}/dns-check', [MailApiController::class, 'dnsCheck'], ['name' => 'api.mail.dns.check', 'permission' => P::MAIL_MANAGE]);
+    $r->get('/api/v1/mail/domains/{id}/mailboxes', [MailApiController::class, 'listMailboxes'], ['name' => 'api.mail.mailboxes', 'permission' => P::MAIL_MANAGE]);
+    $r->post('/api/v1/mail/domains/{id}/mailboxes', [MailApiController::class, 'createMailbox'], ['name' => 'api.mail.mailboxes.create', 'permission' => P::MAIL_MANAGE]);
+    $r->add('PATCH', '/api/v1/mail/domains/{id}/mailboxes/{mailbox}', [MailApiController::class, 'updateMailbox'], ['name' => 'api.mail.mailboxes.update', 'permission' => P::MAIL_MANAGE]);
+    $r->add('DELETE', '/api/v1/mail/domains/{id}/mailboxes/{mailbox}', [MailApiController::class, 'deleteMailbox'], ['name' => 'api.mail.mailboxes.delete', 'permission' => P::MAIL_MANAGE]);
+    $r->get('/api/v1/mail/domains/{id}/aliases', [MailApiController::class, 'listAliases'], ['name' => 'api.mail.aliases', 'permission' => P::MAIL_MANAGE]);
+    $r->post('/api/v1/mail/domains/{id}/aliases', [MailApiController::class, 'saveAlias'], ['name' => 'api.mail.aliases.save', 'permission' => P::MAIL_MANAGE]);
+    $r->add('DELETE', '/api/v1/mail/domains/{id}/aliases/{alias}', [MailApiController::class, 'deleteAlias'], ['name' => 'api.mail.aliases.delete', 'permission' => P::MAIL_MANAGE]);
 
     // Own account (any signed-in user)
     $r->get('/profile', [ProfileController::class, 'show'], ['name' => 'profile']);
