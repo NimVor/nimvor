@@ -161,7 +161,9 @@ func TestRealHostCatalogDownloads(t *testing.T) {
 	if os.Getenv("NIMVOR_NETWORK") != "1" {
 		t.Skip("needs NIMVOR_NETWORK=1")
 	}
-	client := &http.Client{Timeout: 10 * time.Minute}
+	// The release lookups go to api.github.com, which refuses (HTTP 403) a shared CI runner's anonymous calls once its
+	// limit is used up; the workflow's token (read-only, no repository access needed) lifts the limit.
+	client := &http.Client{Timeout: 10 * time.Minute, Transport: githubAuth{http.DefaultTransport}}
 	// A host that answers 429 (too many requests) is limiting the CI runner, which says nothing about
 	// whether the download works: wait and try again, and if it still refuses, skip that application.
 	errRateLimited := errors.New("rate limited by the host (HTTP 429)")
@@ -255,4 +257,15 @@ func TestRealHostCatalogDownloads(t *testing.T) {
 			t.Errorf("plugin %s: %s missing from the archive", name, p.Main)
 		}
 	}
+}
+
+// githubAuth adds the CI token (GITHUB_TOKEN) to calls to the GitHub API, and only to those.
+type githubAuth struct{ next http.RoundTripper }
+
+func (g githubAuth) RoundTrip(r *http.Request) (*http.Response, error) {
+	if tok := os.Getenv("GITHUB_TOKEN"); tok != "" && r.URL.Host == "api.github.com" {
+		r = r.Clone(r.Context())
+		r.Header.Set("Authorization", "Bearer "+tok)
+	}
+	return g.next.RoundTrip(r)
 }

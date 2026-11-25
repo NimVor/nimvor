@@ -26,6 +26,8 @@ jobs:
           go-version-file: agent/go.mod
       - name: Download and unpack every catalog application
         working-directory: agent
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set +e
           NIMVOR_NETWORK=1 go test -tags realhost -run 'RealHostCatalogDownloads' -count=1 -v ./internal/apps 2>&1 | tee catalog.log
