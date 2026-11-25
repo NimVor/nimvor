@@ -206,7 +206,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
   await page.click('[data-fm-dialog-ok]');
   await page.waitForSelector('[data-fm-rows] tr[data-path="public_html/assets"]', { state: 'detached' });
   await page.click('[data-fm-cmd="trash"]');
-  await page.locator('#fm-trash [data-fm-trash-rows] tr', { hasText: 'assets' }).waitFor();
+  await page.locator('#fm-trash [data-fm-trash-rows] tr', { has: page.locator('td:text-is("assets")') }).waitFor();
   await page.click('[data-fm-trash-empty]');
   await page.waitForSelector('#fm-dialog.show');
   if (!(await page.textContent('#fm-dialog')).includes('cannot be undone')) { throw new Error('empty trash without a warning'); }
