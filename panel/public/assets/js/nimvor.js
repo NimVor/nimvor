@@ -1540,6 +1540,115 @@
         });
     }, true);
 
+    // Feedback window: opens a new GitHub issue with the text filled in (nothing is sent from the server).
+    document.addEventListener('submit', function (e) {
+        var form = e.target.closest ? e.target.closest('[data-nim-feedback]') : null;
+        if (!form) { return; }
+        e.preventDefault();
+        var f = new FormData(form);
+        var body = String(f.get('text') || '') + '\n\n---\nNimVor ' + (form.getAttribute('data-version') || '') + ' · sent from the panel\'s feedback window';
+        var url = form.getAttribute('data-nim-feedback') + '?title=' + encodeURIComponent('[' + f.get('kind') + '] ' + f.get('title')) + '&body=' + encodeURIComponent(body);
+        window.open(url, '_blank', 'noopener,noreferrer');
+        var modal = form.closest('.modal');
+        if (modal && window.bootstrap) { window.bootstrap.Modal.getOrCreateInstance(modal).hide(); }
+        form.reset();
+    });
+
+    // Change log window: opened from the version number; the content is fetched the first time.
+    document.addEventListener('show.bs.modal', function (e) {
+        var m = e.target;
+        if (!m || m.id !== 'nim-changelog' || m.getAttribute('data-loaded') === '1') { return; }
+        var body = m.querySelector('[data-changelog-body]');
+        NimVor.fetchJson(m.getAttribute('data-url'))
+            .then(function (res) { body.innerHTML = res.html; m.setAttribute('data-loaded', '1'); })
+            .catch(function (err) { body.textContent = err.message; });
+    });
+    document.addEventListener('keydown', function (e) {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[data-bs-target="#nim-changelog"]')) { e.preventDefault(); e.target.click(); }
+    });
+
+    // Change log card: search the entries and filter by kind of change, in the browser.
+    function changelogFilter(card) {
+        var q = ((card.querySelector('[data-cl-search]') || {}).value || '').trim().toLowerCase();
+        var kind = (card.querySelector('[data-cl-filter]') || {}).value || '';
+        var any = false;
+        card.querySelectorAll('[data-cl-release]').forEach(function (rel) {
+            var shown = false;
+            rel.querySelectorAll('[data-cl-group]').forEach(function (g) {
+                var kindOk = kind === '' || g.getAttribute('data-cl-group') === kind, groupShown = false;
+                g.querySelectorAll('[data-cl-text]').forEach(function (li) {
+                    var ok = kindOk && (q === '' || li.textContent.toLowerCase().indexOf(q) !== -1);
+                    li.classList.toggle('d-none', !ok);
+                    groupShown = groupShown || ok;
+                });
+                g.classList.toggle('d-none', !groupShown);
+                shown = shown || groupShown;
+            });
+            // A release with no groups matching still shows when nothing is being searched for.
+            if (!shown && q === '' && kind === '') { shown = true; }
+            rel.classList.toggle('d-none', !shown);
+            any = any || shown;
+        });
+        var none = card.querySelector('[data-cl-none]');
+        if (none) { none.classList.toggle('d-none', any); }
+    }
+    document.addEventListener('input', function (e) { var c = e.target.closest ? e.target.closest('.nim-cl') : null; if (c && e.target.matches('[data-cl-search]')) { changelogFilter(c); } });
+    document.addEventListener('change', function (e) { var c = e.target.closest ? e.target.closest('.nim-cl') : null; if (c && e.target.matches('[data-cl-filter]')) { changelogFilter(c); } });
+
+    // Hover cards: anything with data-popover-url (a dashboard tile, the server name in the top bar) shows the
+    // HTML that address returns in a small card while the pointer rests on it; a click or Enter does the same for
+    // touch and keyboard. The card stays while the pointer is on it (it can hold buttons) and closes on Escape.
+    var hover = { card: null, owner: null, openTimer: 0, closeTimer: 0 };
+    function hoverClose() {
+        clearTimeout(hover.openTimer); clearTimeout(hover.closeTimer);
+        if (hover.card) { hover.card.remove(); }
+        hover.card = hover.owner = null;
+    }
+    function hoverOpen(owner) {
+        if (hover.owner === owner) { return; }
+        hoverClose();
+        var box = document.createElement('div');
+        box.className = 'nim-hovercard';
+        box.setAttribute('role', 'dialog');
+        box.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Loading…';
+        var r = owner.getBoundingClientRect();
+        box.style.top = (window.scrollY + r.bottom + 6) + 'px';
+        box.style.left = Math.max(8, Math.min(window.scrollX + r.left, window.scrollX + document.documentElement.clientWidth - 376)) + 'px';
+        document.body.appendChild(box);
+        hover.card = box; hover.owner = owner;
+        box.addEventListener('mouseenter', function () { clearTimeout(hover.closeTimer); });
+        box.addEventListener('mouseleave', function () { hover.closeTimer = setTimeout(function () { if (!box.contains(document.activeElement)) { hoverClose(); } }, 250); });
+        NimVor.fetchJson(owner.getAttribute('data-popover-url'))
+            .then(function (res) { if (hover.card === box) { box.innerHTML = res.html; NimVor.applyWidths(box); } })
+            .catch(function (err) { if (hover.card === box) { box.textContent = err.message; } });
+    }
+    document.addEventListener('mouseover', function (e) {
+        var owner = e.target.closest ? e.target.closest('[data-popover-url]') : null;
+        if (!owner || !window.matchMedia('(hover: hover)').matches) { return; }
+        clearTimeout(hover.closeTimer);
+        if (hover.owner === owner) { return; }
+        clearTimeout(hover.openTimer);
+        hover.openTimer = setTimeout(function () { hoverOpen(owner); }, 250);
+    });
+    document.addEventListener('mouseout', function (e) {
+        var owner = e.target.closest ? e.target.closest('[data-popover-url]') : null;
+        if (!owner || owner.contains(e.relatedTarget)) { return; }
+        clearTimeout(hover.openTimer);
+        if (hover.owner === owner && !(hover.card && hover.card.contains(e.relatedTarget))) { hover.closeTimer = setTimeout(function () { if (!(hover.card && hover.card.contains(document.activeElement))) { hoverClose(); } }, 250); }
+    });
+    document.addEventListener('click', function (e) {
+        var owner = e.target.closest ? e.target.closest('[data-popover-url]') : null;
+        if (owner) { if (hover.owner === owner) { hoverClose(); } else { hoverOpen(owner); } return; }
+        if (hover.card && !hover.card.contains(e.target)) { hoverClose(); }
+    });
+    // A window that opens (restart the server, the change log) closes the card it was opened from: the card would
+    // otherwise stay on top of the window and take its clicks.
+    document.addEventListener('show.bs.modal', function () { hoverClose(); });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { hoverClose(); }
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[data-popover-url]')) { e.preventDefault(); hoverOpen(e.target); }
+    });
+
     // Data tables: <div data-nim-dt data-page-size="10"> with a search box
     // [data-nim-dt-search], filter buttons [data-nim-dt-seg] (data-key,
     // data-value; rows carry data-dt-KEY), selects [data-nim-dt-select=KEY],

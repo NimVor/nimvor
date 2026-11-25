@@ -6,8 +6,8 @@
     --nim-accent-2: #2563eb;
     --nim-sidebar-bg: #0b1726;
     --nim-sidebar-fg: #b6c2d1;
-    --nim-sidebar-muted: #6b7a8f;
-    --nim-sidebar-active: #13263b;
+    --nim-sidebar-muted: #a7d1cc;
+    --nim-sidebar-active: rgba(0, 0, 0, .22);
     --nim-surface: #f4f6f9;
     --nim-card-border: rgba(15, 23, 42, .08);
     --bs-primary: #0f766e;
@@ -772,7 +772,7 @@ body { letter-spacing: -.003em; }
 .form-control, .form-select { border-radius: .55rem; }
 
 /* Sidebar */
-.nim-sidebar { background: linear-gradient(180deg, #0f1a2e 0%, #0b1322 60%, #0a111d 100%); border-right: 1px solid rgba(255, 255, 255, .04); display: flex; flex-direction: column; }
+.nim-sidebar { background: #115f5a; border-right: 1px solid #ccc; display: flex; flex-direction: column; }
 .nim-sidebar .nim-nav { flex: 1; }
 .nim-brand span { letter-spacing: -.01em; }
 .nim-nav-group { font-size: .66rem; letter-spacing: .09em; color: var(--nim-sidebar-muted); margin-top: 1.1rem; }
@@ -1085,9 +1085,9 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 .modal-dialog .modal-content > form > .modal-header,
 .modal-dialog .modal-content > form > .modal-footer { flex: 0 0 auto; }
 
-/* Windows (modals): a teal header with white text, a red close icon and a 3px darker rule under the header. */
-.modal-header { background-color: #0f766e; color: #ffffff; border-bottom: 3px solid #134e4a; }
-.modal-header .modal-title { color: #ffffff; }
+/* Windows (modals): a light header with grey text, a red close icon and a thin grey rule under the header. */
+.modal-header { background-color: #f6f8f8; color: #555; border-bottom: 1px solid #ccc; }
+.modal-header .modal-title { color: #555; }
 .modal-header .btn-close {
     --bs-btn-close-bg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23ff0000'%3e%3cpath d='M.293.293a1 1 0 0 1 1.414 0L8 6.586 14.293.293a1 1 0 1 1 1.414 1.414L9.414 8l6.293 6.293a1 1 0 0 1-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 0 1-1.414-1.414L6.586 8 .293 1.707a1 1 0 0 1 0-1.414z'/%3e%3c/svg%3e");
     opacity: 1; filter: none;
@@ -1297,3 +1297,58 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 .nim-size-picker button { border: 0; padding: .1rem .45rem; font-size: .72rem; line-height: 1.4; border-radius: .3rem; background: none; color: var(--bs-secondary-color); }
 .nim-size-picker button:hover { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
 .nim-size-picker button[aria-pressed="true"] { background: var(--bs-primary); color: #fff; }
+
+/* Dashboard tile popovers: the details behind CPU, memory, disk and load. */
+.nim-metric[data-popover-url] { cursor: pointer; }
+.nim-hovercard { position: absolute; z-index: 1080; width: min(360px, calc(100vw - 24px)); max-height: 70vh; overflow: auto; padding: .85rem 1rem; background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-radius: .6rem; box-shadow: 0 12px 32px rgba(0, 0, 0, .18); font-size: .82rem; }
+.nim-pop-title { font-weight: 650; margin-bottom: .15rem; }
+.nim-pop-sub { font-size: .8rem; }
+.nim-pop-h { margin: .75rem 0 .3rem; font-weight: 600; font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; color: var(--bs-secondary-color); }
+.nim-pop-cores { display: grid; grid-template-columns: 1fr 1fr; gap: .15rem .75rem; }
+.nim-pop-bar { height: 8px; border-radius: 4px; background: var(--bs-tertiary-bg); margin: .4rem 0; overflow: hidden; }
+.nim-pop-bar span { display: block; height: 100%; background: #0f766e; }
+.nim-pop-bar span.is-warn { background: #d97706; }
+.nim-pop-bar span.is-crit { background: #dc2626; }
+.nim-pop-dl { display: grid; grid-template-columns: auto 1fr; gap: .15rem .75rem; margin: .5rem 0 0; }
+.nim-pop-dl dt { font-weight: 400; color: var(--bs-secondary-color); }
+.nim-pop-dl dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.nim-pop-table th { font-size: .72rem; color: var(--bs-secondary-color); font-weight: 500; }
+
+/* Dashboard Software widget: one tile per part of the server; the status is a bar across the top and the buttons
+   float over the tile on hover, so a tile never changes height. */
+.nim-software { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: .75rem; }
+.nim-software-tile { text-align: center; padding: 2rem .5rem .75rem; min-height: 80px; border: 1px solid var(--bs-border-color); border-radius: .6rem; position: relative; overflow: hidden; }
+.nim-software-tile.is-off { opacity: .7; }
+.nim-software-ribbon { position: absolute; top: 0; left: 0; right: 0; background: #16a34a; color: #fff; font-size: .68rem; font-weight: 700; line-height: 1.5rem; height: 1.5rem; text-align: center; text-transform: uppercase; letter-spacing: .04em; }
+.nim-software-tile.is-stopped .nim-software-ribbon { background: #dc2626; }
+.nim-software-tile.is-off .nim-software-ribbon { background: #6b7280; }
+.nim-software-icon { font-size: 1.7rem; color: #0f766e; }
+.nim-software-tile.is-stopped .nim-software-icon { color: #dc2626; }
+.nim-software-tile.is-off .nim-software-icon { color: var(--bs-secondary-color); }
+.nim-software-name { font-weight: 600; font-size: .85rem; margin-top: .25rem; }
+.nim-software-ops { position: absolute; left: 0; right: 0; top: 1.5rem; bottom: 0; display: flex; flex-wrap: wrap; align-content: center; justify-content: center; gap: .4rem; padding: .4rem; background: var(--bs-body-bg); }
+@media (hover: hover) { .nim-software-ops { opacity: 0; visibility: hidden; transition: opacity .12s; } .nim-software-tile:hover .nim-software-ops, .nim-software-tile:focus-within .nim-software-ops { opacity: 1; visibility: visible; } }
+
+.nim-topbar-host { cursor: pointer; }
+.nim-pop-list { margin: .15rem 0 .25rem; padding-left: 1.1rem; font-size: .78rem; }
+
+/* Change log window (opens from the version number in the top bar). */
+.nim-cl { font-size: .85rem; }
+.nim-cl-tools { display: flex; gap: .5rem; margin-bottom: .75rem; }
+.nim-cl-search { position: relative; flex: 1 1 auto; }
+.nim-cl-search .bi { position: absolute; left: .6rem; top: 50%; transform: translateY(-50%); color: var(--bs-secondary-color); pointer-events: none; }
+.nim-cl-search input { padding-left: 1.9rem; }
+.nim-cl-tools select { width: 8.5rem; flex: none; }
+.nim-cl-timeline { list-style: none; margin: 0; padding: 0 0 0 1.6rem; position: relative; }
+.nim-cl-timeline::before { content: ""; position: absolute; left: .45rem; top: .6rem; bottom: 0; width: 2px; background: var(--bs-border-color); }
+.nim-cl-release { position: relative; margin-bottom: .9rem; }
+.nim-cl-dot { position: absolute; left: -1.6rem; top: .55rem; width: 1rem; height: 1rem; border-radius: 50%; background: var(--bs-body-bg); border: 2px solid #16a34a; }
+.nim-cl-card { border: 1px solid var(--bs-border-color); border-radius: .5rem; padding: .75rem 1rem; }
+.nim-cl-version { font-weight: 700; font-size: 1.05rem; }
+.nim-cl-new { background: #dcfce7; color: #15803d; font-weight: 600; }
+.nim-cl-tools { position: sticky; top: -1px; z-index: 2; background: var(--bs-body-bg); padding-bottom: .5rem; }
+.nim-cl-group { margin-top: .75rem; }
+.nim-cl-group-title { display: flex; align-items: center; gap: .5rem; font-weight: 600; }
+.nim-cl-icon { display: inline-flex; width: 1.5rem; height: 1.5rem; align-items: center; justify-content: center; border-radius: .3rem; background: var(--bs-tertiary-bg); color: var(--bs-secondary-color); }
+.nim-cl-items { margin: .4rem 0 0; padding-left: 2.1rem; }
+.nim-cl-items li { margin-bottom: .2rem; }

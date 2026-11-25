@@ -58,7 +58,7 @@ final class DashboardWidgetsTest extends HttpTestCase
     public function testTheTopCardsAreWidgetsDrawnWithThePage(): void
     {
         $page = $this->request('GET', '/')->body();
-        foreach (['tile_cpu', 'tile_memory', 'tile_disk', 'tile_load', 'server_info', 'services_live', 'websites_summary'] as $id) {
+        foreach (['tile_cpu', 'tile_memory', 'tile_disk', 'tile_load', 'software', 'websites_summary'] as $id) {
             self::assertStringContainsString('data-widget-host="' . $id . '"', $page, $id);
         }
         self::assertStringContainsString('data-metric', $page, 'the live poll still finds the cards');

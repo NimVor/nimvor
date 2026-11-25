@@ -54,9 +54,8 @@ $topHost = (string) ($topStatus['hostname'] ?? '');
             </div>
             <?php if ($serverAdmin && $topStatus !== null): $load = (array) ($topStatus['load'] ?? []); ?>
                 <dl class="nim-topbar-server d-none d-xl-flex" aria-label="Server">
-                    <div><dt>Hostname</dt><dd class="text-truncate" title="<?= e($topHost) ?>"><?= e($topHost !== '' ? $topHost : '—') ?></dd></div>
-                    <div><dt>OS</dt><dd class="text-truncate"><?= e((string) ($topStatus['os']['pretty_name'] ?? '—')) ?></dd></div>
-                    <div><dt>NimVor</dt><dd><?= e((string) ($app_version ?? '')) ?></dd></div>
+                    <div data-popover-url="<?= e($this->url('dashboard.popover', ['key' => 'server'])) ?>" class="nim-topbar-host" tabindex="0" role="button" aria-haspopup="dialog"><dt>Hostname</dt><dd class="text-truncate"><?= e($topHost !== '' ? $topHost : '—') ?></dd></div>
+                    <div data-bs-toggle="modal" data-bs-target="#nim-changelog" class="nim-topbar-host" tabindex="0" role="button" title="What changed"><dt>NimVor</dt><dd><?= e((string) ($app_version ?? '')) ?></dd></div>
                     <div><dt>Load averages</dt><dd>
                         <?php $loadText = count($load) === 3 ? implode(' ', array_map(static fn ($v): string => number_format((float) $v, 2), $load)) : '—'; ?>
                         <?php if ($this->can(\NimVor\Security\Permissions::MONITORING_VIEW)): ?>
@@ -66,6 +65,9 @@ $topHost = (string) ($topStatus['hostname'] ?? '');
                 </dl>
             <?php endif; ?>
             <div class="nim-topbar-actions">
+                <?php if ($serverAdmin): ?>
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#nim-feedback" title="Send feedback" aria-label="Send feedback"><i class="bi bi-chat-square-text"></i></button>
+                <?php endif; ?>
                 <?php $sw = isset($server_switcher) && is_callable($server_switcher) ? $server_switcher() : null; ?>
                 <?php if ($sw !== null && count($sw['servers']) > 1): ?>
                     <form method="post" action="<?= e($this->url('servers.switch')) ?>" class="d-flex" data-nim-noajax>
@@ -136,6 +138,7 @@ $topHost = (string) ($topStatus['hostname'] ?? '');
 </div>
 <?php if (!$simple): ?><?= $this->partial('partials/palette') ?><?php endif; ?>
 <?= $this->partial('partials/confirm_modal') ?>
+<?php if ($serverAdmin): ?><?= $this->partial('partials/changelog_modal', ['url' => $this->url('changelog.content')]) ?><?= $this->partial('partials/feedback_modal', ['version' => (string) ($app_version ?? '')]) ?><?php endif; ?>
 <?php if ($serverAdmin && $this->can(\NimVor\Security\Permissions::SERVER_MANAGE) && $topHost !== ''): ?>
     <div class="modal fade" id="nim-reboot" tabindex="-1" aria-labelledby="nim-reboot-title" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">

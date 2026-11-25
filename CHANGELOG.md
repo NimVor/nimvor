@@ -6,6 +6,22 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Windows (modals) have a light header (`#f6f8f8`, grey `#555` title, a 1px `#ccc` line under it; the close icon stays red), and the sidebar is teal (`#115f5a`) with a `#ccc` edge; its muted text and active row were adjusted to stay readable on it.
+- The top bar no longer shows the operating system (it is in the server card on hover). The Software widget is eight columns wide by default, its status is a bar across the top of each tile, and its buttons float over the tile on hover so tiles keep their height.
+
+### Removed
+- The Services and Server dashboard widgets: the Software widget and the host name in the top bar replace them. Saved dashboard layouts keep working.
+
+### Added
+- **Dashboard tiles show details on hover.** Rest the pointer on the CPU, memory, disk or load tile (click or Enter on touch and keyboard) for a card: the processor and the load of each core, the busiest processes, where memory goes, disk space and inode use with where the space is spent, and a link to scan and clean up. Read-only, from the same data as the monitoring page.
+- **Software widget.** The parts of the server (web server, PHP, databases, caches, mail, FTP, security tools) as tiles with a green Running or red Stopped ribbon; on hover each shows Start, Stop or Restart icons (the words are their tooltips) for those who may manage services, its settings page, and an Install link to Components for what is missing.
+- **Server details in the top bar.** Hovering the host name shows the server card (host, system, kernel, CPU, uptime, agent, with update, restart-all and restart-server for administrators).
+- **Change log on the version number.** Clicking the NimVor version in the top bar opens a Change Logs window with a search box, a filter by kind of change (Added, Changed, Fixed, Removed) and a timeline of the last ten releases (the installer now keeps `CHANGELOG.md` beside the panel).
+- **Feedback.** A feedback button in the top bar opens a window; Send opens a new issue on the project's GitHub page with the text filled in, so nothing leaves the server unseen.
+- **Swap memory.** Server → Swap shows the swap in use and creates, resizes or removes the swap file (`/swapfile`, or Ubuntu's `/swap.img`); the dashboard's Memory card links to it. New agent actions `swap.status`, `swap.set` and `swap.remove`. The new file is built beside the old one and swap is switched over, `/etc/fstab` is updated and the result verified, with the previous swap put back if a step fails. It is refused when the file system cannot hold swap, the disk is too full, or free memory could not take back what is in swap. See [Swap](docs/administration/README.md#swap).
+- **Terminal quick action** on the administrator's dashboard (it needs the web terminal to be switched on in the agent, as before).
+
 ## [2.5.1] — 2026-11-25
 
 Fixes for the file manager and the permission repair, and a new look for windows. Panel and agent: upgrade both with `sudo nimvor update`. A website whose files are owner-only (and so answers 403) is repaired with *Advanced → File permissions → Check → Repair*.

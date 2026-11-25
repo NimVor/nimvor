@@ -80,6 +80,14 @@
             .then(function () { busyUnit = null; tick(); });
     }
 
+    // Software widget: start, stop and restart a part of the server from its tile.
+    root.addEventListener('click', function (ev) {
+        var btn = ev.target.closest ? ev.target.closest('[data-software-op]') : null;
+        var box = btn ? btn.closest('[data-services-control]') : null;
+        if (!btn || !box) { return; }
+        control(box.getAttribute('data-services-control'), btn.getAttribute('data-unit'), btn.getAttribute('data-software-op'), btn);
+    });
+
     function renderServices(list) {
         var ul = root.querySelector('[data-services]');
         if (!ul) { return; }

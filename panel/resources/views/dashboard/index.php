@@ -21,6 +21,7 @@ foreach ([
     ['Databases', 'database-add', 'databases', $P::DATABASES_VIEW],
     ['WordPress', 'wordpress', 'wordpress', $P::WEBSITES_VIEW],
     ['Backups', 'cloud-arrow-up', 'backups', $P::BACKUPS_VIEW],
+    ['Terminal', 'terminal', 'terminal', $P::SECURITY_MANAGE],
     ['Security', 'shield-check', 'security', $P::SECURITY_VIEW],
     ['Packages', 'box-seam', 'packages', $P::PACKAGES_MANAGE],
     ['Settings', 'sliders', 'settings', $P::SETTINGS_VIEW],
