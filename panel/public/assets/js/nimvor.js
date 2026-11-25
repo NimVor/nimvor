@@ -1554,6 +1554,19 @@
         form.reset();
     });
 
+    // Change log window: opened from the version number; the content is fetched the first time.
+    document.addEventListener('show.bs.modal', function (e) {
+        var m = e.target;
+        if (!m || m.id !== 'nim-changelog' || m.getAttribute('data-loaded') === '1') { return; }
+        var body = m.querySelector('[data-changelog-body]');
+        NimVor.fetchJson(m.getAttribute('data-url'))
+            .then(function (res) { body.innerHTML = res.html; m.setAttribute('data-loaded', '1'); })
+            .catch(function (err) { body.textContent = err.message; });
+    });
+    document.addEventListener('keydown', function (e) {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[data-bs-target="#nim-changelog"]')) { e.preventDefault(); e.target.click(); }
+    });
+
     // Change log card: search the entries and filter by kind of change, in the browser.
     function changelogFilter(card) {
         var q = ((card.querySelector('[data-cl-search]') || {}).value || '').trim().toLowerCase();

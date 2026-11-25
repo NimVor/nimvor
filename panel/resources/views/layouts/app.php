@@ -55,7 +55,7 @@ $topHost = (string) ($topStatus['hostname'] ?? '');
             <?php if ($serverAdmin && $topStatus !== null): $load = (array) ($topStatus['load'] ?? []); ?>
                 <dl class="nim-topbar-server d-none d-xl-flex" aria-label="Server">
                     <div data-popover-url="<?= e($this->url('dashboard.popover', ['key' => 'server'])) ?>" class="nim-topbar-host" tabindex="0" role="button" aria-haspopup="dialog"><dt>Hostname</dt><dd class="text-truncate"><?= e($topHost !== '' ? $topHost : '—') ?></dd></div>
-                    <div data-popover-url="<?= e($this->url('changelog.popover')) ?>" class="nim-topbar-host" tabindex="0" role="button" aria-haspopup="dialog"><dt>NimVor</dt><dd><?= e((string) ($app_version ?? '')) ?></dd></div>
+                    <div data-bs-toggle="modal" data-bs-target="#nim-changelog" class="nim-topbar-host" tabindex="0" role="button" title="What changed"><dt>NimVor</dt><dd><?= e((string) ($app_version ?? '')) ?></dd></div>
                     <div><dt>Load averages</dt><dd>
                         <?php $loadText = count($load) === 3 ? implode(' ', array_map(static fn ($v): string => number_format((float) $v, 2), $load)) : '—'; ?>
                         <?php if ($this->can(\NimVor\Security\Permissions::MONITORING_VIEW)): ?>
@@ -138,7 +138,7 @@ $topHost = (string) ($topStatus['hostname'] ?? '');
 </div>
 <?php if (!$simple): ?><?= $this->partial('partials/palette') ?><?php endif; ?>
 <?= $this->partial('partials/confirm_modal') ?>
-<?php if ($serverAdmin): ?><?= $this->partial('partials/feedback_modal', ['version' => (string) ($app_version ?? '')]) ?><?php endif; ?>
+<?php if ($serverAdmin): ?><?= $this->partial('partials/changelog_modal', ['url' => $this->url('changelog.content')]) ?><?= $this->partial('partials/feedback_modal', ['version' => (string) ($app_version ?? '')]) ?><?php endif; ?>
 <?php if ($serverAdmin && $this->can(\NimVor\Security\Permissions::SERVER_MANAGE) && $topHost !== ''): ?>
     <div class="modal fade" id="nim-reboot" tabindex="-1" aria-labelledby="nim-reboot-title" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">

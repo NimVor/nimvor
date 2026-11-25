@@ -69,13 +69,14 @@ final class DashboardPopoverTest extends HttpTestCase
     {
         $this->agent->succeed('system.status', ['hostname' => 'srv1', 'os' => ['pretty_name' => 'Ubuntu 24.04'], 'load' => [0.1, 0.2, 0.3]]);
         $page = $this->request('GET', '/')->body();
-        self::assertStringContainsString('data-popover-url="/changelog/popover"', $page);
+        self::assertStringContainsString('data-bs-target="#nim-changelog"', $page);
+        self::assertStringContainsString('id="nim-changelog"', $page);
         self::assertStringContainsString('data-bs-target="#nim-feedback"', $page);
         self::assertStringContainsString('id="nim-feedback"', $page);
         self::assertStringNotContainsString('<dt>OS</dt>', $page);
-        $res = json_decode($this->request('GET', '/changelog/popover')->body(), true);
+        $res = json_decode($this->request('GET', '/changelog/content')->body(), true);
         self::assertTrue($res['success']);
-        self::assertStringContainsString('Change Logs', $res['html']);
+        self::assertStringContainsString('not installed', $res['html'], 'the test server has no CHANGELOG.md beside the panel');
     }
 
     public function testAnUnknownTileIsNotFound(): void

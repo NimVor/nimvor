@@ -1,6 +1,6 @@
 <?php
 /**
- * The change log card (the hover card on the version number): a search box, a filter by kind of change and a timeline
+ * The change log (the window that opens from the version number): a search box, a filter by kind of change and a timeline
  * of releases, newest first. Search and filter work in the browser (public/assets/js/nimvor.js, data-cl-*).
  *
  * @var \NimVor\View\View $this
@@ -19,7 +19,6 @@ foreach ($releases as $r) {
 }
 ?>
 <div class="nim-cl">
-    <div class="nim-cl-head">Change Logs</div>
     <?php if ($releases === []): ?>
         <div class="small text-body-secondary">The change log is not installed on this server. It is published at <a href="https://github.com/NimVor/nimvor/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer">github.com/NimVor/nimvor</a>.</div>
     <?php else: ?>

@@ -92,7 +92,7 @@ return static function (Router $r): void {
 
     // Overview
     $r->get('/', [DashboardController::class, 'index'], ['name' => 'dashboard', 'permission' => P::DASHBOARD_VIEW]);
-    $r->get('/changelog/popover', [\NimVor\Http\Controllers\ChangelogController::class, 'popover'], ['name' => 'changelog.popover', 'permission' => P::DASHBOARD_VIEW]);
+    $r->get('/changelog/content', [\NimVor\Http\Controllers\ChangelogController::class, 'content'], ['name' => 'changelog.content', 'permission' => P::DASHBOARD_VIEW]);
     $r->get('/dashboard/live', [DashboardController::class, 'live'], ['name' => 'dashboard.live', 'permission' => P::DASHBOARD_VIEW]);
     $r->get('/dashboard/popover/{key}', [DashboardController::class, 'popover'], ['name' => 'dashboard.popover', 'permission' => P::DASHBOARD_VIEW]);
     $r->get('/dashboard/widgets/{id}', [DashboardController::class, 'widget'], ['name' => 'dashboard.widget', 'permission' => P::DASHBOARD_VIEW]);
