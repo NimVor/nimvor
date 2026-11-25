@@ -334,3 +334,35 @@ func readFile(t *testing.T, p string) string {
 	}
 	return string(b)
 }
+
+func TestReleaseLinksMatchWhateverCaseGitHubSpellsTheRepository(t *testing.T) {
+	h, _ := setup(t)
+	f := newCloudreve(t)
+	// GitHub's download links carry the repository's own spelling.
+	old := githubDownloads
+	githubDownloads = strings.ToLower(f.srv.URL) + "/"
+	t.Cleanup(func() { githubDownloads = old })
+	f.srv.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		base := f.srv.URL + "/CLOUDREVE/cloudreve/releases/download/4.19.1/"
+		switch r.URL.Path {
+		case "/repos/cloudreve/Cloudreve/releases/latest":
+			fmt.Fprintf(w, `{"tag_name":"4.19.1","draft":false,"prerelease":false,"assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`, f.name, base+f.name, base+"checksums.txt")
+		case "/CLOUDREVE/cloudreve/releases/download/4.19.1/" + f.name:
+			w.Write(f.archive)
+		case "/CLOUDREVE/cloudreve/releases/download/4.19.1/checksums.txt":
+			fmt.Fprint(w, f.sums)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+	stubHealth(t, nil)
+	cred, _, _ := h.Env.Credential("example")
+	if _, err := Install(context.Background(), h.Env, f.sources(), cloudreveRequest(), cred, &strings.Builder{}); err != nil {
+		t.Fatalf("the install did not accept the repository's own spelling: %v", err)
+	}
+	// A file from somewhere else is still not taken.
+	_, _, assets, err := latestRelease(context.Background(), h.Env, f.sources(), "someone/else", "Else")
+	if err == nil && len(assets) != 0 {
+		t.Errorf("assets of another repository were accepted: %v", assets)
+	}
+}

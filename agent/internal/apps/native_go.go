@@ -14,6 +14,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -57,12 +58,31 @@ func latestRelease(ctx context.Context, env *host.Env, src Sources, repo, name s
 		return "", "", nil, fmt.Errorf("the latest %s release (%q) is not a plain version number", name, tag)
 	}
 	assets = map[string]struct{ URL, Digest string }{}
+	// GitHub paths are not case-sensitive and the download links carry the repository's own spelling, which need
+	// not be the one written here; the file still has to come from this repository's release downloads.
+	prefix := strings.ToLower(githubDownloads + repo + "/releases/download/")
 	for _, a := range rels[0].Assets {
-		if strings.HasPrefix(a.URL, githubDownloads+repo+"/releases/download/") {
+		if strings.HasPrefix(strings.ToLower(a.URL), prefix) {
 			assets[a.Name] = struct{ URL, Digest string }{a.URL, a.Digest}
 		}
 	}
 	return tag, version, assets, nil
+}
+
+// assetNames lists up to ten release file names, for an error that says what was there.
+func assetNames(assets map[string]struct{ URL, Digest string }) string {
+	var names []string
+	for n := range assets {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	if len(names) > 10 {
+		names = append(names[:10], "…")
+	}
+	if len(names) == 0 {
+		return "none"
+	}
+	return strings.Join(names, ", ")
 }
 
 // checksumLine finds "<sha256>  <name>" for name in a checksums file.
@@ -240,7 +260,7 @@ func installCloudreve(ctx context.Context, env *host.Env, src Sources, r Request
 	asset, ok := assets[name]
 	sums, hasSums := assets["checksums.txt"]
 	if !ok || !hasSums {
-		return nil, fmt.Errorf("the Cloudreve %s release has no %s with a checksums.txt; nothing was installed", tag, name)
+		return nil, fmt.Errorf("the Cloudreve %s release has no %s with a checksums.txt (files seen: %s); nothing was installed", tag, name, assetNames(assets))
 	}
 	fmt.Fprintf(log, "Cloudreve %s.\n", version)
 
@@ -379,7 +399,7 @@ func installGopeed(ctx context.Context, env *host.Env, src Sources, r Request, c
 	name := "gopeed-web-v" + version + "-linux-" + arch + ".zip"
 	asset, ok := assets[name]
 	if !ok {
-		return nil, fmt.Errorf("the Gopeed %s release has no %s; nothing was installed", tag, name)
+		return nil, fmt.Errorf("the Gopeed %s release has no %s (files seen: %s); nothing was installed", tag, name, assetNames(assets))
 	}
 	want := strings.ToLower(strings.TrimPrefix(asset.Digest, "sha256:"))
 	if !strings.HasPrefix(asset.Digest, "sha256:") || !hex64.MatchString(want) {
