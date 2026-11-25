@@ -34,7 +34,7 @@ $bar = static fn (float $p): string => $p >= 90 ? 'bg-danger' : ($p >= 75 ? 'bg-
                 <dt>Swappiness</dt><dd><?= (int) ($s['swappiness'] ?? 0) ?> <span class="text-body-secondary small">(how eagerly the kernel uses swap; 60 is the usual default)</span></dd>
                 <dt>File system</dt><dd><?= e((string) ($s['fs_type'] ?? '—')) ?><?php if (isset($s['fs_free_bytes']) && (int) $s['fs_free_bytes'] > 0): ?>, <?= e(format_bytes((int) $s['fs_free_bytes'])) ?> free<?php endif; ?></dd>
             </dl>
-            <?php if ($total > 0): ?><div class="progress mt-3" style="height:8px" role="progressbar" aria-label="Swap used"><div class="progress-bar <?= e($bar($total > 0 ? $used * 100 / $total : 0)) ?>" style="width:<?= $total > 0 ? max(1, min(100, (int) round($used * 100 / $total))) : 0 ?>%"></div></div><?php endif; ?>
+            <?php if ($total > 0): ?><div class="progress nim-progress-thin mt-3" role="progressbar" aria-label="Swap used" aria-valuenow="<?= $total > 0 ? (int) round($used * 100 / $total) : 0 ?>" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar <?= e($bar($total > 0 ? $used * 100 / $total : 0)) ?>" data-width="<?= $total > 0 ? max(1, min(100, (int) round($used * 100 / $total))) : 0 ?>"></div></div><?php endif; ?>
         </div>
     </div>
     <div class="col-md-6">

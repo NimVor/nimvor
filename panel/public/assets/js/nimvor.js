@@ -1619,7 +1619,7 @@
         box.addEventListener('mouseenter', function () { clearTimeout(hover.closeTimer); });
         box.addEventListener('mouseleave', function () { hover.closeTimer = setTimeout(function () { if (!box.contains(document.activeElement)) { hoverClose(); } }, 250); });
         NimVor.fetchJson(owner.getAttribute('data-popover-url'))
-            .then(function (res) { if (hover.card === box) { box.innerHTML = res.html; } })
+            .then(function (res) { if (hover.card === box) { box.innerHTML = res.html; NimVor.applyWidths(box); } })
             .catch(function (err) { if (hover.card === box) { box.textContent = err.message; } });
     }
     document.addEventListener('mouseover', function (e) {

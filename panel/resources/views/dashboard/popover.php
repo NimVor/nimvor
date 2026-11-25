@@ -10,7 +10,8 @@
 $cpu = (array) ($live['cpu'] ?? []);
 $mem = (array) ($live['memory'] ?? []);
 $load = (array) ($live['load'] ?? []);
-$bar = static fn (float $p): string => '<div class="nim-pop-bar"><span class="' . ($p >= 90 ? 'is-crit' : ($p >= 75 ? 'is-warn' : '')) . '" style="width:' . max(0, min(100, $p)) . '%"></span></div>';
+// Inline style attributes are blocked by the panel's CSP: the width goes in a data attribute (NimVor.applyWidths).
+$bar = static fn (float $p): string => '<div class="nim-pop-bar"><span class="' . ($p >= 90 ? 'is-crit' : ($p >= 75 ? 'is-warn' : '')) . '" data-width="' . max(0, min(100, $p)) . '"></span></div>';
 $procs = static function (array $rows, string $by) use ($live): string {
     $out = '<table class="table table-sm nim-pop-table mb-0"><thead><tr><th>Process</th><th>User</th><th class="text-end">' . ($by === 'cpu' ? 'CPU' : 'Memory') . '</th></tr></thead><tbody>';
     foreach (array_slice($rows, 0, 5) as $p) {
