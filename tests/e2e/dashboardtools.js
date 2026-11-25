@@ -126,8 +126,8 @@ const OUT = process.env.E2E_OUT || '/tmp';
     step('hover on the CPU tile shows its details');
     await page.mouse.move(5, 400);
     await page.waitForSelector('.nim-hovercard', { state: 'detached', timeout: 5000 });
-    if (await page.locator('.nim-topbar-host').count() > 0 && await page.locator('.nim-topbar-host').isVisible()) {
-      await page.hover('.nim-topbar-host');
+    if (await page.locator('[data-popover-url="/dashboard/popover/server"]').count() > 0 && await page.locator('[data-popover-url="/dashboard/popover/server"]').isVisible()) {
+      await page.hover('[data-popover-url="/dashboard/popover/server"]');
       await page.waitForSelector('.nim-hovercard dt:has-text("Hostname")', { timeout: 20000 });
       step('hover on the host name shows the server details');
       await page.mouse.move(5, 400);
