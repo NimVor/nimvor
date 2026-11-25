@@ -18,6 +18,7 @@ All notable changes to NimVor are documented here. The format follows
 - **Server details in the top bar.** Hovering the host name shows the server card (host, system, kernel, CPU, uptime, agent, with update, restart-all and restart-server for administrators).
 - **Change log on the version number.** Hovering the NimVor version in the top bar shows what changed in the last three releases (the installer now keeps `CHANGELOG.md` beside the panel).
 - **Feedback.** A feedback button in the top bar opens a window; Send opens a new issue on the project's GitHub page with the text filled in, so nothing leaves the server unseen.
+- **Swap memory.** Server → Swap shows the swap in use and creates, resizes or removes the swap file (`/swapfile`, or Ubuntu's `/swap.img`); the dashboard's Memory card links to it. New agent actions `swap.status`, `swap.set` and `swap.remove`. The new file is built beside the old one and swap is switched over, `/etc/fstab` is updated and the result verified, with the previous swap put back if a step fails. It is refused when the file system cannot hold swap, the disk is too full, or free memory could not take back what is in swap. See [Swap](docs/administration/README.md#swap).
 - **Terminal quick action** on the administrator's dashboard (it needs the web terminal to be switched on in the agent, as before).
 
 ## [2.5.1] — 2026-11-25

@@ -40,8 +40,9 @@ $procs = static function (array $rows, string $by) use ($live): string {
         <dt>Used</dt><dd><?= e(format_bytes($used)) ?></dd>
         <dt>Available</dt><dd><?= e(format_bytes((int) ($mem['available_bytes'] ?? 0))) ?></dd>
         <dt>Total</dt><dd><?= e(format_bytes($total)) ?></dd>
-        <dt>Swap used</dt><dd><?= e(format_bytes((int) ($mem['swap_used_bytes'] ?? 0))) ?> of <?= e(format_bytes((int) ($mem['swap_total_bytes'] ?? 0))) ?></dd>
+        <dt>Swap</dt><dd><?= (int) ($mem['swap_total_bytes'] ?? 0) > 0 ? e(format_bytes((int) ($mem['swap_used_bytes'] ?? 0))) . ' used of ' . e(format_bytes((int) $mem['swap_total_bytes'])) : 'none' ?></dd>
     </dl>
+    <?php if ($this->hasRoute('server.swap') && $this->routeAllowed('server.swap')): ?><div class="mt-2"><a class="btn btn-sm btn-outline-primary" href="<?= e($this->url('server.swap')) ?>"><i class="bi bi-layers me-1" aria-hidden="true"></i><?= (int) ($mem['swap_total_bytes'] ?? 0) > 0 ? 'Manage swap' : 'Create swap' ?></a></div><?php endif; ?>
     <div class="nim-pop-h">Biggest memory users</div><?= $procs((array) ($live['top_memory'] ?? []), 'mem') ?>
 <?php elseif ($key === 'load'): ?>
     <?php $threads = max(1, (int) ($cpu['threads'] ?? 1)); ?>

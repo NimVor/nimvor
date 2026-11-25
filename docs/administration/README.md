@@ -682,6 +682,22 @@ suspension again" retries.
   through the same code as deleting them one by one; if a step fails, that
   account is kept with what is left and the others continue.
 
+## Swap
+
+**Server → Swap** shows the memory in use, the swap areas and how eagerly the kernel uses them (swappiness), and, for administrators, creates, resizes or removes the swap file. The same numbers appear on the dashboard's Memory card (rest the pointer on it), with a **Create swap** or **Manage swap** button.
+
+NimVor manages exactly two files, `/swapfile` (what it creates) and `/swap.img` (what Ubuntu's installer makes); swap on a partition or at another path is shown but never touched. The agent actions are `swap.status` (read-only), `swap.set` and `swap.remove` (behind the write gate and audited as `server.swap.set` and `server.swap.remove`). Nothing in the panel runs a command.
+
+A change follows the usual order, and undoes itself when a step fails:
+
+1. **Detect.** The file system must be ext4 or XFS (not btrfs, ZFS, tmpfs or a network file system). The disk must have room for the new file next to the old one and keep 1 GB free. If swap is in use, free memory must be able to take back what is in it plus 10% of RAM and 256 MB; otherwise the change is refused, because turning swap off with too little memory would let the kernel's out-of-memory killer stop the panel or a website.
+2. **Build.** The new file is made beside the old one (`<file>.new`, mode 0600, allocated with `fallocate`, formatted with `mkswap`). Nothing in use is touched until it is ready.
+3. **Switch.** The old swap is turned off, the files are exchanged by renaming and the new one is turned on (`swapoff` and `swapon`, the only commands that run with `CAP_SYS_ADMIN`, and only for those two file names). If that fails, the old file is put back and turned on again.
+4. **Persist.** `/etc/fstab` gets one swap line for the file; every other line is kept as it is.
+5. **Verify.** `/proc/swaps` must list the file at the size asked for. Asking for the size it already has changes nothing.
+
+The size is between 256 MB and 64 GB (and no more than the disk allows). Removing the swap file turns it off, deletes it and drops its `fstab` line, with the same memory check first.
+
 ## Disk quotas
 
 A plan's disk space is enforced with Linux user quotas once an

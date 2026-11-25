@@ -162,6 +162,36 @@ func TestProcessManagerPrivilegedArgs(t *testing.T) {
 	}
 }
 
+// Swap is turned on and off only for the two files NimVor manages, and only with CAP_SYS_ADMIN.
+func TestSwapCommandsTakeOnlyTheManagedFiles(t *testing.T) {
+	admin := Opts{Capabilities: []string{"CAP_SYS_ADMIN"}}
+	for _, c := range []struct {
+		id   string
+		args []string
+		ok   bool
+	}{
+		{"swapon", []string{"/swapfile"}, true},
+		{"swapoff", []string{"/swap.img"}, true},
+		{"swapon", []string{"/dev/sda1"}, false},
+		{"swapon", []string{"/swapfile", "/etc/passwd"}, false},
+		{"swapon", []string{"-a"}, false},
+		{"swapoff", []string{"-a"}, false},
+		{"swapon", []string{"/swapfile/../etc/shadow"}, false},
+		{"swapon", nil, false},
+	} {
+		if err := checkArgs(c.id, admin, c.args); (err == nil) != c.ok {
+			t.Errorf("%s %v: %v", c.id, c.args, err)
+		}
+	}
+	// Without the capability they are ordinary commands (and swapon would simply fail); mkswap never needs one.
+	if err := checkArgs("mkswap", Opts{}, []string{"/swapfile.new"}); err != nil {
+		t.Errorf("mkswap: %v", err)
+	}
+	if err := checkArgs("mkswap", Opts{Capabilities: []string{"CAP_SYS_ADMIN"}}, []string{"/swapfile.new"}); err == nil {
+		t.Error("mkswap must not run with added capabilities")
+	}
+}
+
 // A program installed after the agent started is found without a restart,
 // and one removed is reported missing.
 func TestAllowlistedCommandInstalledLater(t *testing.T) {

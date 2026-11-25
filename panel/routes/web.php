@@ -470,6 +470,9 @@ return static function (Router $r): void {
     $r->get('/server/disk', [\NimVor\Http\Controllers\ServerDiskController::class, 'index'], ['name' => 'server.disk', 'permission' => P::SERVER_VIEW]);
     $r->post('/server/disk/scan', [\NimVor\Http\Controllers\ServerDiskController::class, 'scan'], ['name' => 'server.disk.scan', 'permission' => P::SERVER_MANAGE]);
     $r->post('/server/disk/remove', [\NimVor\Http\Controllers\ServerDiskController::class, 'remove'], ['name' => 'server.disk.remove', 'permission' => P::SERVER_MANAGE]);
+    $r->get('/server/swap', [\NimVor\Http\Controllers\SwapController::class, 'index'], ['name' => 'server.swap', 'permission' => P::SERVER_VIEW]);
+    $r->post('/server/swap', [\NimVor\Http\Controllers\SwapController::class, 'set'], ['name' => 'server.swap.set', 'permission' => P::SERVER_MANAGE]);
+    $r->post('/server/swap/remove', [\NimVor\Http\Controllers\SwapController::class, 'remove'], ['name' => 'server.swap.remove', 'permission' => P::SERVER_MANAGE]);
     $r->get('/server/health', [\NimVor\Http\Controllers\ServerHealthController::class, 'index'], ['name' => 'server.health', 'permission' => P::SERVER_VIEW]);
     $r->get('/services', [ServerController::class, 'services'], ['name' => 'services', 'permission' => P::SERVICES_VIEW]);
     $r->post('/services/control', [ServicesController::class, 'control'], ['name' => 'services.control', 'permission' => P::SERVICES_MANAGE]);
