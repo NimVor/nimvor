@@ -51,7 +51,9 @@ final class Authenticate implements Middleware
         $this->view->share('route_checker', fn (string $name): bool => $this->authorizer->routeAllowed($user, $name));
         if ($user !== null) {
             $this->audit->setActor((int) $user['id'], (string) $user['username']);
-            if (!$request->wantsJson()) {
+            // Pages get the top bar's data; so does the host name's hover card, a fragment of the same chrome (its server
+            // tools need the host name and whether an update exists).
+            if (!$request->wantsJson() || ($current !== null && $current->name === 'dashboard.popover')) {
                 $this->view->share('agent_status', fn () => $this->agentStatus->get());
                 $this->view->share('password_rules', fn (): string => $this->passwordPolicy->describe());
                 $this->view->share('notification_count', fn (): ?int => $this->authorizer->can($user, \NimVor\Security\Permissions::NOTIFICATIONS_VIEW)

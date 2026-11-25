@@ -55,19 +55,23 @@ final class DashboardPopoverTest extends HttpTestCase
     public function testTheServerDetailsAppearOnHoverOverTheHostnameNotAsAWidget(): void
     {
         $this->agent->succeed('system.info', ['system' => ['hostname' => 'srv1', 'kernel' => '6.8', 'timezone' => 'UTC', 'cpu' => ['cores' => 8, 'model' => 'EPYC'], 'uptime_seconds' => 90000], 'os' => ['pretty_name' => 'Ubuntu 24.04', 'supported' => true], 'agent_version' => '9.9.9']);
-        $this->agent->succeed('system.status', ['hostname' => 'srv1', 'os' => ['pretty_name' => 'Ubuntu 24.04'], 'load' => [0.1, 0.2, 0.3]]);
-        $page = $this->request('GET', '/')->body();
-        self::assertStringNotContainsString('data-widget-host="server_info"', $page);
-        self::assertStringNotContainsString('data-widget-host="services_live"', $page);
-        $res = json_decode($this->request('GET', '/dashboard/popover/server')->body(), true);
+        $this->agent->succeed('agent.status', ['hostname' => 'srv1', 'os' => ['pretty_name' => 'Ubuntu 24.04'], 'load' => [0.1, 0.2, 0.3]]);
+        // First, as the browser asks for it (JSON, before any page was drawn): a JSON request is not given the top
+        // bar's data unless this route asks for it, and the restart button needs the host name from it.
+        $res = json_decode($this->request('GET', '/dashboard/popover/server', [], ['accept' => 'application/json', 'x-requested-with' => 'XMLHttpRequest'])->body(), true);
         self::assertTrue($res['success']);
         self::assertStringContainsString('Ubuntu 24.04', $res['html']);
         self::assertStringContainsString('9.9.9', $res['html']);
+        self::assertStringContainsString('data-bs-target="#nim-reboot"', $res['html'], 'the restart-the-server button needs the host name');
+        self::assertStringContainsString('aria-label="Restart all services"', $res['html']);
+        $page = $this->request('GET', '/')->body();
+        self::assertStringNotContainsString('data-widget-host="server_info"', $page);
+        self::assertStringNotContainsString('data-widget-host="services_live"', $page);
     }
 
     public function testTheTopBarHasTheVersionChangeLogAndFeedbackAndNoOperatingSystem(): void
     {
-        $this->agent->succeed('system.status', ['hostname' => 'srv1', 'os' => ['pretty_name' => 'Ubuntu 24.04'], 'load' => [0.1, 0.2, 0.3]]);
+        $this->agent->succeed('agent.status', ['hostname' => 'srv1', 'os' => ['pretty_name' => 'Ubuntu 24.04'], 'load' => [0.1, 0.2, 0.3]]);
         $page = $this->request('GET', '/')->body();
         self::assertStringContainsString('data-bs-target="#nim-changelog"', $page);
         self::assertStringContainsString('id="nim-changelog"', $page);
