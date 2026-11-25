@@ -1641,6 +1641,9 @@
         if (owner) { if (hover.owner === owner) { hoverClose(); } else { hoverOpen(owner); } return; }
         if (hover.card && !hover.card.contains(e.target)) { hoverClose(); }
     });
+    // A window that opens (restart the server, the change log) closes the card it was opened from: the card would
+    // otherwise stay on top of the window and take its clicks.
+    document.addEventListener('show.bs.modal', function () { hoverClose(); });
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') { hoverClose(); }
         if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[data-popover-url]')) { e.preventDefault(); hoverOpen(e.target); }
