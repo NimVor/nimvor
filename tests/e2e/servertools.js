@@ -27,15 +27,18 @@ const OUT = process.env.E2E_OUT || '/tmp';
 
     // Top bar.
     const bar = await page.$$eval('.nim-topbar-server dt', d => d.map(x => x.textContent.trim()));
-    for (const want of ['Hostname', 'OS', 'NimVor', 'Load averages']) {
+    for (const want of ['Hostname', 'NimVor', 'Load averages']) {
       if (!bar.includes(want)) { throw new Error('top bar: ' + want + ' missing in ' + JSON.stringify(bar)); }
     }
     const load = await page.textContent('[data-nim-topbar-load] span');
     if (!/^\d+\.\d\d \d+\.\d\d \d+\.\d\d$/.test(load.trim())) { throw new Error('load: ' + load); }
     if (await page.locator('[data-nim-topbar-update]:not(.d-none)').count() !== 0) { throw new Error('the update button shows without an update'); }
-    if (await page.locator('.nim-server-tools button[aria-label="Restart all services"]').count() !== 1) { throw new Error('no restart-all button in the Server card'); }
+    // The server tools are in the card that opens when the pointer rests on the host name.
+    await page.hover('.nim-topbar-host');
+    await page.waitForSelector('.nim-hovercard .nim-server-tools button[aria-label="Restart all services"]', { timeout: 20000 });
+    if (await page.locator('.nim-hovercard .nim-server-tools button[aria-label="Restart all services"]').count() !== 1) { throw new Error('no restart-all button in the server card'); }
     if (await page.locator('.nim-topbar [aria-label="Restart all services"], .nim-topbar [aria-label="Restart the server"]').count() !== 0) { throw new Error('server tools still in the top bar'); }
-    step('top bar: host name, system, version, load ' + load.trim());
+    step('top bar: host name, version, load ' + load.trim());
     // On the dashboard the top bar shows the same load as the Load card.
     await page.waitForFunction(() => {
       const t = document.querySelector('[data-nim-topbar-load] span').textContent.trim().split(' ');
@@ -86,7 +89,8 @@ const OUT = process.env.E2E_OUT || '/tmp';
     if (!(await page.isVisible('#nim-sidebar'))) { throw new Error('the sidebar did not come back'); }
     step('sidebar: sub-menus open in place, only the menu scrolls, hide/show remembered');
     // Server restart: a confirmation with the host name.
-    await page.click('.nim-server-tools button[aria-label="Restart the server"]');
+    await page.hover('.nim-topbar-host');
+    await page.click('.nim-hovercard .nim-server-tools button[aria-label="Restart the server"]');
     await page.waitForSelector('#nim-reboot.show');
     const host = await page.textContent('#nim-reboot label[for="nim-reboot-confirm"] code');
     if (!host || !host.trim()) { throw new Error('the restart dialog does not name the host'); }
