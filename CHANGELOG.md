@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.5.1] — 2026-11-25
+
+Fixes for the file manager and the permission repair, and a new look for windows. Panel and agent: upgrade both with `sudo nimvor update`. A website whose files are owner-only (and so answers 403) is repaired with *Advanced → File permissions → Check → Repair*.
+
 ### Fixed
 
 - **Repair permissions now fixes a website that answers 403 because its files are owner-only (`0600`).** A website unpacked with owner-only modes (every file 0600, folders 0700) was reported as "in order", because 0600 files were all treated as private on purpose, and nginx could not read any page. In the website's document root the check and the repair now also find files the web server can neither read nor (for folders) enter, and give them `0644`/`0755` (keeping the owner's execute bit). What is private on purpose is still left alone: names starting with a dot (`.env`, `.htpasswd`, `.git`, `.user.ini`; `.well-known` and `.htaccess` are public), `wp-config.php`, `config.php`, `settings.php`, `local.php`, `database.php`, key and database files (`.key`, `.pem`, `.sqlite`, `.sql` …), and everything outside the document root.

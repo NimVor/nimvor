@@ -51,7 +51,7 @@ import (
 const shutdownGrace = 5 * time.Minute
 
 // version is set at build time with -ldflags "-X main.version=...".
-var version = "2.5.0"
+var version = "2.5.1"
 
 func main() {
 	// Commands run as a website account see this binary as their sendmail
