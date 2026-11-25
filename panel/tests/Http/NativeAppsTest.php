@@ -66,7 +66,7 @@ final class NativeAppsTest extends HttpTestCase
         $py = ['kind' => 'proxy', 'php_version' => '', 'app_runtime' => 'python:3.12.7'];
         $node = ['kind' => 'proxy', 'php_version' => '', 'app_runtime' => 'node:20.17.0'];
         $static = ['kind' => 'static', 'php_version' => '', 'app_runtime' => ''];
-        foreach (['joomla' => [1, 0, 0, 0, 0], 'gitea' => [0, 1, 0, 0, 0], 'django' => [0, 0, 1, 0, 0], 'fastapi' => [0, 0, 1, 0, 0]] as $app => $want) {
+        foreach (['joomla' => [1, 0, 0, 0, 0], 'gitea' => [0, 1, 0, 0, 0], 'cloudreve' => [0, 1, 0, 0, 0], 'gopeed' => [0, 1, 0, 0, 0], 'django' => [0, 0, 1, 0, 0], 'fastapi' => [0, 0, 1, 0, 0]] as $app => $want) {
             foreach ([$php, $proxy, $py, $node, $static] as $i => $s) {
                 self::assertSame((bool) $want[$i], AppInstallerService::compatible($s, $app), $app . ' on ' . $s['kind'] . '/' . $s['app_runtime']);
             }
@@ -116,6 +116,33 @@ final class NativeAppsTest extends HttpTestCase
         self::assertSame(0, $this->calls('db.create'), 'Gitea uses SQLite: no database');
         $row = (array) $this->db->fetch("SELECT * FROM app_installs WHERE app = 'gitea'");
         self::assertSame(['running', 'binary-service', 'aaaaaaaaaaaaaaaa'], [$row['status'], $row['strategy'], $row['job_id']]);
+    }
+
+    public function testInstallingCloudreveAsksForNoLoginAndCreatesNoDatabase(): void
+    {
+        $this->post($this->apps($this->proxy) . '/cloudreve', ['path' => 'cloud']);
+        $sent = $this->lastCall('apps.install');
+        self::assertSame('cloudreve', $sent['app']);
+        self::assertSame(3101, $sent['port']);
+        self::assertArrayNotHasKey('admin_password', $sent, 'the first account registered on Cloudreve becomes its administrator');
+        self::assertSame(0, $this->calls('db.create'));
+    }
+
+    public function testInstallingGopeedMakesALoginWithoutAnEmailAndShowsThePasswordOnce(): void
+    {
+        $page = $this->request('GET', $this->apps($this->proxy))->body();
+        self::assertStringContainsString('Login user', $page);
+        $this->post($this->apps($this->proxy) . '/gopeed', ['path' => 'gopeed', 'admin_user' => 'owner']);
+        $sent = $this->lastCall('apps.install');
+        self::assertSame('gopeed', $sent['app']);
+        self::assertSame('owner', $sent['admin_user']);
+        self::assertGreaterThanOrEqual(12, strlen((string) $sent['admin_password']));
+        $secret = (array) $this->flash('secret');
+        self::assertSame($sent['admin_password'], $secret['password'], 'the password is shown to the customer once');
+        self::assertSame(0, $this->calls('db.create'));
+        self::assertStringNotContainsString($sent['admin_password'], (string) json_encode($this->db->fetchAll('SELECT * FROM audit_logs')), 'never in the audit log');
+        self::assertStringNotContainsString($sent['admin_password'], (string) json_encode($this->db->fetchAll('SELECT * FROM app_installs')), 'never stored');
+        self::assertArrayNotHasKey('admin_email', (array) $this->flash('errors'), 'Gopeed asks for no email address');
     }
 
     public function testInstallingDjangoCreatesAnAdministratorPasswordShownOnce(): void

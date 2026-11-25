@@ -33,7 +33,7 @@ jobs:
         run: |
           set +e
           sudo -E env "PATH=$PATH" "GOCACHE=$(go env GOCACHE)" "GOMODCACHE=$(go env GOMODCACHE)" "HOME=$HOME" NIMVOR_NETWORK=1 \
-            go test -tags realhost -run 'RealHostGitea|RealHostPython' -count=1 -p 1 -v ./internal/apps 2>&1 | tee native.log
+            go test -tags realhost -run 'RealHostGitea|RealHostPython|RealHostCloudreve|RealHostGopeed' -count=1 -p 1 -v ./internal/apps 2>&1 | tee native.log
           status=${PIPESTATUS[0]}
           echo '--- summary'
           grep -n -- '--- \(PASS\|FAIL\|SKIP\)\|_test.go:[0-9]*:' native.log | cut -c1-400 | head -80

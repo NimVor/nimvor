@@ -164,6 +164,8 @@ are not counted as proof.
 | Application | Strategy | Status in the catalog | Real-host test |
 |---|---|---|---|
 | Gitea | `binary-service` (dl.gitea.com binary, SHA-256 checked against the file beside it and against the GitHub release; SQLite; worker service; loopback only) | testing | `TestRealHostGiteaInstall`: passed (Gitea 28.2.0) |
+| Cloudreve | `binary-service` (GitHub release `cloudreve_<ver>_linux_<arch>.tar.gz`, SHA-256 checked against the release's `checksums.txt`; `data/conf.ini` written by NimVor with a loopback listener and random secrets, mode 0600; SQLite by default; the first account registered becomes the administrator, so NimVor handles no administrator password) | testing | `TestRealHostCloudreveInstall`: runs in CI (`app-native.yml`) |
+| Gopeed | `binary-service` (GitHub release `gopeed-web-v<ver>-linux-<arch>.zip`; the release publishes no checksum file, so the SHA-256 GitHub reports for the file is the check (`release-digest`) and the install refuses when GitHub reports none; `config.json` written by NimVor, mode 0600, with a loopback address and the one login NimVor generated; the password is shown once and never appears on a command line, in the service's environment, the log or the result) | testing | `TestRealHostGopeedInstall`: runs in CI (`app-native.yml`) |
 | Django | `python-venv` (pinned PyPI packages, `requirements.lock`, production settings, secret key in a 0600 file, administrator through one command's environment, Gunicorn worker) | testing | `TestRealHostPythonDjango`: passed (Django 6.1.2, including a real admin sign-in) |
 | FastAPI | `python-venv` (Uvicorn worker) | testing | `TestRealHostPythonFastAPI`: passed (0.162.0) |
 | BookStack | not implemented | - | - |

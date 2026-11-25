@@ -251,6 +251,15 @@ func (r *Request) validate(env *host.Env) error {
 		if !urlRe.MatchString(r.URL) {
 			return &validate.Error{Field: "url", Message: "must be the website address, e.g. https://example.com"}
 		}
+		if r.App == "gopeed" {
+			// Its only login: the user and the password NimVor made, written to its own configuration file.
+			if !wpUser.MatchString(r.AdminUser) {
+				return &validate.Error{Field: "admin_user", Message: "3–60 letters, digits or . _ @ -"}
+			}
+			if len(r.AdminPassword) < 12 || len(r.AdminPassword) > 128 || strings.ContainsAny(r.AdminPassword, "\x00\n\r") {
+				return &validate.Error{Field: "admin_password", Message: "12–128 characters on one line"}
+			}
+		}
 		if r.App == "django" {
 			if !wpUser.MatchString(r.AdminUser) {
 				return &validate.Error{Field: "admin_user", Message: "3–60 letters, digits or . _ @ -"}
@@ -832,6 +841,8 @@ type githubRelease struct {
 	Assets     []struct {
 		Name string `json:"name"`
 		URL  string `json:"browser_download_url"`
+		// Digest is GitHub's own SHA-256 of the file ("sha256:<hex>"), where it has one.
+		Digest string `json:"digest"`
 	} `json:"assets"`
 }
 

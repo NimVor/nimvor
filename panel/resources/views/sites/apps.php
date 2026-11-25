@@ -115,8 +115,8 @@ foreach ($catalog as $cat):
                         <?= $this->partial('partials/field', ['name' => 'path', 'label' => 'Folder', 'value' => 'app', 'help' => 'A new folder inside the website for the program and its data.']) ?>
                         <?php if (!empty(A::NATIVE[$slug]['admin'])): ?>
                             <div class="row g-2">
-                                <div class="col-sm-5"><?= $this->partial('partials/field', ['name' => 'admin_user', 'label' => 'Admin user', 'value' => 'admin']) ?></div>
-                                <div class="col-sm-7"><?= $this->partial('partials/field', ['name' => 'admin_email', 'label' => 'Admin email', 'type' => 'email', 'value' => (string) $email]) ?></div>
+                                <div class="col-sm-5"><?= $this->partial('partials/field', ['name' => 'admin_user', 'label' => !empty(A::NATIVE[$slug]['noemail']) ? 'Login user' : 'Admin user', 'value' => 'admin']) ?></div>
+                                <?php if (empty(A::NATIVE[$slug]['noemail'])): ?><div class="col-sm-7"><?= $this->partial('partials/field', ['name' => 'admin_email', 'label' => 'Admin email', 'type' => 'email', 'value' => (string) $email]) ?></div><?php endif; ?>
                             </div>
                         <?php endif; ?>
                         <div class="form-text mb-2">Runs as a service under this website's account, behind its reverse proxy (it listens only on the website's local port). The newest stable release is installed and its version recorded. <?= !empty(A::NATIVE[$slug]['admin']) ? 'A strong admin password is created and shown once.' : '' ?> Back up the website before changing it later.</div>
