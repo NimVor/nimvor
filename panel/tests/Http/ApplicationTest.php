@@ -222,7 +222,8 @@ final class ApplicationTest extends TestCase
         $this->seedUser($app, 'admin', 'admin');
         $this->login($app, 'admin');
         $badge = '>preview</span>';
-        self::assertStringNotContainsString($badge, $this->request($app, 'GET', '/')->body(), 'Ubuntu 24.04 is not a preview');
+        $server = fn (): string => (string) json_decode($this->request($app, 'GET', '/dashboard/popover/server')->body(), true)['html'];
+        self::assertStringNotContainsString($badge, $server(), 'Ubuntu 24.04 is not a preview');
 
         $this->agent->succeed('system.info', [
             'agent_version' => '1.0.0', 'os' => ['pretty_name' => 'Ubuntu 26.04 LTS', 'supported' => true, 'preview' => true],
@@ -230,10 +231,10 @@ final class ApplicationTest extends TestCase
         ]);
         $this->agent->succeed('system.metrics', []);
         $this->agent->succeed('discovery.firewall', []);
-        foreach (['/', '/server'] as $path) {
-            $body = $this->request($app, 'GET', $path)->body();
-            self::assertStringContainsString($badge, $body, $path);
-            self::assertStringNotContainsString('unsupported', $body, $path);
+        // The server card is the hover card on the host name; the Server page shows it too.
+        foreach (['hover card' => $server(), '/server' => $this->request($app, 'GET', '/server')->body()] as $where => $body) {
+            self::assertStringContainsString($badge, $body, $where);
+            self::assertStringNotContainsString('unsupported', $body, $where);
         }
     }
 
