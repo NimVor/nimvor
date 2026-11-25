@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **EspoCRM and SuiteCRM in the app installer.** Both are downloaded from their GitHub releases and staged with a new database; the website is served from the `public` folder and each application's own web installer finishes setup. They start in *testing* status: only administrators can install them until they are proven on a real server (Server → Apps → catalog).
+
 ## [2.5.1] — 2026-11-25
 
 Fixes for the file manager and the permission repair, and a new look for windows. Panel and agent: upgrade both with `sudo nimvor update`. A website whose files are owner-only (and so answers 403) is repaired with *Advanced → File permissions → Check → Repair*.
