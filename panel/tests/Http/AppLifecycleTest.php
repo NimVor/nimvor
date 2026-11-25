@@ -55,8 +55,8 @@ final class AppLifecycleTest extends HttpTestCase
 
     public function testExistingApplicationsStayEnabled(): void
     {
-        self::assertSame(0, (int) $this->db->scalar("SELECT COUNT(*) FROM app_catalog WHERE status <> 'enabled' AND slug NOT IN ('gitea', 'django', 'fastapi', 'espocrm', 'suitecrm')"), 'the migration keeps every existing application enabled');
-        self::assertSame(5, (int) $this->db->scalar("SELECT COUNT(*) FROM app_catalog WHERE status = 'testing'"), 'the new native applications and the CRMs start in testing');
+        self::assertSame(0, (int) $this->db->scalar("SELECT COUNT(*) FROM app_catalog WHERE status <> 'enabled' AND slug NOT IN ('gitea', 'django', 'fastapi', 'espocrm', 'suitecrm', 'cloudreve', 'gopeed')"), 'the migration keeps every existing application enabled');
+        self::assertSame(7, (int) $this->db->scalar("SELECT COUNT(*) FROM app_catalog WHERE status = 'testing'"), 'the new native applications and the CRMs start in testing');
         self::assertSame(['binary', 'python', 'python'], array_column($this->db->fetchAll("SELECT runtime FROM app_catalog WHERE slug IN ('gitea', 'django', 'fastapi') ORDER BY slug = 'gitea' DESC, slug"), 'runtime'));
         self::assertSame('extension', $this->db->scalar("SELECT kind FROM app_catalog WHERE slug = 'woocommerce'"), 'WordPress plus a plugin is an extension');
         $this->switchTo('cust');

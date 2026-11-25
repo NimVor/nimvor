@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -392,4 +393,90 @@ func TestRealHostPythonFastAPI(t *testing.T) {
 	if !strings.Contains(string(ps), "uvicorn") {
 		t.Errorf("no uvicorn process runs as %s:\n%s", n.user, ps)
 	}
+}
+
+// realGoApp installs one of the single-program applications (Cloudreve, Gopeed) for real and checks what must hold
+// for any of them: the job succeeded and recorded a version, the program runs as the website account, answers on
+// its loopback port only, the service is active and the files are the account's and closed to everyone else.
+func realGoApp(t *testing.T, app, tag, user, uid string, port int, req func(n *realNative, slug string) Request, privateFile string, answers string) {
+	n := newRealNative(t, tag, user, uid)
+	slug := "rt-" + tag
+	t.Cleanup(func() {
+		workers.Remove(context.Background(), n.env, slug)
+		exec.Command("systemctl", "daemon-reload").Run()
+	})
+	r := req(n, slug)
+	j, err := n.install(t, r)
+	if err != nil {
+		t.Fatalf("apps.install: %v", err)
+	}
+	log := n.jobLog(t, j.ID)
+	if j.Status != "succeeded" {
+		t.Fatalf("the install did not succeed: %s\n%s", j.Error, log)
+	}
+	res, _ := j.Result.(map[string]any)
+	version, _ := res["version"].(string)
+	if !versionTag.MatchString(version) {
+		t.Errorf("no version recorded: %v", res["version"])
+	}
+	t.Logf("installed %s %s", app, version)
+	if !strings.Contains(log, "answers on its port") {
+		t.Errorf("the job log lacks the health line:\n%s", log)
+	}
+	addr := "127.0.0.1:" + strconv.Itoa(port)
+	resp, err := (&http.Client{Timeout: 10 * time.Second}).Get("http://" + addr + "/")
+	if err != nil {
+		t.Fatalf("%s does not answer: %v", app, err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode >= 500 {
+		t.Errorf("%s answers HTTP %d", app, resp.StatusCode)
+	}
+	if out, err := exec.Command("systemctl", "is-active", workers.Unit(slug)).CombinedOutput(); err != nil || strings.TrimSpace(string(out)) != "active" {
+		t.Errorf("the service is not active: %s", out)
+	}
+	ps, _ := exec.Command("ps", "-u", n.user, "-o", "comm=").CombinedOutput()
+	if !strings.Contains(string(ps), answers) {
+		t.Errorf("no %s process runs as %s:\n%s", answers, n.user, ps)
+	}
+	ss, _ := exec.Command("ss", "-ltn", "sport = :"+strconv.Itoa(port)).CombinedOutput()
+	if !strings.Contains(string(ss), addr) || strings.Contains(string(ss), "0.0.0.0:"+strconv.Itoa(port)) || strings.Contains(string(ss), "*:"+strconv.Itoa(port)) {
+		t.Errorf("%s must listen on 127.0.0.1 only:\n%s", app, ss)
+	}
+	target := filepath.Join(n.home, r.Path)
+	fi, err := os.Stat(filepath.Join(target, "bin", answers))
+	if err != nil || fi.Mode().Perm() != 0o750 {
+		t.Errorf("the program: %v %v", fi, err)
+	}
+	owner, _ := exec.Command("stat", "-c", "%U", filepath.Join(target, "bin", answers)).CombinedOutput()
+	if strings.TrimSpace(string(owner)) != n.user {
+		t.Errorf("the program belongs to %s, not %s", owner, n.user)
+	}
+	if fi, err := os.Stat(filepath.Join(target, privateFile)); err != nil || fi.Mode().Perm() != 0o600 {
+		t.Errorf("%s: %v %v", privateFile, fi, err)
+	}
+	if out, err := exec.Command("setpriv", "--reuid=65534", "--regid=65534", "--clear-groups", "cat", filepath.Join(target, privateFile)).CombinedOutput(); err == nil {
+		t.Errorf("another account read %s:\n%s", privateFile, out)
+	}
+	if _, err := n.install(t, r); err == nil || !strings.Contains(err.Error(), "not empty") {
+		t.Errorf("a repeat must be refused: %v", err)
+	}
+}
+
+// A real installation of Cloudreve: the release is downloaded from GitHub, verified against checksums.txt and run
+// as a systemd service with its own configuration (data/conf.ini).
+func TestRealHostCloudreveInstall(t *testing.T) {
+	realGoApp(t, "Cloudreve", "cloudreve", "rtcloud", "2894", 3918, func(n *realNative, slug string) Request {
+		return Request{App: "cloudreve", Domain: "cloudreve.test", User: n.user, Root: n.home, Path: "cloud", URL: "https://cloudreve.test", Port: 3918, ServiceSlug: slug, AllowTesting: true}
+	}, "data/conf.ini", "cloudreve")
+}
+
+// A real installation of Gopeed: the release is downloaded from GitHub and checked against the SHA-256 GitHub
+// reports for it; its only login is written to config.json, never to a command line.
+func TestRealHostGopeedInstall(t *testing.T) {
+	realGoApp(t, "Gopeed", "gopeed", "rtgopeed", "2895", 3919, func(n *realNative, slug string) Request {
+		return Request{App: "gopeed", Domain: "gopeed.test", User: n.user, Root: n.home, Path: "gopeed", URL: "https://gopeed.test", Port: 3919, ServiceSlug: slug, AllowTesting: true,
+			AdminUser: "owner", AdminPassword: "rt-gopeed-password-" + strings.Repeat("x", 8)}
+	}, "config.json", "gopeed")
+	// (The password check on the process list is in the unit tests: no command line holds it.)
 }

@@ -7,6 +7,7 @@ All notable changes to NimVor are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Cloudreve and Gopeed in the app installer.** Two single programs, installed like Gitea: downloaded from their GitHub releases, verified (Cloudreve against its `checksums.txt`, Gopeed against the SHA-256 GitHub reports for the file; the install refuses without one), run as a service under the website's account behind its reverse proxy and listening on its loopback port only. Cloudreve asks for no login (the first account you register on it becomes its administrator); Gopeed gets one generated login whose password is shown once and kept only in its private `config.json`. Both start in *testing* status: administrators only until a real-server run proves them. New manifest integrity kind `release-digest`.
 - **EspoCRM and SuiteCRM in the app installer.** Both are downloaded from their GitHub releases and staged with a new database; the website is served from the `public` folder and each application's own web installer finishes setup. They start in *testing* status: only administrators can install them until they are proven on a real server (Server → Apps → catalog).
 
 ## [2.6.0] — 2026-11-25

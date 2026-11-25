@@ -83,7 +83,8 @@ type SourceSpec struct {
 	AssetRe string `json:"asset_re,omitempty"`
 	// Package is the Composer or PyPI package.
 	Package string `json:"package,omitempty"`
-	// Integrity: sha256-sidecar, sha1-sidecar, checksums-file, signature,
+	// Integrity: sha256-sidecar, sha1-sidecar, checksums-file, release-digest
+	// (the SHA-256 GitHub reports for a release file), signature,
 	// composer-lock (Composer's own hashing) or https-only.
 	Integrity string `json:"integrity"`
 	// IntegrityNote says why https-only is all there is (the vendor publishes
@@ -212,8 +213,8 @@ var (
 	runtimeTypes   = set("php", "python", "node", "binary")
 	databaseTypes  = set("none", "mysql", "sqlite", "postgresql")
 	sourceKinds    = set("url", "github-release", "composer", "pypi")
-	integrityKinds = set("sha256-sidecar", "sha1-sidecar", "checksums-file", "signature", "composer-lock", "https-only")
-	strongIntegrty = set("sha256-sidecar", "sha1-sidecar", "checksums-file", "signature")
+	integrityKinds = set("sha256-sidecar", "sha1-sidecar", "checksums-file", "release-digest", "signature", "composer-lock", "https-only")
+	strongIntegrty = set("sha256-sidecar", "sha1-sidecar", "checksums-file", "release-digest", "signature")
 	healthTypes    = set("http", "service", "file")
 	lifecycleIDs   = set("none", "files-and-database", "files", "venv-rebuild", "binary-replace", "composer-update")
 	archs          = set("amd64", "arm64")
@@ -315,7 +316,7 @@ func (m Manifest) Validate() []string {
 		}
 	}
 	if !integrityKinds[s.Integrity] {
-		bad("source integrity must be one of sha256-sidecar, sha1-sidecar, checksums-file, signature, composer-lock, https-only")
+		bad("source integrity must be one of sha256-sidecar, sha1-sidecar, checksums-file, release-digest, signature, composer-lock, https-only")
 	}
 	if s.Integrity == "https-only" && strings.TrimSpace(s.IntegrityNote) == "" {
 		bad("https-only integrity needs an integrity_note saying why nothing can be verified")

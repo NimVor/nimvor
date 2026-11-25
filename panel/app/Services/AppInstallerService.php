@@ -38,6 +38,8 @@ final class AppInstallerService
         'mediawiki' => ['title' => 'MediaWiki', 'description' => 'The wiki engine behind Wikipedia. Staged; finish in its web installer.', 'staged' => true],
         'woocommerce' => ['title' => 'WooCommerce', 'description' => 'WordPress with the WooCommerce online store plugin installed and activated, with a new database and an administrator account.'],
         'gitea' => ['title' => 'Gitea', 'description' => 'Self-hosted Git service. Runs as a service behind this reverse-proxy website; finish setup in its own installer.', 'staged' => true],
+        'cloudreve' => ['title' => 'Cloudreve', 'description' => 'Self-hosted file manager and cloud storage with sharing. Runs as a service behind this reverse-proxy website; the first account you register on it becomes its administrator.', 'staged' => true],
+        'gopeed' => ['title' => 'Gopeed', 'description' => 'Download manager (HTTP, BitTorrent, magnet links) with a web interface. Runs as a service behind this reverse-proxy website; a login is created and its password shown once.', 'staged' => true],
         'django' => ['title' => 'Django', 'description' => 'Python web framework with the admin site, in a virtual environment behind this Python website.'],
         'fastapi' => ['title' => 'FastAPI', 'description' => 'Python API framework starter in a virtual environment behind this Python website.', 'staged' => true],
         'grav' => ['title' => 'Grav', 'description' => 'Flat-file CMS — no database. Staged; ready to use after install.', 'staged' => true],
@@ -94,6 +96,8 @@ final class AppInstallerService
      */
     public const NATIVE = [
         'gitea' => ['runtime' => 'binary', 'finish' => '/', 'name' => 'gitea'],
+        'cloudreve' => ['runtime' => 'binary', 'finish' => '/', 'name' => 'cloudreve'],
+        'gopeed' => ['runtime' => 'binary', 'finish' => '/', 'name' => 'gopeed', 'admin' => true, 'noemail' => true],
         'django' => ['runtime' => 'python', 'finish' => '/admin/', 'name' => 'django', 'admin' => true],
         'fastapi' => ['runtime' => 'python', 'finish' => '/docs', 'name' => 'fastapi'],
     ];
@@ -250,7 +254,8 @@ final class AppInstallerService
                 if (!preg_match('/^[A-Za-z0-9._@-]{3,60}$/', $params['admin_user'])) {
                     $errors['admin_user'] = 'Use 3–60 letters, digits or . _ @ -';
                 }
-                if (!filter_var($params['admin_email'], FILTER_VALIDATE_EMAIL)) {
+                // A login without an email address (Gopeed): only the user name and the password.
+                if (empty($native['noemail']) && !filter_var($params['admin_email'], FILTER_VALIDATE_EMAIL)) {
                     $errors['admin_email'] = 'Enter the administrator\'s email address.';
                 }
                 $adminPassword = Crypto::password(20);
