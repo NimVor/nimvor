@@ -78,7 +78,13 @@
 
     // ---- dialogs ------------------------------------------------------
     var dlgEl = document.getElementById('fm-dialog');
+    // The one window is reused: a window opened right after the last one was confirmed has to wait until that one has
+    // finished closing, or Bootstrap ignores the request and nothing appears.
+    var closing = Promise.resolve();
     function dialog(title, build, okLabel, danger) {
+        return closing.then(function () { return openDialog(title, build, okLabel, danger); });
+    }
+    function openDialog(title, build, okLabel, danger) {
         return new Promise(function (resolve) {
             dlgEl.querySelector('.modal-title').textContent = title;
             var body = dlgEl.querySelector('[data-fm-dialog-body]');
@@ -93,7 +99,9 @@
                 ev.preventDefault();
                 var v = collect();
                 if (v === false) { return; }
-                done = true; modal.hide(); resolve(v);
+                done = true;
+                closing = new Promise(function (r) { dlgEl.addEventListener('hidden.bs.modal', function () { r(); }, { once: true }); });
+                modal.hide(); resolve(v);
             };
             dlgEl.addEventListener('hidden.bs.modal', function () { if (!done) { resolve(null); } }, { once: true });
             dlgEl.addEventListener('shown.bs.modal', function () { var f = body.querySelector('input, select'); if (f) { f.focus(); if (f.select) { f.select(); } } }, { once: true });

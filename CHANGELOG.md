@@ -13,6 +13,7 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Changed
 
+- **Windows (modals) have a teal header**: background `#0f766e`, white title, a red (`#ff0000`) close icon and a 3px `#134e4a` line under the header, in the light and dark themes.
 - **File manager: a loader while it works.** Delete, compress, extract, copy and move now cover the manager with a spinner and what is happening ("Copying…", "Extracting…"), until the work is done, instead of only a line of text at the bottom.
 
 ### Added
