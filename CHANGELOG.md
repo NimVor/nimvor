@@ -7,6 +7,7 @@ All notable changes to NimVor are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- Windows (modals) have a light header (`#f6f8f8`, grey `#555` title, a 1px `#ccc` line under it; the close icon stays red), and the sidebar is teal (`#115f5a`) with a `#ccc` edge; its muted text and active row were adjusted to stay readable on it.
 - The top bar no longer shows the operating system (it is in the server card on hover). The Software widget is eight columns wide by default, its status is a bar across the top of each tile, and its buttons float over the tile on hover so tiles keep their height.
 
 ### Removed
