@@ -53,6 +53,27 @@
         var d = err.details || {};
         NimVor.toast((d.message || err.message) + (d.reason ? ' — ' + d.reason : '') + (d.details ? ' — ' + d.details : ''), 'danger');
     }
+    // The loader: a veil over the file manager while something is being done (so nothing else is clicked meanwhile).
+    var busyEl = null, busyCount = 0;
+    function busyStart(label) {
+        busyCount++;
+        if (!busyEl) {
+            busyEl = el('div', 'nim-fm-busy'); busyEl.setAttribute('role', 'status'); busyEl.setAttribute('aria-live', 'polite');
+            var sp = el('div', 'spinner-border text-primary'); sp.setAttribute('aria-hidden', 'true');
+            busyEl.appendChild(sp); busyEl.appendChild(el('div', 'nim-fm-busy-label'));
+            root.appendChild(busyEl);
+        }
+        busyEl.querySelector('.nim-fm-busy-label').textContent = label;
+        busyEl.hidden = false; root.setAttribute('aria-busy', 'true');
+    }
+    function busyStop() {
+        busyCount = Math.max(0, busyCount - 1);
+        if (busyEl && busyCount === 0) { busyEl.hidden = true; root.removeAttribute('aria-busy'); }
+    }
+    function withBusy(label, promise) {
+        busyStart(label);
+        return promise.then(function (v) { busyStop(); return v; }, function (e) { busyStop(); throw e; });
+    }
     function selectedEntries() { return state.entries.filter(function (e) { return state.selected.has(e.path); }); }
 
     // ---- dialogs ------------------------------------------------------
@@ -473,7 +494,7 @@
                 return function () { return { permanent: perm.checked }; };
             }, 'Delete', true).then(function (v) {
                 if (!v) { return; }
-                call('delete', { paths: sel.map(function (e) { return e.path; }), permanent: v.permanent }).then(function (r) {
+                withBusy(v.permanent ? 'Deleting…' : 'Moving to the Trash…', call('delete', { paths: sel.map(function (e) { return e.path; }), permanent: v.permanent })).then(function (r) {
                     NimVor.toast(r.trashed ? 'Moved ' + r.deleted + ' item(s) to the Trash.' : 'Deleted ' + r.deleted + ' item(s) permanently.', 'success'); refreshTreeAt(state.cwd); load();
                 }).catch(fail);
             });
@@ -523,7 +544,7 @@
                 return function () { var v = i.value.trim(); return validName(v) && /\.(zip|tar\.gz)$/i.test(v) ? v : (i.classList.add('is-invalid'), false); };
             }, 'Compress').then(function (name) {
                 if (!name) { return; }
-                call('compress', { paths: sel.map(function (e) { return e.path; }), dest: join(state.cwd, name) }).then(function (r) { watchJob(r.job_id, 'Compressing'); }).catch(fail);
+                withBusy('Compressing…', call('compress', { paths: sel.map(function (e) { return e.path; }), dest: join(state.cwd, name) })).then(function (r) { watchJob(r.job_id, 'Compressing'); }).catch(fail);
             });
         },
         extract: function () {
@@ -536,18 +557,19 @@
                 return function () { return { dest: i.value.trim().replace(/^\/+|\/+$/g, '') }; };
             }, 'Extract').then(function (v) {
                 if (!v) { return; }
-                call('extract', { path: s.path, dest: v.dest, overwrite: over.checked }).then(function (r) { watchJob(r.job_id, 'Extracting'); }).catch(fail);
+                withBusy('Extracting…', call('extract', { path: s.path, dest: v.dest, overwrite: over.checked })).then(function (r) { watchJob(r.job_id, 'Extracting'); }).catch(fail);
             });
         }
     };
     function sequential(items, fn) {
         return items.reduce(function (p, it) { return p.then(function () { return fn(it); }); }, Promise.resolve());
     }
-    // "name already exists there": replace it (the old one goes to the website's trash) or leave it and skip.
-    function confirmReplace(name, folder) {
-        return dialog('Replace ' + name + '?', function (b) {
-            b.appendChild(el('p', null, '“' + name + '” already exists in ' + (folder ? '“' + folder + '”' : 'the website root') + '.'));
-            b.appendChild(el('p', 'form-text mb-0', 'Replace it? The existing one is moved to the website\'s trash, so you can restore it from there.'));
+    // Some of the names are already in the destination: ask once for all of them. The old ones go to the website's Trash.
+    function confirmReplace(taken, folder) {
+        return dialog((taken.length === 1 ? 'Replace ' + taken[0] : 'Replace ' + taken.length + ' items') + '?', function (b) {
+            b.appendChild(el('p', 'small', (taken.length === 1 ? 'This name already exists' : 'These names already exist') + ' in ' + (folder ? '“' + folder + '”' : 'the website root') + ':'));
+            nameList(b, taken);
+            b.appendChild(el('p', 'form-text mb-0', 'Replace ' + (taken.length === 1 ? 'it' : 'them') + '? The existing ' + (taken.length === 1 ? 'one is' : 'ones are') + ' moved to the website\'s Trash, so you can restore ' + (taken.length === 1 ? 'it' : 'them') + ' from there.'));
             return function () { return { replace: true }; };
         }, 'Replace', true).then(function (v) { return !!v; });
     }
@@ -559,29 +581,36 @@
             return function () { return { to: i.value.trim().replace(/^\/+|\/+$/g, '') }; };
         }, kind === 'copy' ? 'Copy' : 'Move').then(function (v) {
             if (!v) { return; }
-            sequential(sel, function (e) {
-                var to = join(v.to, e.name);
-                if (to === e.path) { return kind === 'copy' ? call('copy', { from: e.path, to: e.path + '-copy' }) : null; }
-                var op = kind === 'copy' ? 'copy' : 'rename';
-                return call(op, { from: e.path, to: to }).catch(function (err) {
-                    // The name is taken: ask, and replace only when told to (the old one goes to the trash).
-                    if (err.status !== 409) { throw err; }
-                    return confirmReplace(e.name, v.to).then(function (yes) {
-                        if (!yes) { return null; }
-                        return call(op, { from: e.path, to: to, overwrite: true });
-                    });
+            var op = kind === 'copy' ? 'copy' : 'rename';
+            var label = kind === 'copy' ? 'Copying…' : 'Moving…';
+            // What is already there? Asked once for the whole selection, before anything is done.
+            busyStart('Checking ' + (v.to ? '/' + v.to : 'the folder') + '…');
+            call('list', { path: v.to }).then(function (list) { return list || []; }, function () { return []; }).then(function (list) {
+                busyStop();
+                var there = {}; list.forEach(function (x) { there[x.name] = true; });
+                var taken = sel.filter(function (e) { return there[e.name] && join(v.to, e.name) !== e.path; }).map(function (e) { return e.name; });
+                return (taken.length ? confirmReplace(taken, v.to) : Promise.resolve(true)).then(function (yes) { return yes ? taken : null; });
+            }).then(function (taken) {
+                if (taken === null) { return; }
+                var replace = {}; taken.forEach(function (n) { replace[n] = true; });
+                return withBusy(label, sequential(sel, function (e) {
+                    var to = join(v.to, e.name);
+                    if (to === e.path) { return kind === 'copy' ? call('copy', { from: e.path, to: e.path + '-copy' }) : null; }
+                    return call(op, replace[e.name] ? { from: e.path, to: to, overwrite: true } : { from: e.path, to: to });
+                })).then(function () {
+                    NimVor.toast(kind === 'copy' ? 'Copied.' : 'Moved.', 'success');
+                    refreshTreeAt(state.cwd); refreshTreeAt(v.to); load();
                 });
-            }).then(function () {
-                NimVor.toast(kind === 'copy' ? 'Copied.' : 'Moved.', 'success');
-                refreshTreeAt(state.cwd); refreshTreeAt(v.to); load();
             }).catch(function (err) { fail(err); load(); });
         });
     }
     function watchJob(jobId, label) {
         status.textContent = label + '…';
+        busyStart(label + '…');
         (function poll(offset) {
             NimVor.fetchJson('/jobs/' + jobId + '?offset=' + offset).then(function (res) {
                 if (!res.done) { setTimeout(function () { poll(res.offset || offset); }, 1000); return; }
+                busyStop();
                 if (res.job.status === 'succeeded') { NimVor.toast(label + ' finished.', 'success'); }
                 else { NimVor.toast(label + ' failed: ' + (res.job.error || 'see the log'), 'danger'); NimVor.showJob(jobId); }
                 refreshTreeAt(state.cwd); load(true);

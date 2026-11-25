@@ -110,3 +110,61 @@ func TestLogsOwnedByServicesAreNotProblems(t *testing.T) {
 		}
 	}
 }
+
+// A site unpacked with owner-only modes (every file 0600, folders 0700) answers 403 for every page: the web server
+// can neither read the files nor enter the folders. The repair gives the document root what the web server needs,
+// and leaves what is private on purpose.
+func TestOwnerOnlyModesInTheDocumentRootAreRepaired(t *testing.T) {
+	r := permRules{uid: 1001, gid: 1001, webGID: 33, webUID: 33, docRel: "public_html"}
+	st := func(mode uint32) syscall.Stat_t { return syscall.Stat_t{Uid: 1001, Gid: 33, Mode: mode} }
+	type c struct {
+		rel     string
+		dir     bool
+		mode    uint32
+		want    uint32
+		problem bool
+	}
+	for _, tc := range []c{
+		{"public_html/index.php", false, 0o600, 0o644, true},
+		{"public_html/css/site.css", false, 0o600, 0o644, true},
+		{"public_html/img/logo.png", false, 0o400, 0o444, true},
+		{"public_html/bin/run.sh", false, 0o700, 0o755, true},
+		{"public_html/index.php", false, 0o640, 0o640, false}, // the web server's group reads it
+		{"public_html/index.php", false, 0o604, 0o604, false},
+		{"public_html/.well-known/acme-challenge/x", false, 0o600, 0o644, true},
+		{"public_html/.htaccess", false, 0o600, 0o644, true},
+		{"public_html/css", true, 0o700, 0o755, true},
+		{"public_html", true, 0o700, 0o755, true},
+		{"", true, 0o700, 0o755, true}, // the website folder: on the way to the document root
+		{"public_html/css", true, 0o750, 0o750, false},
+		// Private on purpose: left as they are.
+		{"public_html/wp-config.php", false, 0o600, 0o600, false},
+		{"public_html/sub/config.php", false, 0o600, 0o600, false},
+		{"public_html/.env", false, 0o600, 0o600, false},
+		{"public_html/.env.production", false, 0o600, 0o600, false},
+		{"public_html/.git/config", false, 0o600, 0o600, false},
+		{"public_html/.git", true, 0o700, 0o700, false},
+		{"public_html/keys/server.key", false, 0o600, 0o600, false},
+		{"public_html/backup/dump.sql", false, 0o600, 0o600, false},
+		{"public_html/.user.ini", false, 0o600, 0o600, false},
+		// Outside the document root nothing is asked of the web server.
+		{"logs/x.log", false, 0o600, 0o600, false},
+		{"tmp", true, 0o700, 0o700, false},
+		{"private/notes.txt", false, 0o600, 0o600, false},
+	} {
+		_, _, mode, problems := r.want(tc.rel, tc.dir, st(tc.mode))
+		got := false
+		for _, p := range problems {
+			got = got || p == ProbWebRead
+		}
+		if got != tc.problem || mode&0o7777 != tc.want {
+			t.Errorf("%s (dir %v) %o: problems %v mode %o, want problem %v mode %o", tc.rel, tc.dir, tc.mode, problems, mode&0o7777, tc.problem, tc.want)
+		}
+	}
+	// A document root that is the website folder itself.
+	root := permRules{uid: 1001, gid: 1001, webGID: 33, webUID: 33, docRel: ""}
+	_, _, mode, problems := root.want("index.html", false, st(0o600))
+	if len(problems) != 1 || mode&0o7777 != 0o644 {
+		t.Errorf("index.html in a website whose document root is its folder: %v %o", problems, mode&0o7777)
+	}
+}

@@ -367,7 +367,7 @@
         var box = document.querySelector('[data-nim-perm-results]');
         var repair = document.querySelector('[data-nim-perm-repair]');
         var el = function (tag, cls, text) { var x = document.createElement(tag); if (cls) { x.className = cls; } if (text !== undefined) { x.textContent = text; } return x; };
-        var names = { owner: 'another owner', group: 'another account\'s group', world_write: 'writable by anyone', setid: 'set-ID bit', unreadable: 'owner cannot read' };
+        var names = { owner: 'another owner', group: 'another account\'s group', world_write: 'writable by anyone', setid: 'set-ID bit', unreadable: 'owner cannot read', web_read: 'web server cannot read it (403)' };
         btn.disabled = true;
         box.hidden = false;
         repair.hidden = true;

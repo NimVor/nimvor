@@ -21,9 +21,11 @@ import (
 // Website permission repair: files and folders of a website that do not
 // belong to its account, belong to a group that is neither the account's
 // nor the web server's, can be written by anyone, carry set-user/group-ID
-// bits, or cannot be read by their owner. Everything else (e.g. a
-// deliberately private 0600 wp-config.php, or group-writable folders) is
-// left as it is.
+// bits, or cannot be read by their owner, and, inside the document root,
+// files the web server cannot read and folders it cannot enter (a site
+// unpacked with owner-only modes answers 403 for every page). Everything
+// else (e.g. a deliberately private 0600 wp-config.php or .env, any file
+// whose name starts with a dot, or group-writable folders) is left as it is.
 
 // Problem kinds.
 const (
@@ -32,6 +34,7 @@ const (
 	ProbWorldWrite = "world_write" // anyone can write
 	ProbSetID      = "setid"       // set-user-ID or set-group-ID on a file
 	ProbUnreadable = "unreadable"  // the owner cannot read (or enter)
+	ProbWebRead    = "web_read"    // inside the document root, the web server can neither read the file nor enter the folder
 )
 
 // PermIssue is one entry that needs repair.
@@ -62,6 +65,43 @@ type permRules struct {
 
 func (r permRules) inDocroot(rel string) bool {
 	return r.docRel == "" || rel == r.docRel || strings.HasPrefix(rel, r.docRel+"/")
+}
+
+// privateNames are files that are meant to stay unreadable to the web server's group and to other accounts even
+// inside the document root: they hold passwords and keys (PHP reads them as the account that owns them).
+var privateNames = map[string]bool{
+	"wp-config.php": true, "config.php": true, "configuration.php": true, "settings.php": true, "local.php": true,
+	"database.php": true, "db.php": true, "secrets.php": true, "parameters.yml": true, "parameters.yaml": true,
+	"credentials.json": true, "service-account.json": true, "id_rsa": true, "id_ed25519": true, "id_ecdsa": true,
+}
+
+// privateExt are extensions of files that are secrets by nature.
+var privateExt = map[string]bool{".key": true, ".pem": true, ".p12": true, ".pfx": true, ".sqlite": true, ".sqlite3": true, ".db": true, ".sql": true}
+
+// deliberatelyPrivate reports whether an entry of the document root is left as its owner made it: anything whose
+// name starts with a dot (.env, .htpasswd, .git, .ssh, .user.ini …; .well-known is the exception, it is public),
+// anything inside such a folder, and the known secret file names and kinds above.
+func deliberatelyPrivate(rel string, dir bool) bool {
+	parts := strings.Split(rel, "/")
+	for i, p := range parts {
+		if strings.HasPrefix(p, ".") && p != ".well-known" && !(p == ".htaccess" && i == len(parts)-1 && !dir) {
+			return true
+		}
+	}
+	if dir {
+		return false
+	}
+	name := strings.ToLower(parts[len(parts)-1])
+	return privateNames[name] || privateExt[filepath.Ext(name)]
+}
+
+// servedFolder reports whether the web server must be able to enter the folder: the website folder, the folders on
+// the way to the document root, and everything inside it.
+func (r permRules) servedFolder(rel string) bool {
+	if r.inDocroot(rel) {
+		return true
+	}
+	return rel == "" || strings.HasPrefix(r.docRel, rel+"/")
 }
 
 // want returns the owner, group and mode an entry should have and why.
@@ -101,6 +141,22 @@ func (r permRules) want(rel string, dir bool, st syscall.Stat_t) (uid, gid int, 
 	if mode&need != need {
 		problems = append(problems, ProbUnreadable)
 		mode |= need
+	}
+	// The web server reads through the group (when it is the web server's) or as anyone: a file with neither is a
+	// page that answers 403, a folder it cannot enter hides everything below it. Private-by-design files stay.
+	if !serviceLog {
+		if dir {
+			if r.servedFolder(rel) && !deliberatelyPrivate(rel, true) && mode&0o011 == 0 {
+				problems = append(problems, ProbWebRead)
+				mode |= 0o055
+			}
+		} else if r.inDocroot(rel) && !deliberatelyPrivate(rel, false) && mode&0o044 == 0 {
+			problems = append(problems, ProbWebRead)
+			mode |= 0o044
+			if mode&0o100 != 0 {
+				mode |= 0o011
+			}
+		}
 	}
 	return
 }
@@ -158,7 +214,7 @@ func modeString(m uint32, dir bool) string {
 
 func (m *Manager) registerRepair(r *actions.Registry) {
 	e := m.Env
-	r.Register(actions.Action{Name: "sites.permissions", Mutating: true, Timeout: 30 * time.Minute, Description: "Check (dry_run) or repair the ownership and permissions of a website's files: the account's owner, its or the web server's group, no world-writable files, no set-ID files, readable by the owner. Links are never followed.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	r.Register(actions.Action{Name: "sites.permissions", Mutating: true, Timeout: 30 * time.Minute, Description: "Check (dry_run) or repair the ownership and permissions of a website's files: the account's owner, its or the web server's group, no world-writable files, no set-ID files, readable by the owner and, in the document root, by the web server (private files such as wp-config.php, .env and keys are left alone). Links are never followed.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var in struct {
 			Domain       string `json:"domain"`
 			User         string `json:"user"`
