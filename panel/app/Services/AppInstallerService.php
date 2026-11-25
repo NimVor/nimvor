@@ -23,6 +23,8 @@ final class AppInstallerService
     public const APPS = [
         'wordpress' => ['title' => 'WordPress', 'description' => 'Blog and website builder. Installed into the document root with a new database and an administrator account.'],
         'laravel' => ['title' => 'Laravel', 'description' => 'PHP framework skeleton via Composer, with the database configured in .env. The website is served from <folder>/public.'],
+        'espocrm' => ['title' => 'EspoCRM', 'description' => 'Customer relationship management. Staged with a new database; the website is served from <folder>/public.', 'staged' => true],
+        'suitecrm' => ['title' => 'SuiteCRM', 'description' => 'Customer relationship management. Staged with a new database; the website is served from <folder>/public.', 'staged' => true],
         'joomla' => ['title' => 'Joomla', 'description' => 'Content management system. Staged into the document root with a new database; finish in its web installer.', 'staged' => true],
         'drupal' => ['title' => 'Drupal', 'description' => 'Content management framework. Staged into the document root with a new database; finish in its web installer.', 'staged' => true],
         'phpbb' => ['title' => 'phpBB', 'description' => 'Forum software. Staged into the document root with a new database; finish in its web installer.', 'staged' => true],
@@ -126,6 +128,8 @@ final class AppInstallerService
 
     /** Staged apps: where their web installer lives and the web root subfolder. */
     public const STAGED = [
+        'espocrm' => ['finish' => '/install/', 'docroot' => 'public'],
+        'suitecrm' => ['finish' => '/install.php', 'docroot' => 'public'],
         'joomla' => ['finish' => '/installation/', 'docroot' => ''],
         'drupal' => ['finish' => '/core/install.php', 'docroot' => ''],
         'phpbb' => ['finish' => '/install/', 'docroot' => ''],

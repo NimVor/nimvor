@@ -124,6 +124,8 @@ var Catalog = map[string]AppDef{
 	"processwire": {Name: "ProcessWire", URL: "https://github.com/processwire/processwire/archive/refs/heads/master.zip", Format: "zip", Strip: 1, Ext: []string{"pdo_mysql", "gd", "mbstring", "json"}, Finish: "/install.php"},
 	"bludit":      {Name: "Bludit", URL: "https://www.bludit.com/releases/bludit-latest.zip", Format: "zip", Strip: 1, NoDB: true, Ext: []string{"gd", "mbstring", "json", "dom"}, Finish: "/"},
 	// Business, finance
+	"espocrm":   {Name: "EspoCRM", GitHub: "espocrm/espocrm", AssetRe: `^EspoCRM-[0-9.]+\.zip$`, Format: "zip", Strip: 1, DocRoot: "public", Ext: []string{"pdo_mysql", "gd", "mbstring", "xml", "curl", "zip", "json", "openssl", "exif"}, Finish: "/install/"},
+	"suitecrm":  {Name: "SuiteCRM", GitHub: "SuiteCRM/SuiteCRM-Core", AssetRe: `^SuiteCRM-[0-9.]+\.zip$`, Format: "zip", Strip: 0, DocRoot: "public", Ext: []string{"pdo_mysql", "gd", "mbstring", "xml", "curl", "zip", "json", "openssl", "intl", "bcmath"}, Finish: "/install.php"},
 	"dolibarr":  {Name: "Dolibarr ERP & CRM", URL: "https://sourceforge.net/projects/dolibarr/files/latest/download", Format: "zip", Strip: 1, DocRoot: "htdocs", Ext: []string{"mysqli", "gd", "curl", "intl", "mbstring", "xml", "zip"}, Finish: "/install/"},
 	"akaunting": {Name: "Akaunting", URL: "https://akaunting.com/download.php?version=latest", Format: "zip", Strip: 0, Ext: []string{"pdo_mysql", "mbstring", "xml", "curl", "zip", "gd", "intl", "bcmath", "fileinfo", "dom"}, Finish: "/"},
 	// Composer-distributed
