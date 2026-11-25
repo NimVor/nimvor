@@ -75,7 +75,7 @@ final class DashboardPopoverTest extends HttpTestCase
         self::assertStringNotContainsString('<dt>OS</dt>', $page);
         $res = json_decode($this->request('GET', '/changelog/popover')->body(), true);
         self::assertTrue($res['success']);
-        self::assertStringContainsString('Change log', $res['html']);
+        self::assertStringContainsString('Change Logs', $res['html']);
     }
 
     public function testAnUnknownTileIsNotFound(): void

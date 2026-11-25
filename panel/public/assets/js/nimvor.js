@@ -1554,6 +1554,34 @@
         form.reset();
     });
 
+    // Change log card: search the entries and filter by kind of change, in the browser.
+    function changelogFilter(card) {
+        var q = ((card.querySelector('[data-cl-search]') || {}).value || '').trim().toLowerCase();
+        var kind = (card.querySelector('[data-cl-filter]') || {}).value || '';
+        var any = false;
+        card.querySelectorAll('[data-cl-release]').forEach(function (rel) {
+            var shown = false;
+            rel.querySelectorAll('[data-cl-group]').forEach(function (g) {
+                var kindOk = kind === '' || g.getAttribute('data-cl-group') === kind, groupShown = false;
+                g.querySelectorAll('[data-cl-text]').forEach(function (li) {
+                    var ok = kindOk && (q === '' || li.textContent.toLowerCase().indexOf(q) !== -1);
+                    li.classList.toggle('d-none', !ok);
+                    groupShown = groupShown || ok;
+                });
+                g.classList.toggle('d-none', !groupShown);
+                shown = shown || groupShown;
+            });
+            // A release with no groups matching still shows when nothing is being searched for.
+            if (!shown && q === '' && kind === '') { shown = true; }
+            rel.classList.toggle('d-none', !shown);
+            any = any || shown;
+        });
+        var none = card.querySelector('[data-cl-none]');
+        if (none) { none.classList.toggle('d-none', any); }
+    }
+    document.addEventListener('input', function (e) { var c = e.target.closest ? e.target.closest('.nim-cl') : null; if (c && e.target.matches('[data-cl-search]')) { changelogFilter(c); } });
+    document.addEventListener('change', function (e) { var c = e.target.closest ? e.target.closest('.nim-cl') : null; if (c && e.target.matches('[data-cl-filter]')) { changelogFilter(c); } });
+
     // Hover cards: anything with data-popover-url (a dashboard tile, the server name in the top bar) shows the
     // HTML that address returns in a small card while the pointer rests on it; a click or Enter does the same for
     // touch and keyboard. The card stays while the pointer is on it (it can hold buttons) and closes on Escape.
@@ -1576,7 +1604,7 @@
         document.body.appendChild(box);
         hover.card = box; hover.owner = owner;
         box.addEventListener('mouseenter', function () { clearTimeout(hover.closeTimer); });
-        box.addEventListener('mouseleave', function () { hover.closeTimer = setTimeout(hoverClose, 250); });
+        box.addEventListener('mouseleave', function () { hover.closeTimer = setTimeout(function () { if (!box.contains(document.activeElement)) { hoverClose(); } }, 250); });
         NimVor.fetchJson(owner.getAttribute('data-popover-url'))
             .then(function (res) { if (hover.card === box) { box.innerHTML = res.html; } })
             .catch(function (err) { if (hover.card === box) { box.textContent = err.message; } });
@@ -1593,7 +1621,7 @@
         var owner = e.target.closest ? e.target.closest('[data-popover-url]') : null;
         if (!owner || owner.contains(e.relatedTarget)) { return; }
         clearTimeout(hover.openTimer);
-        if (hover.owner === owner && !(hover.card && hover.card.contains(e.relatedTarget))) { hover.closeTimer = setTimeout(hoverClose, 250); }
+        if (hover.owner === owner && !(hover.card && hover.card.contains(e.relatedTarget))) { hover.closeTimer = setTimeout(function () { if (!(hover.card && hover.card.contains(document.activeElement))) { hoverClose(); } }, 250); }
     });
     document.addEventListener('click', function (e) {
         var owner = e.target.closest ? e.target.closest('[data-popover-url]') : null;

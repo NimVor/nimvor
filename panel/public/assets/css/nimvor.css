@@ -1332,3 +1332,27 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 .nim-topbar-host { cursor: pointer; }
 .nim-pop-list { margin: .15rem 0 .25rem; padding-left: 1.1rem; font-size: .78rem; }
 .nim-hovercard { width: min(420px, calc(100vw - 24px)); }
+
+/* Change log card (hover card on the version number in the top bar). */
+.nim-hovercard:has(.nim-cl) { width: min(580px, calc(100vw - 24px)); max-height: 80vh; padding: 0; }
+.nim-cl-head { position: sticky; top: 0; z-index: 2; padding: .75rem 1rem; font-weight: 650; font-size: .95rem; background: var(--bs-body-bg); border-bottom: 1px solid var(--bs-border-color); }
+.nim-cl { font-size: .82rem; }
+.nim-cl > :not(.nim-cl-head) { margin-left: 1rem; margin-right: 1rem; }
+.nim-cl > .nim-cl-head + * { margin-top: .75rem; }
+.nim-cl-tools { display: flex; gap: .5rem; margin-bottom: .75rem; }
+.nim-cl-search { position: relative; flex: 1 1 auto; }
+.nim-cl-search .bi { position: absolute; left: .6rem; top: 50%; transform: translateY(-50%); color: var(--bs-secondary-color); pointer-events: none; }
+.nim-cl-search input { padding-left: 1.9rem; }
+.nim-cl-tools select { width: 8.5rem; flex: none; }
+.nim-cl-timeline { list-style: none; margin: 0 1rem 1rem; padding: 0 0 0 1.6rem; position: relative; }
+.nim-cl-timeline::before { content: ""; position: absolute; left: .45rem; top: .6rem; bottom: 0; width: 2px; background: var(--bs-border-color); }
+.nim-cl-release { position: relative; margin-bottom: .9rem; }
+.nim-cl-dot { position: absolute; left: -1.6rem; top: .55rem; width: 1rem; height: 1rem; border-radius: 50%; background: var(--bs-body-bg); border: 2px solid #16a34a; }
+.nim-cl-card { border: 1px solid var(--bs-border-color); border-radius: .5rem; padding: .75rem 1rem; }
+.nim-cl-version { font-weight: 700; font-size: 1.05rem; }
+.nim-cl-new { background: #dcfce7; color: #15803d; font-weight: 600; }
+.nim-cl-group { margin-top: .75rem; }
+.nim-cl-group-title { display: flex; align-items: center; gap: .5rem; font-weight: 600; }
+.nim-cl-icon { display: inline-flex; width: 1.5rem; height: 1.5rem; align-items: center; justify-content: center; border-radius: .3rem; background: var(--bs-tertiary-bg); color: var(--bs-secondary-color); }
+.nim-cl-items { margin: .4rem 0 0; padding-left: 2.1rem; }
+.nim-cl-items li { margin-bottom: .2rem; }

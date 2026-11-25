@@ -26,4 +26,16 @@ final class ChangelogServiceTest extends TestCase
     {
         self::assertSame([], (new ChangelogService('/nonexistent/CHANGELOG.md'))->releases());
     }
+
+    public function testTheProjectsOwnChangelogReads(): void
+    {
+        $file = dirname(__DIR__, 3) . '/CHANGELOG.md';
+        if (!is_file($file)) {
+            self::markTestSkipped('CHANGELOG.md is not beside the panel in this checkout.');
+        }
+        $r = (new ChangelogService($file))->releases(10);
+        self::assertNotEmpty($r);
+        self::assertMatchesRegularExpression('/^\d+\.\d+\.\d+/', $r[0]['version']);
+        self::assertNotEmpty($r[0]['groups'] !== [] || $r[0]['intro'] !== '' ? [1] : []);
+    }
 }
