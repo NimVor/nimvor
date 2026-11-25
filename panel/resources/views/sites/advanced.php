@@ -99,7 +99,7 @@ $id = (int) $site['id'];
                 <?php endif; ?>
                 <div>
                     <div class="nim-danger-row">
-                        <div><div class="fw-medium">File permissions</div><div class="small text-body-secondary">Find files that do not belong to the website's account, can be written by anyone, carry set-ID bits or cannot be read by their owner. Deliberately private files (e.g. 0600) are left as they are.</div></div>
+                        <div><div class="fw-medium">File permissions</div><div class="small text-body-secondary">Find files that do not belong to the website's account, can be written by anyone, carry set-ID bits or cannot be read by their owner, and, in the website's folder, pages the web server is not allowed to read (a 403 error). Files that are private on purpose (wp-config.php, .env, keys, anything starting with a dot) are left as they are.</div></div>
                         <button class="btn btn-sm btn-outline-secondary text-nowrap" type="button" data-nim-perm-check="<?= e($this->url('sites.permissions', ['id' => $id])) ?>"><i class="bi bi-search me-1"></i>Check</button>
                     </div>
                     <div class="small mt-2" data-nim-perm-results aria-live="polite" hidden></div>

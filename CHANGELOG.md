@@ -6,6 +6,20 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.5.1] — 2026-11-25
+
+Fixes for the file manager and the permission repair, and a new look for windows. Panel and agent: upgrade both with `sudo nimvor update`. A website whose files are owner-only (and so answers 403) is repaired with *Advanced → File permissions → Check → Repair*.
+
+### Fixed
+
+- **Repair permissions now fixes a website that answers 403 because its files are owner-only (`0600`).** A website unpacked with owner-only modes (every file 0600, folders 0700) was reported as "in order", because 0600 files were all treated as private on purpose, and nginx could not read any page. In the website's document root the check and the repair now also find files the web server can neither read nor (for folders) enter, and give them `0644`/`0755` (keeping the owner's execute bit). What is private on purpose is still left alone: names starting with a dot (`.env`, `.htpasswd`, `.git`, `.user.ini`; `.well-known` and `.htaccess` are public), `wp-config.php`, `config.php`, `settings.php`, `local.php`, `database.php`, key and database files (`.key`, `.pem`, `.sqlite`, `.sql` …), and everything outside the document root.
+- **File manager: one question when copying or moving onto names that already exist.** Before, "Replace?" was asked again for every file. The manager now looks at the destination once and asks a single question naming all the files that would be replaced; the old ones go to the Trash. Cancelling does nothing.
+
+### Changed
+
+- **Windows (modals) have a teal header**: background `#0f766e`, white title, a red (`#ff0000`) close icon and a 3px `#134e4a` line under the header, in the light and dark themes.
+- **File manager: a loader while it works.** Delete, compress, extract, copy and move now cover the manager with a spinner and what is happening ("Copying…", "Extracting…"), until the work is done, instead of only a line of text at the bottom.
+
 ## [2.5.0] — 2026-11-25
 
 The public REST API now also covers a website's security headers and cache rules, which completes the per-website settings. Panel only; the agent's only change is its version number. Upgrade with `sudo nimvor update`.

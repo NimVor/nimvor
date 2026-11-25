@@ -167,13 +167,46 @@ const OUT = process.env.E2E_OUT || '/tmp';
   await page.click('#fm-trash .btn-close');
   await page.waitForSelector('#fm-trash', { state: 'hidden' });
 
+  // Copy and move onto names that already exist: one question for the whole selection, a loader while it works
+  await page.click('[data-fm-rows] tr[data-path="public_html/hello.txt"] td.nim-fm-name');
+  await page.click('[data-fm-rows] tr[data-path="public_html/style.css"] td.nim-fm-name', { modifiers: ['Control'] });
+  await page.click('[data-fm-cmd="move"]');
+  await page.fill('#fm-dialog input.font-monospace', 'public_html/assets');
+  await page.click('[data-fm-dialog-ok]');
+  await page.waitForFunction(() => { const d = document.getElementById('fm-dialog'); return d && d.classList.contains('show') && /Replace 2 items/.test(d.textContent); }, null, { timeout: 15000 });
+  const q = await page.textContent('#fm-dialog');
+  if (!q.includes('hello.txt') || !q.includes('style.css')) { throw new Error('the replace question does not name both files: ' + q); }
+  await page.click('#fm-dialog .modal-footer .btn-outline-secondary');
+  await page.waitForSelector('#fm-dialog', { state: 'hidden' });
+  await page.waitForTimeout(800);
+  if (!(await page.locator('[data-fm-rows] tr[data-path="public_html/hello.txt"]').count())) { throw new Error('cancelling the replace question still moved the files'); }
+  step('replace question names both files; cancelling does nothing');
+
+  await page.route('**/files/api', async (route) => {
+    if ((route.request().postData() || '').includes('"op":"copy"')) { await new Promise((r) => setTimeout(r, 1500)); }
+    await route.continue();
+  });
+  await page.click('[data-fm-cmd="copy"]');
+  await page.fill('#fm-dialog input.font-monospace', 'public_html/assets');
+  await page.click('[data-fm-dialog-ok]');
+  await page.waitForFunction(() => { const d = document.getElementById('fm-dialog'); return d && d.classList.contains('show') && /Replace 2 items/.test(d.textContent); }, null, { timeout: 15000 });
+  await page.click('#fm-dialog [data-fm-dialog-ok]');
+  await page.waitForSelector('.nim-fm-busy:not([hidden])', { timeout: 5000 });
+  if (!/Copying/.test(await page.textContent('.nim-fm-busy'))) { throw new Error('the loader does not say what is happening'); }
+  step('loader shown while copying');
+  await page.waitForSelector('.nim-fm-busy', { state: 'hidden', timeout: 15000 });
+  await page.waitForTimeout(1000);
+  if (await page.locator('#fm-dialog.show').count()) { throw new Error('a second replace question appeared'); }
+  await page.unroute('**/files/api');
+  step('replaced after one question, no second question');
+
   // Empty trash asks first, then the trash window comes back empty
   await page.click('[data-fm-rows] tr[data-path="public_html/assets"] td.nim-fm-name');
   await page.click('[data-fm-cmd="delete"]');
   await page.click('[data-fm-dialog-ok]');
   await page.waitForSelector('[data-fm-rows] tr[data-path="public_html/assets"]', { state: 'detached' });
   await page.click('[data-fm-cmd="trash"]');
-  await page.locator('#fm-trash [data-fm-trash-rows] tr', { hasText: 'assets' }).waitFor();
+  await page.locator('#fm-trash [data-fm-trash-rows] tr', { has: page.locator('td:text-is("assets")') }).waitFor();
   await page.click('[data-fm-trash-empty]');
   await page.waitForSelector('#fm-dialog.show');
   if (!(await page.textContent('#fm-dialog')).includes('cannot be undone')) { throw new Error('empty trash without a warning'); }
