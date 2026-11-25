@@ -6,6 +6,11 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Dashboard tiles open details.** Click the CPU, memory, disk or load tile for a popover: the processor and the load of each core, the busiest processes, where memory goes, disk space and inode use with where the space is spent, and a link to scan and clean up. Read-only, from the same data as the monitoring page.
+- **Software widget.** The parts of the server (web server, PHP, databases, caches, mail, FTP, security tools) as tiles, each with Start, Stop or Restart for those who may manage services, its settings page, and an Install link to Components for what is missing.
+- **Terminal quick action** on the administrator's dashboard (it needs the web terminal to be switched on in the agent, as before).
+
 ## [2.5.1] — 2026-11-25
 
 Fixes for the file manager and the permission repair, and a new look for windows. Panel and agent: upgrade both with `sudo nimvor update`. A website whose files are owner-only (and so answers 403) is repaired with *Advanced → File permissions → Check → Repair*.

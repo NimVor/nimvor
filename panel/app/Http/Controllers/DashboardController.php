@@ -134,6 +134,24 @@ final class DashboardController extends Controller
         return Response::json(['success' => true, 'state' => $result['state'], 'html' => $this->frame($def, $result), 'at' => $result['at']]);
     }
 
+    /**
+     * The details behind a live tile (CPU, memory, disk, load), as the HTML of a small popover: the processor and each
+     * core, the busiest processes, where memory and disk space go. Read-only; the same data as the monitoring page.
+     */
+    public function popover(Request $request, string $key): Response
+    {
+        if (!in_array($key, ['cpu', 'mem', 'memory', 'disk', 'load'], true) || $this->widgets === null) {
+            return Response::json(['success' => false, 'error' => 'No such tile.'], 404);
+        }
+        try {
+            $live = (array) json_decode((string) json_encode($this->agent->call('system.live', [], 20)), true);
+            $disk = $key === 'disk' ? $this->widgets->disk() : null;
+        } catch (AgentException $e) {
+            return Response::json(['success' => false, 'error' => $e->getMessage()], 503);
+        }
+        return Response::json(['success' => true, 'html' => $this->view->partial('dashboard/popover', ['key' => $key, 'live' => $live, 'disk' => $disk])]);
+    }
+
     /** Saves which widgets the user shows, in what order and at what size. */
     public function saveLayout(Request $request): Response
     {

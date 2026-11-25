@@ -55,6 +55,7 @@ final class DashboardWidgetsService
             $r = $this->cache->remember($id, 'server', $def->ttl, fn (): array => match ($id) {
                 'tile_cpu', 'tile_memory', 'tile_disk', 'tile_load', 'services_live' => ['_state' => 'ok'],
                 'server_info' => $this->serverInfo(),
+                'software' => $this->software(),
                 'websites_summary' => $this->websitesSummary($user),
                 'request_trends' => $this->requestTrends(),
                 'attention' => $this->attention($user),
@@ -87,6 +88,33 @@ final class DashboardWidgetsService
         }
         $state = ($r['data']['_state'] ?? 'ok');
         return ['state' => is_string($state) ? $state : 'ok', 'data' => $r['data'], 'at' => $r['at']];
+    }
+
+    /**
+     * The Software card: every part of the server (components.status) with whether it is installed and running.
+     *
+     * @return array<string, mixed>
+     */
+    public function software(): array
+    {
+        if ($this->agent === null) {
+            throw new AgentException('Agent unavailable');
+        }
+        $items = [];
+        foreach ((array) json_decode((string) json_encode($this->agent->call('components.status', [], 60)), true) as $c) {
+            $running = null;
+            foreach ((array) ($c['steps'] ?? []) as $st) {
+                if (($st['id'] ?? '') === 'running' && ($st['status'] ?? 'na') !== 'na') {
+                    $running = $st['status'] === 'ok';
+                }
+            }
+            $items[] = [
+                'id' => (string) $c['id'], 'name' => (string) $c['name'], 'installed' => !empty($c['installed']),
+                'running' => $running, 'unit' => ((array) ($c['units'] ?? []))[0] ?? null,
+            ];
+        }
+        usort($items, static fn (array $a, array $b): int => [!$a['installed'], $a['name']] <=> [!$b['installed'], $b['name']]);
+        return ['items' => $items, '_state' => $items === [] ? 'empty' : 'ok'];
     }
 
     /**

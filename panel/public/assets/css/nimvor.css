@@ -1297,3 +1297,30 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 .nim-size-picker button { border: 0; padding: .1rem .45rem; font-size: .72rem; line-height: 1.4; border-radius: .3rem; background: none; color: var(--bs-secondary-color); }
 .nim-size-picker button:hover { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
 .nim-size-picker button[aria-pressed="true"] { background: var(--bs-primary); color: #fff; }
+
+/* Dashboard tile popovers: the details behind CPU, memory, disk and load. */
+.nim-metric[data-popover-url] { cursor: pointer; }
+.nim-popover { position: absolute; z-index: 1080; width: min(360px, calc(100vw - 24px)); max-height: 70vh; overflow: auto; padding: .85rem 1rem; background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-radius: .6rem; box-shadow: 0 12px 32px rgba(0, 0, 0, .18); font-size: .82rem; }
+.nim-pop-title { font-weight: 650; margin-bottom: .15rem; }
+.nim-pop-sub { font-size: .8rem; }
+.nim-pop-h { margin: .75rem 0 .3rem; font-weight: 600; font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; color: var(--bs-secondary-color); }
+.nim-pop-cores { display: grid; grid-template-columns: 1fr 1fr; gap: .15rem .75rem; }
+.nim-pop-bar { height: 8px; border-radius: 4px; background: var(--bs-tertiary-bg); margin: .4rem 0; overflow: hidden; }
+.nim-pop-bar span { display: block; height: 100%; background: #0f766e; }
+.nim-pop-bar span.is-warn { background: #d97706; }
+.nim-pop-bar span.is-crit { background: #dc2626; }
+.nim-pop-dl { display: grid; grid-template-columns: auto 1fr; gap: .15rem .75rem; margin: .5rem 0 0; }
+.nim-pop-dl dt { font-weight: 400; color: var(--bs-secondary-color); }
+.nim-pop-dl dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.nim-pop-table th { font-size: .72rem; color: var(--bs-secondary-color); font-weight: 500; }
+
+/* Dashboard Software widget: one tile per part of the server. */
+.nim-software { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: .75rem; }
+.nim-software-tile { text-align: center; padding: .85rem .5rem; border: 1px solid var(--bs-border-color); border-radius: .6rem; position: relative; }
+.nim-software-tile.is-off { opacity: .65; }
+.nim-software-icon { font-size: 1.6rem; color: #0f766e; }
+.nim-software-tile.is-stopped .nim-software-icon { color: #dc2626; }
+.nim-software-tile.is-off .nim-software-icon { color: var(--bs-secondary-color); }
+.nim-software-name { font-weight: 600; font-size: .85rem; margin-top: .25rem; }
+.nim-software-state { font-size: .75rem; color: var(--bs-secondary-color); }
+.nim-software-ops { display: flex; flex-wrap: wrap; justify-content: center; gap: .3rem; margin-top: .5rem; }
