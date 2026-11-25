@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.6.0] — 2026-11-25
+
+A richer dashboard and top bar, and swap memory management. Panel and agent: upgrade both with `sudo nimvor update` (the agent restarts and gains the new `swap.*` actions; changing swap needs write mode, like every other change). Hard-refresh the browser afterwards. If you saved a dashboard layout, open Customize and turn on the Software widget (Restore default does it too).
+
 ### Changed
 - Windows (modals) have a light header (`#f6f8f8`, grey `#555` title, a 1px `#ccc` line under it; the close icon stays red), and the sidebar is teal (`#115f5a`) with a `#ccc` edge; its muted text and active row were adjusted to stay readable on it.
 - The top bar no longer shows the operating system (it is in the server card on hover). The Software widget is eight columns wide by default, its status is a bar across the top of each tile, and its buttons float over the tile on hover so tiles keep their height.
