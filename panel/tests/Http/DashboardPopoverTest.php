@@ -52,6 +52,19 @@ final class DashboardPopoverTest extends HttpTestCase
         self::assertStringContainsString('Inodes used', $disk);
     }
 
+    public function testTheServerDetailsAppearOnHoverOverTheHostnameNotAsAWidget(): void
+    {
+        $this->agent->succeed('system.info', ['system' => ['hostname' => 'srv1', 'kernel' => '6.8', 'timezone' => 'UTC', 'cpu' => ['cores' => 8, 'model' => 'EPYC'], 'uptime_seconds' => 90000], 'os' => ['pretty_name' => 'Ubuntu 24.04', 'supported' => true], 'agent_version' => '9.9.9']);
+        $this->agent->succeed('system.status', ['hostname' => 'srv1', 'os' => ['pretty_name' => 'Ubuntu 24.04'], 'load' => [0.1, 0.2, 0.3]]);
+        $page = $this->request('GET', '/')->body();
+        self::assertStringNotContainsString('data-widget-host="server_info"', $page);
+        self::assertStringNotContainsString('data-widget-host="services_live"', $page);
+        $res = json_decode($this->request('GET', '/dashboard/popover/server')->body(), true);
+        self::assertTrue($res['success']);
+        self::assertStringContainsString('Ubuntu 24.04', $res['html']);
+        self::assertStringContainsString('9.9.9', $res['html']);
+    }
+
     public function testAnUnknownTileIsNotFound(): void
     {
         self::assertSame(404, $this->request('GET', '/dashboard/popover/nope')->status());

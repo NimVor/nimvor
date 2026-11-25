@@ -140,8 +140,19 @@ final class DashboardController extends Controller
      */
     public function popover(Request $request, string $key): Response
     {
-        if (!in_array($key, ['cpu', 'mem', 'memory', 'disk', 'load'], true) || $this->widgets === null) {
+        if (!in_array($key, ['cpu', 'mem', 'memory', 'disk', 'load', 'server'], true) || $this->widgets === null) {
             return Response::json(['success' => false, 'error' => 'No such tile.'], 404);
+        }
+        // The server card (host, system, agent and the server tools) is the administrator's, shown from the top bar.
+        if ($key === 'server') {
+            if (!\NimVor\Hosting\Scope::isAll($this->user($request))) {
+                return Response::json(['success' => false, 'error' => 'Only administrators see the server details.'], 403);
+            }
+            try {
+                return Response::json(['success' => true, 'html' => $this->view->partial('dashboard/widgets/server_info', ['d' => $this->widgets->serverInfo()])]);
+            } catch (AgentException $e) {
+                return Response::json(['success' => false, 'error' => $e->getMessage()], 503);
+            }
         }
         try {
             $live = (array) json_decode((string) json_encode($this->agent->call('system.live', [], 20)), true);

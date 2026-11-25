@@ -1540,6 +1540,57 @@
         });
     }, true);
 
+    // Hover cards: anything with data-popover-url (a dashboard tile, the server name in the top bar) shows the
+    // HTML that address returns in a small card while the pointer rests on it; a click or Enter does the same for
+    // touch and keyboard. The card stays while the pointer is on it (it can hold buttons) and closes on Escape.
+    var hover = { card: null, owner: null, openTimer: 0, closeTimer: 0 };
+    function hoverClose() {
+        clearTimeout(hover.openTimer); clearTimeout(hover.closeTimer);
+        if (hover.card) { hover.card.remove(); }
+        hover.card = hover.owner = null;
+    }
+    function hoverOpen(owner) {
+        if (hover.owner === owner) { return; }
+        hoverClose();
+        var box = document.createElement('div');
+        box.className = 'nim-hovercard';
+        box.setAttribute('role', 'dialog');
+        box.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Loading…';
+        var r = owner.getBoundingClientRect();
+        box.style.top = (window.scrollY + r.bottom + 6) + 'px';
+        box.style.left = Math.max(8, Math.min(window.scrollX + r.left, window.scrollX + document.documentElement.clientWidth - 376)) + 'px';
+        document.body.appendChild(box);
+        hover.card = box; hover.owner = owner;
+        box.addEventListener('mouseenter', function () { clearTimeout(hover.closeTimer); });
+        box.addEventListener('mouseleave', function () { hover.closeTimer = setTimeout(hoverClose, 250); });
+        NimVor.fetchJson(owner.getAttribute('data-popover-url'))
+            .then(function (res) { if (hover.card === box) { box.innerHTML = res.html; } })
+            .catch(function (err) { if (hover.card === box) { box.textContent = err.message; } });
+    }
+    document.addEventListener('mouseover', function (e) {
+        var owner = e.target.closest ? e.target.closest('[data-popover-url]') : null;
+        if (!owner || !window.matchMedia('(hover: hover)').matches) { return; }
+        clearTimeout(hover.closeTimer);
+        if (hover.owner === owner) { return; }
+        clearTimeout(hover.openTimer);
+        hover.openTimer = setTimeout(function () { hoverOpen(owner); }, 250);
+    });
+    document.addEventListener('mouseout', function (e) {
+        var owner = e.target.closest ? e.target.closest('[data-popover-url]') : null;
+        if (!owner || owner.contains(e.relatedTarget)) { return; }
+        clearTimeout(hover.openTimer);
+        if (hover.owner === owner && !(hover.card && hover.card.contains(e.relatedTarget))) { hover.closeTimer = setTimeout(hoverClose, 250); }
+    });
+    document.addEventListener('click', function (e) {
+        var owner = e.target.closest ? e.target.closest('[data-popover-url]') : null;
+        if (owner) { if (hover.owner === owner) { hoverClose(); } else { hoverOpen(owner); } return; }
+        if (hover.card && !hover.card.contains(e.target)) { hoverClose(); }
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { hoverClose(); }
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[data-popover-url]')) { e.preventDefault(); hoverOpen(e.target); }
+    });
+
     // Data tables: <div data-nim-dt data-page-size="10"> with a search box
     // [data-nim-dt-search], filter buttons [data-nim-dt-seg] (data-key,
     // data-value; rows carry data-dt-KEY), selects [data-nim-dt-select=KEY],

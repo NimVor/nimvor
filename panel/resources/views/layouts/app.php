@@ -54,7 +54,7 @@ $topHost = (string) ($topStatus['hostname'] ?? '');
             </div>
             <?php if ($serverAdmin && $topStatus !== null): $load = (array) ($topStatus['load'] ?? []); ?>
                 <dl class="nim-topbar-server d-none d-xl-flex" aria-label="Server">
-                    <div><dt>Hostname</dt><dd class="text-truncate" title="<?= e($topHost) ?>"><?= e($topHost !== '' ? $topHost : '—') ?></dd></div>
+                    <div data-popover-url="<?= e($this->url('dashboard.popover', ['key' => 'server'])) ?>" class="nim-topbar-host" tabindex="0" role="button" aria-haspopup="dialog"><dt>Hostname</dt><dd class="text-truncate"><?= e($topHost !== '' ? $topHost : '—') ?></dd></div>
                     <div><dt>OS</dt><dd class="text-truncate"><?= e((string) ($topStatus['os']['pretty_name'] ?? '—')) ?></dd></div>
                     <div><dt>NimVor</dt><dd><?= e((string) ($app_version ?? '')) ?></dd></div>
                     <div><dt>Load averages</dt><dd>

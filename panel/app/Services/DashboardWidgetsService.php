@@ -53,8 +53,7 @@ final class DashboardWidgetsService
         }
         try {
             $r = $this->cache->remember($id, 'server', $def->ttl, fn (): array => match ($id) {
-                'tile_cpu', 'tile_memory', 'tile_disk', 'tile_load', 'services_live' => ['_state' => 'ok'],
-                'server_info' => $this->serverInfo(),
+                'tile_cpu', 'tile_memory', 'tile_disk', 'tile_load' => ['_state' => 'ok'],
                 'software' => $this->software(),
                 'websites_summary' => $this->websitesSummary($user),
                 'request_trends' => $this->requestTrends(),

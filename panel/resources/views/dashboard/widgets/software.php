@@ -1,6 +1,6 @@
 <?php
 /**
- * Software: one tile per part of the server. A running part offers stop and restart, a stopped one start, one that is not
+ * Software: one tile per part of the server, its state as a ribbon. On hover a running part offers stop and restart, a stopped one start, one that is not
  * installed a link to the Components page. The buttons are handled by public/assets/js/dashboard.js.
  *
  * @var \NimVor\View\View $this
@@ -22,9 +22,9 @@ $canControl = $this->can(P::SERVICES_MANAGE);
         $ops = $c['running'] === false ? [['start', 'Start']] : [['restart', 'Restart'], ['stop', 'Stop']];
     } ?>
     <div class="nim-software-tile is-<?= e($state) ?>">
+        <span class="nim-software-ribbon"><?= ['ok' => 'Running', 'stopped' => 'Stopped', 'off' => 'Not installed'][$state] ?></span>
         <i class="bi bi-<?= e($icons[$c['id']] ?? 'box') ?> nim-software-icon" aria-hidden="true"></i>
         <div class="nim-software-name"><?= e($c['name']) ?></div>
-        <div class="nim-software-state"><?= ['ok' => 'Running', 'stopped' => 'Stopped', 'off' => 'Not installed'][$state] ?></div>
         <div class="nim-software-ops">
             <?php foreach ($ops as [$op, $label]): ?><button type="button" class="btn btn-sm btn-outline-secondary" data-software-op="<?= e($op) ?>" data-unit="<?= e($unit) ?>" title="<?= e($label . ' ' . $c['name']) ?>"><?= e($label) ?></button><?php endforeach; ?>
             <?php if ($c['installed'] && $page !== null && $this->hasRoute($page) && $this->routeAllowed($page)): ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url($page)) ?>" title="Settings of <?= e($c['name']) ?>"><i class="bi bi-gear" aria-hidden="true"></i><span class="visually-hidden">Settings</span></a>

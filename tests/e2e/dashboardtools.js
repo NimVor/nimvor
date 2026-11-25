@@ -120,24 +120,36 @@ const OUT = process.env.E2E_OUT || '/tmp';
     await Promise.all([page.waitForNavigation(), page.click('#nim-confirm [data-nim-confirm-ok]')]);
     await page.waitForSelector('[data-widget-host="disk"]', { timeout: 10000 });
 
-    await page.waitForSelector('[data-services] > li:not(:has(.placeholder))', { timeout: 20000 });
-    if (await page.locator('[data-services] .nim-service-btn').count() === 0) {
-      // The development instance simulates systemd: no services to list.
-      step('services widget: no services here (simulated system)');
-      if (errors.length) { throw new Error(errors.join('\n')); }
-      console.log('OK dashboard tools');
-      return;
+    // Hovering a tile shows its details; hovering the server name in the top bar shows the server card.
+    await page.hover('[data-metric="cpu"]');
+    await page.waitForSelector('.nim-hovercard .nim-pop-title', { timeout: 20000 });
+    step('hover on the CPU tile shows its details');
+    await page.mouse.move(5, 400);
+    await page.waitForSelector('.nim-hovercard', { state: 'detached', timeout: 5000 });
+    if (await page.locator('.nim-topbar-host').count() > 0 && await page.locator('.nim-topbar-host').isVisible()) {
+      await page.hover('.nim-topbar-host');
+      await page.waitForSelector('.nim-hovercard dt:has-text("Hostname")', { timeout: 20000 });
+      step('hover on the host name shows the server details');
+      await page.mouse.move(5, 400);
+      await page.waitForSelector('.nim-hovercard', { state: 'detached', timeout: 5000 });
     }
-    const units = await page.$$eval('[data-services] > li', lis => lis.map(li => li.firstChild.textContent.trim()));
-    if (new Set(units).size !== units.length) { throw new Error('a service is listed twice: ' + units.join(', ')); }
-    const url = page.url();
-    const btn = page.locator('[data-services] button[aria-label^="Restart"]').first();
-    const label = await btn.getAttribute('aria-label');
-    await btn.click();
-    await page.waitForSelector('.toast, [role=alert], [role=status]', { timeout: 15000 });
-    if (page.url() !== url) { throw new Error('the restart left the page'); }
-    await page.screenshot({ path: path.join(OUT, 'dashboard-services.png') });
-    step('services widget: ' + label + ' without leaving the page');
+
+    // Software widget: tiles with a status ribbon; the buttons show on hover.
+    await page.waitForSelector('[data-software] .nim-software-tile, [data-widget="software"] .nim-widget-note', { timeout: 20000 });
+    const tile = page.locator('[data-software] .nim-software-tile:has([data-software-op="restart"])').first();
+    if (await tile.count() === 0) {
+      step('software widget: nothing to restart here (simulated system)');
+    } else {
+      await tile.hover();
+      const url = page.url();
+      const btn = tile.locator('[data-software-op="restart"]');
+      await btn.waitFor({ state: 'visible', timeout: 5000 });
+      await btn.click();
+      await page.waitForSelector('.toast, [role=alert], [role=status]', { timeout: 15000 });
+      if (page.url() !== url) { throw new Error('the restart left the page'); }
+      await page.screenshot({ path: path.join(OUT, 'dashboard-software.png') });
+      step('software widget: restart from a tile without leaving the page');
+    }
 
     if (errors.length) { throw new Error(errors.join('\n')); }
     console.log('OK dashboard tools');

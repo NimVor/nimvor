@@ -1300,7 +1300,7 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 
 /* Dashboard tile popovers: the details behind CPU, memory, disk and load. */
 .nim-metric[data-popover-url] { cursor: pointer; }
-.nim-popover { position: absolute; z-index: 1080; width: min(360px, calc(100vw - 24px)); max-height: 70vh; overflow: auto; padding: .85rem 1rem; background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-radius: .6rem; box-shadow: 0 12px 32px rgba(0, 0, 0, .18); font-size: .82rem; }
+.nim-hovercard { position: absolute; z-index: 1080; width: min(360px, calc(100vw - 24px)); max-height: 70vh; overflow: auto; padding: .85rem 1rem; background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-radius: .6rem; box-shadow: 0 12px 32px rgba(0, 0, 0, .18); font-size: .82rem; }
 .nim-pop-title { font-weight: 650; margin-bottom: .15rem; }
 .nim-pop-sub { font-size: .8rem; }
 .nim-pop-h { margin: .75rem 0 .3rem; font-weight: 600; font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; color: var(--bs-secondary-color); }
@@ -1316,11 +1316,16 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 
 /* Dashboard Software widget: one tile per part of the server. */
 .nim-software { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: .75rem; }
-.nim-software-tile { text-align: center; padding: .85rem .5rem; border: 1px solid var(--bs-border-color); border-radius: .6rem; position: relative; }
+.nim-software-tile { text-align: center; padding: 1.1rem .5rem .85rem; border: 1px solid var(--bs-border-color); border-radius: .6rem; position: relative; overflow: hidden; }
+.nim-software-ribbon { position: absolute; top: 9px; right: -30px; width: 112px; transform: rotate(45deg); background: #16a34a; color: #fff; font-size: .62rem; font-weight: 600; line-height: 1.5; text-align: center; text-transform: uppercase; letter-spacing: .02em; }
+.nim-software-tile.is-stopped .nim-software-ribbon { background: #dc2626; }
+.nim-software-tile.is-off .nim-software-ribbon { background: #6b7280; }
+@media (hover: hover) { .nim-software-ops { opacity: 0; transition: opacity .12s; } .nim-software-tile:hover .nim-software-ops, .nim-software-tile:focus-within .nim-software-ops { opacity: 1; } }
 .nim-software-tile.is-off { opacity: .65; }
 .nim-software-icon { font-size: 1.6rem; color: #0f766e; }
 .nim-software-tile.is-stopped .nim-software-icon { color: #dc2626; }
 .nim-software-tile.is-off .nim-software-icon { color: var(--bs-secondary-color); }
 .nim-software-name { font-weight: 600; font-size: .85rem; margin-top: .25rem; }
-.nim-software-state { font-size: .75rem; color: var(--bs-secondary-color); }
 .nim-software-ops { display: flex; flex-wrap: wrap; justify-content: center; gap: .3rem; margin-top: .5rem; }
+
+.nim-topbar-host { cursor: pointer; }

@@ -67,35 +67,6 @@
         card.classList.toggle('is-crit', pct !== null && pct >= 90);
     }
 
-    // Click a tile (CPU, memory, disk, load) for the details behind it, in a small popover under the tile.
-    var pop = null, popFor = null;
-    function closePop() { if (pop) { pop.remove(); pop = null; popFor = null; } }
-    function openPop(card) {
-        if (popFor === card) { closePop(); return; }
-        closePop();
-        var box = document.createElement('div');
-        box.className = 'nim-popover';
-        box.setAttribute('role', 'dialog');
-        box.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Loading…';
-        var r = card.getBoundingClientRect();
-        box.style.top = (window.scrollY + r.bottom + 6) + 'px';
-        box.style.left = Math.max(8, Math.min(window.scrollX + r.left, window.scrollX + document.documentElement.clientWidth - 372)) + 'px';
-        document.body.appendChild(box);
-        pop = box; popFor = card;
-        NimVor.fetchJson(card.getAttribute('data-popover-url'))
-            .then(function (res) { if (pop === box) { box.innerHTML = res.html; } })
-            .catch(function (err) { if (pop === box) { box.textContent = err.message; } });
-    }
-    document.addEventListener('click', function (ev) {
-        var card = ev.target.closest ? ev.target.closest('[data-popover-url]') : null;
-        if (card && root.contains(card)) { openPop(card); return; }
-        if (pop && !pop.contains(ev.target)) { closePop(); }
-    });
-    document.addEventListener('keydown', function (ev) {
-        if (ev.key === 'Escape') { closePop(); }
-        if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches && ev.target.matches('[data-popover-url]')) { ev.preventDefault(); openPop(ev.target); }
-    });
-
     // Start, stop and restart from the widget (users who may manage
     // services): the same endpoint as the Services page, answered as JSON.
     var busyUnit = null;
