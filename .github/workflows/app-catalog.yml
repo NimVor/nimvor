@@ -30,7 +30,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set +e
-          NIMVOR_NETWORK=1 go test -tags realhost -run 'RealHostCatalogDownloads' -count=1 -v ./internal/apps 2>&1 | tee catalog.log
+          NIMVOR_NETWORK=1 go test -tags realhost -timeout 22m -run 'RealHostCatalogDownloads' -count=1 -v ./internal/apps 2>&1 | tee catalog.log
           status=${PIPESTATUS[0]}
           echo '--- failures'
           grep -n -- '--- FAIL\|_test.go:[0-9]*:' catalog.log | cut -c1-400 | head -60
