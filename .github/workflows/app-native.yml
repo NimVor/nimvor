@@ -28,6 +28,8 @@ jobs:
         run: sudo apt-get install -y python3-venv >/dev/null && python3.12 --version
       - name: Real installations (as root)
         working-directory: agent
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set +e
           sudo -E env "PATH=$PATH" "GOCACHE=$(go env GOCACHE)" "GOMODCACHE=$(go env GOMODCACHE)" "HOME=$HOME" NIMVOR_NETWORK=1 \

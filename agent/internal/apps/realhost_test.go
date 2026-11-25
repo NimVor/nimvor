@@ -269,3 +269,13 @@ func (g githubAuth) RoundTrip(r *http.Request) (*http.Response, error) {
 	}
 	return g.next.RoundTrip(r)
 }
+
+// The installer's own GitHub lookups (Gitea's latest release) are anonymous, and a shared CI runner's address soon
+// uses up GitHub's limit (HTTP 403). In the real-host tests the workflow's token is sent to api.github.com.
+func init() {
+	if DefaultSources.Client != nil {
+		c := *DefaultSources.Client
+		c.Transport = githubAuth{http.DefaultTransport}
+		DefaultSources.Client = &c
+	}
+}
