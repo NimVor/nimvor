@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **API: a website's security headers and cache rules** (7 new endpoints, in the API reference): read them with the choices each accepts (`GET /websites/{id}/web-policy`); change the framing policy, Content-Security-Policy (also report-only), Referrer-Policy, Permissions-Policy and HSTS (`PATCH …/web-policy/headers`); change the browser cache rules, paths that are never cached, the Nginx page cache and Brotli (`PATCH …/web-policy/cache`); empty the page cache (`POST …/web-policy/cache/purge`); and go back to the defaults for one section or both (`DELETE …/web-policy[/headers|/cache]`). Only the fields sent change. The same service as the web page runs, so the same validation applies (HSTS only for a website with working HTTPS, preload rules, CSP checks), the web server configuration is checked before it is reloaded, and a refused change is undone.
+
 ## [2.4.0] — 2026-11-24
 
 API tokens now carry chosen permissions and only administrators and resellers have the API; the website settings join the API; the profile page is in tabs; the panel footer links to the website; the file manager can replace on copy and move (a small agent change); and the website gains reviews, social links, blog covers and a new menu layout. Upgrade the panel and agent with `sudo nimvor update`; the website needs `bin/site migrate` (migration 0008).
