@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **EspoCRM and SuiteCRM in the app installer.** Both are downloaded from their GitHub releases and staged with a new database; the website is served from the `public` folder and each application's own web installer finishes setup. They start in *testing* status: only administrators can install them until they are proven on a real server (Server → Apps → catalog).
+
 ## [2.6.0] — 2026-11-25
 
 A richer dashboard and top bar, and swap memory management. Panel and agent: upgrade both with `sudo nimvor update` (the agent restarts and gains the new `swap.*` actions; changing swap needs write mode, like every other change). Hard-refresh the browser afterwards. If you saved a dashboard layout, open Customize and turn on the Software widget (Restore default does it too).
@@ -25,7 +28,6 @@ A richer dashboard and top bar, and swap memory management. Panel and agent: upg
 - **Feedback.** A feedback button in the top bar opens a window; Send opens a new issue on the project's GitHub page with the text filled in, so nothing leaves the server unseen.
 - **Swap memory.** Server → Swap shows the swap in use and creates, resizes or removes the swap file (`/swapfile`, or Ubuntu's `/swap.img`); the dashboard's Memory card links to it. New agent actions `swap.status`, `swap.set` and `swap.remove`. The new file is built beside the old one and swap is switched over, `/etc/fstab` is updated and the result verified, with the previous swap put back if a step fails. It is refused when the file system cannot hold swap, the disk is too full, or free memory could not take back what is in swap. See [Swap](docs/administration/README.md#swap).
 - **Terminal quick action** on the administrator's dashboard (it needs the web terminal to be switched on in the agent, as before).
-- **EspoCRM and SuiteCRM in the app installer.** Both are downloaded from their GitHub releases and staged with a new database; the website is served from the `public` folder and each application's own web installer finishes setup. They start in *testing* status: only administrators can install them until they are proven on a real server (Server → Apps → catalog).
 
 ## [2.5.1] — 2026-11-25
 
