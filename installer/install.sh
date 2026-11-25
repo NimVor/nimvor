@@ -728,6 +728,8 @@ if [[ $AGENT_ONLY -eq 0 ]]; then
     run cp -a "$SRC_DIR/panel/app" "$SRC_DIR/panel/bin" "$SRC_DIR/panel/config" "$SRC_DIR/panel/database" \
         "$SRC_DIR/panel/public" "$SRC_DIR/panel/resources" "$SRC_DIR/panel/routes" "$SRC_DIR/panel/vendor" \
         "$SRC_DIR/panel/composer.json" "$SRC_DIR/VERSION" "$PREFIX/panel.new/"
+    # The version popover in the top bar shows what changed, from this file.
+    if [[ -f $SRC_DIR/CHANGELOG.md ]]; then run cp -a "$SRC_DIR/CHANGELOG.md" "$PREFIX/panel.new/"; fi
     run chown -R root:nimvor "$PREFIX/panel.new"
     run chmod -R u=rwX,g=rX,o= "$PREFIX/panel.new"
     run chmod 0750 "$PREFIX/panel.new/bin/nimvor"

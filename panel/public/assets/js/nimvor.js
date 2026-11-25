@@ -1540,6 +1540,20 @@
         });
     }, true);
 
+    // Feedback window: opens a new GitHub issue with the text filled in (nothing is sent from the server).
+    document.addEventListener('submit', function (e) {
+        var form = e.target.closest ? e.target.closest('[data-nim-feedback]') : null;
+        if (!form) { return; }
+        e.preventDefault();
+        var f = new FormData(form);
+        var body = String(f.get('text') || '') + '\n\n---\nNimVor ' + (form.getAttribute('data-version') || '') + ' · sent from the panel\'s feedback window';
+        var url = form.getAttribute('data-nim-feedback') + '?title=' + encodeURIComponent('[' + f.get('kind') + '] ' + f.get('title')) + '&body=' + encodeURIComponent(body);
+        window.open(url, '_blank', 'noopener,noreferrer');
+        var modal = form.closest('.modal');
+        if (modal && window.bootstrap) { window.bootstrap.Modal.getOrCreateInstance(modal).hide(); }
+        form.reset();
+    });
+
     // Hover cards: anything with data-popover-url (a dashboard tile, the server name in the top bar) shows the
     // HTML that address returns in a small card while the pointer rests on it; a click or Enter does the same for
     // touch and keyboard. The card stays while the pointer is on it (it can hold buttons) and closes on Escape.

@@ -65,6 +65,19 @@ final class DashboardPopoverTest extends HttpTestCase
         self::assertStringContainsString('9.9.9', $res['html']);
     }
 
+    public function testTheTopBarHasTheVersionChangeLogAndFeedbackAndNoOperatingSystem(): void
+    {
+        $this->agent->succeed('system.status', ['hostname' => 'srv1', 'os' => ['pretty_name' => 'Ubuntu 24.04'], 'load' => [0.1, 0.2, 0.3]]);
+        $page = $this->request('GET', '/')->body();
+        self::assertStringContainsString('data-popover-url="/changelog/popover"', $page);
+        self::assertStringContainsString('data-bs-target="#nim-feedback"', $page);
+        self::assertStringContainsString('id="nim-feedback"', $page);
+        self::assertStringNotContainsString('<dt>OS</dt>', $page);
+        $res = json_decode($this->request('GET', '/changelog/popover')->body(), true);
+        self::assertTrue($res['success']);
+        self::assertStringContainsString('Change log', $res['html']);
+    }
+
     public function testAnUnknownTileIsNotFound(): void
     {
         self::assertSame(404, $this->request('GET', '/dashboard/popover/nope')->status());
