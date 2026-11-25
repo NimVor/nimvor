@@ -14,7 +14,7 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Added
 - **Dashboard tiles show details on hover.** Rest the pointer on the CPU, memory, disk or load tile (click or Enter on touch and keyboard) for a card: the processor and the load of each core, the busiest processes, where memory goes, disk space and inode use with where the space is spent, and a link to scan and clean up. Read-only, from the same data as the monitoring page.
-- **Software widget.** The parts of the server (web server, PHP, databases, caches, mail, FTP, security tools) as tiles with a green Running or red Stopped ribbon; on hover each shows Start, Stop or Restart for those who may manage services, its settings page, and an Install link to Components for what is missing.
+- **Software widget.** The parts of the server (web server, PHP, databases, caches, mail, FTP, security tools) as tiles with a green Running or red Stopped ribbon; on hover each shows Start, Stop or Restart icons (the words are their tooltips) for those who may manage services, its settings page, and an Install link to Components for what is missing.
 - **Server details in the top bar.** Hovering the host name shows the server card (host, system, kernel, CPU, uptime, agent, with update, restart-all and restart-server for administrators).
 - **Change log on the version number.** Hovering the NimVor version in the top bar shows what changed in the last three releases (the installer now keeps `CHANGELOG.md` beside the panel).
 - **Feedback.** A feedback button in the top bar opens a window; Send opens a new issue on the project's GitHub page with the text filled in, so nothing leaves the server unseen.

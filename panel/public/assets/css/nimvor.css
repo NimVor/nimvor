@@ -1316,8 +1316,8 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 
 /* Dashboard Software widget: one tile per part of the server; the status is a bar across the top and the buttons
    float over the tile on hover, so a tile never changes height. */
-.nim-software { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .75rem; }
-.nim-software-tile { text-align: center; padding: 2rem .5rem 1rem; min-height: 8.5rem; border: 1px solid var(--bs-border-color); border-radius: .6rem; position: relative; overflow: hidden; }
+.nim-software { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: .75rem; }
+.nim-software-tile { text-align: center; padding: 2rem .5rem .75rem; min-height: 80px; border: 1px solid var(--bs-border-color); border-radius: .6rem; position: relative; overflow: hidden; }
 .nim-software-tile.is-off { opacity: .7; }
 .nim-software-ribbon { position: absolute; top: 0; left: 0; right: 0; background: #16a34a; color: #fff; font-size: .68rem; font-weight: 700; line-height: 1.5rem; height: 1.5rem; text-align: center; text-transform: uppercase; letter-spacing: .04em; }
 .nim-software-tile.is-stopped .nim-software-ribbon { background: #dc2626; }
@@ -1326,7 +1326,7 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 .nim-software-tile.is-stopped .nim-software-icon { color: #dc2626; }
 .nim-software-tile.is-off .nim-software-icon { color: var(--bs-secondary-color); }
 .nim-software-name { font-weight: 600; font-size: .85rem; margin-top: .25rem; }
-.nim-software-ops { position: absolute; left: 0; right: 0; bottom: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: .3rem; padding: .5rem; background: var(--bs-body-bg); border-top: 1px solid var(--bs-border-color); }
+.nim-software-ops { position: absolute; left: 0; right: 0; top: 1.5rem; bottom: 0; display: flex; flex-wrap: wrap; align-content: center; justify-content: center; gap: .4rem; padding: .4rem; background: var(--bs-body-bg); }
 @media (hover: hover) { .nim-software-ops { opacity: 0; visibility: hidden; transition: opacity .12s; } .nim-software-tile:hover .nim-software-ops, .nim-software-tile:focus-within .nim-software-ops { opacity: 1; visibility: visible; } }
 
 .nim-topbar-host { cursor: pointer; }
