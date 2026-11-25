@@ -192,7 +192,8 @@ final class SecurityAndSystemTest extends HttpTestCase
         self::assertSame(502, $res->status());
         self::assertStringContainsString('Unit not allowed', $res->body());
         // The widget has the controls only for users who may manage services.
-        self::assertStringContainsString('data-services-control="/services/control"', $this->request('GET', '/')->body());
+        $this->agent->succeed('components.status', [['id' => 'web', 'name' => 'Web server', 'installed' => true, 'units' => ['nginx.service'], 'steps' => [['id' => 'running', 'status' => 'ok']]]]);
+        self::assertStringContainsString('data-services-control="/services/control"', (string) json_decode($this->request('GET', '/dashboard/widgets/software')->body(), true)['html']);
     }
 
     public function testNginxRestartIsAnnouncedBecauseItCarriesThePanel(): void

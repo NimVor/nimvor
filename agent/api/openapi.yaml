@@ -533,6 +533,9 @@ paths:
               - stats.enable
               - stats.status
               - stats.update
+              - swap.remove
+              - swap.set
+              - swap.status
               - system.info
               - system.live
               - system.metrics
@@ -1134,6 +1137,9 @@ x-nimvor-actions:
   stats.enable: { mutating: true, description: "Turn website statistics on (AWStats configuration, data folder, update every 6 hours as the website's account) or off (the data is kept)." }
   stats.status: { mutating: false, description: "Website statistics: AWStats installed, turned on for the website, months with data and the last update." }
   stats.update: { mutating: true, description: "Update a website's statistics now, as its account (job)." }
+  swap.remove: { mutating: true, description: "Turn off and delete the swap file NimVor manages (/swapfile or /swap.img) and remove its /etc/fstab line. Refused when memory is too tight to turn it off. Swap partitions are never touched." }
+  swap.set: { mutating: true, description: "Create NimVor's swap file (/swapfile) or change the size of the swap file in use (/swapfile or /swap.img). The new file is built beside the old one, the swap is switched over, /etc/fstab is updated and the result is verified; on failure the previous swap is put back. Refused when the file system cannot hold swap, the disk is too full, or memory is too tight to turn the old swap off." }
+  swap.status: { mutating: false, description: "Swap memory: the active swap areas, memory and swap use, the file system, and the size a change may ask for (read-only)." }
   system.info: { mutating: false, description: "Operating system, kernel, CPU, network interfaces and uptime." }
   system.live: { mutating: false, description: "Live statistics over half a second: CPU per core and details, memory, load, processes (busiest by CPU and memory, program and user only), network interfaces with rates, disks." }
   system.metrics: { mutating: false, description: "Latest CPU, memory, disk, load and network sample." }

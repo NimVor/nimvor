@@ -10,7 +10,7 @@
  * @var string $series
  */
 ?>
-<div class="card nim-metric h-100" data-metric="<?= e($key) ?>">
+<div class="card nim-metric h-100" data-metric="<?= e($key) ?>" data-popover-url="<?= e($this->url('dashboard.popover', ['key' => $key])) ?>" tabindex="0" role="button" aria-haspopup="dialog" title="Click for details">
     <div class="card-body">
         <div class="d-flex justify-content-between align-items-start">
             <div>

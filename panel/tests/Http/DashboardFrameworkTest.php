@@ -60,13 +60,13 @@ final class DashboardFrameworkTest extends HttpTestCase
     public function testTheRegistryListsEveryWidgetWithItsCategoryAndPermission(): void
     {
         $reg = new WidgetRegistry();
-        self::assertSame(['tile_cpu', 'tile_memory', 'tile_disk', 'tile_load', 'server_info', 'services_live', 'websites_summary', 'alert_center', 'attention', 'performance_history', 'disk', 'website_health', 'website_overview', 'security_overview', 'ssl_overview', 'top_processes', 'services_overview', 'database_overview', 'cache_overview', 'capacity_forecast', 'web_stack', 'traffic_overview', 'dns_mail', 'backup_health', 'backups', 'system_updates', 'deployments', 'request_trends', 'wordpress'], array_keys($reg->all()));
+        self::assertSame(['tile_cpu', 'tile_memory', 'tile_disk', 'tile_load', 'software', 'websites_summary', 'alert_center', 'attention', 'performance_history', 'disk', 'website_health', 'website_overview', 'security_overview', 'ssl_overview', 'top_processes', 'services_overview', 'database_overview', 'cache_overview', 'capacity_forecast', 'web_stack', 'traffic_overview', 'dns_mail', 'backup_health', 'backups', 'system_updates', 'deployments', 'request_trends', 'wordpress'], array_keys($reg->all()));
         foreach ($reg->all() as $w) {
             self::assertContains($w->category, WidgetRegistry::CATEGORIES, $w->id);
             self::assertArrayHasKey($w->size, Widget::SIZES, $w->id);
             self::assertNotSame('', $w->permission, $w->id);
         }
-        self::assertSame(['disk', 'web_stack', 'dns_mail'], array_keys($reg->visibleTo(static fn (string $p): bool => $p === P::SERVER_VIEW)));
+        self::assertSame(['software', 'disk', 'web_stack', 'dns_mail'], array_keys($reg->visibleTo(static fn (string $p): bool => $p === P::SERVER_VIEW)));
     }
 
     public function testCheapWidgetsAreDrawnWithThePageAndTheOthersAreLoadedAfterIt(): void

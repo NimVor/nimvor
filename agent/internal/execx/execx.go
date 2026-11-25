@@ -73,7 +73,7 @@ type Opts struct {
 }
 
 // PrivilegedCommands may run with Opts.Capabilities.
-var PrivilegedCommands = map[string]bool{"setquota": true, "repquota": true, "quotaon": true, "quotacheck": true, "mount": true, "sysctl": true, "nimvor-agent": true, "strace": true}
+var PrivilegedCommands = map[string]bool{"setquota": true, "repquota": true, "quotaon": true, "quotacheck": true, "mount": true, "sysctl": true, "nimvor-agent": true, "strace": true, "swapon": true, "swapoff": true}
 
 // PrivilegedCapabilities are the capabilities Opts.Capabilities may name.
 var PrivilegedCapabilities = map[string]bool{"CAP_SYS_ADMIN": true, "CAP_DAC_READ_SEARCH": true, "CAP_SYS_PTRACE": true, "CAP_NET_ADMIN": true}
@@ -114,6 +114,9 @@ func privilegedArgs(id string, args []string) bool {
 	switch id {
 	case "sysctl":
 		return (len(args) == 2 && args[0] == "-p" && args[1] == SysctlFile) || (len(args) == 2 && args[0] == "-w" && sysctlSetRe.MatchString(args[1]))
+	case "swapon", "swapoff":
+		// Only the two swap files NimVor manages (swapmgr).
+		return len(args) == 1 && (args[0] == "/swapfile" || args[0] == "/swap.img")
 	case "nimvor-agent":
 		// The process manager's read-only scan modes only.
 		return (len(args) == 1 && args[0] == "-proc-scan") || (len(args) == 2 && args[0] == "-proc-detail" && pidRe.MatchString(args[1]))
@@ -236,14 +239,18 @@ var defaultCandidates = map[string][]string{
 	"sshd":                   {"/usr/sbin/sshd"},
 	"hostnamectl":            {"/usr/bin/hostnamectl"},
 	"timedatectl":            {"/usr/bin/timedatectl"},
-	"shutdown":               {"/usr/sbin/shutdown", "/sbin/shutdown"},
-	"composer":               {"/usr/local/bin/composer", "/usr/bin/composer"},
-	"sh":                     {"/bin/sh", "/usr/bin/sh"},
-	"tar":                    {"/usr/bin/tar", "/bin/tar"},
-	"perl":                   {"/usr/bin/perl"},
-	"clamscan":               {"/usr/bin/clamscan"},
-	"ffmpeg":                 {"/usr/bin/ffmpeg"},
-	"dpkg-statoverride":      {"/usr/bin/dpkg-statoverride"},
+	// Swap memory (swapmgr): the file is formatted without privileges, turned on and off with CAP_SYS_ADMIN.
+	"mkswap":            {"/usr/sbin/mkswap", "/sbin/mkswap", "/usr/bin/mkswap"},
+	"swapon":            {"/usr/sbin/swapon", "/sbin/swapon", "/usr/bin/swapon"},
+	"swapoff":           {"/usr/sbin/swapoff", "/sbin/swapoff", "/usr/bin/swapoff"},
+	"shutdown":          {"/usr/sbin/shutdown", "/sbin/shutdown"},
+	"composer":          {"/usr/local/bin/composer", "/usr/bin/composer"},
+	"sh":                {"/bin/sh", "/usr/bin/sh"},
+	"tar":               {"/usr/bin/tar", "/bin/tar"},
+	"perl":              {"/usr/bin/perl"},
+	"clamscan":          {"/usr/bin/clamscan"},
+	"ffmpeg":            {"/usr/bin/ffmpeg"},
+	"dpkg-statoverride": {"/usr/bin/dpkg-statoverride"},
 	// Disk quotas (the quota package); mount only remounts with quota
 	// options, grubby adds the XFS root quota boot option.
 	"setquota":   {"/usr/sbin/setquota", "/sbin/setquota"},
