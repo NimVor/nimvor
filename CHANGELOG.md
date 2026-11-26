@@ -8,6 +8,11 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Added
 - **ClickHouse** in the app installer (*testing* status, so only administrators can install it until you have tried it). It runs as a service behind a reverse-proxy website, checked against the SHA-256 GitHub reports for its release file, with only its HTTP interface on the local port and one login whose password is stored hashed. Database migration 0089.
+- **One-click sign-in to phpMyAdmin and Adminer:** the tool's name next to a database opens it already signed in to that database, with a short-lived account that can reach that database only (new agent actions `dbtools.signon`, `dbtools.signon_sweep`; the scheduler locks the accounts after two hours).
+- **Database tools:** an administrator can install phpMyAdmin and Adminer (Databases → Database tools) as alternatives to the built-in database browser. They are downloaded and checksum-verified, kept read-only, run in a PHP-FPM pool and account of their own, and served on the panel's HTTPS address under `/dbtools/`. Users get an "open in" link next to *Browse* on each database and sign in with a database user. New agent actions `dbtools.status`, `dbtools.install`, `dbtools.remove`; the installer's panel site now includes `/etc/nginx/nimvor-dbtools.d/*.conf`.
+- Mail names (`mail.<domain>`, `webmail.<domain>` with their own certificate) now turn on by themselves: at once when the domain's DNS zone is hosted on this panel (the two records are added to the zone), otherwise a scheduler job checks every few minutes, for 7 days, and turns them on as soon as the names point to this server. Domains that already exist without mail names are covered too. Names an administrator turned off stay off. Setting *Mail names for email domains* (on by default). Database migration 0087.
+### Changed
+- Creating a website is now a four-step wizard (what you are hosting, domain, settings, review) with a progress bar. The form fields, validation and what is created are unchanged, and the page still works without JavaScript. The last step can open the app installer straight after the website is created. After a validation error the wizard opens at the step with the problem.
 
 ## [2.7.0] — 2026-11-25
 

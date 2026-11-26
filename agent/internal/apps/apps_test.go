@@ -348,7 +348,10 @@ func TestCatalogEntriesAreWellFormed(t *testing.T) {
 		if d.URL != "" && !strings.HasPrefix(d.URL, "https://") {
 			t.Errorf("%s: download must be https: %s", slug, d.URL)
 		}
-		if d.Format != "" && d.Format != "zip" && d.Format != "targz" && d.Format != "tarbz2" {
+		if d.Format == "file" && d.File == "" {
+			t.Errorf("%s: a single-file download needs a file name", slug)
+		}
+		if d.Format != "" && d.Format != "zip" && d.Format != "file" && d.Format != "targz" && d.Format != "tarbz2" {
 			t.Errorf("%s: unknown format %q", slug, d.Format)
 		}
 	}
@@ -423,5 +426,40 @@ func TestResolveURLFindsTheLatestReleaseAsset(t *testing.T) {
 	// Without GitHub the plain URL is used.
 	if u, err := ResolveURL(context.Background(), srv.Client(), AppDef{URL: "https://example.com/a.zip"}); err != nil || u != "https://example.com/a.zip" {
 		t.Errorf("%q %v", u, err)
+	}
+}
+
+// A single-file app (Adminer) is saved under its file name; generated files are written once with a fresh secret.
+func TestSingleFileAndGeneratedFiles(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { io.WriteString(w, "<?php // adminer") }))
+	t.Cleanup(srv.Close)
+	Catalog["onefile"] = AppDef{Name: "One File", Format: "file", File: "index.php", NoDB: true, Finish: "/", Files: map[string]string{"cfg.php": "<?php $s='{{secret32}}';", "tmp/.keep": ""}}
+	t.Cleanup(func() { delete(Catalog, "onefile") })
+	h, _ := setup(t)
+	req := request()
+	req.App = "onefile"
+	req.Root = "/home/nimvor/shop.test"
+	req.DB = DB{}
+	cred, _, _ := h.Env.Credential("example")
+	if _, err := Install(context.Background(), h.Env, Sources{Client: srv.Client(), CatalogBase: srv.URL}, req, cred, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(h.Base, "home/nimvor/shop.test", req.Path)
+	got, err := os.ReadFile(filepath.Join(dir, "index.php"))
+	if err != nil || string(got) != "<?php // adminer" {
+		t.Fatalf("index.php = %q, %v", got, err)
+	}
+	cfg, err := os.ReadFile(filepath.Join(dir, "cfg.php"))
+	if err != nil || strings.Contains(string(cfg), "{{") || len(strings.TrimSuffix(strings.TrimPrefix(string(cfg), "<?php $s='"), "';")) != 32 {
+		t.Fatalf("cfg.php = %q, %v", cfg, err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "tmp/.keep")); err != nil {
+		t.Errorf("tmp/.keep missing: %v", err)
+	}
+	if err := writeAppFiles(dir, map[string]string{"cfg.php": "changed"}, 0, 0); err != nil {
+		t.Fatal(err)
+	}
+	if again, _ := os.ReadFile(filepath.Join(dir, "cfg.php")); string(again) != string(cfg) {
+		t.Error("an existing generated file was overwritten")
 	}
 }

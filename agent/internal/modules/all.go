@@ -8,6 +8,7 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/components"
 	"github.com/NimVor/nimvor/agent/internal/cronmgr"
 	"github.com/NimVor/nimvor/agent/internal/dbmgr"
+	"github.com/NimVor/nimvor/agent/internal/dbtools"
 	"github.com/NimVor/nimvor/agent/internal/deploy"
 	"github.com/NimVor/nimvor/agent/internal/diskmgr"
 	"github.com/NimVor/nimvor/agent/internal/dnsmgr"
@@ -92,6 +93,7 @@ func All() []Module {
 		shotmgr.Register,
 		probemgr.Register,
 		apps.Register,
+		dbtools.Register,
 		wordpress.Register,
 		adopt.Register,
 		migrate.Register,

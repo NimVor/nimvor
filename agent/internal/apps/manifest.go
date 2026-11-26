@@ -194,7 +194,7 @@ var trustedHosts = map[string]bool{
 	// vendors
 	"downloads.wordpress.org": true, "wordpress.org": true, "dl.gitea.com": true,
 	"downloads.joomla.org": true, "www.drupal.org": true, "download.phpbb.com": true, "download.simplemachines.org": true,
-	"download.nextcloud.com": true, "builds.matomo.org": true, "download.moodle.org": true, "releases.wikimedia.org": true,
+	"download.nextcloud.com": true, "www.phpmyadmin.net": true, "files.phpmyadmin.net": true, "builds.matomo.org": true, "download.moodle.org": true, "releases.wikimedia.org": true,
 	"getgrav.org": true, "www.bludit.com": true, "sourceforge.net": true, "akaunting.com": true, "piwigo.org": true,
 	"facturascripts.com": true,
 }

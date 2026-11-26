@@ -110,6 +110,10 @@ final class SettingsService
                 'category' => 'ssl', 'type' => 'bool', 'default' => true,
                 'label' => 'Automatic SSL for new websites', 'help' => 'Issue a certificate from the configured provider for a new website once its domain points to this server (its name servers are this panel\'s, or its address is this server\'s). Checked every few minutes for up to 3 days.',
             ],
+            'mail_names_auto' => [
+                'category' => 'ssl', 'type' => 'bool', 'default' => true,
+                'label' => 'Mail names for email domains', 'help' => 'Give each email domain its own mail.<domain> and webmail.<domain>, with a Let\'s Encrypt certificate, once both names point to this server: at once when the domain\'s DNS zone is hosted here and delegated to this panel, otherwise when its DNS points here, checked every few minutes for up to 7 days. An administrator who turns a domain\'s mail names off is never overruled.',
+            ],
             'auto_ssl_replace' => [
                 'category' => 'ssl', 'type' => 'bool', 'default' => true,
                 'label' => 'Replace expired or invalid certificates', 'help' => 'Every few hours, a website whose certificate has expired, expires within 7 days without being renewed, does not cover its domain or is self-signed gets a new Let\'s Encrypt certificate once its domain points to this server. Every attempt is logged on SSL/TLS → AutoSSL.',

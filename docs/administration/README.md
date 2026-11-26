@@ -278,6 +278,14 @@ layout without the sidebar. Their home page is their websites as cards
 Administrators see the same cards through the cards/list switch on
 *Websites*.
 
+**Creating a website** is a four-step wizard on *Websites → Create site*:
+what you are hosting (PHP, static, Node.js, Python, reverse proxy), the domain
+and aliases (and, for administrators, the system user and owner), the type's
+settings (versions, port, document root, PHP limits), and a review. The last
+step can open the app installer once the website exists. It is one ordinary
+form (same fields as before); without JavaScript every step is shown at once.
+After a validation error it opens at the first step with a problem.
+
 Opening a website shows its details (site user, root directory, IPv4,
 PHP handler and version, site and database size, SSL, last backup) and
 **Site managing**: tiles for FTP accounts, Files, Databases, Domains (DNS),
@@ -1867,6 +1875,16 @@ certificate of their own, so mail apps and browsers see the customer's own
 name with no certificate warning. The agent actions are `mail.names_status`,
 `mail.names_enable` (a job) and `mail.names_disable`:
 
+- **Automatic:** the names turn on by themselves (setting *Mail names for
+  email domains*, on by default, under SSL). When an email domain is added
+  and its DNS zone is hosted on this panel, the two A records are added to the
+  zone at once; otherwise the scheduler (`nimvor schedule:run`, every 5
+  minutes) looks at each domain without names and asks for the certificate as
+  soon as `mail.<domain>` and `webmail.<domain>` both resolve to this server
+  (the same test AutoSSL uses), for up to 7 days; existing domains get a fresh
+  7 days after the upgrade. A refused certificate request is retried (4 tries).
+  A domain whose names an administrator turned off is never turned on again by
+  the job; the Mail names card shows what the job is waiting for.
 - Both names must already point at this server (DNS records created first).
   An Nginx site (`nimvor-mail-names.conf`) answers the Let's Encrypt
   challenge on port 80 for them; one certificate (`mail.<domain>`) covers both.
@@ -2186,6 +2204,39 @@ PRIVILEGES`, `FLUSH LOGS` and `FLUSH HOSTS`.
 command, time and statement; a statement can be stopped (`KILL QUERY`) or
 the connection ended (`KILL CONNECTION`), after confirmation. The server's
 own threads cannot be ended. Every change is recorded in the audit log.
+
+## Database tools: phpMyAdmin and Adminer
+
+NimVor's own database browser (below) needs nothing installed. For people who prefer them, an administrator can also
+install **phpMyAdmin** and **Adminer** under *Databases → Database tools*. Users then see their name next to
+*Browse* on each database.
+
+- The agent downloads them from the vendor (phpMyAdmin's latest all-languages archive against its published SHA-256;
+  Adminer's release file against the SHA-256 GitHub reports), puts them in `/var/lib/nimvor-dbtools/www/dbtools/<tool>`
+  (owned by root, read-only to everything else) and generates phpMyAdmin's `config.inc.php` with its own cookie
+  secret. phpMyAdmin may only connect to this server (`AllowArbitraryServer` off); Adminer's front page fixes the
+  server to `localhost`.
+- They run in a PHP-FPM pool of their own (`nimvor-dbtools`, its own account, `open_basedir` limited to the tools and
+  their temporary folder, shell functions disabled) and are served on the **panel's own HTTPS address** at
+  `/dbtools/phpmyadmin/` and `/dbtools/adminer/`. Only the tools' front PHP files run; their libraries, settings and
+  temporary folders are not served. The panel's Nginx site includes `/etc/nginx/nimvor-dbtools.d/*.conf`, a line the
+  installer writes and the agent adds to an existing site when the first tool is installed. This needs the panel to be
+  served by NimVor's own Nginx site (`install.sh --public-https`).
+- Everything is validated with `nginx -t` and `php-fpm -t`, checked by loading the page, and rolled back if it fails.
+  Installing a tool again replaces it with the current release; *Remove* deletes it (the last removal also removes the
+  pool and the snippet). The agent actions are `dbtools.status`, `dbtools.install` (a job) and `dbtools.remove`.
+- **One-click sign-in:** the tool's name next to a database opens it already signed in to that database. NimVor's
+  agent prepares a sign-in account for that database only (`nimvor_t_<hash>@localhost`, privileges on that database,
+  a fresh random password each time) and a one-time link token that only the tools' account can read and that works
+  once, within a minute (`/dbtools/<tool>/nimvor-signon.php?t=…`). The page claims the token and starts the tool's
+  session: phpMyAdmin through its documented *signon* authentication (server 2 in its configuration; server 1 stays
+  the normal sign-in), Adminer by posting its own sign-in form. The panel's scheduler locks the account again after two
+  hours (`dbtools.signon_sweep`), and removing the last tool locks all of them. Opening the tool again from the same
+  database gives a new password and ends the earlier window's session. Only databases the user may manage in NimVor can
+  be opened; the tools never get the database server's root account.
+- Without that link, users sign in to the tool with a database user's own name and password. Because the tools share the panel's address,
+  treat them like any third-party program next to the panel: install them only when somebody needs them, and remove
+  them when not.
 
 ## Database browser
 

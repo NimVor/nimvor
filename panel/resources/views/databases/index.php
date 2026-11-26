@@ -40,3 +40,4 @@
         <?php if ($this->hasRoute('redis')): ?><a class="ms-auto" href="<?= e($this->url('redis')) ?>">Manage Redis</a><?php endif; ?>
     </div>
 <?php endif; ?>
+<p class="small text-body-secondary mt-3"><i class="bi bi-database-gear me-1"></i>Prefer phpMyAdmin or Adminer? <a href="<?= e($this->url('databases.tools')) ?>">Database tools</a>.</p>

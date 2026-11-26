@@ -456,6 +456,92 @@
         document.querySelectorAll('[data-nim-toggle-kind]').forEach(applyKind);
     });
 
+    // New-website wizard: the form's cards carry data-nim-step (1 type, 2 domain,
+    // 3 settings, 4 review). Without this script every card is shown at once.
+    function initWizard(form) {
+        var steps = Array.prototype.slice.call(form.querySelectorAll('[data-nim-step]'));
+        if (!steps.length) { return; }
+        var nav = form.querySelector('[data-nim-wizard-nav]');
+        var submit = form.querySelector('[data-nim-wizard-submit]');
+        var tabs = document.querySelectorAll('[data-nim-step-tab]');
+        var last = 4, cur = 1;
+        function field(name) {
+            var els = form.querySelectorAll('[name="' + name + '"]');
+            for (var i = 0; i < els.length; i++) {
+                var el = els[i];
+                if (el.disabled) { continue; }
+                if (el.type === 'radio') { if (el.checked) { return el; } continue; }
+                return el;
+            }
+            return null;
+        }
+        function label(el) {
+            if (!el) { return ''; }
+            if (el.tagName === 'SELECT') { return el.options[el.selectedIndex] ? el.options[el.selectedIndex].text : ''; }
+            if (el.type === 'radio') { var l = form.querySelector('label[for="' + el.id + '"]'); return l ? l.textContent.trim() : el.value; }
+            return el.value.trim();
+        }
+        function review() {
+            form.querySelectorAll('[data-nim-review-field]').forEach(function (dd) {
+                var n = dd.getAttribute('data-nim-review-field');
+                var v = label(field(n));
+                if (n === 'app_runtime') { var port = field('app_port'); v = v + (port && port.value ? ' on port ' + port.value : ''); }
+                dd.textContent = v === '' ? '—' : v;
+            });
+        }
+        function show(n) {
+            cur = Math.max(1, Math.min(last, n));
+            steps.forEach(function (el) { el.hidden = el.getAttribute('data-nim-step') !== String(cur); });
+            tabs.forEach(function (t) {
+                var k = parseInt(t.getAttribute('data-nim-step-tab'), 10);
+                t.classList.toggle('active', k === cur);
+                t.classList.toggle('done', k < cur);
+            });
+            if (nav) {
+                nav.hidden = false;
+                nav.querySelector('[data-nim-wizard-back]').hidden = cur === 1;
+                nav.querySelector('[data-nim-wizard-next]').hidden = cur === last;
+            }
+            if (submit) { submit.hidden = cur !== last; }
+            if (cur === last) { review(); }
+        }
+        function ok(n) {
+            // Step 2 needs a domain; the server checks everything else.
+            if (n === 2) {
+                var d = form.querySelector('[name="domain"]');
+                if (d && d.value.trim() === '') { d.classList.add('is-invalid'); d.focus(); return false; }
+            }
+            return true;
+        }
+        form.classList.add('nim-wizard-on');
+        form.addEventListener('click', function (e) {
+            if (e.target.closest('[data-nim-wizard-next]')) { if (ok(cur)) { show(cur + 1); } }
+            if (e.target.closest('[data-nim-wizard-back]')) { show(cur - 1); }
+        });
+        tabs.forEach(function (t) {
+            t.addEventListener('click', function () {
+                var k = parseInt(t.getAttribute('data-nim-step-tab'), 10);
+                if (k < cur || (k === cur + 1 && ok(cur))) { show(k); }
+            });
+        });
+        // Enter in a text field goes to the next step instead of submitting early.
+        form.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' && cur < last && e.target.tagName === 'INPUT' && e.target.type !== 'submit') {
+                e.preventDefault();
+                if (ok(cur)) { show(cur + 1); }
+            }
+        });
+        // After a server-side error, start at the first step that has one.
+        var first = 1;
+        for (var i = 0; i < steps.length; i++) {
+            if (steps[i].querySelector('.is-invalid, .invalid-feedback')) { first = parseInt(steps[i].getAttribute('data-nim-step'), 10); break; }
+        }
+        show(first);
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('form[data-nim-wizard]').forEach(initWizard);
+    });
+
     // DNS record modal: one form for adding and editing (buttons carry the
     // record as JSON), with the fields of the chosen type only.
     var dnsHints = {
