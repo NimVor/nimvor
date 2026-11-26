@@ -68,6 +68,35 @@ final class DbToolsService
         $this->audit->record('dbtools.remove', 'server', $tool, AuditLogger::SUCCESS, ['tool' => $tool]);
     }
 
+    /**
+     * One-click sign-in of a tool to one database: the path (with a one-time token) to send the browser to.
+     */
+    public function signon(string $tool, string $database): string
+    {
+        $this->known($tool);
+        $res = (array) $this->agent->call('dbtools.signon', ['tool' => $tool, 'database' => $database], 60);
+        $path = (string) ($res['path'] ?? '');
+        if (!preg_match('#^/dbtools/[a-z]+/nimvor-signon\.php\?t=[a-f0-9]{32}$#', $path)) {
+            throw new \NimVor\Support\UserFacingException('The database tool did not give a sign-in link.');
+        }
+        $this->audit->record('dbtools.signon', 'database', $database, AuditLogger::SUCCESS, ['tool' => $tool]);
+        return $path;
+    }
+
+    /**
+     * Lock the sign-in accounts whose time is up; a line for the scheduler's log, or '' when there was nothing to
+     * do. Called every few minutes, and does nothing when no tool is installed.
+     */
+    public function sweep(): string
+    {
+        if ($this->installed() === []) {
+            return '';
+        }
+        $res = (array) $this->agent->call('dbtools.signon_sweep', [], 60);
+        $n = (int) ($res['locked'] ?? 0);
+        return $n > 0 ? 'database tools: locked ' . $n . ' sign-in account(s)' : '';
+    }
+
     private function known(string $tool): void
     {
         if (!isset(self::TOOLS[$tool])) {

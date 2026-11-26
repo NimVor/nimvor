@@ -139,6 +139,8 @@ paths:
               - db.user_password
               - dbtools.install
               - dbtools.remove
+              - dbtools.signon
+              - dbtools.signon_sweep
               - dbtools.status
               - deploy.key
               - deploy.run
@@ -746,6 +748,8 @@ x-nimvor-actions:
   db.user_password: { mutating: true, description: "Change a database user's password." }
   dbtools.install: { mutating: true, description: "Install phpMyAdmin or Adminer (downloaded from the vendor and checked against its published checksum) into a read-only folder, run it in its own PHP-FPM pool and account, and serve it on the panel's HTTPS address under /dbtools/<tool>/. Validated with nginx -t and php-fpm -t, checked by loading the page, rolled back on failure. Runs as a job." }
   dbtools.remove: { mutating: true, description: "Remove a database tool. When the last one is removed, its PHP-FPM pool and Nginx snippet go too." }
+  dbtools.signon: { mutating: true, description: "Prepare a one-click sign-in of an installed database tool to one database: a sign-in account with privileges on that database only (locked again after two hours), and a one-time link token that expires after a minute." }
+  dbtools.signon_sweep: { mutating: true, description: "Lock the database tools' sign-in accounts whose time is up and remove unused sign-in tokens. Called every few minutes by the panel's scheduler." }
   dbtools.status: { mutating: false, description: "Which database tools (phpMyAdmin, Adminer) are installed, and whether the panel is served over HTTPS so they can be reached." }
   deploy.key: { mutating: true, description: "Create (if needed) and return the website's SSH deploy key." }
   deploy.run: { mutating: true, description: "Clone or update a Git repository and run post-deploy commands (job)." }

@@ -62,7 +62,14 @@ var Tools = []Tool{
 				"config.inc.php": "<?php\n$cfg['blowfish_secret'] = '{{secret32}}';\n$i = 0;\n$i++;\n" +
 					"$cfg['Servers'][$i]['auth_type'] = 'cookie';\n$cfg['Servers'][$i]['host'] = 'localhost';\n" +
 					"$cfg['Servers'][$i]['compress'] = false;\n$cfg['Servers'][$i]['AllowNoPassword'] = false;\n" +
-					"$cfg['TempDir'] = '" + Dir + "/tmp/phpmyadmin';\n$cfg['AllowArbitraryServer'] = false;\n",
+					"$cfg['TempDir'] = '" + Dir + "/tmp/phpmyadmin';\n$cfg['AllowArbitraryServer'] = false;\n" +
+					// Server 2: the one-click sign-in from NimVor (nimvor-signon.php starts its session).
+					"$i++;\n$cfg['Servers'][$i]['verbose'] = 'NimVor sign-in';\n$cfg['Servers'][$i]['auth_type'] = 'signon';\n" +
+					"$cfg['Servers'][$i]['SignonSession'] = 'NimvorSignon';\n" +
+					"$cfg['Servers'][$i]['SignonCookieParams'] = ['lifetime' => 0, 'path' => '/dbtools/phpmyadmin/', 'secure' => true, 'httponly' => true, 'samesite' => 'Lax'];\n" +
+					"$cfg['Servers'][$i]['SignonURL'] = '/dbtools/phpmyadmin/index.php?server=1';\n$cfg['Servers'][$i]['LogoutURL'] = '/dbtools/phpmyadmin/index.php?server=1';\n" +
+					"$cfg['Servers'][$i]['host'] = 'localhost';\n$cfg['ServerDefault'] = 1;\n",
+				"nimvor-signon.php": signonPrelude + pmaSignon,
 			},
 		},
 	},
@@ -70,7 +77,7 @@ var Tools = []Tool{
 		ID: "adminer", Name: "Adminer", Description: "Database manager in a single small PHP file.",
 		Def: apps.AppDef{
 			Name: "Adminer", GitHub: "vrana/adminer", AssetRe: `^adminer-[0-9.]+\.php$`, Format: "file", File: "adminer.php",
-			Files: map[string]string{"index.php": adminerEntry},
+			Files: map[string]string{"index.php": adminerEntry, "nimvor-signon.php": signonPrelude + adminerSignon},
 		},
 	},
 }
@@ -93,6 +100,60 @@ function adminer_object() {
     return new NimvorAdminer;
 }
 include './adminer.php';
+`
+
+// signonPrelude claims a one-time token: the file is renamed first, so of two requests with the same token only one
+// gets it, and it must be younger than the time written in it. It leaves $d (user, password, db) for the caller.
+const signonPrelude = `<?php
+declare(strict_types=1);
+header('Cache-Control: no-store');
+header('Referrer-Policy: no-referrer');
+$t = (string) ($_GET['t'] ?? '');
+$gone = static function (): never {
+    http_response_code(410);
+    exit('This sign-in link was already used or has expired. Open the tool again from NimVor.');
+};
+if (!preg_match('/^[a-f0-9]{32}$/', $t)) {
+    http_response_code(400);
+    exit('Invalid sign-in link.');
+}
+$file = '` + Dir + `/tmp/signon/' . $t . '.json';
+$claimed = $file . '.' . getmypid();
+if (!@rename($file, $claimed)) {
+    $gone();
+}
+$raw = (string) @file_get_contents($claimed);
+@unlink($claimed);
+$d = json_decode($raw, true);
+if (!is_array($d) || (int) ($d['exp'] ?? 0) < time() || !is_string($d['user'] ?? null) || !is_string($d['password'] ?? null) || !is_string($d['db'] ?? null)) {
+    $gone();
+}
+`
+
+// pmaSignon starts phpMyAdmin's sign-on session (server 2 in its configuration) and goes to the database.
+const pmaSignon = `session_name('NimvorSignon');
+session_set_cookie_params(['lifetime' => 0, 'path' => '/dbtools/phpmyadmin/', 'secure' => true, 'httponly' => true, 'samesite' => 'Lax']);
+session_start();
+$_SESSION['PMA_single_signon_user'] = $d['user'];
+$_SESSION['PMA_single_signon_password'] = $d['password'];
+$_SESSION['PMA_single_signon_host'] = 'localhost';
+session_write_close();
+header('Location: index.php?server=2&db=' . rawurlencode($d['db']));
+`
+
+// adminerSignon posts Adminer's own sign-in form for the visitor. The one-time password is in this page only.
+const adminerSignon = `$f = static fn (string $v): string => htmlspecialchars($v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+?><!doctype html>
+<meta charset="utf-8"><title>Signing in…</title>
+<form method="post" action="index.php">
+<input type="hidden" name="auth[driver]" value="server">
+<input type="hidden" name="auth[server]" value="localhost">
+<input type="hidden" name="auth[username]" value="<?= $f($d['user']) ?>">
+<input type="hidden" name="auth[password]" value="<?= $f($d['password']) ?>">
+<input type="hidden" name="auth[db]" value="<?= $f($d['db']) ?>">
+<noscript><button>Sign in</button></noscript>
+</form>
+<script>document.forms[0].submit();</script>
 `
 
 func toolByID(id string) (Tool, bool) {

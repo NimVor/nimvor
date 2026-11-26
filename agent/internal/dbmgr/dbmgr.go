@@ -151,6 +151,9 @@ func checkUser(u, h string) error {
 	if strings.HasPrefix(strings.ToLower(u), BrowserPrefix) {
 		return &validate.Error{Field: "user", Message: "names starting with " + BrowserPrefix + " are reserved for the database browser"}
 	}
+	if strings.HasPrefix(strings.ToLower(u), ToolPrefix) {
+		return &validate.Error{Field: "user", Message: "names starting with " + ToolPrefix + " are reserved for the database tools"}
+	}
 	if !hostRe.MatchString(h) {
 		return &validate.Error{Field: "host", Message: "is not a valid host"}
 	}
@@ -198,7 +201,7 @@ func Register(r *actions.Registry, env *host.Env) {
 		if in.Confirm != in.Name {
 			return nil, actions.InvalidParams("confirm must repeat the database name")
 		}
-		return map[string]any{"name": in.Name}, c.Exec(ctx, "Dropping the database", fmt.Sprintf("DROP DATABASE IF EXISTS %s;\nDROP USER IF EXISTS %s;", Ident(in.Name), account(BrowserAccount(in.Name), "localhost")))
+		return map[string]any{"name": in.Name}, c.Exec(ctx, "Dropping the database", fmt.Sprintf("DROP DATABASE IF EXISTS %s;\nDROP USER IF EXISTS %s;\nDROP USER IF EXISTS %s;", Ident(in.Name), account(BrowserAccount(in.Name), "localhost"), account(ToolAccountName(in.Name), "localhost")))
 	}})
 	r.Register(actions.Action{Name: "db.user_create", Mutating: true, Description: "Create a database user.", Handler: func(ctx context.Context, p json.RawMessage) (any, error) {
 		var in userReq

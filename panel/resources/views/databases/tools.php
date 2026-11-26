@@ -8,7 +8,7 @@
 <?php $this->start(); ?>Database tools<?php $this->end('title'); ?>
 <?php $this->start(); ?>phpMyAdmin and Adminer next to NimVor's own database browser<?php $this->end('subtitle'); ?>
 
-<p class="text-body-secondary">NimVor's own database browser needs nothing installed and works with the database you open it from. If you or your customers prefer phpMyAdmin or Adminer, an administrator can install them here. They open on the panel's own address and you sign in with a database user's name and password.</p>
+<p class="text-body-secondary">NimVor's own database browser needs nothing installed and works with the database you open it from. If you or your customers prefer phpMyAdmin or Adminer, an administrator can install them here. They open on the panel's own address. Use the tool's name next to a database in the list to open it already signed in to that database (one click, no password); or open the tool directly and sign in with a database user's name and password.</p>
 
 <?php if ($status === null): ?>
     <div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-1"></i>The agent did not answer, so what is installed is not known. Try again in a moment.</div>
@@ -33,7 +33,7 @@
                 <div class="card-body small">
                     <p class="mb-2"><?= e((string) $t['description']) ?></p>
                     <?php if (!empty($t['installed'])): ?>
-                        <p class="mb-2">Opens at <a href="<?= e((string) $t['path']) ?>" target="_blank" rel="noopener"><code><?= e((string) $t['path']) ?></code></a>. Sign in with a database user's name and password (shown when the user was created).</p>
+                        <p class="mb-2">Opens at <a href="<?= e((string) $t['path']) ?>" target="_blank" rel="noopener"><code><?= e((string) $t['path']) ?></code></a>. From a database's row it opens signed in to that database; opened directly, sign in with a database user's name and password.</p>
                         <a class="btn btn-sm btn-primary" href="<?= e((string) $t['path']) ?>" target="_blank" rel="noopener">Open</a>
                         <?php if ($isAdmin): ?>
                         <form method="post" action="<?= e($this->url('databases.tools.remove', ['tool' => $id])) ?>" class="d-inline" data-nim-confirm="Remove <?= e((string) $t['name']) ?>? Its files are deleted; your databases are not touched."><?= $this->csrfField() ?><button class="btn btn-sm btn-outline-danger">Remove</button></form>

@@ -307,6 +307,7 @@ return static function (Router $r): void {
     $r->get('/databases', [DatabasesController::class, 'index'], ['name' => 'databases', 'permission' => P::DATABASES_VIEW]);
     $r->post('/databases', [DatabasesController::class, 'store'], ['name' => 'databases.store', 'permission' => P::DATABASES_MANAGE]);
     $r->get('/databases/tools', [\NimVor\Http\Controllers\DbToolsController::class, 'index'], ['name' => 'databases.tools', 'permission' => P::DATABASES_MANAGE]);
+    $r->post('/databases/{id}/tools/{tool}/open', [\NimVor\Http\Controllers\DbToolsController::class, 'open'], ['name' => 'databases.tools.open', 'permission' => P::DATABASES_MANAGE]);
     $r->post('/databases/tools/{tool}/install', [\NimVor\Http\Controllers\DbToolsController::class, 'install'], ['name' => 'databases.tools.install', 'permission' => P::DATABASES_MANAGE]);
     $r->post('/databases/tools/{tool}/remove', [\NimVor\Http\Controllers\DbToolsController::class, 'remove'], ['name' => 'databases.tools.remove', 'permission' => P::DATABASES_MANAGE]);
     $r->get('/databases/browse', [DbBrowserController::class, 'serverBrowse'], ['name' => 'databases.browser.server', 'permission' => P::DATABASES_MANAGE]);
