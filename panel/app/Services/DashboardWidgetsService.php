@@ -56,11 +56,10 @@ final class DashboardWidgetsService
                 'tile_cpu', 'tile_memory', 'tile_disk', 'tile_load' => ['_state' => 'ok'],
                 'software' => $this->software(),
                 'request_trends' => $this->requestTrends(),
-                'attention' => $this->attention($user),
                 'disk' => $this->disk(),
                 'top_processes' => $this->topProcesses(),
                 'security_overview' => ($this->security ?? throw new AgentException('Security status unavailable'))->security(),
-                'alert_center' => $this->alertCenter(),
+                'alert_center' => $this->alertsAndAttention($user),
                 'performance_history' => $this->performanceHistory(),
                 'website_overview' => $this->websiteStatistics($user),
                 'services_overview' => $this->servicesOverview(),
@@ -258,6 +257,28 @@ final class DashboardWidgetsService
             }
         }
         return ['needs' => $needs, 'expiring' => $expiring, '_state' => $needs === null && $expiring === null ? 'unavailable' : 'ok'];
+    }
+
+    /**
+     * The Alerts and attention widget: the alert center and what needs attention, in two tabs. Both parts are always gathered
+     * (the widget's measurement is shared) and the view shows each to those who may see it; a part that cannot be read is null.
+     *
+     * @param array<string, mixed> $user
+     * @return array<string, mixed>
+     */
+    public function alertsAndAttention(array $user): array
+    {
+        try {
+            $alerts = $this->alertCenter();
+        } catch (\Throwable) {
+            $alerts = null;
+        }
+        try {
+            $attention = $this->attention($user);
+        } catch (\Throwable) {
+            $attention = null;
+        }
+        return ['alerts' => $alerts, 'attention' => $attention, '_state' => $alerts === null && ($attention === null || ($attention['_state'] ?? '') === 'unavailable') ? 'unavailable' : 'ok'];
     }
 
     /**

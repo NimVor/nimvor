@@ -85,12 +85,40 @@ final class DashboardWidgetsTest extends HttpTestCase
         self::assertStringContainsString('memhog', $html);
     }
 
+    public function testAlertsAndNeedsAttentionAreOneWidgetInTwoTabs(): void
+    {
+        $page = $this->request('GET', '/')->body();
+        self::assertStringNotContainsString('data-widget-host="attention"', $page, 'Needs attention is a tab of the alerts widget now');
+        $html = $this->widgetHtml('alert_center');
+        self::assertStringContainsString('data-nim-tabs="alerts-attention"', $html);
+        self::assertStringContainsString('data-nim-pane="alerts"', $html);
+        self::assertStringContainsString('data-nim-pane="attention"', $html);
+        self::assertStringContainsString('Needs attention', $html);
+    }
+
+    public function testTheDatabasesWidgetHasTheChartAndOneTabPerServer(): void
+    {
+        $this->agent->succeed('db.server_status', ['running' => true, 'unit' => 'mariadb', 'databases' => 2, 'bytes' => 1024, 'variables' => ['version' => '10.11.6-MariaDB', 'max_connections' => '100'], 'status' => ['Uptime' => '90000', 'Threads_connected' => '3']]);
+        $this->agent->succeed('pg.status', ['installed' => false]);
+        $html = $this->widgetHtml('database_overview');
+        self::assertStringContainsString('data-nim-tabs="databases"', $html);
+        foreach (['conn', 'mysql'] as $pane) {
+            self::assertStringContainsString('data-nim-pane="' . $pane . '"', $html);
+        }
+        self::assertStringContainsString('data-nim-chart', $html, 'the chart is in the first tab');
+        self::assertStringNotContainsString('data-nim-pane="postgres"', $html, 'no PostgreSQL, no PostgreSQL tab');
+    }
+
     public function testTheWideWidgetsAreSizedByTheirNewTabs(): void
     {
         $reg = new \NimVor\Dashboard\WidgetRegistry();
         self::assertSame('md', $reg->find('top_processes')->size);
         self::assertSame('half', $reg->find('traffic_overview')->size);
         self::assertSame('half', $reg->find('request_trends')->size);
+        foreach (['backup_health', 'disk', 'alert_center'] as $id) {
+            self::assertSame('half', $reg->find($id)->size, $id);
+        }
+        self::assertNull($reg->find('attention'));
         self::assertSame('nim-span-half', \NimVor\Dashboard\Widget::SIZES['half']);
         self::assertNull($reg->find('website_health'));
         self::assertNull($reg->find('websites_summary'));
