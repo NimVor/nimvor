@@ -148,3 +148,14 @@ and the existing hover card (`nimvor.js`) shows `dashboard/tile_details.php`, wh
 Memcached are split with an `$only` variable) and adds links to the pages that manage the part. The data is read by
 `DashboardWidgetsService::tileDetails()` (30 seconds' cache) and each key needs the permission listed in
 `DashboardController::TILE_DETAILS`. A saved layout that still lists a removed widget simply ignores it.
+
+## Later change: tabs inside widgets
+
+A widget with several parts uses tabs instead of a long card: `dashboard/tabs.php` draws the buttons (`[data-nim-tab]`) and the
+widget's panes carry `[data-nim-pane]` inside a `[data-nim-tabs="key"]` box; `nimvor.js` switches them and remembers the chosen tab
+while the widget refreshes. *Top processes* (By CPU, By memory), *Traffic* (Overview, Websites usage), *Request trends* (Counts and
+chart, Busiest websites) and *Website statistics* (Overview, Slowest websites, Created per month, Websites) use it. *Website health*
+and the *Websites* card are no longer widgets of their own: `DashboardWidgetsService::websiteStatistics()` reads the checks, the states
+and the discovery summary together, and a part that cannot be read shows "not available" in its tab only. The width `half` (6 of 12
+columns, `nim-span-half`) is new.
+

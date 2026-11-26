@@ -1114,11 +1114,12 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
     .nim-widgets > .nim-span-tile { grid-column: span 3; }
 }
 @container nim-widgets (min-width: 640px) {
-    .nim-widgets > .nim-span-sm, .nim-widgets > .nim-span-md { grid-column: span 6; }
+    .nim-widgets > .nim-span-sm, .nim-widgets > .nim-span-md, .nim-widgets > .nim-span-half { grid-column: span 6; }
 }
 @container nim-widgets (min-width: 1000px) {
     .nim-widgets > .nim-span-sm { grid-column: span 3; }
     .nim-widgets > .nim-span-md { grid-column: span 4; }
+    .nim-widgets > .nim-span-half { grid-column: span 6; }
     .nim-widgets > .nim-span-lg { grid-column: span 8; }
 }
 @container nim-widgets (min-width: 1360px) {
@@ -1358,3 +1359,9 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 .nim-wizard-num { display: inline-flex; align-items: center; justify-content: center; width: 1.4rem; height: 1.4rem; border-radius: 50%; background: var(--bs-tertiary-bg); font-size: .75rem; }
 .nim-wizard-tab.active { color: var(--bs-body-color); border-color: var(--bs-primary); font-weight: 600; }
 .nim-wizard-tab.active .nim-wizard-num, .nim-wizard-tab.done .nim-wizard-num { background: var(--bs-primary); color: #fff; }
+
+/* Tabs inside a dashboard widget (assets/js/nimvor.js, [data-nim-tabs]). */
+.nim-wtabs { display: flex; flex-wrap: wrap; gap: .25rem; margin: 0 0 .75rem; padding: 0; border-bottom: 1px solid var(--bs-border-color); }
+.nim-wtab { background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: .3rem .65rem; font-size: .84rem; color: var(--bs-secondary-color); cursor: pointer; }
+.nim-wtab:hover { color: var(--bs-body-color); }
+.nim-wtab.active { color: var(--bs-body-color); border-bottom-color: var(--bs-primary); font-weight: 600; }
