@@ -37,7 +37,7 @@ func init() {
 var githubDownloads = "https://github.com/"
 
 // maxProgram bounds the program extracted from an archive.
-const maxProgram = 400 << 20
+const maxProgram = 1 << 30
 
 // goArch is the release name of this server's CPU ("amd64" or "arm64"), or "".
 func goArch() string { return giteaArch() }
