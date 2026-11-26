@@ -35,6 +35,7 @@ final class SiteProvisioner
         private readonly AgentClient $agent,
         private readonly AuditLogger $audit,
         private readonly Logger $log,
+        private readonly MailNamesAuto $names,
     ) {
     }
 
@@ -173,6 +174,7 @@ final class SiteProvisioner
             return [];
         }
         $this->mail->publishDns($domain, (string) ($status['hostname'] ?? ''), self::SYSTEM);
+        $this->names->prepare($domain);
         return ['email with DKIM'];
     }
 }
