@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.9.0] — 2026-11-26
+
+A tidier, tabbed dashboard and easier database tools. Panel only (the agent's only change is its version number): upgrade with `sudo nimvor update`; no database migration. Hard-refresh the browser afterwards. If you saved a dashboard layout, use Customize → Restore default to see the new widths.
+
 ### Changed
 - **Databases list: fewer buttons per row.** Each database shows **Browse** and a **More** menu holding phpMyAdmin, Adminer, Permission, Import, Dump and Delete, so the row no longer runs off the edge of the table.
 - **Database tools in the sidebar.** Databases → Database tools (phpMyAdmin, Adminer) is now listed under Databases in the admin sidebar.
