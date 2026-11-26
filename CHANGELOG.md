@@ -14,6 +14,9 @@ All notable changes to NimVor are documented here. The format follows
 - **A tidier dashboard: details on hover.** The dashboard widgets *DNS & mail*, *Redis & Memcached*, *SSL certificates* and *Nginx & PHP-FPM* are gone; the same information now shows in a card when the pointer rests on the matching Software tile (DNS server and Email each get their own, Redis and Memcached each get their own, Let's Encrypt gets the certificates, Web server gets Nginx and PHP-FPM), with links to the pages that manage it. The separate *Backups* widget is gone too (*Backup health* already shows backups). A saved layout that listed them keeps working.
 - **Database server settings in a window.** Clicking the database server chip (for example "MariaDB 10.11") on the Databases page, or the settings button of the Database server tile on the dashboard, opens the server's settings in a window instead of leaving the page. The full page, `/databases/server/settings`, is still there.
 
+### Added
+- **phpMyAdmin is installed with the panel.** The `full` and `web` server profiles now include a phpMyAdmin step (the same verified install as Databases → Database tools), so every database has its sign-in link on a fresh server. It is skipped, with the reason, when phpMyAdmin is already there or the panel has no NimVor HTTPS address (`--public-https`), and a failure never fails the setup. `install.sh --no-phpmyadmin` (also `nimvor setup:apply --no-phpmyadmin`) turns it off.
+
 ## [2.8.1] — 2026-11-26
 
 A faster dashboard and working phpMyAdmin and Adminer sign-in. Panel and agent: upgrade both with `sudo nimvor update` (no database migration; the panel restarts with eight workers and the scheduler's sweep corrects the database tools' files within minutes).
