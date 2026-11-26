@@ -253,18 +253,54 @@ func TestPhpMyAdminsMessagesFileRunsAndNothingElseBelowTheTopFolder(t *testing.T
 	}
 }
 
-// Adminer sets the cookie it encrypts the password with only when it shows its own sign-in page, so the sign-in page asks
-// for that page before it posts.
-func TestAdminersSignInPageLoadsAdminerFirst(t *testing.T) {
-	var body string
+// Adminer ignores a sign-in post that carries no CSRF token, and the one-click sign-in page has none to send. Its front
+// page therefore waives the token for a post the browser says is same-origin, and the sign-in page posts at once.
+func TestAdminersOneClickSignInPostsAtOnceAndTheFrontPageWaivesTheTokenForSameOrigin(t *testing.T) {
+	var page, front string
 	for _, tool := range Tools {
 		if tool.ID == "adminer" {
-			body = tool.Def.Files["nimvor-signon.php"]
+			page, front = tool.Def.Files["nimvor-signon.php"], tool.Def.Files["index.php"]
 		}
 	}
-	for _, want := range []string{"fetch('index.php', { credentials: 'same-origin' }).then(go, go);", `<form method="post" action="index.php">`, `name="auth[password]"`, "<noscript>"} {
-		if !strings.Contains(body, want) {
+	for _, want := range []string{`<form method="post" action="index.php">`, `name="auth[password]"`, "<noscript>", "document.forms[0].submit();"} {
+		if !strings.Contains(page, want) {
 			t.Errorf("the Adminer sign-in page lacks %q", want)
 		}
+	}
+	if strings.Contains(page, "fetch(") {
+		t.Error("the sign-in page should post at once")
+	}
+	if !strings.Contains(front, "function verifyLoginToken(): bool { return ($_SERVER['HTTP_SEC_FETCH_SITE'] ?? '') !== 'same-origin'; }") {
+		t.Errorf("the front page does not waive the sign-in token for same-origin posts:\n%s", front)
+	}
+}
+
+// What a release changes in the files NimVor generates inside an installed tool reaches existing installs through the
+// sweep; the vendor's files and the configuration with its secret are left alone.
+func TestSweepRewritesGeneratedToolFilesButNotTheSecretConfig(t *testing.T) {
+	h, _, r := signonSetup(t)
+	pma := "var/lib/nimvor-dbtools/www/dbtools/phpmyadmin/"
+	cfg := h.Read(pma + "config.inc.php")
+	if err := os.WriteFile(filepath.Join(h.Base, pma+"nimvor-signon.php"), []byte("<?php // an older sign-in page"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(h.Base, pma+"index.php"), []byte("<?php // the vendor's file"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res, err := callAction(t, r, "dbtools.signon_sweep", struct{}{})
+	if err != nil || res["refreshed"] != true {
+		t.Fatalf("sweep: %v %v", res, err)
+	}
+	if !strings.Contains(h.Read(pma+"nimvor-signon.php"), "PMA_single_signon_user") {
+		t.Error("the sign-in page was not rewritten")
+	}
+	if h.Read(pma+"index.php") != "<?php // the vendor's file" {
+		t.Error("a vendor file was rewritten")
+	}
+	if h.Read(pma+"config.inc.php") != cfg {
+		t.Error("the configuration with its secret was rewritten")
+	}
+	if res, _ = callAction(t, r, "dbtools.signon_sweep", struct{}{}); res["refreshed"] == true {
+		t.Error("nothing changed, yet the sweep refreshed again")
 	}
 }

@@ -83,13 +83,16 @@ var Tools = []Tool{
 }
 
 // adminerEntry is Adminer's front page: the stock file with the server fixed to this machine, so Adminer cannot be
-// used to reach other hosts.
+// used to reach other hosts, and with the sign-in token waived for a same-origin post (see nimvor-signon.php: Adminer
+// ignores a sign-in post without its token, and the one-click sign-in page has none to send; a post from another
+// site still needs it).
 const adminerEntry = `<?php
 function adminer_object() {
     if (class_exists('Adminer\Adminer')) {
         class NimvorAdminer extends Adminer\Adminer {
             function credentials() { return ['localhost', $_GET['username'] ?? '', \Adminer\get_password()]; }
             function loginFormField($name, $heading, $value) { return $name === 'driver' || $name === 'server' ? '' : parent::loginFormField($name, $heading, $value); }
+            function verifyLoginToken(): bool { return ($_SERVER['HTTP_SEC_FETCH_SITE'] ?? '') !== 'same-origin'; }
         }
     } else {
         class NimvorAdminer extends Adminer {
@@ -153,12 +156,7 @@ const adminerSignon = `$f = static fn (string $v): string => htmlspecialchars($v
 <input type="hidden" name="auth[db]" value="<?= $f($d['db']) ?>">
 <noscript><button>Sign in</button></noscript>
 </form>
-<script>
-// Adminer keeps the password encrypted with a cookie it sets when it shows its own sign-in page: ask for that page
-// first, then sign in.
-var go = function () { document.forms[0].submit(); };
-fetch('index.php', { credentials: 'same-origin' }).then(go, go);
-</script>
+<script>document.forms[0].submit();</script>
 `
 
 func toolByID(id string) (Tool, bool) {
