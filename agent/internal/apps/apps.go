@@ -84,7 +84,8 @@ type AppDef struct {
 	URL     string   // archive URL (https)
 	SumURL  string   // checksum sidecar URL ("" = none published)
 	SumAlgo string   // "sha256" or "sha1"
-	Format  string   // "targz" or "zip"
+	Format  string   // "targz", "tarbz2", "zip", or "file" (one file, saved as File)
+	File    string   // Format "file": the name the download is saved under in the install folder (e.g. index.php)
 	Strip   int      // leading path components to drop
 	DocRoot string   // web root relative to the install folder ("" = the folder)
 	Ext     []string // required PHP extensions
@@ -101,6 +102,9 @@ type AppDef struct {
 	Unverified string
 	Package    string   // Composer package: installed with create-project instead of a download
 	Touch      []string // files created (empty) under the install folder after unpacking, e.g. TYPO3's FIRST_INSTALL
+	// Files are written under the install folder after unpacking: path → content. {{secret32}} becomes a random
+	// 32-character string (phpMyAdmin's cookie secret). An existing file is never overwritten.
+	Files map[string]string
 }
 
 // Catalog of staged applications. URLs are the vendors' official "latest
@@ -929,18 +933,19 @@ func releaseInstall(key string) {
 // the vendor publishes one), unpacks it into target, and hands off to the
 // application's own web installer. The database has already been created by
 // the panel; its credentials are shown to the user, who finishes setup there.
-func installStaged(ctx context.Context, env *host.Env, src Sources, r Request, def AppDef, cred *execx.Credential, target string, log io.Writer) (map[string]any, error) {
-	if def.Package != "" {
-		return installComposer(ctx, env, r, def, cred, target, log)
-	}
+// Fetch downloads def (a GitHub release asset or a URL), verifies it against the published checksum when there is
+// one, and unpacks it (or saves the single file) into dest, owned by uid:gid, then writes def.Files. id names the
+// download for tests, which serve the catalog from a local server. The website installer and the database tools
+// (phpMyAdmin, Adminer) both use it.
+func Fetch(ctx context.Context, env *host.Env, src Sources, id string, def AppDef, dest string, uid, gid int, log io.Writer) error {
 	url := def.URL
 	if src.CatalogBase != "" {
 		// Tests point the whole catalog at a local server.
-		url = src.CatalogBase + "/" + r.App + "." + archiveExt(def.Format)
+		url = src.CatalogBase + "/" + id + "." + archiveExt(def.Format)
 	} else if def.GitHub != "" {
 		var err error
 		if url, err = ResolveURL(ctx, src.Client, def); err != nil {
-			return nil, err
+			return err
 		}
 	}
 	algo := def.SumAlgo
@@ -950,33 +955,53 @@ func installStaged(ctx context.Context, env *host.Env, src Sources, r Request, d
 	fmt.Fprintf(log, "Downloading %s…\n", def.Name)
 	file, got, err := downloadSum(ctx, env, src.Client, url, algo, log)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer os.Remove(file)
 	sumURL := def.SumURL
 	if src.CatalogBase != "" && def.SumURL != "" {
-		sumURL = src.CatalogBase + "/" + r.App + ".sum"
+		sumURL = src.CatalogBase + "/" + id + ".sum"
 	}
 	if sumURL != "" {
 		want, err := fetchText(ctx, src.Client, sumURL)
 		if err != nil {
-			return nil, fmt.Errorf("the %s checksum could not be downloaded", def.Name)
+			return fmt.Errorf("the %s checksum could not be downloaded", def.Name)
 		}
 		want = strings.Fields(want)[0]
 		if !strings.EqualFold(want, got) {
-			return nil, fmt.Errorf("the %s download does not match its published checksum", def.Name)
+			return fmt.Errorf("the %s download does not match its published checksum", def.Name)
 		}
 		fmt.Fprintln(log, "Checksum verified.")
 	} else {
 		fmt.Fprintln(log, "Downloaded over HTTPS (the vendor publishes no checksum file).")
 	}
-	// Remove NimVor's placeholder page, then unpack confined to the install
-	// folder, owned by the website account.
-	os.Remove(filepath.Join(target, "index.html"))
-	if err := extractArchive(def.Format, file, target, def.Strip, int(cred.UID), int(cred.GID)); err != nil {
-		return nil, fmt.Errorf("unpacking %s failed: %v", def.Name, err)
+	target := dest
+	if def.Format == "file" {
+		if err := saveSingleFile(file, target, def.File, uid, gid); err != nil {
+			return fmt.Errorf("saving %s failed: %v", def.Name, err)
+		}
+		fmt.Fprintf(log, "Saved %s as %s.\n", def.Name, def.File)
+	} else {
+		if err := extractArchive(def.Format, file, target, def.Strip, uid, gid); err != nil {
+			return fmt.Errorf("unpacking %s failed: %v", def.Name, err)
+		}
+		fmt.Fprintf(log, "Unpacked %s.\n", def.Name)
 	}
-	fmt.Fprintf(log, "Unpacked %s.\n", def.Name)
+	if err := writeAppFiles(target, def.Files, uid, gid); err != nil {
+		return fmt.Errorf("configuring %s failed: %v", def.Name, err)
+	}
+	return nil
+}
+
+func installStaged(ctx context.Context, env *host.Env, src Sources, r Request, def AppDef, cred *execx.Credential, target string, log io.Writer) (map[string]any, error) {
+	if def.Package != "" {
+		return installComposer(ctx, env, r, def, cred, target, log)
+	}
+	// Remove NimVor's placeholder page, then unpack confined to the install folder, owned by the website account.
+	os.Remove(filepath.Join(target, "index.html"))
+	if err := Fetch(ctx, env, src, r.App, def, target, int(cred.UID), int(cred.GID), log); err != nil {
+		return nil, err
+	}
 	docroot := r.Path
 	if def.DocRoot != "" {
 		docroot = filepath.Join(r.Path, def.DocRoot)
@@ -1010,8 +1035,48 @@ func installComposer(ctx context.Context, env *host.Env, r Request, def AppDef, 
 	}, nil
 }
 
+// saveSingleFile puts a one-file download (Adminer) into the install folder under name.
+func saveSingleFile(src, target, name string, uid, gid int) error {
+	if name == "" || name != filepath.Base(name) || strings.HasPrefix(name, ".") {
+		return fmt.Errorf("invalid file name %q", name)
+	}
+	if err := os.MkdirAll(target, 0o750); err != nil {
+		return err
+	}
+	f, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return writeFile(filepath.Join(target, name), f, 0o640, uid, gid)
+}
+
+// writeAppFiles writes the generated files of an app (see AppDef.Files); a file that exists is kept.
+func writeAppFiles(target string, files map[string]string, uid, gid int) error {
+	for rel, content := range files {
+		dest, ok := safeJoin(target, rel)
+		if !ok {
+			return fmt.Errorf("invalid path %q", rel)
+		}
+		if _, err := os.Lstat(dest); err == nil {
+			continue
+		}
+		if strings.Contains(content, "{{secret32}}") {
+			b := make([]byte, 16)
+			_, _ = rand.Read(b)
+			content = strings.ReplaceAll(content, "{{secret32}}", hex.EncodeToString(b))
+		}
+		if err := writeFile(dest, strings.NewReader(content), 0o640, uid, gid); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func archiveExt(format string) string {
 	switch format {
+	case "file":
+		return "bin"
 	case "zip":
 		return "zip"
 	case "tarbz2":

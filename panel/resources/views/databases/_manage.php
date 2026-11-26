@@ -153,6 +153,8 @@ $tab = $openUser ? 'users' : 'dbs';
                                 <?php if ($canManage): ?>
                                     <span class="nim-ops">
                                         <a class="nim-op" href="<?= e($this->url('databases.browser', ['id' => $did])) ?>" title="Browse tables and run SQL">Browse</a>
+                                        <?php foreach (($dbTools ?? []) as $toolId => $tool): ?><a class="nim-op" href="<?= e($tool['path']) ?>" target="_blank" rel="noopener" title="Open <?= e($tool['name']) ?> (sign in with a database user)"><?= e($tool['name']) ?></a>
+                                        <?php endforeach; ?>
                                         <?php if ($dbUsers !== []): ?>
                                             <details data-nim-menu>
                                                 <summary class="nim-op" aria-label="Access to <?= e($d['name']) ?>">Permission</summary>

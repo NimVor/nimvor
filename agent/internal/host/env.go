@@ -153,6 +153,11 @@ func New(cfg config.Config, root filesystem.Root, p platform.Platform, r execx.R
 		cfg.BackupDir + "/**",
 		WorkersDir + "/**",
 		RuntimesDir + "/**",
+		// Database tools (dbtools): phpMyAdmin and Adminer, their snippet in the panel's Nginx site, and the
+		// include line in that site (nothing else in it).
+		DBToolsDir + "/**",
+		DBToolsNginxDir + "/**",
+		filepath.Join(m.NginxAvailable, "nimvor-panel.conf"),
 		// Website accounts' personal crontab and at jobs are refused.
 		"/etc/cron.deny", "/etc/at.deny",
 		// The host-name → address mapping, kept in step with the server's
@@ -524,6 +529,12 @@ func (e *Env) StripSetID(ctx context.Context, cred *execx.Credential, dir string
 // listing) and each launcher is 0640 root:<account's group>, readable by
 // its own account only (it carries the worker's environment variables).
 const WorkersDir = "/var/lib/nimvor-workers"
+
+// DBToolsDir holds the database tools (phpMyAdmin, Adminer); DBToolsNginxDir the Nginx snippet that serves them.
+const (
+	DBToolsDir      = "/var/lib/nimvor-dbtools"
+	DBToolsNginxDir = "/etc/nginx/nimvor-dbtools.d"
+)
 
 // RuntimesDir holds extra language runtimes (Node.js, Python) that NimVor
 // installs side by side, each under <kind>/<version>, so a website's

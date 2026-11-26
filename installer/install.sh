@@ -948,6 +948,9 @@ ${listen6}
     ssl_protocols TLSv1.2 TLSv1.3;
     error_page 497 =301 https://\$http_host\$request_uri;
     client_max_body_size 256m;
+    # Database tools (phpMyAdmin, Adminer), when an administrator installed them: NimVor's agent writes the
+    # snippet. A glob, so this works with the folder empty or missing.
+    include /etc/nginx/nimvor-dbtools.d/*.conf;
     # Web terminal: WebSockets to the agent's loopback listener
     # (terminal_listen in agent.json).
     location = /terminal/ws {

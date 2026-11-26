@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Database tools:** an administrator can install phpMyAdmin and Adminer (Databases → Database tools) as alternatives to the built-in database browser. They are downloaded and checksum-verified, kept read-only, run in a PHP-FPM pool and account of their own, and served on the panel's HTTPS address under `/dbtools/`. Users get an "open in" link next to *Browse* on each database and sign in with a database user. New agent actions `dbtools.status`, `dbtools.install`, `dbtools.remove`; the installer's panel site now includes `/etc/nginx/nimvor-dbtools.d/*.conf`.
+
 ## [2.7.0] — 2026-11-25
 
 Four more one-click applications: the CRMs EspoCRM and SuiteCRM, and the programs Cloudreve and Gopeed. All four start in *testing* status, so only administrators can install them until you have tried them and reviewed them in the app catalog. Panel and agent: upgrade both with `sudo nimvor update` (a database migration adds the catalog rows; the agent restarts and learns to read GitHub's SHA-256 of a release file). Cloudreve and Gopeed need a reverse-proxy website: create one first, then open its Apps page.

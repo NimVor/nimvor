@@ -2187,6 +2187,30 @@ command, time and statement; a statement can be stopped (`KILL QUERY`) or
 the connection ended (`KILL CONNECTION`), after confirmation. The server's
 own threads cannot be ended. Every change is recorded in the audit log.
 
+## Database tools: phpMyAdmin and Adminer
+
+NimVor's own database browser (below) needs nothing installed. For people who prefer them, an administrator can also
+install **phpMyAdmin** and **Adminer** under *Databases → Database tools*. Users then see their name next to
+*Browse* on each database.
+
+- The agent downloads them from the vendor (phpMyAdmin's latest all-languages archive against its published SHA-256;
+  Adminer's release file against the SHA-256 GitHub reports), puts them in `/var/lib/nimvor-dbtools/www/dbtools/<tool>`
+  (owned by root, read-only to everything else) and generates phpMyAdmin's `config.inc.php` with its own cookie
+  secret. phpMyAdmin may only connect to this server (`AllowArbitraryServer` off); Adminer's front page fixes the
+  server to `localhost`.
+- They run in a PHP-FPM pool of their own (`nimvor-dbtools`, its own account, `open_basedir` limited to the tools and
+  their temporary folder, shell functions disabled) and are served on the **panel's own HTTPS address** at
+  `/dbtools/phpmyadmin/` and `/dbtools/adminer/`. Only the tools' front PHP files run; their libraries, settings and
+  temporary folders are not served. The panel's Nginx site includes `/etc/nginx/nimvor-dbtools.d/*.conf`, a line the
+  installer writes and the agent adds to an existing site when the first tool is installed. This needs the panel to be
+  served by NimVor's own Nginx site (`install.sh --public-https`).
+- Everything is validated with `nginx -t` and `php-fpm -t`, checked by loading the page, and rolled back if it fails.
+  Installing a tool again replaces it with the current release; *Remove* deletes it (the last removal also removes the
+  pool and the snippet). The agent actions are `dbtools.status`, `dbtools.install` (a job) and `dbtools.remove`.
+- Users sign in to the tool with a database user's own name and password. Because the tools share the panel's address,
+  treat them like any third-party program next to the panel: install them only when somebody needs them, and remove
+  them when not.
+
 ## Database browser
 
 *Databases → Browse* opens a full-page browser for one database: tables

@@ -31,6 +31,7 @@ final class DatabasesController extends Controller
         private readonly DiscoveryService $discovery,
         private readonly JobTracker $jobs,
         private readonly \NimVor\Services\SiteOverview $overview,
+        private readonly \NimVor\Services\DbToolsService $dbTools,
     ) {
         parent::__construct($view, $session);
     }
@@ -83,6 +84,7 @@ final class DatabasesController extends Controller
             }
         }
         return [
+            'dbTools' => $this->dbTools->installed(),
             'remoteHosts' => $this->service->remoteHostsAllowed($user),
             'managed' => $managed,
             'dbUsers' => $this->repo->users($this->server->id(), $user, $site === null ? null : (int) $site['id']),

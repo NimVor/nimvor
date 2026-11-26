@@ -137,6 +137,9 @@ paths:
               - db.user_drop
               - db.user_lock
               - db.user_password
+              - dbtools.install
+              - dbtools.remove
+              - dbtools.status
               - deploy.key
               - deploy.run
               - discovery.certificates
@@ -741,6 +744,9 @@ x-nimvor-actions:
   db.user_drop: { mutating: true, description: "Drop a database user." }
   db.user_lock: { mutating: true, description: "Lock or unlock a database user (account suspension): a locked user cannot connect; its data and grants are kept." }
   db.user_password: { mutating: true, description: "Change a database user's password." }
+  dbtools.install: { mutating: true, description: "Install phpMyAdmin or Adminer (downloaded from the vendor and checked against its published checksum) into a read-only folder, run it in its own PHP-FPM pool and account, and serve it on the panel's HTTPS address under /dbtools/<tool>/. Validated with nginx -t and php-fpm -t, checked by loading the page, rolled back on failure. Runs as a job." }
+  dbtools.remove: { mutating: true, description: "Remove a database tool. When the last one is removed, its PHP-FPM pool and Nginx snippet go too." }
+  dbtools.status: { mutating: false, description: "Which database tools (phpMyAdmin, Adminer) are installed, and whether the panel is served over HTTPS so they can be reached." }
   deploy.key: { mutating: true, description: "Create (if needed) and return the website's SSH deploy key." }
   deploy.run: { mutating: true, description: "Clone or update a Git repository and run post-deploy commands (job)." }
   discovery.certificates: { mutating: false, description: "Let's Encrypt certificates managed by certbot." }
