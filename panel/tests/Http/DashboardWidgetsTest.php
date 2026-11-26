@@ -28,18 +28,26 @@ final class DashboardWidgetsTest extends HttpTestCase
         self::assertStringContainsString('Scan the disk on the Disk usage page', $page);
     }
 
-    public function testTheBackupsWidgetCountsCompletedFailedAndRunning(): void
+    public function testTheSeparateBackupsWidgetIsGone(): void
     {
-        $db = $this->app->container->get(Connection::class);
-        $now = gmdate('c');
-        foreach ([['completed', $now], ['completed', $now], ['failed', $now], ['running', $now], ['failed', gmdate('c', time() - 20 * 86400)]] as [$status, $at]) {
-            $db->run("INSERT INTO backups (server_id, kind, domain, status, created_at) VALUES (1, 'site', 'a.test', ?, ?)", [$status, $at]);
-        }
         $page = $this->request('GET', '/')->body();
-        self::assertStringContainsString('data-widget="backups"', $page);
-        self::assertMatchesRegularExpression('#nim-fig-value">2</div><div class="nim-fig-label">Completed#', $page);
-        self::assertMatchesRegularExpression('#nim-fig-value text-danger">1</div><div class="nim-fig-label">Failed \(7 days\)#', $page, 'only failures of the last week count');
-        self::assertMatchesRegularExpression('#nim-fig-value">1</div><div class="nim-fig-label">Running#', $page);
+        self::assertStringNotContainsString('data-widget="backups"', $page, 'Backup health already covers it');
+        self::assertStringContainsString('data-widget="backup_health"', $page);
+    }
+
+    public function testSoftwareTilesOfDnsMailCachesWebAndCertbotOpenDetailsOnHover(): void
+    {
+        $this->agent->succeed('components.status', [
+            ['id' => 'dns', 'name' => 'DNS server', 'installed' => true, 'units' => ['pdns'], 'steps' => [['id' => 'running', 'status' => 'ok']]],
+            ['id' => 'database', 'name' => 'Database server', 'installed' => true, 'units' => ['mariadb'], 'steps' => [['id' => 'running', 'status' => 'ok']]],
+            ['id' => 'php', 'name' => 'PHP', 'installed' => true, 'units' => ['php8.3-fpm'], 'steps' => [['id' => 'running', 'status' => 'ok']]],
+        ]);
+        $page = $this->request('GET', '/dashboard/widgets/software', [], ['accept' => 'application/json', 'x-requested-with' => 'XMLHttpRequest']);
+        $html = (string) ((array) json_decode($page->body(), true))['html'];
+        self::assertStringContainsString('data-popover-url="/dashboard/popover/dns"', $html);
+        self::assertStringNotContainsString('/dashboard/popover/php', $html, 'PHP has no hover card');
+        self::assertStringContainsString('/databases/server/settings/modal', $html, 'the database tile\'s settings open in a window');
+        self::assertStringContainsString('data-nim-site-modal', $html);
     }
 
     public function testTheLatestDiskScanListsTheBiggestPlaces(): void

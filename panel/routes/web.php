@@ -297,6 +297,7 @@ return static function (Router $r): void {
     $r->post('/ips/{id}/delete', [\NimVor\Http\Controllers\IpController::class, 'delete'], ['name' => 'ips.delete', 'permission' => P::SERVER_MANAGE]);
     $r->post('/sites/{id}/ip', [\NimVor\Http\Controllers\IpController::class, 'assignSite'], ['name' => 'sites.ip', 'permission' => P::SERVER_MANAGE]);
     $r->get('/databases/server', [\NimVor\Http\Controllers\DbServerController::class, 'index'], ['name' => 'databases.server', 'permission' => P::SERVER_VIEW]);
+    $r->get('/databases/server/settings/modal', [\NimVor\Http\Controllers\DbServerController::class, 'settingsModal'], ['name' => 'databases.server.settings_modal', 'permission' => P::SERVER_VIEW]);
     $r->get('/databases/server/settings', [\NimVor\Http\Controllers\DbServerController::class, 'settingsPage'], ['name' => 'databases.server.settings_page', 'permission' => P::SERVER_VIEW]);
     $r->get('/databases/server/connections', [\NimVor\Http\Controllers\DbServerController::class, 'connections'], ['name' => 'databases.server.connections', 'permission' => P::SERVER_VIEW]);
     $r->get('/databases/server/logs', [\NimVor\Http\Controllers\DbServerController::class, 'logs'], ['name' => 'databases.server.logs', 'permission' => P::LOGS_VIEW]);

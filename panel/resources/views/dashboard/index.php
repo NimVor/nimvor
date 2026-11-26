@@ -202,3 +202,8 @@ foreach ([
     </div>
 </div>
 <?php endif; ?>
+<?php if ($this->serverScope() && $this->hasRoute('databases.server.settings_modal')): ?>
+<div class="modal fade" id="nim-site-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content" data-nim-site-modal-body></div></div>
+</div>
+<?php endif; ?>

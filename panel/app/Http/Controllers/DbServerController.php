@@ -47,6 +47,20 @@ final class DbServerController extends Controller
         return $this->page($request, 'settings');
     }
 
+    /** The settings form as a window (opened from the dashboard's Database server tile and the Databases page). */
+    public function settingsModal(Request $request): Response
+    {
+        if ($this->denied($request) !== null) {
+            return Response::html('<div class="modal-header"><h2 class="modal-title h5">Not available</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body small">The database server settings are not available for your account.</div>', 403);
+        }
+        try {
+            $status = json_decode((string) json_encode($this->agent->call('db.server_status', [], 60)), true);
+        } catch (AgentException) {
+            $status = null;
+        }
+        return Response::html($this->view->partial('databases/modal_server_settings', ['status' => $status]));
+    }
+
     public function connections(Request $request): Response
     {
         return $this->page($request, 'connections');

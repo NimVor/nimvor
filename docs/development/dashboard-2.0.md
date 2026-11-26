@@ -138,3 +138,13 @@ The dashboard draws history only from what was really measured. No chart library
 ## Top cards and request trends
 
 The four metric cards (`tile_cpu`, `tile_memory`, `tile_disk`, `tile_load`) and the Server, Services and Websites cards (`server_info`, `services_live`, `websites_summary`) are registry widgets. The metric tiles are *frameless* (`Widget::$frameless`): they render their own card and keep the `data-metric` hooks used by the live poll in `dashboard.js`. `request_trends` reads `webreport.site` (48 h) for up to 30 enabled sites and aggregates the last 24 full hours; with no readable log it reports `unavailable`/`empty` rather than zeros.
+
+## Later change: details moved onto the Software tiles
+
+The widgets *SSL certificates*, *Redis & Memcached*, *Nginx & PHP-FPM*, *DNS & mail* and *Backups* are no longer dashboard widgets
+(*Backup health* covers backups). Their views and data stay: the Software widget's tiles for the DNS server, email, Redis,
+Memcached, the web server and Let's Encrypt (certbot) carry `data-popover-url="/dashboard/popover/{dns|mail|redis|memcached|web|ssl}"`,
+and the existing hover card (`nimvor.js`) shows `dashboard/tile_details.php`, which reuses those widget views (DNS and mail, Redis and
+Memcached are split with an `$only` variable) and adds links to the pages that manage the part. The data is read by
+`DashboardWidgetsService::tileDetails()` (30 seconds' cache) and each key needs the permission listed in
+`DashboardController::TILE_DETAILS`. A saved layout that still lists a removed widget simply ignores it.

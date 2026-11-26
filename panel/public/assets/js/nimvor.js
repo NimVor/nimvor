@@ -1725,6 +1725,8 @@
     });
     document.addEventListener('click', function (e) {
         var owner = e.target.closest ? e.target.closest('[data-popover-url]') : null;
+        // The buttons and links inside a tile (stop, restart, settings) do their own thing.
+        if (owner && e.target.closest('a, button') && owner.contains(e.target.closest('a, button'))) { return; }
         if (owner) { if (hover.owner === owner) { hoverClose(); } else { hoverOpen(owner); } return; }
         if (hover.card && !hover.card.contains(e.target)) { hoverClose(); }
     });
