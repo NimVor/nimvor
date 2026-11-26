@@ -14,8 +14,17 @@ class ArraySession implements SessionInterface
 
     public int $regenerations = 0;
 
+    /** Whether close() was called (tests check which requests let go of the session). */
+    public bool $closed = false;
+
     public function start(): void
     {
+        $this->closed = false;
+    }
+
+    public function close(): void
+    {
+        $this->closed = true;
     }
 
     public function get(string $key, mixed $default = null): mixed

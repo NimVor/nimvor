@@ -42,6 +42,13 @@ final class NativeSession implements SessionInterface
         session_start();
     }
 
+    public function close(): void
+    {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+    }
+
     public function get(string $key, mixed $default = null): mixed
     {
         return $_SESSION[$key] ?? $default;
