@@ -68,7 +68,8 @@ $tab = $openUser ? 'users' : 'dbs';
             <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#new-db-user"><i class="bi bi-person-plus me-1"></i>Add user</button>
             <?php if (!isset($site) && $this->hasRoute('databases.browser.server') && !empty($unmanaged)): ?><a class="btn btn-sm btn-outline-secondary" href="#other-databases"><i class="bi bi-binoculars me-1"></i>Other databases (<?= count($unmanaged) ?>)</a><?php endif; ?>
         <?php endif; ?>
-        <?php if ($server !== null): ?><span class="nim-svc" title="Database server"><i class="bi bi-database" aria-hidden="true"></i><?= e($server) ?> <i class="bi bi-play-fill" aria-hidden="true"></i></span><?php elseif ($live === null): ?><span class="nim-svc" title="Database server"><i class="bi bi-database" aria-hidden="true"></i>Database server <i class="bi bi-stop-fill" aria-hidden="true"></i></span><?php endif; ?>
+        <?php $dbSettingsWindow = !isset($site) && $this->serverScope() && $this->hasRoute('databases.server.settings_modal') && $this->routeAllowed('databases.server.settings_modal'); ?>
+        <?php if ($server !== null): ?><<?= $dbSettingsWindow ? 'a href="' . e($this->url('databases.server.settings_modal')) . '" data-nim-site-modal' : 'span' ?> class="nim-svc" title="<?= $dbSettingsWindow ? 'Database server settings' : 'Database server' ?>"><i class="bi bi-database" aria-hidden="true"></i><?= e($server) ?> <i class="bi bi-play-fill" aria-hidden="true"></i></<?= $dbSettingsWindow ? 'a' : 'span' ?>><?php elseif ($live === null): ?><span class="nim-svc" title="Database server"><i class="bi bi-database" aria-hidden="true"></i>Database server <i class="bi bi-stop-fill" aria-hidden="true"></i></span><?php endif; ?>
         <div class="nim-actionbar-end">
             <div class="nim-search"><input class="form-control form-control-sm" type="search" placeholder="Search databases and users" aria-label="Search databases and users" data-nim-dt-search-for="#db-list #db-users"><i class="bi bi-search" aria-hidden="true"></i></div>
         </div>
@@ -288,3 +289,8 @@ $tab = $openUser ? 'users' : 'dbs';
         </div>
     </div>
 </div>
+<?php if (!empty($dbSettingsWindow)): ?>
+<div class="modal fade" id="nim-site-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content" data-nim-site-modal-body></div></div>
+</div>
+<?php endif; ?>

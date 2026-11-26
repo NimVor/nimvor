@@ -17,6 +17,15 @@ final class SecuritySslWidgetsTest extends HttpTestCase
     }
 
     /** @return array<string, mixed> */
+
+    /** The hover card of a Software tile (/dashboard/popover/KEY): its HTML. */
+    private function tile(string $key): string
+    {
+        $res = $this->request('GET', '/dashboard/popover/' . $key, [], ['accept' => 'application/json', 'x-requested-with' => 'XMLHttpRequest']);
+        self::assertSame(200, $res->status(), $res->body());
+        return (string) ((array) json_decode($res->body(), true))['html'];
+    }
+
     private function widget(string $id, int $expect = 200): array
     {
         $res = $this->request('GET', '/dashboard/widgets/' . $id, [], ['accept' => 'application/json', 'x-requested-with' => 'XMLHttpRequest']);
@@ -82,8 +91,7 @@ final class SecuritySslWidgetsTest extends HttpTestCase
         ]);
         $this->agent->succeed('ssl.renewal_status', ['certbot_installed' => true, 'timer_active' => false]);
         $this->login('admin');
-        $w = $this->widget('ssl_overview');
-        self::assertSame('ok', $w['state']);
+        $w = ['html' => $this->tile('ssl')];
         self::assertStringContainsString('Automatic renewal is off', $w['html']);
         self::assertStringContainsString('expired 3 days ago', $w['html']);
         self::assertStringContainsString('wrong.test', $w['html']);
@@ -96,7 +104,7 @@ final class SecuritySslWidgetsTest extends HttpTestCase
     {
         $this->agent->succeed('ssl.store', ['certificates' => [], 'hosts' => []]);
         $this->login('admin');
-        self::assertSame('empty', $this->widget('ssl_overview')['state']);
+        self::assertStringContainsString('Certificates', $this->tile('ssl'), 'with nothing to show the card still opens');
     }
 
     public function testBothWidgetsNeedTheirPermission(): void

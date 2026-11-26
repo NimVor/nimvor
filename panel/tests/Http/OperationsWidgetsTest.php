@@ -36,6 +36,14 @@ final class OperationsWidgetsTest extends HttpTestCase
         return (array) json_decode($res->body(), true);
     }
 
+    /** The hover card of a Software tile (/dashboard/popover/KEY): its HTML. */
+    private function tile(string $key): string
+    {
+        $res = $this->request('GET', '/dashboard/popover/' . $key, [], ['accept' => 'application/json', 'x-requested-with' => 'XMLHttpRequest']);
+        self::assertSame(200, $res->status(), $res->body());
+        return (string) ((array) json_decode($res->body(), true))['html'];
+    }
+
     private function backup(string $domain, string $status, int $ageHours, string $error = '', ?int $storage = null): void
     {
         $this->conn->run(
@@ -85,10 +93,16 @@ final class OperationsWidgetsTest extends HttpTestCase
         $this->agent->succeed('mail.server_status', ['services' => [['name' => 'Postfix', 'active' => true, 'installed' => true], ['name' => 'Dovecot', 'active' => false, 'installed' => true], ['name' => 'Rspamd', 'active' => false, 'installed' => false]]]);
         $this->agent->succeed('mail.queue', ['total' => 7, 'counts' => ['deferred' => 5, 'active' => 2]]);
         $this->login('admin');
-        $html = $this->widget('dns_mail')['html'];
-        foreach (['PowerDNS', '2 zones', '1 signed', 'Postfix', 'stopped', '7 messages', '5 deferred'] as $s) {
+        $dns = $this->tile('dns');
+        foreach (['PowerDNS', '2 zones', '1 signed'] as $s) {
+            self::assertStringContainsString($s, $dns);
+        }
+        self::assertStringNotContainsString('Postfix', $dns, 'the DNS card shows the nameserver only');
+        $html = $this->tile('mail');
+        foreach (['Postfix', 'stopped', '7 messages', '5 deferred'] as $s) {
             self::assertStringContainsString($s, $html);
         }
+        self::assertStringNotContainsString('PowerDNS', $html, 'the email card shows mail only');
         self::assertStringNotContainsString('Rspamd', $html, 'a service that is not installed is not listed');
     }
 

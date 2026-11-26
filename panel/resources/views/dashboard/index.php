@@ -120,19 +120,7 @@ foreach ([
     </div>
 
     <div class="nim-widgets">
-        <div class="nim-span-lg">
-            <div class="card h-100">
-                <div class="card-header"><i class="bi bi-diagram-3 me-1"></i>Network</div>
-                <div class="card-body">
-                    <div class="d-flex gap-4 mb-2">
-                        <div><span class="nim-dot nim-dot-rx"></span>In <strong data-net-rx>—</strong></div>
-                        <div><span class="nim-dot nim-dot-tx"></span>Out <strong data-net-tx>—</strong></div>
-                    </div>
-                    <div class="nim-spark nim-spark-lg" data-spark="net" aria-hidden="true"></div>
-                </div>
-            </div>
-        </div>
-        <div class="nim-span-md">
+        <div class="nim-span-half">
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span><i class="bi bi-list-check me-1"></i>Recent activity</span>
@@ -180,7 +168,7 @@ foreach ([
                                 <?php if ($def->description !== ''): ?><div class="small text-body-secondary"><?= e($def->description) ?></div><?php endif; ?>
                             </div>
                             <select class="form-select form-select-sm w-auto" name="widgets[<?= e($def->id) ?>][size]" aria-label="Width of <?= e($def->title) ?>">
-                                <?php foreach (['sm' => 'Small', 'md' => 'Medium', 'lg' => 'Large', 'full' => 'Full width'] as $k => $label): ?><option value="<?= e($k) ?>"<?= $t['size'] === $k ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?>
+                                <?php foreach (['sm' => 'Small', 'md' => 'Medium', 'half' => 'Half', 'lg' => 'Large', 'full' => 'Full width'] as $k => $label): ?><option value="<?= e($k) ?>"<?= $t['size'] === $k ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?>
                             </select>
                             <select class="form-select form-select-sm w-auto" name="widgets[<?= e($def->id) ?>][refresh]" aria-label="Refresh <?= e($def->title) ?>">
                                 <option value="">Refresh: default<?= $def->refresh > 0 ? ' (' . e(\NimVor\Dashboard\DashboardLayout::REFRESH_CHOICES[$def->refresh] ?? ($def->refresh . ' s')) . ')' : '' ?></option>
@@ -200,5 +188,10 @@ foreach ([
             </div>
         </form>
     </div>
+</div>
+<?php endif; ?>
+<?php if ($this->serverScope() && $this->hasRoute('databases.server.settings_modal')): ?>
+<div class="modal fade" id="nim-site-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content" data-nim-site-modal-body></div></div>
 </div>
 <?php endif; ?>

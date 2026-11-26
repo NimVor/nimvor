@@ -18,6 +18,15 @@ final class ServiceWidgetsTest extends HttpTestCase
     }
 
     /** @return array<string, mixed> */
+
+    /** The hover card of a Software tile (/dashboard/popover/KEY): its HTML. */
+    private function tile(string $key): string
+    {
+        $res = $this->request('GET', '/dashboard/popover/' . $key, [], ['accept' => 'application/json', 'x-requested-with' => 'XMLHttpRequest']);
+        self::assertSame(200, $res->status(), $res->body());
+        return (string) ((array) json_decode($res->body(), true))['html'];
+    }
+
     private function widget(string $id): array
     {
         $res = $this->request('GET', '/dashboard/widgets/' . $id, [], ['accept' => 'application/json', 'x-requested-with' => 'XMLHttpRequest']);
@@ -78,17 +87,21 @@ final class ServiceWidgetsTest extends HttpTestCase
             'stats' => ['keyspace_hits' => 90, 'keyspace_misses' => 10, 'evicted_keys' => 5], 'keyspace' => ['db0' => 'keys=42,expires=1,avg_ttl=0']], 'maxmemory' => 104857600]);
         $this->agent->succeed('memcached.status', ['installed' => true, 'active' => true, 'stats' => ['bytes' => 1048576, 'limit_maxbytes' => 67108864, 'get_hits' => 1, 'get_misses' => 3, 'curr_connections' => 2, 'evictions' => 0, 'curr_items' => 9]]);
         $this->login('admin');
-        $html = $this->widget('cache_overview')['html'];
-        foreach (['7.2.4', '10 MB / 100 MB', '90.0%', '25.0%', '>42<'] as $s) {
+        $html = $this->tile('redis');
+        foreach (['7.2.4', '10 MB / 100 MB', '90.0%', '>42<'] as $s) {
             self::assertStringContainsString($s, $html);
         }
+        self::assertStringNotContainsString('Memcached', $html, 'the Redis card shows Redis only');
+        $mc = $this->tile('memcached');
+        self::assertStringContainsString('25.0%', $mc);
+        self::assertStringNotContainsString('7.2.4', $mc);
     }
 
     public function testMemcachedThatDoesNotAnswerHasNoNumbers(): void
     {
         $this->agent->succeed('memcached.status', ['installed' => true, 'active' => false, 'error' => 'not answering']);
         $this->login('admin');
-        $html = $this->widget('cache_overview')['html'];
+        $html = $this->tile('memcached');
         self::assertStringContainsString('not running', $html);
         self::assertStringNotContainsString('Hit ratio', $html);
     }
@@ -101,8 +114,7 @@ final class ServiceWidgetsTest extends HttpTestCase
         $this->agent->succeed('nginx.status', ['installed' => true, 'running' => true, 'config_ok' => false, 'config_error' => 'unexpected "}"']);
         $this->agent->succeed('php.fpm_health', ['versions' => [['version' => '8.3', 'installed' => true, 'active' => true, 'log_read' => true, 'max_children_reached' => 4, 'busy_warnings' => 1, 'child_crashes' => 0, 'last_max_children_pool' => 'shop']]]);
         $this->login('admin');
-        $w = $this->widget('web_stack');
-        self::assertSame('ok', $w['state']);
+        $w = ['html' => $this->tile('web')];
         self::assertStringContainsString('The configuration test fails', $w['html']);
         self::assertStringContainsString('8.3', $w['html']);
         self::assertStringContainsString('title="Last: shop"', $w['html']);
@@ -117,7 +129,7 @@ final class ServiceWidgetsTest extends HttpTestCase
         $this->agent->succeed('nginx.status', ['installed' => true, 'running' => true, 'config_ok' => true]);
         $this->agent->succeed('php.fpm_health', ['versions' => [['version' => '8.3', 'installed' => true, 'active' => true, 'log_read' => false]]]);
         $this->login('admin');
-        $html = $this->widget('web_stack')['html'];
+        $html = $this->tile('web');
         self::assertSame(3, preg_match_all('#<td class="text-end[^"]*"[^>]*>N/A</td>#', $html), 'workers exhausted, busy and crashes are unmeasured');
     }
 }
