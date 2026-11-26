@@ -278,6 +278,14 @@ layout without the sidebar. Their home page is their websites as cards
 Administrators see the same cards through the cards/list switch on
 *Websites*.
 
+**Creating a website** is a four-step wizard on *Websites → Create site*:
+what you are hosting (PHP, static, Node.js, Python, reverse proxy), the domain
+and aliases (and, for administrators, the system user and owner), the type's
+settings (versions, port, document root, PHP limits), and a review. The last
+step can open the app installer once the website exists. It is one ordinary
+form (same fields as before); without JavaScript every step is shown at once.
+After a validation error it opens at the first step with a problem.
+
 Opening a website shows its details (site user, root directory, IPv4,
 PHP handler and version, site and database size, SSL, last backup) and
 **Site managing**: tiles for FTP accounts, Files, Databases, Domains (DNS),

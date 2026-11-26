@@ -27,7 +27,9 @@ const OUT = process.env.E2E_OUT || '/tmp';
     await Promise.all([page.waitForNavigation(), page.click('button[type=submit]')]);
     for (const d of ['alpha' + stamp + '.example.test', 'beta' + stamp + '.example.test']) {
       await page.goto(BASE + '/websites/new');
+      await page.click('[data-nim-wizard-next]');
       await page.fill('#f-domain', d);
+      await page.click('[data-nim-wizard-next]'); await page.click('[data-nim-wizard-next]');
       await Promise.all([page.waitForNavigation(), page.click('main form[action="/websites/new"] button[type=submit]')]);
     }
 

@@ -1352,3 +1352,9 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 .nim-cl-icon { display: inline-flex; width: 1.5rem; height: 1.5rem; align-items: center; justify-content: center; border-radius: .3rem; background: var(--bs-tertiary-bg); color: var(--bs-secondary-color); }
 .nim-cl-items { margin: .4rem 0 0; padding-left: 2.1rem; }
 .nim-cl-items li { margin-bottom: .2rem; }
+
+/* New-website wizard */
+.nim-wizard-tab { display: inline-flex; align-items: center; gap: .4rem; padding: .3rem .75rem .3rem .35rem; border: 1px solid var(--bs-border-color); border-radius: 2rem; font-size: .85rem; color: var(--bs-secondary-color); cursor: pointer; }
+.nim-wizard-num { display: inline-flex; align-items: center; justify-content: center; width: 1.4rem; height: 1.4rem; border-radius: 50%; background: var(--bs-tertiary-bg); font-size: .75rem; }
+.nim-wizard-tab.active { color: var(--bs-body-color); border-color: var(--bs-primary); font-weight: 600; }
+.nim-wizard-tab.active .nim-wizard-num, .nim-wizard-tab.done .nim-wizard-num { background: var(--bs-primary); color: #fff; }

@@ -98,6 +98,9 @@ final class SitesController extends Controller
             $this->provisionApp($request, $id, $input);
             return $this->redirectWithSuccess('/sites/' . $id . '/' . ($input['kind'] === 'python' ? 'python' : 'nodejs'), 'Website created. Set up your app below.');
         }
+        if (!empty($input['after_apps']) && in_array((string) ($input['kind'] ?? ''), ['php', 'static'], true)) {
+            return $this->redirectWithSuccess('/sites/' . $id . '/apps', 'Website created. Choose an application to install.');
+        }
         return $this->redirectWithSuccess('/sites/' . $id, 'Website created. Nginx and PHP-FPM were validated and reloaded.');
     }
 
