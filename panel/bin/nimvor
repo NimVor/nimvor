@@ -371,6 +371,14 @@ switch ($command) {
             foreach ($c->get(\NimVor\Services\AutoSslService::class)->run() as $line) {
                 out('[' . $srv['name'] . '] ' . $line);
             }
+            try {
+                $line = $c->get(\NimVor\Services\DbToolsService::class)->sweep();
+                if ($line !== '') {
+                    out('[' . $srv['name'] . '] ' . $line);
+                }
+            } catch (\Throwable $e) {
+                out('[' . $srv['name'] . '] Database tools sign-ins not checked: ' . $e->getMessage());
+            }
             foreach ($c->get(\NimVor\Services\AvService::class)->run() as $line) {
                 out('[' . $srv['name'] . '] ' . $line);
             }

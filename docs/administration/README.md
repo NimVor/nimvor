@@ -2207,7 +2207,16 @@ install **phpMyAdmin** and **Adminer** under *Databases → Database tools*. Use
 - Everything is validated with `nginx -t` and `php-fpm -t`, checked by loading the page, and rolled back if it fails.
   Installing a tool again replaces it with the current release; *Remove* deletes it (the last removal also removes the
   pool and the snippet). The agent actions are `dbtools.status`, `dbtools.install` (a job) and `dbtools.remove`.
-- Users sign in to the tool with a database user's own name and password. Because the tools share the panel's address,
+- **One-click sign-in:** the tool's name next to a database opens it already signed in to that database. NimVor's
+  agent prepares a sign-in account for that database only (`nimvor_t_<hash>@localhost`, privileges on that database,
+  a fresh random password each time) and a one-time link token that only the tools' account can read and that works
+  once, within a minute (`/dbtools/<tool>/nimvor-signon.php?t=…`). The page claims the token and starts the tool's
+  session: phpMyAdmin through its documented *signon* authentication (server 2 in its configuration; server 1 stays
+  the normal sign-in), Adminer by posting its own sign-in form. The panel's scheduler locks the account again after two
+  hours (`dbtools.signon_sweep`), and removing the last tool locks all of them. Opening the tool again from the same
+  database gives a new password and ends the earlier window's session. Only databases the user may manage in NimVor can
+  be opened; the tools never get the database server's root account.
+- Without that link, users sign in to the tool with a database user's own name and password. Because the tools share the panel's address,
   treat them like any third-party program next to the panel: install them only when somebody needs them, and remove
   them when not.
 

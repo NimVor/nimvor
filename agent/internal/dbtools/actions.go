@@ -14,6 +14,7 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/actions"
 	"github.com/NimVor/nimvor/agent/internal/agentfs"
 	"github.com/NimVor/nimvor/agent/internal/apps"
+	"github.com/NimVor/nimvor/agent/internal/dbmgr"
 	"github.com/NimVor/nimvor/agent/internal/host"
 	"github.com/NimVor/nimvor/agent/internal/logging"
 	"github.com/NimVor/nimvor/agent/internal/selinux"
@@ -62,6 +63,7 @@ func (e env) installedIDs(st State) []string {
 
 func Register(r *actions.Registry, he *host.Env) {
 	e := env{he}
+	registerSignon(r, e)
 
 	r.Register(actions.Action{Name: "dbtools.status", Description: "Which database tools (phpMyAdmin, Adminer) are installed, and whether the panel is served over HTTPS so they can be reached.", Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		if err := host.Decode(raw, &struct{}{}); err != nil {
@@ -299,6 +301,11 @@ func (e env) remove(ctx context.Context, t Tool) (any, error) {
 	}
 	if real, err := e.Root.Path(e.toolDir(t.ID)); err == nil {
 		os.RemoveAll(real)
+	}
+	if len(ids) == 0 {
+		if _, err := e.sweep(ctx, dbmgr.Client{Env: e.Env}, true); err != nil {
+			e.Log.Warn("sign-in accounts could not be locked after removing the last database tool", "err", err)
+		}
 	}
 	return map[string]any{"removed": true}, nil
 }

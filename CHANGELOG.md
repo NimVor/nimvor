@@ -7,6 +7,7 @@ All notable changes to NimVor are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **One-click sign-in to phpMyAdmin and Adminer:** the tool's name next to a database opens it already signed in to that database, with a short-lived account that can reach that database only (new agent actions `dbtools.signon`, `dbtools.signon_sweep`; the scheduler locks the accounts after two hours).
 - **Database tools:** an administrator can install phpMyAdmin and Adminer (Databases → Database tools) as alternatives to the built-in database browser. They are downloaded and checksum-verified, kept read-only, run in a PHP-FPM pool and account of their own, and served on the panel's HTTPS address under `/dbtools/`. Users get an "open in" link next to *Browse* on each database and sign in with a database user. New agent actions `dbtools.status`, `dbtools.install`, `dbtools.remove`; the installer's panel site now includes `/etc/nginx/nimvor-dbtools.d/*.conf`.
 
 ## [2.7.0] — 2026-11-25

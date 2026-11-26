@@ -362,7 +362,7 @@ func registerServer(r *actions.Registry, c Client) {
 			}
 		}
 		out["status"] = st
-		if rows, err := c.Query(ctx, "SELECT (SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME NOT IN ('mysql','information_schema','performance_schema','sys')), (SELECT COUNT(*) FROM mysql.user WHERE User <> '' AND User NOT LIKE '"+BrowserPrefix+"%'), (SELECT COALESCE(SUM(DATA_LENGTH + INDEX_LENGTH),0) FROM information_schema.TABLES WHERE TABLE_SCHEMA NOT IN ('mysql','information_schema','performance_schema','sys'));"); err == nil && len(rows) == 1 && len(rows[0]) == 3 {
+		if rows, err := c.Query(ctx, "SELECT (SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME NOT IN ('mysql','information_schema','performance_schema','sys')), (SELECT COUNT(*) FROM mysql.user WHERE User <> '' AND User NOT LIKE '"+BrowserPrefix+"%' AND User NOT LIKE '"+ToolPrefix+"%'), (SELECT COALESCE(SUM(DATA_LENGTH + INDEX_LENGTH),0) FROM information_schema.TABLES WHERE TABLE_SCHEMA NOT IN ('mysql','information_schema','performance_schema','sys'));"); err == nil && len(rows) == 1 && len(rows[0]) == 3 {
 			dbs, _ := strconv.Atoi(rows[0][0])
 			users, _ := strconv.Atoi(rows[0][1])
 			size, _ := strconv.ParseInt(rows[0][2], 10, 64)

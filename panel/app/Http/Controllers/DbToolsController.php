@@ -8,8 +8,10 @@ use NimVor\Hosting\Scope;
 use NimVor\Http\Request;
 use NimVor\Http\Response;
 use NimVor\Http\Session\SessionInterface;
+use NimVor\Repositories\DatabaseRepository;
 use NimVor\Services\DbToolsService;
 use NimVor\Services\JobTracker;
+use NimVor\Services\ServerContext;
 use NimVor\Support\UserFacingException;
 use NimVor\View\View;
 
@@ -26,6 +28,8 @@ final class DbToolsController extends Controller
         SessionInterface $session,
         private readonly DbToolsService $tools,
         private readonly JobTracker $jobs,
+        private readonly DatabaseRepository $databases,
+        private readonly ServerContext $server,
     ) {
         parent::__construct($view, $session);
     }
@@ -66,5 +70,23 @@ final class DbToolsController extends Controller
             return $this->redirectWithFailure(self::PAGE, $e);
         }
         return $this->redirectWithSuccess(self::PAGE, (DbToolsService::TOOLS[$tool] ?? $tool) . ' was removed.');
+    }
+
+    /**
+     * One-click sign-in: opens the tool already signed in to this database, with an account that reaches this
+     * database only (the same rule as the built-in browser: a database the user may manage).
+     */
+    public function open(Request $request, string $id, string $tool): Response
+    {
+        $db = $this->databases->database($this->server->id(), (int) $id, $this->user($request));
+        if ($db === null) {
+            return $this->redirectWithError('/databases', 'This database does not exist or you do not have access to it.');
+        }
+        try {
+            $path = $this->tools->signon($tool, (string) $db['name']);
+        } catch (UserFacingException $e) {
+            return $this->redirectWithFailure('/databases', $e);
+        }
+        return Response::redirect($path);
     }
 }
