@@ -8,6 +8,7 @@ import (
 	"os"
 	"regexp"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -310,20 +311,49 @@ func (e env) remove(ctx context.Context, t Tool) (any, error) {
 	return map[string]any{"removed": true}, nil
 }
 
-// refresh rewrites the installed tools' Nginx snippet and PHP-FPM pool when they differ from what this version of NimVor
-// writes (validated with nginx -t and php-fpm -t, rolled back if it fails), and reports whether it changed anything.
-// The caller holds the web configuration lock and mu.
+// refreshFiles rewrites the files NimVor itself generates inside an installed tool (Adminer's front page, the sign-in
+// pages) when they differ from what this version writes. Files with a secret in them (phpMyAdmin's configuration) and
+// empty placeholders are left alone, and so is everything the vendor shipped. It reports whether it changed anything.
+func (e env) refreshFiles(st State) (bool, error) {
+	changed := false
+	for id := range st.Tools {
+		t, ok := toolByID(id)
+		if !ok {
+			continue
+		}
+		for name, content := range t.Def.Files {
+			if content == "" || strings.Contains(content, "{{") || strings.Contains(name, "/") {
+				continue
+			}
+			path := e.toolDir(id) + "/" + name
+			have, err := e.Root.ReadFile(path)
+			if err != nil || string(have) == content {
+				continue // missing (the tool is being installed or removed) or already current
+			}
+			if _, err := e.Writer.WriteFile(path, []byte(content), 0o644, agentfs.RootOwner); err != nil {
+				return changed, err
+			}
+			changed = true
+		}
+	}
+	return changed, nil
+}
+
+// refresh brings what NimVor wrote for the installed tools up to date: their generated files, and the Nginx snippet and
+// PHP-FPM pool when they differ from what this version writes (validated with nginx -t and php-fpm -t, rolled back if
+// it fails). It reports whether it changed anything. The caller holds the web configuration lock and mu.
 func (e env) refresh(ctx context.Context) (bool, error) {
 	st := e.load()
 	ids := e.installedIDs(st)
 	if len(ids) == 0 || st.PHP == "" {
 		return false, nil
 	}
+	filesChanged, ferr := e.refreshFiles(st)
 	wantSnippet, wantPool := e.renderSnippet(ids), e.renderPool()
 	haveSnippet, _ := e.Root.ReadFile(e.snippetFile())
 	havePool, _ := e.Root.ReadFile(e.poolFile(st.PHP))
 	if string(haveSnippet) == wantSnippet && string(havePool) == wantPool {
-		return false, nil
+		return filesChanged, ferr
 	}
 	set := e.Changes("dbtools-refresh")
 	set.Write(e.snippetFile(), []byte(wantSnippet), 0o644, agentfs.RootOwner)
@@ -335,18 +365,18 @@ func (e env) refresh(ctx context.Context) (bool, error) {
 		return e.NginxTest(ctx)
 	})
 	if err != nil {
-		return false, err
+		return filesChanged, err
 	}
 	if err := e.ReloadFPM(ctx, st.PHP); err != nil {
 		applied.Rollback()
 		e.ReloadFPM(ctx, st.PHP)
-		return false, err
+		return filesChanged, err
 	}
 	if err := e.ReloadNginx(ctx); err != nil {
 		applied.Rollback()
 		e.ReloadFPM(ctx, st.PHP)
 		e.ReloadNginx(ctx)
-		return false, err
+		return filesChanged, err
 	}
 	return true, nil
 }
