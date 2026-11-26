@@ -154,11 +154,14 @@ $tab = $openUser ? 'users' : 'dbs';
                                 <?php if ($canManage): ?>
                                     <span class="nim-ops">
                                         <a class="nim-op" href="<?= e($this->url('databases.browser', ['id' => $did])) ?>" title="Browse tables and run SQL">Browse</a>
-                                        <?php foreach (($dbTools ?? []) as $toolId => $tool): ?><form method="post" action="<?= e($this->url('databases.tools.open', ['id' => $did, 'tool' => $toolId])) ?>" target="_blank" class="d-inline"><?= $this->csrfField() ?><button type="submit" class="nim-op" title="Open <?= e($tool['name']) ?> signed in to <?= e($d['name']) ?>"><?= e($tool['name']) ?></button></form>
+                                        <details data-nim-menu>
+                                            <summary class="nim-op" aria-label="More actions for <?= e($d['name']) ?>">More <i class="bi bi-chevron-down" aria-hidden="true"></i></summary>
+                                            <div class="nim-dropmenu">
+                                        <?php foreach (($dbTools ?? []) as $toolId => $tool): ?><form method="post" action="<?= e($this->url('databases.tools.open', ['id' => $did, 'tool' => $toolId])) ?>" target="_blank"><?= $this->csrfField() ?><button type="submit" title="Open <?= e($tool['name']) ?> signed in to <?= e($d['name']) ?>"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i><?= e($tool['name']) ?></button></form>
                                         <?php endforeach; ?>
                                         <?php if ($dbUsers !== []): ?>
                                             <details data-nim-menu>
-                                                <summary class="nim-op" aria-label="Access to <?= e($d['name']) ?>">Permission</summary>
+                                                <summary class="nim-menu-item" aria-label="Access to <?= e($d['name']) ?>"><i class="bi bi-key" aria-hidden="true"></i>Permission</summary>
                                                 <form method="post" action="<?= e($this->url('databases.grant', ['id' => $did])) ?>" class="nim-popover card card-body shadow-sm" data-nim-busy>
                                                     <?= $this->csrfField() ?><input type="hidden" name="return_to" value="<?= e($returnTo) ?>">
                                                     <div class="fw-medium small mb-2">Access to <?= e($d['name']) ?></div>
@@ -172,7 +175,7 @@ $tab = $openUser ? 'users' : 'dbs';
                                         <?php endif; ?>
                                         <?php if (!empty($d['website_id'])): ?>
                                             <details data-nim-import data-nim-menu>
-                                                <summary class="nim-op" title="Import a .sql file" aria-label="Import into <?= e($d['name']) ?>">Import</summary>
+                                                <summary class="nim-menu-item" title="Import a .sql file" aria-label="Import into <?= e($d['name']) ?>"><i class="bi bi-upload" aria-hidden="true"></i>Import</summary>
                                                 <form class="nim-popover nim-popover-form card card-body shadow-sm" method="post" action="<?= e($this->url('databases.import', ['id' => $did])) ?>"
                                                       data-nim-sql-import<?= $this->can(P::FILES_MANAGE) ? ' data-upload-url="' . e($this->url('sites.files.upload', ['id' => (int) $d['website_id']])) . '"' : '' ?>>
                                                     <?= $this->csrfField() ?><input type="hidden" name="return_to" value="<?= e($returnTo) ?>">
@@ -191,11 +194,13 @@ $tab = $openUser ? 'users' : 'dbs';
                                                 </form>
                                             </details>
                                         <?php endif; ?>
-                                        <form method="post" action="<?= e($this->url('databases.dump', ['id' => $did])) ?>"><?= $this->csrfField() ?><input type="hidden" name="return_to" value="<?= e($returnTo) ?>"><button class="nim-op" title="Dump to the backup directory" aria-label="Dump <?= e($d['name']) ?>">Dump</button></form>
+                                        <form method="post" action="<?= e($this->url('databases.dump', ['id' => $did])) ?>"><?= $this->csrfField() ?><input type="hidden" name="return_to" value="<?= e($returnTo) ?>"><button title="Dump to the backup directory" aria-label="Dump <?= e($d['name']) ?>"><i class="bi bi-download" aria-hidden="true"></i>Dump</button></form>
                                         <form method="post" action="<?= e($this->url('databases.drop', ['id' => $did])) ?>" data-nim-confirm="Delete the database <?= e($d['name']) ?> and all of its data? This cannot be undone." data-nim-confirm-word="<?= e($d['name']) ?>">
                                             <?= $this->csrfField() ?><input type="hidden" name="return_to" value="<?= e($returnTo) ?>"><input type="hidden" name="confirm" value="<?= e($d['name']) ?>">
-                                            <button class="nim-op is-danger" title="Delete" aria-label="Delete <?= e($d['name']) ?>">Delete</button>
+                                            <button class="is-danger" title="Delete" aria-label="Delete <?= e($d['name']) ?>"><i class="bi bi-trash" aria-hidden="true"></i>Delete</button>
                                         </form>
+                                            </div>
+                                        </details>
                                     </span>
                                 <?php else: ?><span class="nim-muted small">—</span><?php endif; ?>
                             </td>

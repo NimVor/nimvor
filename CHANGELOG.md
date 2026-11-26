@@ -9,6 +9,8 @@ All notable changes to NimVor are documented here. The format follows
 ### Changed
 - **A tidier dashboard: details on hover.** The dashboard widgets *DNS & mail*, *Redis & Memcached*, *SSL certificates* and *Nginx & PHP-FPM* are gone; the same information now shows in a card when the pointer rests on the matching Software tile (DNS server and Email each get their own, Redis and Memcached each get their own, Let's Encrypt gets the certificates, Web server gets Nginx and PHP-FPM), with links to the pages that manage it. The separate *Backups* widget is gone too (*Backup health* already shows backups). A saved layout that listed them keeps working.
 - **Database server settings in a window.** Clicking the database server chip (for example "MariaDB 10.11") on the Databases page, or the settings button of the Database server tile on the dashboard, opens the server's settings in a window instead of leaving the page. The full page, `/databases/server/settings`, is still there.
+- **Databases list: fewer buttons per row.** Each database shows **Browse** and a **More** menu holding phpMyAdmin, Adminer, Permission, Import, Dump and Delete, so the row no longer runs off the edge of the table.
+- **Database tools in the sidebar.** Databases → Database tools (phpMyAdmin, Adminer) is now listed under Databases in the admin sidebar.
 - The panel's web server now runs eight worker processes instead of four (`PHP_CLI_SERVER_WORKERS=8` in `nimvor-panel.service`), so more of the dashboard's requests run at the same time. It applies to existing servers at their next `nimvor update`, which regenerates the unit and restarts the panel; websites are not affected (they run in PHP-FPM).
 
 ### Fixed

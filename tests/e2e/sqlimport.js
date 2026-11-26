@@ -37,6 +37,7 @@ const DEV = path.resolve(__dirname, '../../.dev');
 
     await page.goto(BASE + '/sites/' + siteId + '/databases');
     const row = `#db-table tr:has-text("${dbName}")`;
+    await page.click(`${row} details[data-nim-menu] > summary`);   // the "More" menu
     await page.click(`${row} [data-nim-import] summary`);
     // A wrong file type is refused before anything is uploaded.
     const bad = path.join(OUT, 'notes.txt');
