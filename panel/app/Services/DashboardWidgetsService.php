@@ -55,16 +55,14 @@ final class DashboardWidgetsService
             $r = $this->cache->remember($id, 'server', $def->ttl, fn (): array => match ($id) {
                 'tile_cpu', 'tile_memory', 'tile_disk', 'tile_load' => ['_state' => 'ok'],
                 'software' => $this->software(),
-                'websites_summary' => $this->websitesSummary($user),
                 'request_trends' => $this->requestTrends(),
                 'attention' => $this->attention($user),
                 'disk' => $this->disk(),
                 'top_processes' => $this->topProcesses(),
-                'website_health' => $this->websiteHealth(),
                 'security_overview' => ($this->security ?? throw new AgentException('Security status unavailable'))->security(),
                 'alert_center' => $this->alertCenter(),
                 'performance_history' => $this->performanceHistory(),
-                'website_overview' => $this->websiteOverview(),
+                'website_overview' => $this->websiteStatistics($user),
                 'services_overview' => $this->servicesOverview(),
                 'capacity_forecast' => ($this->capacity ?? throw new \InvalidArgumentException('Capacity unavailable'))->forecast(),
                 'traffic_overview' => ($this->capacity ?? throw new \InvalidArgumentException('Traffic unavailable'))->traffic(),
@@ -297,6 +295,31 @@ final class DashboardWidgetsService
             'net' => $rx === null ? null : ['rx' => $rx, 'tx' => $tx],
             'since' => $this->monitoring?->firstSampleAt(),
         ];
+    }
+
+    /**
+     * The one Website statistics widget: the real HTTP checks (health), the websites by state and creation month, and the
+     * counts and PHP versions from the last discovery. A part that cannot be read is null, so the tab says so and the others
+     * still show.
+     *
+     * @param array<string, mixed> $user
+     * @return array<string, mixed>
+     */
+    public function websiteStatistics(array $user): array
+    {
+        $d = $this->websiteOverview();
+        try {
+            $d['health'] = $this->websiteHealth();
+        } catch (\Throwable) {
+            $d['health'] = null;
+        }
+        try {
+            $d['discovery'] = (array) ($this->websitesSummary($user)['summary'] ?? []);
+        } catch (\Throwable) {
+            $d['discovery'] = null;
+        }
+        $d['_state'] = 'ok';
+        return $d;
     }
 
     /**

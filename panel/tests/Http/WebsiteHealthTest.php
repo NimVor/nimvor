@@ -35,7 +35,7 @@ final class WebsiteHealthTest extends HttpTestCase
 
     private function widget(): array
     {
-        $res = $this->request('GET', '/dashboard/widgets/website_health', [], ['accept' => 'application/json', 'x-requested-with' => 'XMLHttpRequest']);
+        $res = $this->request('GET', '/dashboard/widgets/website_overview', [], ['accept' => 'application/json', 'x-requested-with' => 'XMLHttpRequest']);
         self::assertSame(200, $res->status(), $res->body());
         return (array) json_decode($res->body(), true);
     }

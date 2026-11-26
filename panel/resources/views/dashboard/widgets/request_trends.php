@@ -11,6 +11,9 @@ $max = max(1, max($hours));
 $change = $d['change'];
 $fmt = static fn (int $n): string => number_format($n, 0, '.', ' ');
 ?>
+<div data-nim-tabs="request-trends">
+    <?= $this->partial('dashboard/tabs', ['tabs' => ['counts' => 'Counts and chart', 'busiest' => 'Busiest websites'], 'label' => 'Request trends']) ?>
+    <div data-nim-pane="counts">
 <div class="row g-2 text-center mb-3">
     <div class="col-4"><div class="nim-kpi"><?= e($fmt((int) $d['total'])) ?></div><div class="nim-kpi-label">Requests, 24 h</div></div>
     <div class="col-4">
@@ -37,14 +40,19 @@ $fmt = static fn (int $n): string => number_format($n, 0, '.', ' ');
         </div>
     <?php $i++; endforeach; ?>
 </div>
+    </div>
+    <div data-nim-pane="busiest" hidden>
+        <?php if ($d['top'] === []): ?><div class="text-body-secondary">No website has requests to list yet.</div><?php endif; ?>
 <?php if ($d['top'] !== []): ?>
-    <div class="nim-sub mt-3">Busiest websites</div>
+    <div class="nim-sub">Busiest websites</div>
     <table class="table table-sm mb-1"><tbody>
         <?php foreach ((array) $d['top'] as $domain => $n): ?>
             <tr><td class="text-truncate nim-w-9"><?= e((string) $domain) ?></td><td class="text-end text-nowrap"><?= e($fmt((int) $n)) ?></td></tr>
         <?php endforeach; ?>
     </tbody></table>
 <?php endif; ?>
+    </div>
+</div>
 <div class="text-body-secondary small mt-2">
     Counted from <?= (int) $d['read'] ?> website access log<?= (int) $d['read'] === 1 ? '' : 's' ?><?= (int) $d['skipped'] > 0 ? ' (' . (int) $d['skipped'] . ' without a readable log left out)' : '' ?>.
     The error share covers the agent's last 48 hours. <?= (int) $d['server_errors'] > 0 ? e($fmt((int) $d['server_errors'])) . ' server errors (5xx) in that time.' : '' ?>
