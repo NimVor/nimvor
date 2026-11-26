@@ -33,7 +33,7 @@ $unavailable = '<div class="text-body-secondary">Not available right now. The ot
                 </div>
             <?php endforeach; ?>
         </div>
-        <div class="nim-widget-foot">Counts websites that still exist.</div>
+        <div class="nim-widget-foot">Counts websites that still exist. Request trends are not collected, so none are shown.</div>
     </div>
     <div data-nim-pane="websites" hidden>
         <div class="nim-split mb-3">
