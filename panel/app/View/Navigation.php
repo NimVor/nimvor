@@ -34,6 +34,7 @@ final class Navigation
                     ['Database server settings', 'databases.server.settings_page', P::SERVER_VIEW],
                     ['Database connections', 'databases.server.connections', P::SERVER_VIEW],
                     ['Database logs', 'databases.server.logs', P::LOGS_VIEW],
+                    ['Database tools', 'databases.tools', P::DATABASES_MANAGE],
                 ]],
                 ['PostgreSQL', 'database', 'postgres', P::DATABASES_VIEW, '/postgres', 'PostgreSQL databases, users and access'],
                 ['PHP', 'filetype-php', 'php', P::PHP_VIEW, '/php', 'PHP versions, extensions and php.ini'],

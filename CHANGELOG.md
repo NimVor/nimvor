@@ -8,6 +8,7 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Changed
 - **Databases list: fewer buttons per row.** Each database shows **Browse** and a **More** menu holding phpMyAdmin, Adminer, Permission, Import, Dump and Delete, so the row no longer runs off the edge of the table.
+- **Database tools in the sidebar.** Databases → Database tools (phpMyAdmin, Adminer) is now listed under Databases in the admin sidebar.
 - The panel's web server now runs eight worker processes instead of four (`PHP_CLI_SERVER_WORKERS=8` in `nimvor-panel.service`), so more of the dashboard's requests run at the same time. It applies to existing servers at their next `nimvor update`, which regenerates the unit and restarts the panel; websites are not affected (they run in PHP-FPM).
 
 ### Fixed
