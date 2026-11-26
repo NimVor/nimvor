@@ -4,12 +4,14 @@
  *
  * @var \NimVor\View\View $this
  * @var array<string, mixed> $d
+ * @var string $only all (the default), redis or memcached
  */
+$only ??= 'all';
 $n = static fn (?int $v): string => $v === null ? 'N/A' : number_format($v);
 $pct = static fn (?float $v): string => $v === null ? 'N/A' : number_format($v, 1) . '%';
 $mem = static fn (?int $used, ?int $max): string => $used === null ? 'N/A' : format_bytes($used) . ($max !== null ? ' / ' . format_bytes($max) : ' (no limit)');
 ?>
-<?php foreach (['redis' => 'Redis', 'memcached' => 'Memcached'] as $key => $label): if ($d[$key] === null) { continue; } $c = $d[$key]; ?>
+<?php foreach (['redis' => 'Redis', 'memcached' => 'Memcached'] as $key => $label): if ($d[$key] === null || ($only !== 'all' && $only !== $key)) { continue; } $c = $d[$key]; ?>
     <div class="mb-3">
         <div class="fw-semibold mb-1"><?= e($label) ?>
             <?php if ($key === 'redis' && $c['version'] !== ''): ?><span class="fw-normal text-body-secondary"><?= e($c['version']) ?></span><?php endif; ?>

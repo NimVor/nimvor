@@ -138,8 +138,24 @@ final class DashboardController extends Controller
      * The details behind a live tile (CPU, memory, disk, load), as the HTML of a small popover: the processor and each
      * core, the busiest processes, where memory and disk space go. Read-only; the same data as the monitoring page.
      */
+    /** The Software tiles that show details on hover, and the permission each needs. */
+    public const TILE_DETAILS = ['dns' => Permissions::SERVER_VIEW, 'mail' => Permissions::SERVER_VIEW, 'redis' => Permissions::REDIS_MANAGE, 'memcached' => Permissions::REDIS_MANAGE, 'web' => Permissions::SERVER_VIEW, 'ssl' => Permissions::SSL_VIEW];
+
     public function popover(Request $request, string $key): Response
     {
+        // The Software tiles' hover cards: the details of one part of the server and links to where it is managed.
+        if (isset(self::TILE_DETAILS[$key]) && $this->widgets !== null) {
+            if (!$this->view->can(self::TILE_DETAILS[$key])) {
+                return Response::json(['success' => false, 'error' => 'You may not see these details.'], 403);
+            }
+            try {
+                return Response::json(['success' => true, 'html' => $this->view->partial('dashboard/tile_details', ['key' => $key, 'd' => $this->widgets->tileDetails($key)])]);
+            } catch (AgentException $e) {
+                return Response::json(['success' => false, 'error' => $e->getMessage()], 503);
+            } catch (\Throwable) {
+                return Response::json(['success' => false, 'error' => 'The details could not be read right now.'], 503);
+            }
+        }
         if (!in_array($key, ['cpu', 'mem', 'memory', 'disk', 'load', 'server'], true) || $this->widgets === null) {
             return Response::json(['success' => false, 'error' => 'No such tile.'], 404);
         }

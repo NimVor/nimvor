@@ -4,8 +4,11 @@
  *
  * @var \NimVor\View\View $this
  * @var array<string, mixed> $d
+ * @var string $only all (the default), dns or mail: the hover cards of the Software tiles show one part each
  */
+$only ??= 'all';
 ?>
+<?php if ($only !== 'mail'): ?>
 <div class="mb-3">
     <div class="fw-semibold mb-1">Nameserver</div>
     <?php if ($d['dns'] === null): ?>
@@ -17,6 +20,8 @@
             · <?= (int) $d['dns']['zones'] ?> zone<?= (int) $d['dns']['zones'] === 1 ? '' : 's' ?><?= (int) $d['dns']['signed'] > 0 ? ', ' . (int) $d['dns']['signed'] . ' signed (DNSSEC)' : '' ?></div>
     <?php endif; ?>
 </div>
+<?php endif; ?>
+<?php if ($only !== 'dns'): ?>
 <div>
     <div class="fw-semibold mb-1">Mail</div>
     <?php if ($d['mail'] === null): ?>
@@ -37,3 +42,4 @@
         <?php endif; ?>
     <?php endif; ?>
 </div>
+<?php endif; ?>
