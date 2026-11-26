@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Mail names (`mail.<domain>`, `webmail.<domain>` with their own certificate) now turn on by themselves: at once when the domain's DNS zone is hosted on this panel (the two records are added to the zone), otherwise a scheduler job checks every few minutes, for 7 days, and turns them on as soon as the names point to this server. Domains that already exist without mail names are covered too. Names an administrator turned off stay off. Setting *Mail names for email domains* (on by default). Database migration 0087.
+
 ### Changed
 - Creating a website is now a four-step wizard (what you are hosting, domain, settings, review) with a progress bar. The form fields, validation and what is created are unchanged, and the page still works without JavaScript. The last step can open the app installer straight after the website is created. After a validation error the wizard opens at the step with the problem.
 

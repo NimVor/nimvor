@@ -1875,6 +1875,16 @@ certificate of their own, so mail apps and browsers see the customer's own
 name with no certificate warning. The agent actions are `mail.names_status`,
 `mail.names_enable` (a job) and `mail.names_disable`:
 
+- **Automatic:** the names turn on by themselves (setting *Mail names for
+  email domains*, on by default, under SSL). When an email domain is added
+  and its DNS zone is hosted on this panel, the two A records are added to the
+  zone at once; otherwise the scheduler (`nimvor schedule:run`, every 5
+  minutes) looks at each domain without names and asks for the certificate as
+  soon as `mail.<domain>` and `webmail.<domain>` both resolve to this server
+  (the same test AutoSSL uses), for up to 7 days; existing domains get a fresh
+  7 days after the upgrade. A refused certificate request is retried (4 tries).
+  A domain whose names an administrator turned off is never turned on again by
+  the job; the Mail names card shows what the job is waiting for.
 - Both names must already point at this server (DNS records created first).
   An Nginx site (`nimvor-mail-names.conf`) answers the Let's Encrypt
   challenge on port 80 for them; one certificate (`mail.<domain>`) covers both.
