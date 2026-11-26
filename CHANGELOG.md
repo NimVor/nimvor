@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.8.1] — 2026-11-26
+
+A faster dashboard and working phpMyAdmin and Adminer sign-in. Panel and agent: upgrade both with `sudo nimvor update` (no database migration; the panel restarts with eight workers and the scheduler's sweep corrects the database tools' files within minutes).
+
 ### Changed
 - The panel's web server now runs eight worker processes instead of four (`PHP_CLI_SERVER_WORKERS=8` in `nimvor-panel.service`), so more of the dashboard's requests run at the same time. It applies to existing servers at their next `nimvor update`, which regenerates the unit and restarts the panel; websites are not affected (they run in PHP-FPM).
 
