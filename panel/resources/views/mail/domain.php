@@ -198,6 +198,9 @@ if ($namesReady && !empty($webmail['enabled'])) {
                     <?php endif; ?>
                 <?php else: ?>
                     <p>Give <?= e($dom) ?> its own <code>mail.<?= e($dom) ?></code> (IMAP and SMTP) and <code>webmail.<?= e($dom) ?></code> with a free Let's Encrypt certificate, so mail apps and browsers show your customer's own name with no certificate warning. Today they use <code><?= e($host) ?></code>.</p>
+                    <?php $autoNote = trim((string) ($domain['names_auto_note'] ?? '')); if ($autoNote !== '' && !in_array((string) ($domain['names_auto'] ?? ''), ['done'], true)): ?>
+                    <p class="small text-body-secondary mb-2"><i class="bi bi-arrow-repeat me-1"></i><?= e($autoNote) ?></p>
+                    <?php endif; ?>
                     <?php if ($namesRecords !== []): ?>
                     <p class="mb-2">Both names must point to this server. NimVor adds these records to the domain's DNS zone here when it has one; otherwise add them at your DNS provider first:</p>
                     <?php foreach ($namesRecords as $r): ?><div><span class="badge text-bg-light border"><?= e($r['type']) ?></span> <code><?= e($r['name'] . '.' . $dom) ?></code> → <code><?= e($r['value']) ?></code></div><?php endforeach; ?>
@@ -205,7 +208,7 @@ if ($namesReady && !empty($webmail['enabled'])) {
                     <?php if ($this->serverScope()): ?>
                     <form method="post" action="<?= e($this->url('mail.names.on', ['id' => $id])) ?>" class="mt-3" data-nim-busy><?= $this->csrfField() ?><button class="btn btn-sm btn-primary"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><?= $namesOn ? 'Try the certificate again' : 'Turn on mail names' ?></button></form>
                     <?php else: ?>
-                    <p class="text-body-secondary mb-0 mt-2">An administrator can turn this on.</p>
+                    <p class="text-body-secondary mb-0 mt-2">They turn on by themselves once both names point to this server; an administrator can also turn them on.</p>
                     <?php endif; ?>
                 <?php endif; ?>
             </div>

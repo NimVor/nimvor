@@ -278,6 +278,14 @@ layout without the sidebar. Their home page is their websites as cards
 Administrators see the same cards through the cards/list switch on
 *Websites*.
 
+**Creating a website** is a four-step wizard on *Websites → Create site*:
+what you are hosting (PHP, static, Node.js, Python, reverse proxy), the domain
+and aliases (and, for administrators, the system user and owner), the type's
+settings (versions, port, document root, PHP limits), and a review. The last
+step can open the app installer once the website exists. It is one ordinary
+form (same fields as before); without JavaScript every step is shown at once.
+After a validation error it opens at the first step with a problem.
+
 Opening a website shows its details (site user, root directory, IPv4,
 PHP handler and version, site and database size, SSL, last backup) and
 **Site managing**: tiles for FTP accounts, Files, Databases, Domains (DNS),
@@ -1867,6 +1875,16 @@ certificate of their own, so mail apps and browsers see the customer's own
 name with no certificate warning. The agent actions are `mail.names_status`,
 `mail.names_enable` (a job) and `mail.names_disable`:
 
+- **Automatic:** the names turn on by themselves (setting *Mail names for
+  email domains*, on by default, under SSL). When an email domain is added
+  and its DNS zone is hosted on this panel, the two A records are added to the
+  zone at once; otherwise the scheduler (`nimvor schedule:run`, every 5
+  minutes) looks at each domain without names and asks for the certificate as
+  soon as `mail.<domain>` and `webmail.<domain>` both resolve to this server
+  (the same test AutoSSL uses), for up to 7 days; existing domains get a fresh
+  7 days after the upgrade. A refused certificate request is retried (4 tries).
+  A domain whose names an administrator turned off is never turned on again by
+  the job; the Mail names card shows what the job is waiting for.
 - Both names must already point at this server (DNS records created first).
   An Nginx site (`nimvor-mail-names.conf`) answers the Let's Encrypt
   challenge on port 80 for them; one certificate (`mail.<domain>`) covers both.

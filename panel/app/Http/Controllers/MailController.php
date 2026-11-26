@@ -34,6 +34,7 @@ final class MailController extends Controller
         private readonly WebsiteRepository $sites,
         private readonly ServerContext $server,
         private readonly SiteOverview $overview,
+        private readonly \NimVor\Services\MailNamesAuto $namesAuto,
     ) {
         parent::__construct($view, $session);
     }
@@ -163,6 +164,10 @@ final class MailController extends Controller
         $back = preg_match('#^/sites/\d+/mail$#', $request->string('return_to')) === 1 ? $request->string('return_to') : '/mail';
         $res = $this->act($request, $back, function () use ($request, &$id): string {
             $id = $this->mail->addDomain($request->all(), $this->user($request));
+            $row = $this->mail->domain($id, $this->user($request));
+            if ($row !== null) {
+                $this->namesAuto->prepare($row);
+            }
             return 'Email is hosted for the domain. Publish the DNS records below.';
         });
         return $id > 0 ? Response::redirect('/mail/domains/' . $id) : $res;
@@ -216,6 +221,7 @@ final class MailController extends Controller
         return $this->domainAct($request, $id, function (array $domain) use ($request): string {
             $added = $this->mail->publishNamesDns($domain, $this->user($request));
             $job = $this->mail->enableNames($domain, (string) ($this->user($request)['email'] ?? ''));
+            $this->namesAuto->turnedOn((int) $domain['id']);
             if ($job !== '') {
                 $this->jobs->track($job, 'Mail names for ' . $domain['domain'], 'mail_domain', (string) $domain['id'], $this->userId($request));
                 $this->flashJob($job);
@@ -231,6 +237,7 @@ final class MailController extends Controller
         }
         return $this->domainAct($request, $id, function (array $domain): string {
             $this->mail->disableNames($domain);
+            $this->namesAuto->turnedOff((int) $domain['id']);
             return 'The domain uses the server\'s host name for mail again.';
         });
     }
