@@ -260,15 +260,6 @@ func (r *Request) validate(env *host.Env) error {
 				return &validate.Error{Field: "admin_password", Message: "12–128 characters on one line"}
 			}
 		}
-		if r.App == "nocodb" {
-			// Its administrator: the email and the password NimVor made, handed to its first start.
-			if !regexp.MustCompile(`^[^@\s]+@[^@\s]+\.[^@\s]+$`).MatchString(r.AdminEmail) || len(r.AdminEmail) > 100 {
-				return &validate.Error{Field: "admin_email", Message: "must be an email address"}
-			}
-			if len(r.AdminPassword) < 12 || len(r.AdminPassword) > 128 || strings.ContainsAny(r.AdminPassword, "\x00\n\r") {
-				return &validate.Error{Field: "admin_password", Message: "12–128 characters on one line"}
-			}
-		}
 		if r.App == "clickhouse" {
 			// Its one user: the name is an element of users.xml, so letters, digits and _ only.
 			if !regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]{2,31}$`).MatchString(r.AdminUser) {

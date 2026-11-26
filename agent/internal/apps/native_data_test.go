@@ -12,7 +12,7 @@ import (
 	"testing"
 )
 
-// Unit tests of the NocoDB and ClickHouse installs: the account's shell and systemd are simulated, GitHub is local.
+// Unit tests of the ClickHouse install: the account's shell and systemd are simulated, GitHub is local.
 
 type dataFixture struct {
 	goFixture
@@ -59,63 +59,9 @@ func clickhouseTgz(program []byte) []byte {
 	return buf.Bytes()
 }
 
-func nocodbRequest() Request {
-	return Request{App: "nocodb", Domain: "data.test", User: "example", Root: "/home/nimvor/shop.test", Path: "noco", URL: "https://data.test", Port: 3113, ServiceSlug: "data-nocodb",
-		AdminEmail: "owner@data.test", AdminPassword: "correct-horse-battery-9"}
-}
-
 func clickhouseRequest() Request {
 	return Request{App: "clickhouse", Domain: "ch.test", User: "example", Root: "/home/nimvor/shop.test", Path: "ch", URL: "https://ch.test", Port: 3114, ServiceSlug: "ch-clickhouse",
 		AdminUser: "analyst", AdminPassword: "correct-horse-battery-9"}
-}
-
-func TestNocoDBInstallsAndKeepsItsSecretsInAPrivateFile(t *testing.T) {
-	h, _ := setup(t)
-	prog := []byte("\x7fELF fake nocodb")
-	f := newDataRelease(t, "nocodb/nocodb", "2026.11.0", "Noco-linux-"+map[string]string{"amd64": "x64", "arm64": "arm64"}[goArch()], prog, "sha256:"+sum(prog))
-	stubHealth(t, nil)
-	cred, _, _ := h.Env.Credential("example")
-	var log strings.Builder
-	req := nocodbRequest()
-	res, err := Install(context.Background(), h.Env, f.sources(), req, cred, &log)
-	if err != nil {
-		t.Fatalf("%v\n%s", err, log.String())
-	}
-	if res["version"] != "2026.11.0" || res["strategy"] != "binary-service" || res["port"] != 3113 {
-		t.Errorf("result: %+v", res)
-	}
-	stdins := strings.Join(h.Runner.Stdins, "\n---\n")
-	if !strings.Contains(stdins, string(prog)) {
-		t.Error("the verified program was not what was written")
-	}
-	for _, want := range []string{"NC_ADMIN_EMAIL='owner@data.test'", "NC_ADMIN_PASSWORD='" + req.AdminPassword + "'", "NC_AUTH_JWT_SECRET='"} {
-		if !strings.Contains(stdins, want) {
-			t.Errorf("nocodb.env lacks %s", want)
-		}
-	}
-	svc := res["service"].(map[string]any)
-	for what, text := range map[string]string{"command": fmt.Sprint(svc["command"]), "env": fmt.Sprint(svc["env"]), "log": log.String(), "result": fmt.Sprint(res)} {
-		if strings.Contains(text, req.AdminPassword) {
-			t.Errorf("the password is in the %s", what)
-		}
-	}
-	for _, c := range h.Runner.Calls {
-		if strings.Contains(c, req.AdminPassword) {
-			t.Errorf("the password is in a command line: %s", c)
-		}
-	}
-	if env := fmt.Sprint(svc["env"]); !strings.Contains(env, "HOST:127.0.0.1") || !strings.Contains(env, "PORT:3113") {
-		t.Errorf("service environment: %v", svc["env"])
-	}
-	private := false
-	for _, c := range h.Runner.Calls {
-		if strings.Contains(c, "umask 077 && mkdir -p -- '.' && cat > 'nocodb.env'") {
-			private = true
-		}
-	}
-	if !private {
-		t.Errorf("nocodb.env was not written private: %v", h.Runner.Calls)
-	}
 }
 
 func TestClickHouseInstallsWithLoopbackOnlyAndAHashedPassword(t *testing.T) {
@@ -163,10 +109,11 @@ func TestDataAppsRefuseWhatGitHubDoesNotVouchFor(t *testing.T) {
 	for name, digest := range map[string]string{"no digest": "", "a wrong digest": "sha256:" + strings.Repeat("0", 64)} {
 		t.Run(name, func(t *testing.T) {
 			h, _ := setup(t)
-			f := newDataRelease(t, "nocodb/nocodb", "2026.11.0", "Noco-linux-"+map[string]string{"amd64": "x64", "arm64": "arm64"}[goArch()], []byte("\x7fELF"), digest)
+			archive := clickhouseTgz([]byte("\x7fELF"))
+			f := newDataRelease(t, "ClickHouse/ClickHouse", "v26.8.48.11-lts", "clickhouse-common-static-26.8.48.11-"+goArch()+".tgz", archive, digest)
 			stubHealth(t, nil)
 			cred, _, _ := h.Env.Credential("example")
-			if _, err := Install(context.Background(), h.Env, f.sources(), nocodbRequest(), cred, &strings.Builder{}); err == nil {
+			if _, err := Install(context.Background(), h.Env, f.sources(), clickhouseRequest(), cred, &strings.Builder{}); err == nil {
 				t.Fatal("installed")
 			}
 			for _, c := range h.Runner.Calls {
@@ -180,21 +127,21 @@ func TestDataAppsRefuseWhatGitHubDoesNotVouchFor(t *testing.T) {
 
 func TestDataAppsSayWhichFilesTheyDidSeeAndCleanUp(t *testing.T) {
 	h, _ := setup(t)
-	f := newDataRelease(t, "nocodb/nocodb", "2026.11.0", "something-else.zip", []byte("x"), "sha256:"+sum([]byte("x")))
+	f := newDataRelease(t, "ClickHouse/ClickHouse", "v26.8.48.11-lts", "something-else.zip", []byte("x"), "sha256:"+sum([]byte("x")))
 	stubHealth(t, nil)
 	cred, _, _ := h.Env.Credential("example")
-	_, err := Install(context.Background(), h.Env, f.sources(), nocodbRequest(), cred, &strings.Builder{})
+	_, err := Install(context.Background(), h.Env, f.sources(), clickhouseRequest(), cred, &strings.Builder{})
 	if err == nil || !strings.Contains(err.Error(), "files seen: something-else.zip") {
 		t.Fatalf("err = %v", err)
 	}
 
-	prog := []byte("\x7fELF fake nocodb")
-	f2 := newDataRelease(t, "nocodb/nocodb", "2026.11.0", "Noco-linux-"+map[string]string{"amd64": "x64", "arm64": "arm64"}[goArch()], prog, "sha256:"+sum(prog))
+	archive2 := clickhouseTgz([]byte("\x7fELF fake clickhouse"))
+	f2 := newDataRelease(t, "ClickHouse/ClickHouse", "v26.8.48.11-lts", "clickhouse-common-static-26.8.48.11-"+goArch()+".tgz", archive2, "sha256:"+sum(archive2))
 	stubHealth(t, fmt.Errorf("no answer"))
 	h2, _ := setup(t)
 	cred2, _, _ := h2.Env.Credential("example")
 	var log strings.Builder
-	if _, err := Install(context.Background(), h2.Env, f2.sources(), nocodbRequest(), cred2, &log); err == nil || !strings.Contains(err.Error(), "not healthy") {
+	if _, err := Install(context.Background(), h2.Env, f2.sources(), clickhouseRequest(), cred2, &log); err == nil || !strings.Contains(err.Error(), "not healthy") {
 		t.Fatalf("err = %v", err)
 	}
 	if !strings.Contains(log.String(), "Cleanup: removed") {
@@ -205,10 +152,9 @@ func TestDataAppsSayWhichFilesTheyDidSeeAndCleanUp(t *testing.T) {
 func TestDataAppRequestsAreValidated(t *testing.T) {
 	h, _ := setup(t)
 	for name, mod := range map[string]func(*Request){
-		"nocodb: not an email":    func(r *Request) { r.App = "nocodb"; r.AdminEmail = "nope" },
-		"nocodb: short password":  func(r *Request) { r.App = "nocodb"; r.AdminPassword = "short" },
-		"clickhouse: xml in name": func(r *Request) { r.App = "clickhouse"; r.AdminUser = "a><b" },
-		"clickhouse: dotted name": func(r *Request) { r.App = "clickhouse"; r.AdminUser = "ana.lyst" },
+		"clickhouse: short password": func(r *Request) { r.App = "clickhouse"; r.AdminPassword = "short" },
+		"clickhouse: xml in name":    func(r *Request) { r.App = "clickhouse"; r.AdminUser = "a><b" },
+		"clickhouse: dotted name":    func(r *Request) { r.App = "clickhouse"; r.AdminUser = "ana.lyst" },
 		"clickhouse: newline": func(r *Request) {
 			r.App = "clickhouse"
 			r.AdminUser = "analyst"
@@ -216,9 +162,6 @@ func TestDataAppRequestsAreValidated(t *testing.T) {
 		},
 	} {
 		r := clickhouseRequest()
-		if strings.HasPrefix(name, "nocodb") {
-			r = nocodbRequest()
-		}
 		mod(&r)
 		r.AllowTesting = true
 		if err := r.validate(h.Env); err == nil {

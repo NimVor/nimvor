@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -143,7 +144,7 @@ func TestRealHostGiteaInstall(t *testing.T) {
 	}
 	res, _ := j.Result.(map[string]any)
 	version, _ := res["version"].(string)
-	if !versionTag.MatchString(version) {
+	if !versionTag.MatchString(version) && !longVersion.MatchString(version) {
 		t.Errorf("no version recorded: %v", res["version"])
 	}
 	t.Logf("installed Gitea %s", version)
@@ -395,6 +396,9 @@ func TestRealHostPythonFastAPI(t *testing.T) {
 	}
 }
 
+// longVersion is a version with a fourth number or a suffix (ClickHouse: 26.8.48.11-lts).
+var longVersion = regexp.MustCompile(`^[0-9]+(\.[0-9]+){2,3}(-[a-z]+)?$`)
+
 // realGoApp installs one of the single-program applications (Cloudreve, Gopeed) for real and checks what must hold
 // for any of them: the job succeeded and recorded a version, the program runs as the website account, answers on
 // its loopback port only, the service is active and the files are the account's and closed to everyone else.
@@ -416,7 +420,7 @@ func realGoApp(t *testing.T, app, tag, user, uid string, port int, req func(n *r
 	}
 	res, _ := j.Result.(map[string]any)
 	version, _ := res["version"].(string)
-	if !versionTag.MatchString(version) {
+	if !versionTag.MatchString(version) && !longVersion.MatchString(version) {
 		t.Errorf("no version recorded: %v", res["version"])
 	}
 	t.Logf("installed %s %s", app, version)
@@ -479,15 +483,6 @@ func TestRealHostGopeedInstall(t *testing.T) {
 			AdminUser: "owner", AdminPassword: "rt-gopeed-password-" + strings.Repeat("x", 8)}
 	}, "config.json", "gopeed")
 	// (The password check on the process list is in the unit tests: no command line holds it.)
-}
-
-// A real installation of NocoDB: the release file is downloaded from GitHub and checked against the SHA-256 GitHub
-// reports for it; its administrator's login is written to nocodb.env, never to a command line.
-func TestRealHostNocoDBInstall(t *testing.T) {
-	realGoApp(t, "NocoDB", "nocodb", "rtnoco", "2896", 3920, func(n *realNative, slug string) Request {
-		return Request{App: "nocodb", Domain: "nocodb.test", User: n.user, Root: n.home, Path: "noco", URL: "https://nocodb.test", Port: 3920, ServiceSlug: slug, AllowTesting: true,
-			AdminEmail: "owner@nocodb.test", AdminPassword: "rt-nocodb-password-" + strings.Repeat("x", 8)}
-	}, "nocodb.env", "nocodb")
 }
 
 // A real installation of ClickHouse: the release archive is downloaded from GitHub, checked against the SHA-256

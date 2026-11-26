@@ -18,16 +18,12 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/workers"
 )
 
-// NocoDB (an Airtable-style interface over a database) and ClickHouse (a column database for analytics, with its
-// web query page). Both are single programs from GitHub releases, installed like Gopeed: verified against the
-// SHA-256 GitHub reports for the release file, run as a worker service under the website's account and published
-// through the website's reverse proxy. They differ only in their release files, configuration and start command,
-// which binaryApp describes.
+// ClickHouse (a column database for analytics, with its web query page): a single program from a GitHub release,
+// installed like Gopeed: verified against the SHA-256 GitHub reports for the release file, run as a worker service
+// under the website's account and published through the website's reverse proxy. binaryApp describes what differs
+// between such programs (release file, configuration, start command), so another one is a short entry.
 
 func init() {
-	nativeApps["nocodb"] = nativeApp{manifest: nocodbManifest(), install: func(ctx context.Context, env *host.Env, src Sources, r Request, cred *execx.Credential, log io.Writer) (map[string]any, error) {
-		return installBinary(ctx, env, src, r, cred, log, nocodbApp)
-	}}
 	nativeApps["clickhouse"] = nativeApp{manifest: clickhouseManifest(), install: func(ctx context.Context, env *host.Env, src Sources, r Request, cred *execx.Credential, log io.Writer) (map[string]any, error) {
 		return installBinary(ctx, env, src, r, cred, log, clickhouseApp)
 	}}
@@ -190,61 +186,6 @@ func installBinary(ctx context.Context, env *host.Env, src Sources, r Request, c
 		"admin_user": r.AdminUser, "staged": true, "finish_url": strings.TrimRight(r.URL, "/") + "/",
 		"service": serviceResult(spec),
 	}, nil
-}
-
-// ---------------------------------------------------------------------------
-// NocoDB (AGPL-3.0 / sustainable-use): a single program with its own SQLite file.
-
-func nocodbManifest() Manifest {
-	return Manifest{
-		Schema: ManifestSchema, ID: "nocodb", Name: "NocoDB", Kind: KindApplication, Category: "developer-tools",
-		Description: "A spreadsheet-style interface over databases: build forms, views and APIs on tables (a single program, SQLite).",
-		Status:      StatusTesting,
-		Runtime:     RuntimeSpec{Type: "binary"},
-		Database:    DatabaseSpec{Type: "sqlite"},
-		Strategy:    "binary-service",
-		Source: SourceSpec{
-			Kind: "github-release", GitHub: "nocodb/nocodb", AssetRe: `^Noco-linux-(x64|arm64)$`,
-			Integrity: "release-digest",
-		},
-		Service: &ServiceSpec{Type: "worker", Proxy: true},
-		Health:  HealthSpec{Type: "http", Path: "/"},
-		Backup:  "files", Upgrade: "binary-replace", Uninstall: "files",
-		License:  LicenseSpec{SPDX: "AGPL-3.0", URL: "https://github.com/nocodb/nocodb/blob/develop/LICENSE"},
-		Compat:   Compat{Arch: []string{"amd64", "arm64"}, MinDiskMB: 600, MinRAMMB: 512},
-		Verified: "realhost:TestRealHostNocoDBInstall",
-	}
-}
-
-var nocodbApp = binaryApp{
-	ID: "nocodb", Name: "NocoDB", Repo: "nocodb/nocodb",
-	TagRe: regexp.MustCompile(`^v?[0-9]{1,4}\.[0-9]{1,3}\.[0-9]{1,3}$`),
-	Asset: func(arch string) *regexp.Regexp {
-		if arch == "arm64" {
-			return regexp.MustCompile(`^Noco-linux-arm64$`)
-		}
-		return regexp.MustCompile(`^Noco-linux-x64$`)
-	},
-	Leftovers: []string{"noco.db", "nc"}, Health: "/", HealthWithin: 180 * time.Second,
-	Ready:  "Sign in with the email and password you chose.",
-	Memory: 0,
-	Prepare: func(r Request, target, program string) ([]appFile, map[string]string, string, error) {
-		secret, err := randomHex(32)
-		if err != nil {
-			return nil, nil, "", err
-		}
-		// The administrator is created on the first start from these. They live in a private file that the service
-		// reads when it starts (never in the command line or the service's environment, which the panel is told).
-		var env strings.Builder
-		for _, kv := range [][2]string{{"NC_ADMIN_EMAIL", r.AdminEmail}, {"NC_ADMIN_PASSWORD", r.AdminPassword}, {"NC_AUTH_JWT_SECRET", secret}} {
-			fmt.Fprintf(&env, "%s=%s\n", kv[0], shQuote(kv[1]))
-		}
-		envFile := filepath.Join(target, "nocodb.env")
-		return []appFile{{Path: "nocodb.env", Data: env.String()}}, map[string]string{
-			"HOME": target, "USER": r.User, "PORT": fmt.Sprint(r.Port), "HOST": "127.0.0.1",
-			"NC_DISABLE_TELE": "true", "NC_PUBLIC_URL": strings.TrimRight(r.URL, "/"),
-		}, "/bin/sh -c " + shQuote(`set -a; . "$1"; exec "$2"`) + " nocodb " + shQuote(envFile) + " " + shQuote(program), nil
-	},
 }
 
 // ---------------------------------------------------------------------------

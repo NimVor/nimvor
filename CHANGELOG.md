@@ -7,7 +7,7 @@ All notable changes to NimVor are documented here. The format follows
 ## [Unreleased]
 
 ### Added
-- **NocoDB and ClickHouse** in the app installer (*testing* status, so only administrators can install them until you have tried them). Each runs as a service behind a reverse-proxy website, checked against the SHA-256 GitHub reports for its release file; ClickHouse offers only its HTTP interface on the local port, with one login whose password is stored hashed. Database migration 0089.
+- **ClickHouse** in the app installer (*testing* status, so only administrators can install it until you have tried it). It runs as a service behind a reverse-proxy website, checked against the SHA-256 GitHub reports for its release file, with only its HTTP interface on the local port and one login whose password is stored hashed. Database migration 0089.
 
 ## [2.7.0] — 2026-11-25
 
