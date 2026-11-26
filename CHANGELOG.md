@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Creating a website is now a four-step wizard (what you are hosting, domain, settings, review) with a progress bar. The form fields, validation and what is created are unchanged, and the page still works without JavaScript. The last step can open the app installer straight after the website is created. After a validation error the wizard opens at the step with the problem.
+
 ## [2.7.0] — 2026-11-25
 
 Four more one-click applications: the CRMs EspoCRM and SuiteCRM, and the programs Cloudreve and Gopeed. All four start in *testing* status, so only administrators can install them until you have tried them and reviewed them in the app catalog. Panel and agent: upgrade both with `sudo nimvor update` (a database migration adds the catalog rows; the agent restarts and learns to read GitHub's SHA-256 of a release file). Cloudreve and Gopeed need a reverse-proxy website: create one first, then open its Apps page.

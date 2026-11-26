@@ -23,6 +23,9 @@ $aliases = $old['aliases'] ?? implode("\n", $site['aliases'] ?? []);
 $docSub = $site === null ? '' : ltrim(substr((string) $site['document_root'], strlen((string) $site['root'])), '/');
 $err = static fn (string $k): string => isset($errors[$k]) ? '<div class="invalid-feedback d-block">' . e($errors[$k]) . '</div>' : '';
 $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
+// A new website is created in four steps (what, where, how, review); the form and its field names are the same.
+$st = static fn (int $n): string => $site === null ? ' data-nim-step="' . $n . '"' : '';
+$steps = [1 => 'Type', 2 => 'Domain', 3 => 'Settings', 4 => 'Review'];
 ?>
 <?php if ($isNew): ?>
     <?php $this->start(); ?>New website<?php $this->end('title'); ?>
@@ -36,11 +39,16 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
 <?php if ($hidden !== []): ?>
     <div class="alert alert-danger"><?php foreach ($hidden as $m): ?><div><?= e((string) $m) ?></div><?php endforeach; ?></div>
 <?php endif; ?>
-<form method="post" action="<?= e($isNew ? $this->url('sites.store') : $this->url('sites.update', ['id' => (int) $site['id']])) ?>" data-nim-busy novalidate>
+<?php if ($isNew): ?>
+<ol class="nim-wizard-steps list-unstyled d-flex flex-wrap gap-2 mb-3" aria-label="Steps">
+    <?php foreach ($steps as $n => $label): ?><li class="nim-wizard-tab" data-nim-step-tab="<?= $n ?>"><span class="nim-wizard-num"><?= $n ?></span> <?= e($label) ?></li><?php endforeach; ?>
+</ol>
+<?php endif; ?>
+<form method="post" action="<?= e($isNew ? $this->url('sites.store') : $this->url('sites.update', ['id' => (int) $site['id']])) ?>" data-nim-busy novalidate<?= $isNew ? ' data-nim-wizard' : '' ?>>
     <?= $this->csrfField() ?>
     <div class="row g-3">
-        <div class="col-lg-6">
-            <div class="card mb-3" id="domains">
+        <div class="<?= $isNew ? 'col-lg-8 mx-auto' : 'col-lg-6' ?>">
+            <div class="card mb-3" id="domains"<?= $st(2) ?>>
                 <div class="card-header"><i class="bi bi-globe2 me-1"></i>Domains</div>
                 <div class="card-body">
                     <div class="mb-3">
@@ -57,8 +65,8 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
                     </div>
                 </div>
             </div>
-            <div class="card mb-3">
-                <div class="card-header"><i class="bi bi-diagram-3 me-1"></i>Application</div>
+            <div class="card mb-3"<?= $st(1) ?>>
+                <div class="card-header"><i class="bi bi-diagram-3 me-1"></i><?= $isNew ? 'What are you hosting?' : 'Application' ?></div>
                 <div class="card-body">
                     <div class="mb-3">
                         <span class="form-label d-block">Type</span>
@@ -91,6 +99,13 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
                         </div>
                         <?= $err('kind') ?>
                     </div>
+                    <?php if ($isNew): /* the type is step 1; what it needs is step 3 */ ?>
+                </div>
+            </div>
+            <div class="card mb-3"<?= $st(3) ?>>
+                <div class="card-header"><i class="bi bi-sliders me-1"></i>Application settings</div>
+                <div class="card-body">
+                    <?php endif; ?>
                     <?php if ($isNew): ?>
                     <div class="mb-3" data-nim-kind="php">
                         <label class="form-label" for="f-php">PHP version</label>
@@ -149,10 +164,10 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="col-lg-6">
+        <?php if (!$isNew): ?></div>
+        <div class="col-lg-6"><?php endif; ?>
             <?php if ($serverPhp): /* Admins/operators set the account and owner; a hosting customer owns what they create and the account is derived from the domain. */ ?>
-            <div class="card mb-3">
+            <div class="card mb-3"<?= $st(2) ?>>
                 <div class="card-header"><i class="bi bi-person me-1"></i>System user</div>
                 <div class="card-body">
                     <input class="form-control<?= $cls('system_user') ?>" name="system_user" value="<?= e($v('system_user')) ?>" placeholder="derived from the domain" <?= $isNew ? '' : 'disabled' ?> maxlength="31" aria-label="System user">
@@ -173,7 +188,7 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
             </div>
             <?php endif; ?>
             <?php if ($isNew && $serverPhp): ?>
-            <div class="card mb-3" data-nim-kind="php" id="php">
+            <div class="card mb-3" data-nim-kind="php" id="php"<?= $st(3) ?>>
                 <div class="card-header"><i class="bi bi-filetype-php me-1"></i>PHP settings</div>
                 <div class="card-body">
                     <div class="row g-2">
@@ -242,7 +257,7 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
                 </div>
             </div>
             <?php endif; ?>
-            <div class="card mb-3" id="requests">
+            <div class="card mb-3" id="requests"<?= $st(3) ?>>
                 <div class="card-header"><i class="bi bi-signpost me-1"></i>Requests</div>
                 <div class="card-body">
                     <label class="form-label small" for="f-body">Max request body (MB)</label>
@@ -251,9 +266,35 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
                     <?php if (!$isNew): ?><div class="small text-body-secondary">Redirects are managed one by one on the <a href="<?= e($this->url('sites.redirects', ['id' => (int) $site['id']])) ?>">Redirects</a> page, and PHP version and php.ini settings on the <a href="<?= e($this->url('sites.php', ['id' => (int) $site['id']])) ?>">PHP settings</a> page.</div><?php endif; ?>
                 </div>
             </div>
+            <?php if ($isNew): ?>
+            <div class="card mb-3"<?= $st(4) ?>>
+                <div class="card-header"><i class="bi bi-check2-circle me-1"></i>Review</div>
+                <div class="card-body">
+                    <dl class="row mb-0 small" data-nim-review>
+                        <dt class="col-sm-4">Domain</dt><dd class="col-sm-8" data-nim-review-field="domain"></dd>
+                        <dt class="col-sm-4">Type</dt><dd class="col-sm-8" data-nim-review-field="kind"></dd>
+                        <dt class="col-sm-4" data-nim-kind="php">PHP version</dt><dd class="col-sm-8" data-nim-kind="php" data-nim-review-field="php_version"></dd>
+                        <dt class="col-sm-4" data-nim-kind="nodejs python">Runtime and port</dt><dd class="col-sm-8" data-nim-kind="nodejs python" data-nim-review-field="app_runtime"></dd>
+                        <dt class="col-sm-4" data-nim-kind="proxy">Upstream</dt><dd class="col-sm-8" data-nim-kind="proxy" data-nim-review-field="proxy_pass"></dd>
+                        <dt class="col-sm-4">Document root</dt><dd class="col-sm-8" data-nim-review-field="document_root_sub"></dd>
+                    </dl>
+                    <p class="text-body-secondary small mt-3 mb-2">Nginx is validated before it is reloaded and the website is removed again if anything fails. DNS and email are set up as your account's defaults say.</p>
+                    <div class="form-check" data-nim-kind="php static">
+                        <input class="form-check-input" type="checkbox" id="f-after-apps" name="after_apps" value="1"<?= !empty($old['after_apps']) ? ' checked' : '' ?>>
+                        <label class="form-check-label" for="f-after-apps">Open the app installer afterwards (WordPress, Joomla, Nextcloud …)</label>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
         </div>
     </div>
-    <div class="d-flex gap-2 align-items-center">
+    <?php if ($isNew): ?>
+    <div class="d-flex gap-2 align-items-center mb-3" data-nim-wizard-nav hidden>
+        <button class="btn btn-outline-secondary" type="button" data-nim-wizard-back>Back</button>
+        <button class="btn btn-primary" type="button" data-nim-wizard-next>Next</button>
+    </div>
+    <?php endif; ?>
+    <div class="d-flex gap-2 align-items-center"<?= $isNew ? ' data-nim-wizard-submit' : '' ?>>
         <button class="btn btn-primary" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><?= $isNew ? 'Create website' : 'Save and apply' ?></button>
     </div>
 </form>
