@@ -9,7 +9,7 @@ Type=simple
 User=nimvor
 Group=nimvor
 Environment=NIMVOR_CONFIG=/etc/nimvor/panel.php
-Environment=PHP_CLI_SERVER_WORKERS=4
+Environment=PHP_CLI_SERVER_WORKERS=8
 # Bound to loopback only. Reach it through an SSH tunnel, or put a TLS
 # reverse proxy in front (see docs/installation/README.md).
 ExecStart=/usr/bin/php -d display_errors=0 -d expose_php=0 -S 127.0.0.1:8090 -t /opt/nimvor/panel/public /opt/nimvor/panel/public/router.php

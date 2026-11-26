@@ -6,7 +6,11 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- The panel's web server now runs eight worker processes instead of four (`PHP_CLI_SERVER_WORKERS=8` in `nimvor-panel.service`), so more of the dashboard's requests run at the same time. It applies to existing servers at their next `nimvor update`, which regenerates the unit and restarts the panel; websites are not affected (they run in PHP-FPM).
+
 ### Fixed
+- **A faster dashboard.** The dashboard asked for its widgets, live figures and top bar all at once, and PHP's session lock made those requests wait for one another (27 requests of 0.3 s took 8.7 s, the last one waiting for all the rest). Read-only background requests now let go of the session as soon as the user is checked: the same burst takes 1.9 s. The widgets also load through a small queue (the ones on screen first, four at a time), widgets far off screen no longer refresh in the background, and the top bar stops polling on the dashboard (which already updates its load figures).
 - **One-click sign-in to phpMyAdmin and Adminer showed "404 Not Found".** The web server only ran a tool's front PHP files when their name had letters, digits and underscores, and the sign-in page is `nimvor-signon.php`. The pattern now allows a hyphen. Servers that already have the tools get the corrected configuration by themselves: the scheduler's sweep (every few minutes) rewrites the tools' Nginx snippet and PHP-FPM pool when they differ from what NimVor now writes, validated with `nginx -t` and `php-fpm -t` and rolled back if either refuses it.
 - **phpMyAdmin showed its page but nothing responded to clicks.** Its JavaScript fetches its text strings from `js/messages.php`, a PHP file the web server refused to run; it now runs (that one file only). **Adminer's one-click sign-in landed on Adminer's sign-in page:** Adminer ignores a sign-in post that has no CSRF token, and the one-click sign-in page has none to send. Adminer's front page (NimVor's wrapper) now skips that check only for a post the browser reports as same-origin; a post from another site still needs the token. Servers that already have the tools get the corrected files from the scheduler's sweep (it now also rewrites the files NimVor generates inside an installed tool, never the vendor's files or phpMyAdmin's configuration).
 

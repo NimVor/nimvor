@@ -766,7 +766,8 @@
         // Pages swapped in place run this again: one timer only.
         if (NimVor.topbarTimer) { clearInterval(NimVor.topbarTimer); }
         NimVor.topbarTimer = setInterval(function () {
-            if (document.hidden || busy) { return; }
+            // The dashboard polls the same figures itself and sets them here: no second request for them there.
+            if (document.hidden || busy || document.getElementById('nim-dashboard')) { return; }
             busy = true;
             NimVor.fetchJson(link.getAttribute('data-nim-topbar-load')).then(function (res) {
                 NimVor.setTopbarLoad(res.load);
@@ -2257,11 +2258,11 @@
         if (!hosts.length) { return; }
         function load(host, quiet) {
             var url = host.getAttribute('data-widget-url');
-            if (!url || host.getAttribute('data-busy') === '1') { return; }
+            if (!url || host.getAttribute('data-busy') === '1') { return Promise.resolve(); }
             host.setAttribute('data-busy', '1');
             var btn = host.querySelector('[data-widget-refresh]');
             if (btn) { btn.disabled = true; }
-            NimVor.fetchJson(url).then(function (res) {
+            return NimVor.fetchJson(url).then(function (res) {
                 host.innerHTML = res.html;
                 // Widgets with charts draw them once their markup is in the page (assets/js/charts.js).
                 document.dispatchEvent(new CustomEvent('nim:widget-loaded', { detail: host }));
@@ -2276,14 +2277,33 @@
                 }
             }).then(function () { host.removeAttribute('data-busy'); });
         }
+        // The first loads go through a small queue: the widgets on screen first, and at most four at a time, so the
+        // server (a handful of PHP workers) is never asked for twenty-odd things at once and the visible cards fill
+        // in quickly. Every widget still loads.
+        var queue = [], running = 0, MAX_AT_ONCE = 4;
+        function pump() {
+            while (running < MAX_AT_ONCE && queue.length) {
+                running++;
+                load(queue.shift(), false).then(function () { running--; pump(); });
+            }
+        }
+        // A widget far below the screen is not refreshed in the background: it is refreshed when it comes near.
+        function nearScreen(host) {
+            var r = host.getBoundingClientRect();
+            return r.bottom > -400 && r.top < (window.innerHeight || 800) + 400;
+        }
+        var lazy = [];
         hosts.forEach(function (host) {
-            if (host.hasAttribute('data-widget-lazy')) { load(host, false); }
+            if (host.hasAttribute('data-widget-lazy')) { lazy.push(host); }
             var every = parseInt(host.getAttribute('data-refresh') || '0', 10);
             if (every > 0) {
-                // Never faster than every ten seconds, and not while the tab is in the background.
-                setInterval(function () { if (!document.hidden && !document.querySelector('[data-widgets].is-arranging')) { load(host, true); } }, Math.max(10, every) * 1000);
+                // Never faster than every ten seconds, and not while the tab is in the background or the widget is far off screen.
+                setInterval(function () { if (!document.hidden && !document.querySelector('[data-widgets].is-arranging') && nearScreen(host)) { load(host, true); } }, Math.max(10, every) * 1000);
             }
         });
+        lazy.sort(function (a, b) { return (nearScreen(b) ? 1 : 0) - (nearScreen(a) ? 1 : 0); });
+        queue = lazy;
+        pump();
         document.addEventListener('click', function (e) {
             var b = e.target.closest ? e.target.closest('[data-widget-refresh]') : null;
             if (!b) { return; }
