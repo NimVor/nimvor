@@ -123,5 +123,7 @@ final class DbToolsTest extends HttpTestCase
         self::assertSame($before, $this->calls('dbtools.signon_sweep'), 'nothing installed: nothing asked');
         $this->toolsStatus(['adminer']);
         self::assertStringContainsString('locked 2', $service->sweep());
+        $this->agent->succeed('dbtools.signon_sweep', ['locked' => 0, 'failed' => 0, 'tokens_removed' => 0, 'refreshed' => true]);
+        self::assertStringContainsString('up to date', $service->sweep());
     }
 }
