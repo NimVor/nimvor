@@ -138,3 +138,28 @@ The dashboard draws history only from what was really measured. No chart library
 ## Top cards and request trends
 
 The four metric cards (`tile_cpu`, `tile_memory`, `tile_disk`, `tile_load`) and the Server, Services and Websites cards (`server_info`, `services_live`, `websites_summary`) are registry widgets. The metric tiles are *frameless* (`Widget::$frameless`): they render their own card and keep the `data-metric` hooks used by the live poll in `dashboard.js`. `request_trends` reads `webreport.site` (48 h) for up to 30 enabled sites and aggregates the last 24 full hours; with no readable log it reports `unavailable`/`empty` rather than zeros.
+
+## Later change: details moved onto the Software tiles
+
+The widgets *SSL certificates*, *Redis & Memcached*, *Nginx & PHP-FPM*, *DNS & mail* and *Backups* are no longer dashboard widgets
+(*Backup health* covers backups). Their views and data stay: the Software widget's tiles for the DNS server, email, Redis,
+Memcached, the web server and Let's Encrypt (certbot) carry `data-popover-url="/dashboard/popover/{dns|mail|redis|memcached|web|ssl}"`,
+and the existing hover card (`nimvor.js`) shows `dashboard/tile_details.php`, which reuses those widget views (DNS and mail, Redis and
+Memcached are split with an `$only` variable) and adds links to the pages that manage the part. The data is read by
+`DashboardWidgetsService::tileDetails()` (30 seconds' cache) and each key needs the permission listed in
+`DashboardController::TILE_DETAILS`. A saved layout that still lists a removed widget simply ignores it.
+
+## Later change: tabs inside widgets
+
+A widget with several parts uses tabs instead of a long card: `dashboard/tabs.php` draws the buttons (`[data-nim-tab]`) and the
+widget's panes carry `[data-nim-pane]` inside a `[data-nim-tabs="key"]` box; `nimvor.js` switches them and remembers the chosen tab
+while the widget refreshes. *Top processes* (By CPU, By memory), *Traffic* (Overview, Websites usage), *Request trends* (Counts and
+chart, Busiest websites) and *Website statistics* (Overview, Slowest websites, Created per month, Websites) use it. *Website health*
+and the *Websites* card are no longer widgets of their own: `DashboardWidgetsService::websiteStatistics()` reads the checks, the states
+and the discovery summary together, and a part that cannot be read shows "not available" in its tab only. The width `half` (6 of 12
+columns, `nim-span-half`) is new.
+
+*Alert center* and *Needs attention* are one widget (`alert_center`, "Alerts and attention", `DashboardWidgetsService::alertsAndAttention()`):
+both parts are always measured (the measurement is shared by every viewer) and the view shows each tab only to those with
+`monitoring.view` and `websites.view` respectively. *Databases* shows its chart, MariaDB / MySQL and PostgreSQL in three tabs.
+

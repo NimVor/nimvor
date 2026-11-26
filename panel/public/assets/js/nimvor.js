@@ -1682,6 +1682,35 @@
     document.addEventListener('input', function (e) { var c = e.target.closest ? e.target.closest('.nim-cl') : null; if (c && e.target.matches('[data-cl-search]')) { changelogFilter(c); } });
     document.addEventListener('change', function (e) { var c = e.target.closest ? e.target.closest('.nim-cl') : null; if (c && e.target.matches('[data-cl-filter]')) { changelogFilter(c); } });
 
+    // Tabs inside a dashboard widget: <div data-nim-tabs="key"> with buttons [data-nim-tab="name"] and panes [data-nim-pane="name"].
+    // The chosen tab is remembered (the widget's HTML is replaced on every refresh) and charts in a pane are redrawn when it opens.
+    (function () {
+        var chosen = {};
+        function show(box, name) {
+            box.querySelectorAll('[data-nim-tab]').forEach(function (t) {
+                var on = t.getAttribute('data-nim-tab') === name;
+                t.classList.toggle('active', on); t.setAttribute('aria-selected', on ? 'true' : 'false');
+            });
+            box.querySelectorAll('[data-nim-pane]').forEach(function (p) { p.hidden = p.getAttribute('data-nim-pane') !== name; });
+            box.querySelectorAll('[data-nim-chart]').forEach(function (c) { c.dispatchEvent(new CustomEvent('nim:chart-redraw')); });
+        }
+        function restore(root) {
+            (root || document).querySelectorAll('[data-nim-tabs]').forEach(function (box) {
+                var key = box.getAttribute('data-nim-tabs');
+                if (chosen[key] && box.querySelector('[data-nim-tab="' + chosen[key] + '"]')) { show(box, chosen[key]); }
+            });
+        }
+        document.addEventListener('click', function (e) {
+            var t = e.target.closest ? e.target.closest('[data-nim-tab]') : null;
+            var box = t ? t.closest('[data-nim-tabs]') : null;
+            if (!box) { return; }
+            var name = t.getAttribute('data-nim-tab');
+            chosen[box.getAttribute('data-nim-tabs')] = name;
+            show(box, name);
+        });
+        document.addEventListener('nim:widget-loaded', function (e) { restore(e.detail); });
+    })();
+
     // Hover cards: anything with data-popover-url (a dashboard tile, the server name in the top bar) shows the
     // HTML that address returns in a small card while the pointer rests on it; a click or Enter does the same for
     // touch and keyboard. The card stays while the pointer is on it (it can hold buttons) and closes on Escape.
@@ -1725,6 +1754,8 @@
     });
     document.addEventListener('click', function (e) {
         var owner = e.target.closest ? e.target.closest('[data-popover-url]') : null;
+        // The buttons and links inside a tile (stop, restart, settings) do their own thing.
+        if (owner && e.target.closest('a, button') && owner.contains(e.target.closest('a, button'))) { return; }
         if (owner) { if (hover.owner === owner) { hoverClose(); } else { hoverOpen(owner); } return; }
         if (hover.card && !hover.card.contains(e.target)) { hoverClose(); }
     });
@@ -2318,7 +2349,7 @@
         var grid = document.querySelector('[data-widgets][data-arrange-url]');
         if (!grid) { return; }
         var bar = document.querySelector('[data-arrange-bar]');
-        var SIZES = ['sm', 'md', 'lg', 'full'];
+        var SIZES = ['sm', 'md', 'half', 'lg', 'full'];
         var dragging = null;
         function hosts() { return Array.prototype.slice.call(grid.querySelectorAll('[data-widget-host]')); }
         function sizeOf(host) { return host.getAttribute('data-size') || 'md'; }
@@ -2350,7 +2381,7 @@
             g.setAttribute('data-arrange-ui', '');
             g.setAttribute('role', 'group');
             g.setAttribute('aria-label', 'Width of ' + (host.getAttribute('data-title') || 'widget'));
-            [['sm', 'S', 'Small'], ['md', 'M', 'Medium'], ['lg', 'L', 'Large'], ['full', 'Full', 'Full width']].forEach(function (z) {
+            [['sm', 'S', 'Small'], ['md', 'M', 'Medium'], ['half', 'H', 'Half'], ['lg', 'L', 'Large'], ['full', 'Full', 'Full width']].forEach(function (z) {
                 var b = document.createElement('button');
                 b.type = 'button';
                 b.textContent = z[1];
@@ -2448,7 +2479,7 @@
             if (!resizing) { return; }
             var left = resizing.host.getBoundingClientRect().left;
             var f = (e.clientX - left) / grid.clientWidth;
-            var size = f < 0.29 ? 'sm' : (f < 0.5 ? 'md' : (f < 0.8 ? 'lg' : 'full'));
+            var size = f < 0.29 ? 'sm' : (f < 0.42 ? 'md' : (f < 0.58 ? 'half' : (f < 0.8 ? 'lg' : 'full')));
             if (size !== sizeOf(resizing.host)) { setSize(resizing.host, size); resizing.changed = true; }
         });
         function endResize() {

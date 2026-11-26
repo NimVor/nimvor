@@ -11,6 +11,8 @@ use NimVor\Security\Permissions as P;
 
 $icons = ['web' => 'globe2', 'php' => 'filetype-php', 'database' => 'database', 'mail' => 'envelope', 'dns' => 'diagram-3', 'ftp' => 'folder-symlink', 'redis' => 'lightning-charge', 'memcached' => 'lightning', 'mongodb' => 'database-gear', 'firewall' => 'shield-lock', 'fail2ban' => 'shield-exclamation', 'clamav' => 'bug', 'certbot' => 'lock'];
 $canControl = $this->can(P::SERVICES_MANAGE);
+// Parts whose details show in a card while the pointer rests on the tile (DashboardController::popover), by software id.
+$details = ['dns' => 'dns', 'mail' => 'mail', 'redis' => 'redis', 'memcached' => 'memcached', 'web' => 'web', 'certbot' => 'ssl'];
 ?>
 <div class="nim-software" data-software<?= $canControl ? ' data-services-control="' . e($this->url('services.control')) . '"' : '' ?>>
 <?php foreach ((array) $d['items'] as $c):
@@ -21,13 +23,15 @@ $canControl = $this->can(P::SERVICES_MANAGE);
     if ($c['installed'] && $canControl && $unit !== '') {
         $ops = $c['running'] === false ? [['start', 'Start', 'play-fill']] : [['restart', 'Restart', 'arrow-clockwise'], ['stop', 'Stop', 'stop-fill']];
     } ?>
-    <div class="nim-software-tile is-<?= e($state) ?>">
+    <?php $card = ($c['installed'] && isset($details[$c['id']]) && $this->can(\NimVor\Http\Controllers\DashboardController::TILE_DETAILS[$details[$c['id']]])) ? $this->url('dashboard.popover', ['key' => $details[$c['id']]]) : null; ?>
+    <div class="nim-software-tile is-<?= e($state) ?>"<?= $card !== null ? ' data-popover-url="' . e($card) . '" tabindex="0"' : '' ?>>
         <span class="nim-software-ribbon"><?= ['ok' => 'Running', 'stopped' => 'Stopped', 'off' => 'Not installed'][$state] ?></span>
         <i class="bi bi-<?= e($icons[$c['id']] ?? 'box') ?> nim-software-icon" aria-hidden="true"></i>
         <div class="nim-software-name"><?= e($c['name']) ?></div>
         <div class="nim-software-ops">
             <?php foreach ($ops as [$op, $label, $icon]): ?><button type="button" class="btn btn-sm btn-outline-secondary" data-software-op="<?= e($op) ?>" data-unit="<?= e($unit) ?>" title="<?= e($label . ' ' . $c['name']) ?>" aria-label="<?= e($label . ' ' . $c['name']) ?>"><i class="bi bi-<?= e($icon) ?>" aria-hidden="true"></i></button><?php endforeach; ?>
-            <?php if ($c['installed'] && $page !== null && $this->hasRoute($page) && $this->routeAllowed($page)): ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url($page)) ?>" title="Settings of <?= e($c['name']) ?>"><i class="bi bi-gear" aria-hidden="true"></i><span class="visually-hidden">Settings</span></a>
+            <?php if ($c['id'] === 'database' && $c['installed'] && $this->hasRoute('databases.server.settings_modal') && $this->routeAllowed('databases.server.settings_modal')): ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('databases.server.settings_modal')) ?>" data-nim-site-modal title="Settings of <?= e($c['name']) ?>"><i class="bi bi-gear" aria-hidden="true"></i><span class="visually-hidden">Settings</span></a>
+            <?php elseif ($c['installed'] && $page !== null && $this->hasRoute($page) && $this->routeAllowed($page)): ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url($page)) ?>" title="Settings of <?= e($c['name']) ?>"><i class="bi bi-gear" aria-hidden="true"></i><span class="visually-hidden">Settings</span></a>
             <?php elseif (!$c['installed'] && $this->hasRoute('components') && $this->routeAllowed('components')): ?><a class="btn btn-sm btn-outline-primary" href="<?= e($this->url('components') . '#c-' . $c['id']) ?>">Install</a><?php endif; ?>
         </div>
     </div>

@@ -7,6 +7,9 @@
  */
 $rate = static fn (float $b): string => format_bytes($b) . '/s';
 ?>
+<div data-nim-tabs="traffic">
+    <?= $this->partial('dashboard/tabs', ['tabs' => ['overview' => 'Overview', 'sites' => 'Websites usage'], 'label' => 'Traffic']) ?>
+    <div data-nim-pane="overview">
 <div class="nim-chart-bar">
     <span class="nim-sub mb-0">Network</span>
     <div class="nim-pills" role="group" aria-label="Time range">
@@ -27,6 +30,8 @@ $rate = static fn (float $b): string => format_bytes($b) . '/s';
     </table>
     <div class="text-body-secondary mb-3">Estimated from the five-minute samples; short bursts between samples are not seen.</div>
 <?php endif; ?>
+    </div>
+    <div data-nim-pane="sites" hidden>
 <div class="fw-semibold mb-1">Websites, sent this month <span class="fw-normal text-body-secondary">(<?= e((string) $d['month']) ?>)</span></div>
 <?php if ($d['sites'] === []): ?>
     <div class="text-body-secondary"><?= (int) $d['sites_measured'] > 0 ? 'No website has sent anything this month yet.' : 'Not measured yet: bandwidth is counted from each website\'s access log by the monitor.' ?></div>
@@ -38,3 +43,5 @@ $rate = static fn (float $b): string => format_bytes($b) . '/s';
     </tbody></table>
     <div class="text-body-secondary">All <?= (int) $d['sites_measured'] ?> measured website<?= (int) $d['sites_measured'] === 1 ? '' : 's' ?>: <?= e(format_bytes($d['sites_total'])) ?>. Requests per second and visitors are not collected.</div>
 <?php endif; ?>
+    </div>
+</div>

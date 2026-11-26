@@ -55,29 +55,21 @@ final class DashboardWidgetsService
             $r = $this->cache->remember($id, 'server', $def->ttl, fn (): array => match ($id) {
                 'tile_cpu', 'tile_memory', 'tile_disk', 'tile_load' => ['_state' => 'ok'],
                 'software' => $this->software(),
-                'websites_summary' => $this->websitesSummary($user),
                 'request_trends' => $this->requestTrends(),
-                'attention' => $this->attention($user),
                 'disk' => $this->disk(),
-                'backups' => $this->backups() + ['attention' => (int) ($this->siteHealth?->overview($user)['counts']['backup'] ?? 0)],
                 'top_processes' => $this->topProcesses(),
-                'website_health' => $this->websiteHealth(),
                 'security_overview' => ($this->security ?? throw new AgentException('Security status unavailable'))->security(),
-                'alert_center' => $this->alertCenter(),
+                'alert_center' => $this->alertsAndAttention($user),
                 'performance_history' => $this->performanceHistory(),
-                'website_overview' => $this->websiteOverview(),
+                'website_overview' => $this->websiteStatistics($user),
                 'services_overview' => $this->servicesOverview(),
                 'capacity_forecast' => ($this->capacity ?? throw new \InvalidArgumentException('Capacity unavailable'))->forecast(),
                 'traffic_overview' => ($this->capacity ?? throw new \InvalidArgumentException('Traffic unavailable'))->traffic(),
                 'backup_health' => ($this->ops ?? throw new AgentException('Backups unavailable'))->backups(),
                 'system_updates' => ($this->ops ?? throw new AgentException('Updates unavailable'))->updates(),
-                'dns_mail' => ($this->ops ?? throw new AgentException('DNS and mail unavailable'))->dnsMail(),
                 'deployments' => ($this->ops ?? throw new AgentException('Deployments unavailable'))->deployments(),
                 'wordpress' => ($this->ops ?? throw new AgentException('WordPress unavailable'))->wordpress(),
                 'database_overview' => ($this->services ?? throw new AgentException('Database status unavailable'))->databases(),
-                'cache_overview' => ($this->services ?? throw new AgentException('Cache status unavailable'))->caches(),
-                'web_stack' => ($this->services ?? throw new AgentException('Web stack status unavailable'))->webStack(),
-                'ssl_overview' => ($this->security ?? throw new AgentException('Certificates unavailable'))->ssl(),
                 default => throw new \InvalidArgumentException('No data for widget ' . $id),
             });
         } catch (AgentException) {
@@ -114,6 +106,28 @@ final class DashboardWidgetsService
         }
         usort($items, static fn (array $a, array $b): int => [!$a['installed'], $a['name']] <=> [!$b['installed'], $b['name']]);
         return ['items' => $items, '_state' => $items === [] ? 'empty' : 'ok'];
+    }
+
+    /**
+     * What the hover card of a Software tile shows (the parts that used to be dashboard widgets of their own: DNS and mail,
+     * Redis and Memcached, SSL certificates, Nginx and PHP-FPM), kept for half a minute so moving over several tiles is cheap.
+     *
+     * @return array<string, mixed>
+     */
+    public function tileDetails(string $key): array
+    {
+        $measure = fn (): array => match ($key) {
+            'dns', 'mail' => ($this->ops ?? throw new AgentException('DNS and mail unavailable'))->dnsMail(),
+            'redis', 'memcached' => ($this->services ?? throw new AgentException('Cache status unavailable'))->caches(),
+            'web' => ($this->services ?? throw new AgentException('Web stack status unavailable'))->webStack(),
+            'ssl' => ($this->security ?? throw new AgentException('Certificates unavailable'))->ssl(),
+            default => throw new \InvalidArgumentException('No details for ' . $key),
+        };
+        $group = match ($key) { 'dns', 'mail' => 'dns_mail', 'redis', 'memcached' => 'cache_overview', 'web' => 'web_stack', default => 'ssl_overview' };
+        if ($this->cache === null) {
+            return $measure();
+        }
+        return $this->cache->remember('tile_' . $group, 'server', 30, $measure)['data'];
     }
 
     /**
@@ -246,6 +260,28 @@ final class DashboardWidgetsService
     }
 
     /**
+     * The Alerts and attention widget: the alert center and what needs attention, in two tabs. Both parts are always gathered
+     * (the widget's measurement is shared) and the view shows each to those who may see it; a part that cannot be read is null.
+     *
+     * @param array<string, mixed> $user
+     * @return array<string, mixed>
+     */
+    public function alertsAndAttention(array $user): array
+    {
+        try {
+            $alerts = $this->alertCenter();
+        } catch (\Throwable) {
+            $alerts = null;
+        }
+        try {
+            $attention = $this->attention($user);
+        } catch (\Throwable) {
+            $attention = null;
+        }
+        return ['alerts' => $alerts, 'attention' => $attention, '_state' => $alerts === null && ($attention === null || ($attention['_state'] ?? '') === 'unavailable') ? 'unavailable' : 'ok'];
+    }
+
+    /**
      * The numbers next to the performance charts: the latest reading of CPU,
      * memory, swap, load and network, and when the recorded history starts. The
      * history itself is drawn by the browser from /dashboard/series.
@@ -280,6 +316,31 @@ final class DashboardWidgetsService
             'net' => $rx === null ? null : ['rx' => $rx, 'tx' => $tx],
             'since' => $this->monitoring?->firstSampleAt(),
         ];
+    }
+
+    /**
+     * The one Website statistics widget: the real HTTP checks (health), the websites by state and creation month, and the
+     * counts and PHP versions from the last discovery. A part that cannot be read is null, so the tab says so and the others
+     * still show.
+     *
+     * @param array<string, mixed> $user
+     * @return array<string, mixed>
+     */
+    public function websiteStatistics(array $user): array
+    {
+        $d = $this->websiteOverview();
+        try {
+            $d['health'] = $this->websiteHealth();
+        } catch (\Throwable) {
+            $d['health'] = null;
+        }
+        try {
+            $d['discovery'] = (array) ($this->websitesSummary($user)['summary'] ?? []);
+        } catch (\Throwable) {
+            $d['discovery'] = null;
+        }
+        $d['_state'] = 'ok';
+        return $d;
     }
 
     /**
@@ -439,24 +500,6 @@ final class DashboardWidgetsService
         $cpu = $pick($live['top_cpu'] ?? []);
         $mem = $pick($live['top_memory'] ?? []);
         return ['cpu' => $cpu, 'mem' => $mem, 'processes' => isset($live['processes']) ? (int) $live['processes'] : null, '_state' => $cpu === [] && $mem === [] ? 'empty' : 'ok'];
-    }
-
-    /**
-     * Backups: the last completed one, failures in the last 7 days, runs now.
-     *
-     * @return array{last: ?string, failed: int, running: int, completed: int, schedules: int}
-     */
-    public function backups(): array
-    {
-        $sid = $this->server->id();
-        $week = gmdate('c', time() - 7 * 86400);
-        return [
-            'last' => ($v = $this->db->scalar("SELECT MAX(created_at) FROM backups WHERE server_id = ? AND status = 'completed'", [$sid])) === null ? null : (string) $v,
-            'failed' => (int) $this->db->scalar("SELECT COUNT(*) FROM backups WHERE server_id = ? AND status = 'failed' AND created_at >= ?", [$sid, $week]),
-            'running' => (int) $this->db->scalar("SELECT COUNT(*) FROM backups WHERE server_id = ? AND status = 'running'", [$sid]),
-            'completed' => (int) $this->db->scalar("SELECT COUNT(*) FROM backups WHERE server_id = ? AND status = 'completed'", [$sid]),
-            'schedules' => (int) $this->db->scalar('SELECT COUNT(*) FROM backup_schedules WHERE server_id = ?', [$sid]),
-        ];
     }
 
     /**

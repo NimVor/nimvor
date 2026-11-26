@@ -1,5 +1,5 @@
 // End-to-end test of the dashboard's widgets and service widget:
-// - the dashboard shows the Disk and Backups widgets and no longer has the tools grid
+// - the dashboard shows the Disk and Backup health widgets and no longer has the tools grid
 // - the Services widget has start/stop and restart buttons that work
 //   without leaving the page (one row per service)
 // No script or CSP errors.
@@ -28,10 +28,13 @@ const OUT = process.env.E2E_OUT || '/tmp';
     }
 
     if (await page.locator('.nim-tools, .nim-tool-card').count() !== 0) { throw new Error('the tools grid is still on the dashboard'); }
-    for (const w of ['disk', 'backups']) {
+    for (const w of ['disk', 'backup_health']) {
       if (await page.locator('[data-widget="' + w + '"]').count() === 0) { throw new Error('widget ' + w + ' missing'); }
     }
-    step('widgets: disk and backups, no tools grid');
+    for (const gone of ['backups', 'dns_mail', 'cache_overview', 'ssl_overview', 'web_stack']) {
+      if (await page.locator('[data-widget="' + gone + '"]').count() !== 0) { throw new Error('widget ' + gone + ' should be gone (its details show on the Software tiles)'); }
+    }
+    step('widgets: disk and backup health, no tools grid, the folded-in widgets are gone');
 
     // A measured widget is loaded after the page and ends in a real state, never stuck on "Loading".
     await page.waitForSelector('[data-widget="top_processes"]:not([data-state="loading"])', { timeout: 30000 });

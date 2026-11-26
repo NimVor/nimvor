@@ -60,13 +60,13 @@ final class DashboardFrameworkTest extends HttpTestCase
     public function testTheRegistryListsEveryWidgetWithItsCategoryAndPermission(): void
     {
         $reg = new WidgetRegistry();
-        self::assertSame(['tile_cpu', 'tile_memory', 'tile_disk', 'tile_load', 'software', 'websites_summary', 'alert_center', 'attention', 'performance_history', 'disk', 'website_health', 'website_overview', 'security_overview', 'ssl_overview', 'top_processes', 'services_overview', 'database_overview', 'cache_overview', 'capacity_forecast', 'web_stack', 'traffic_overview', 'dns_mail', 'backup_health', 'backups', 'system_updates', 'deployments', 'request_trends', 'wordpress'], array_keys($reg->all()));
+        self::assertSame(['tile_cpu', 'tile_memory', 'tile_disk', 'tile_load', 'software', 'alert_center', 'performance_history', 'disk', 'website_overview', 'security_overview', 'top_processes', 'services_overview', 'database_overview', 'capacity_forecast', 'traffic_overview', 'backup_health', 'system_updates', 'deployments', 'request_trends', 'wordpress'], array_keys($reg->all()));
         foreach ($reg->all() as $w) {
             self::assertContains($w->category, WidgetRegistry::CATEGORIES, $w->id);
             self::assertArrayHasKey($w->size, Widget::SIZES, $w->id);
             self::assertNotSame('', $w->permission, $w->id);
         }
-        self::assertSame(['software', 'disk', 'web_stack', 'dns_mail'], array_keys($reg->visibleTo(static fn (string $p): bool => $p === P::SERVER_VIEW)));
+        self::assertSame(['software', 'disk'], array_keys($reg->visibleTo(static fn (string $p): bool => $p === P::SERVER_VIEW)));
     }
 
     public function testCheapWidgetsAreDrawnWithThePageAndTheOthersAreLoadedAfterIt(): void
@@ -152,18 +152,18 @@ final class DashboardFrameworkTest extends HttpTestCase
         $default = $this->request('GET', '/')->body();
         self::assertStringContainsString('data-widget-host="disk"', $default);
         $this->request('POST', '/dashboard/layout', $this->token() + [
-            'order' => ['top_processes', 'backups', 'disk', 'attention', 'ghost_widget'],
+            'order' => ['top_processes', 'website_overview', 'disk', 'alert_center', 'ghost_widget'],
             'widgets' => [
                 'top_processes' => ['visible' => '1', 'size' => 'full'],
-                'backups' => ['visible' => '1', 'size' => 'sm'],
-                'attention' => ['visible' => '1', 'size' => 'not-a-size'],
+                'website_overview' => ['visible' => '1', 'size' => 'sm'],
+                'alert_center' => ['visible' => '1', 'size' => 'not-a-size'],
                 // disk is left unticked: hidden
                 'ghost_widget' => ['visible' => '1'],
             ],
         ]);
         $page = $this->request('GET', '/')->body();
         self::assertStringNotContainsString('data-widget-host="disk"', $page, 'a hidden widget is not drawn');
-        self::assertLessThan(strpos($page, 'data-widget-host="backups"'), strpos($page, 'data-widget-host="top_processes"'), 'the saved order is kept');
+        self::assertLessThan(strpos($page, 'data-widget-host="website_overview"'), strpos($page, 'data-widget-host="top_processes"'), 'the saved order is kept');
         self::assertStringContainsString('nim-span-full" data-widget-host="top_processes"', $page, 'the saved size is kept');
         self::assertStringNotContainsString('ghost_widget', $page, 'an unknown widget is ignored');
         self::assertStringContainsString('Restore default', $page);
@@ -184,39 +184,39 @@ final class DashboardFrameworkTest extends HttpTestCase
     {
         $this->login('admin');
         $this->request('POST', '/dashboard/layout', $this->token() + [
-            'order' => ['top_processes', 'disk', 'backups', 'attention'],
+            'order' => ['top_processes', 'disk', 'website_overview', 'alert_center'],
             'widgets' => [
                 'top_processes' => ['visible' => '1', 'size' => 'lg', 'refresh' => '300'],
                 'disk' => ['visible' => '1', 'size' => 'md', 'refresh' => 'not-a-number'],
-                'backups' => ['size' => 'md'], // hidden
-                'attention' => ['visible' => '1', 'size' => 'md', 'refresh' => '0'],
+                'website_overview' => ['size' => 'md'], // hidden
+                'alert_center' => ['visible' => '1', 'size' => 'md', 'refresh' => '0'],
             ],
         ]);
         $page = $this->request('GET', '/')->body();
         self::assertMatchesRegularExpression('/data-widget-host="top_processes"[^>]*data-refresh="300"/', $page, 'the chosen refresh interval is used');
-        self::assertMatchesRegularExpression('/data-widget-host="attention"[^>]*data-refresh="0"/', $page, 'manual refresh is a choice too');
+        self::assertMatchesRegularExpression('/data-widget-host="alert_center"[^>]*data-refresh="0"/', $page, 'manual refresh is a choice too');
         self::assertStringContainsString('data-arrange-toggle', $page);
 
         $r = $this->request('POST', '/dashboard/layout/arrange', $this->token() + [
-            'order' => ['attention', 'ghost', 'disk', 'top_processes', 'disk'],
-            'sizes' => ['attention' => 'full', 'disk' => 'nope', 'ghost' => 'sm', 'backups' => 'full'],
+            'order' => ['alert_center', 'ghost', 'disk', 'top_processes', 'disk'],
+            'sizes' => ['alert_center' => 'full', 'disk' => 'nope', 'ghost' => 'sm', 'website_overview' => 'full'],
         ]);
         self::assertTrue(json_decode($r->body(), true)['success']);
         $saved = json_decode((string) $this->app->container->get(Connection::class)->scalar('SELECT layout FROM dashboard_layouts WHERE user_id = ?', [$this->adminId]), true)['widgets'];
-        self::assertFalse($saved['backups']['visible'], 'a hidden widget stays hidden');
-        self::assertSame('md', $saved['backups']['size'], 'and is not resized by the page');
+        self::assertFalse($saved['website_overview']['visible'], 'a hidden widget stays hidden');
+        self::assertSame('md', $saved['website_overview']['size'], 'and is not resized by the page');
         self::assertArrayNotHasKey('ghost', $saved);
-        self::assertSame('full', $saved['attention']['size']);
+        self::assertSame('full', $saved['alert_center']['size']);
         self::assertSame('md', $saved['disk']['size'], 'an unknown size is ignored');
         self::assertSame(300, $saved['top_processes']['refresh']);
-        self::assertSame(0, $saved['attention']['refresh']);
+        self::assertSame(0, $saved['alert_center']['refresh']);
         self::assertArrayNotHasKey('refresh', $saved['disk'], 'an invalid choice means the default');
 
         $page = $this->request('GET', '/')->body();
         $pos = static fn (string $id): int => (int) strpos($page, 'data-widget-host="' . $id . '"');
-        self::assertLessThan($pos('disk'), $pos('attention'));
+        self::assertLessThan($pos('disk'), $pos('alert_center'));
         self::assertLessThan($pos('top_processes'), $pos('disk'));
-        self::assertStringNotContainsString('data-widget-host="backups"', $page);
+        self::assertStringNotContainsString('data-widget-host="website_overview"', $page);
     }
 
     public function testArrangingNeedsTheSessionAndAToken(): void
@@ -238,7 +238,7 @@ final class DashboardFrameworkTest extends HttpTestCase
         $page = $this->request('GET', '/')->body();
         self::assertStringNotContainsString('data-widget-host="disk"', $page, 'the user kept disk hidden');
         self::assertStringContainsString('data-widget-host="top_processes"', $page, 'new widgets appear with their defaults');
-        self::assertStringContainsString('data-widget-host="backups"', $page);
+        self::assertStringContainsString('data-widget-host="website_overview"', $page);
         self::assertSame($before, (string) $db->scalar('SELECT layout FROM dashboard_layouts WHERE user_id = ?', [$this->adminId]), 'reading does not rewrite the layout');
     }
 

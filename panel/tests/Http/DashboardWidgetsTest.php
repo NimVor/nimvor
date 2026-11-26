@@ -28,18 +28,100 @@ final class DashboardWidgetsTest extends HttpTestCase
         self::assertStringContainsString('Scan the disk on the Disk usage page', $page);
     }
 
-    public function testTheBackupsWidgetCountsCompletedFailedAndRunning(): void
+    public function testTheSeparateBackupsWidgetIsGone(): void
     {
-        $db = $this->app->container->get(Connection::class);
-        $now = gmdate('c');
-        foreach ([['completed', $now], ['completed', $now], ['failed', $now], ['running', $now], ['failed', gmdate('c', time() - 20 * 86400)]] as [$status, $at]) {
-            $db->run("INSERT INTO backups (server_id, kind, domain, status, created_at) VALUES (1, 'site', 'a.test', ?, ?)", [$status, $at]);
-        }
         $page = $this->request('GET', '/')->body();
-        self::assertStringContainsString('data-widget="backups"', $page);
-        self::assertMatchesRegularExpression('#nim-fig-value">2</div><div class="nim-fig-label">Completed#', $page);
-        self::assertMatchesRegularExpression('#nim-fig-value text-danger">1</div><div class="nim-fig-label">Failed \(7 days\)#', $page, 'only failures of the last week count');
-        self::assertMatchesRegularExpression('#nim-fig-value">1</div><div class="nim-fig-label">Running#', $page);
+        self::assertStringNotContainsString('data-widget="backups"', $page, 'Backup health already covers it');
+        self::assertStringContainsString('data-widget="backup_health"', $page);
+    }
+
+    public function testSoftwareTilesOfDnsMailCachesWebAndCertbotOpenDetailsOnHover(): void
+    {
+        $this->agent->succeed('components.status', [
+            ['id' => 'dns', 'name' => 'DNS server', 'installed' => true, 'units' => ['pdns'], 'steps' => [['id' => 'running', 'status' => 'ok']]],
+            ['id' => 'database', 'name' => 'Database server', 'installed' => true, 'units' => ['mariadb'], 'steps' => [['id' => 'running', 'status' => 'ok']]],
+            ['id' => 'php', 'name' => 'PHP', 'installed' => true, 'units' => ['php8.3-fpm'], 'steps' => [['id' => 'running', 'status' => 'ok']]],
+        ]);
+        $page = $this->request('GET', '/dashboard/widgets/software', [], ['accept' => 'application/json', 'x-requested-with' => 'XMLHttpRequest']);
+        $html = (string) ((array) json_decode($page->body(), true))['html'];
+        self::assertStringContainsString('data-popover-url="/dashboard/popover/dns"', $html);
+        self::assertStringNotContainsString('/dashboard/popover/php', $html, 'PHP has no hover card');
+        self::assertStringContainsString('/databases/server/settings/modal', $html, 'the database tile\'s settings open in a window');
+        self::assertStringContainsString('data-nim-site-modal', $html);
+    }
+
+    private function widgetHtml(string $id): string
+    {
+        $res = $this->request('GET', '/dashboard/widgets/' . $id, [], ['accept' => 'application/json', 'x-requested-with' => 'XMLHttpRequest']);
+        self::assertSame(200, $res->status(), $res->body());
+        return (string) ((array) json_decode($res->body(), true))['html'];
+    }
+
+    public function testWebsiteHealthAndStatisticsAndTheWebsitesCardAreOneWidgetInTabs(): void
+    {
+        $page = $this->request('GET', '/')->body();
+        foreach (['website_health', 'websites_summary'] as $gone) {
+            self::assertStringNotContainsString('data-widget="' . $gone . '"', $page, $gone . ' is a tab of Website statistics now');
+        }
+        self::assertStringNotContainsString('data-net-rx', $page, 'the Network card is gone from the dashboard');
+        $html = $this->widgetHtml('website_overview');
+        self::assertStringContainsString('data-nim-tabs="website-statistics"', $html);
+        foreach (['overview', 'slowest', 'created', 'websites'] as $tab) {
+            self::assertStringContainsString('data-nim-tab="' . $tab . '"', $html);
+            self::assertStringContainsString('data-nim-pane="' . $tab . '"', $html);
+        }
+        foreach (['Slowest websites', 'Created per month', 'Using HTTPS'] as $text) {
+            self::assertStringContainsString($text, $html);
+        }
+    }
+
+    public function testTopProcessesShowByCpuAndByMemoryInTwoTabs(): void
+    {
+        $this->agent->succeed('system.live', ['processes' => 9, 'top_cpu' => [['pid' => 5, 'name' => 'cpuhog', 'user' => 'u', 'state' => 'R', 'cpu_percent' => 40.0, 'rss_bytes' => 1048576]], 'top_memory' => [['pid' => 6, 'name' => 'memhog', 'user' => 'u', 'state' => 'S', 'cpu_percent' => 0.0, 'rss_bytes' => 5242880]]]);
+        $html = $this->widgetHtml('top_processes');
+        self::assertStringContainsString('data-nim-pane="cpu"', $html);
+        self::assertStringContainsString('data-nim-pane="mem"', $html);
+        self::assertStringContainsString('cpuhog', $html);
+        self::assertStringContainsString('memhog', $html);
+    }
+
+    public function testAlertsAndNeedsAttentionAreOneWidgetInTwoTabs(): void
+    {
+        $page = $this->request('GET', '/')->body();
+        self::assertStringNotContainsString('data-widget-host="attention"', $page, 'Needs attention is a tab of the alerts widget now');
+        $html = $this->widgetHtml('alert_center');
+        self::assertStringContainsString('data-nim-tabs="alerts-attention"', $html);
+        self::assertStringContainsString('data-nim-pane="alerts"', $html);
+        self::assertStringContainsString('data-nim-pane="attention"', $html);
+        self::assertStringContainsString('Needs attention', $html);
+    }
+
+    public function testTheDatabasesWidgetHasTheChartAndOneTabPerServer(): void
+    {
+        $this->agent->succeed('db.server_status', ['running' => true, 'unit' => 'mariadb', 'databases' => 2, 'bytes' => 1024, 'variables' => ['version' => '10.11.6-MariaDB', 'max_connections' => '100'], 'status' => ['Uptime' => '90000', 'Threads_connected' => '3']]);
+        $this->agent->succeed('pg.status', ['installed' => false]);
+        $html = $this->widgetHtml('database_overview');
+        self::assertStringContainsString('data-nim-tabs="databases"', $html);
+        foreach (['conn', 'mysql'] as $pane) {
+            self::assertStringContainsString('data-nim-pane="' . $pane . '"', $html);
+        }
+        self::assertStringContainsString('data-nim-chart', $html, 'the chart is in the first tab');
+        self::assertStringNotContainsString('data-nim-pane="postgres"', $html, 'no PostgreSQL, no PostgreSQL tab');
+    }
+
+    public function testTheWideWidgetsAreSizedByTheirNewTabs(): void
+    {
+        $reg = new \NimVor\Dashboard\WidgetRegistry();
+        self::assertSame('md', $reg->find('top_processes')->size);
+        self::assertSame('half', $reg->find('traffic_overview')->size);
+        self::assertSame('half', $reg->find('request_trends')->size);
+        foreach (['backup_health', 'disk', 'alert_center'] as $id) {
+            self::assertSame('half', $reg->find($id)->size, $id);
+        }
+        self::assertNull($reg->find('attention'));
+        self::assertSame('nim-span-half', \NimVor\Dashboard\Widget::SIZES['half']);
+        self::assertNull($reg->find('website_health'));
+        self::assertNull($reg->find('websites_summary'));
     }
 
     public function testTheLatestDiskScanListsTheBiggestPlaces(): void
@@ -58,7 +140,7 @@ final class DashboardWidgetsTest extends HttpTestCase
     public function testTheTopCardsAreWidgetsDrawnWithThePage(): void
     {
         $page = $this->request('GET', '/')->body();
-        foreach (['tile_cpu', 'tile_memory', 'tile_disk', 'tile_load', 'software', 'websites_summary'] as $id) {
+        foreach (['tile_cpu', 'tile_memory', 'tile_disk', 'tile_load', 'software', 'website_overview'] as $id) {
             self::assertStringContainsString('data-widget-host="' . $id . '"', $page, $id);
         }
         self::assertStringContainsString('data-metric', $page, 'the live poll still finds the cards');
