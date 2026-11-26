@@ -182,3 +182,18 @@ writes only under the website's folder and creates a systemd unit like any worke
 container foundation, PostgreSQL, and the Node.js strategy.
 
 > **CI note.** The real-host job and the VM matrix do not run the `internal/apps` real-host tests (application installs and the catalog download check): the vendors' download hosts and the GitHub API rate-limit or block CI runners, which failed runs at random. Application installs are verified on a real server before a release; the package's unit tests still run in the `agent` job.
+
+## Database tools: Adminer and phpMyAdmin
+
+Both are staged catalog entries with `NoDB` (nothing is created for them: you sign in with a database user's own
+name and password) in the *Developer Tools* category, in `testing` status until proven on a real server.
+
+- **Adminer** is a single file. `AppDef.Format = "file"` with `File = "index.php"` saves the release asset
+  (`adminer-<version>.php`, found through GitHub's latest release and checked against GitHub's published SHA-256)
+  into the install folder.
+- **phpMyAdmin** is the official "latest" all-languages archive with its `.sha256` file. `AppDef.Files` writes a
+  `config.inc.php` with a fresh 32-character cookie secret (`{{secret32}}`), cookie sign-in, no empty passwords and
+  its own `tmp/` folder; an existing file is never overwritten.
+
+Put either on a website of its own and protect it (IP allow-list or password); NimVor's own database browser stays
+the default way to look at a database.

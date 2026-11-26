@@ -84,7 +84,8 @@ type AppDef struct {
 	URL     string   // archive URL (https)
 	SumURL  string   // checksum sidecar URL ("" = none published)
 	SumAlgo string   // "sha256" or "sha1"
-	Format  string   // "targz" or "zip"
+	Format  string   // "targz", "tarbz2", "zip", or "file" (one file, saved as File)
+	File    string   // Format "file": the name the download is saved under in the install folder (e.g. index.php)
 	Strip   int      // leading path components to drop
 	DocRoot string   // web root relative to the install folder ("" = the folder)
 	Ext     []string // required PHP extensions
@@ -101,6 +102,9 @@ type AppDef struct {
 	Unverified string
 	Package    string   // Composer package: installed with create-project instead of a download
 	Touch      []string // files created (empty) under the install folder after unpacking, e.g. TYPO3's FIRST_INSTALL
+	// Files are written under the install folder after unpacking: path → content. {{secret32}} becomes a random
+	// 32-character string (phpMyAdmin's cookie secret). An existing file is never overwritten.
+	Files map[string]string
 }
 
 // Catalog of staged applications. URLs are the vendors' official "latest
@@ -123,6 +127,12 @@ var Catalog = map[string]AppDef{
 	"backdrop":    {Name: "Backdrop CMS", URL: "https://github.com/backdrop/backdrop/releases/latest/download/backdrop.zip", Format: "zip", Strip: 1, Ext: []string{"pdo_mysql", "gd", "mbstring", "xml", "json"}, Finish: "/core/install.php"},
 	"processwire": {Name: "ProcessWire", URL: "https://github.com/processwire/processwire/archive/refs/heads/master.zip", Format: "zip", Strip: 1, Ext: []string{"pdo_mysql", "gd", "mbstring", "json"}, Finish: "/install.php"},
 	"bludit":      {Name: "Bludit", URL: "https://www.bludit.com/releases/bludit-latest.zip", Format: "zip", Strip: 1, NoDB: true, Ext: []string{"gd", "mbstring", "json", "dom"}, Finish: "/"},
+	// Database tools (the website is the tool; it logs in to the server's databases with their own credentials)
+	"adminer": {Name: "Adminer", GitHub: "vrana/adminer", AssetRe: `^adminer-[0-9.]+\.php$`, Format: "file", File: "index.php", NoDB: true, Ext: []string{"mysqli", "pdo_mysql", "json", "session"}, Finish: "/"},
+	"phpmyadmin": {Name: "phpMyAdmin", URL: "https://www.phpmyadmin.net/downloads/phpMyAdmin-latest-all-languages.tar.gz", SumURL: "https://www.phpmyadmin.net/downloads/phpMyAdmin-latest-all-languages.tar.gz.sha256", SumAlgo: "sha256", Format: "targz", Strip: 1, NoDB: true, Ext: []string{"mysqli", "mbstring", "json", "xml", "session", "ctype", "curl", "zip"}, Finish: "/", Files: map[string]string{
+		"tmp/.keep":      "",
+		"config.inc.php": "<?php\n$cfg['blowfish_secret'] = '{{secret32}}';\n$i = 0;\n$i++;\n$cfg['Servers'][$i]['auth_type'] = 'cookie';\n$cfg['Servers'][$i]['host'] = 'localhost';\n$cfg['Servers'][$i]['compress'] = false;\n$cfg['Servers'][$i]['AllowNoPassword'] = false;\n$cfg['TempDir'] = __DIR__ . '/tmp';\n",
+	}},
 	// Business, finance
 	"espocrm":   {Name: "EspoCRM", GitHub: "espocrm/espocrm", AssetRe: `^EspoCRM-[0-9.]+\.zip$`, Format: "zip", Strip: 1, DocRoot: "public", Ext: []string{"pdo_mysql", "gd", "mbstring", "xml", "curl", "zip", "json", "openssl", "exif"}, Finish: "/install/"},
 	"suitecrm":  {Name: "SuiteCRM", GitHub: "SuiteCRM/SuiteCRM-Core", AssetRe: `^SuiteCRM-[0-9.]+\.zip$`, Format: "zip", Strip: 0, DocRoot: "public", Ext: []string{"pdo_mysql", "gd", "mbstring", "xml", "curl", "zip", "json", "openssl", "intl", "bcmath"}, Finish: "/install.php"},
@@ -973,10 +983,20 @@ func installStaged(ctx context.Context, env *host.Env, src Sources, r Request, d
 	// Remove NimVor's placeholder page, then unpack confined to the install
 	// folder, owned by the website account.
 	os.Remove(filepath.Join(target, "index.html"))
-	if err := extractArchive(def.Format, file, target, def.Strip, int(cred.UID), int(cred.GID)); err != nil {
-		return nil, fmt.Errorf("unpacking %s failed: %v", def.Name, err)
+	if def.Format == "file" {
+		if err := saveSingleFile(file, target, def.File, int(cred.UID), int(cred.GID)); err != nil {
+			return nil, fmt.Errorf("saving %s failed: %v", def.Name, err)
+		}
+		fmt.Fprintf(log, "Saved %s as %s.\n", def.Name, def.File)
+	} else {
+		if err := extractArchive(def.Format, file, target, def.Strip, int(cred.UID), int(cred.GID)); err != nil {
+			return nil, fmt.Errorf("unpacking %s failed: %v", def.Name, err)
+		}
+		fmt.Fprintf(log, "Unpacked %s.\n", def.Name)
 	}
-	fmt.Fprintf(log, "Unpacked %s.\n", def.Name)
+	if err := writeAppFiles(target, def.Files, int(cred.UID), int(cred.GID)); err != nil {
+		return nil, fmt.Errorf("configuring %s failed: %v", def.Name, err)
+	}
 	docroot := r.Path
 	if def.DocRoot != "" {
 		docroot = filepath.Join(r.Path, def.DocRoot)
@@ -1010,8 +1030,48 @@ func installComposer(ctx context.Context, env *host.Env, r Request, def AppDef, 
 	}, nil
 }
 
+// saveSingleFile puts a one-file download (Adminer) into the install folder under name.
+func saveSingleFile(src, target, name string, uid, gid int) error {
+	if name == "" || name != filepath.Base(name) || strings.HasPrefix(name, ".") {
+		return fmt.Errorf("invalid file name %q", name)
+	}
+	if err := os.MkdirAll(target, 0o750); err != nil {
+		return err
+	}
+	f, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return writeFile(filepath.Join(target, name), f, 0o640, uid, gid)
+}
+
+// writeAppFiles writes the generated files of an app (see AppDef.Files); a file that exists is kept.
+func writeAppFiles(target string, files map[string]string, uid, gid int) error {
+	for rel, content := range files {
+		dest, ok := safeJoin(target, rel)
+		if !ok {
+			return fmt.Errorf("invalid path %q", rel)
+		}
+		if _, err := os.Lstat(dest); err == nil {
+			continue
+		}
+		if strings.Contains(content, "{{secret32}}") {
+			b := make([]byte, 16)
+			_, _ = rand.Read(b)
+			content = strings.ReplaceAll(content, "{{secret32}}", hex.EncodeToString(b))
+		}
+		if err := writeFile(dest, strings.NewReader(content), 0o640, uid, gid); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func archiveExt(format string) string {
 	switch format {
+	case "file":
+		return "bin"
 	case "zip":
 		return "zip"
 	case "tarbz2":

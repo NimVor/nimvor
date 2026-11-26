@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Adminer and phpMyAdmin in the app installer (Developer Tools; *testing* status, so only administrators can install them until you have tried them). They need no database of their own: you sign in with a database user. Adminer is a single downloaded file (new single-file install type); phpMyAdmin gets a generated configuration with its own cookie secret. Database migration 0088.
+
 ## [2.7.0] — 2026-11-25
 
 Four more one-click applications: the CRMs EspoCRM and SuiteCRM, and the programs Cloudreve and Gopeed. All four start in *testing* status, so only administrators can install them until you have tried them and reviewed them in the app catalog. Panel and agent: upgrade both with `sudo nimvor update` (a database migration adds the catalog rows; the agent restarts and learns to read GitHub's SHA-256 of a release file). Cloudreve and Gopeed need a reverse-proxy website: create one first, then open its Apps page.

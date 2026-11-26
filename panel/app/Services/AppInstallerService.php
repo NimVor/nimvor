@@ -23,6 +23,8 @@ final class AppInstallerService
     public const APPS = [
         'wordpress' => ['title' => 'WordPress', 'description' => 'Blog and website builder. Installed into the document root with a new database and an administrator account.'],
         'laravel' => ['title' => 'Laravel', 'description' => 'PHP framework skeleton via Composer, with the database configured in .env. The website is served from <folder>/public.'],
+        'adminer' => ['title' => 'Adminer', 'description' => 'Database manager in one PHP file. No database is created: you sign in with a database user\'s own name and password. Put it on a website of its own and protect it (IP allow-list or password).', 'staged' => true],
+        'phpmyadmin' => ['title' => 'phpMyAdmin', 'description' => 'Web interface for MySQL and MariaDB. No database is created: you sign in with a database user\'s own name and password. Put it on a website of its own and protect it (IP allow-list or password).', 'staged' => true],
         'espocrm' => ['title' => 'EspoCRM', 'description' => 'Customer relationship management. Staged with a new database; the website is served from <folder>/public.', 'staged' => true],
         'suitecrm' => ['title' => 'SuiteCRM', 'description' => 'Customer relationship management. Staged with a new database; the website is served from <folder>/public.', 'staged' => true],
         'joomla' => ['title' => 'Joomla', 'description' => 'Content management system. Staged into the document root with a new database; finish in its web installer.', 'staged' => true],
@@ -132,6 +134,8 @@ final class AppInstallerService
 
     /** Staged apps: where their web installer lives and the web root subfolder. */
     public const STAGED = [
+        'adminer' => ['finish' => '/', 'docroot' => ''],
+        'phpmyadmin' => ['finish' => '/', 'docroot' => ''],
         'espocrm' => ['finish' => '/install/', 'docroot' => 'public'],
         'suitecrm' => ['finish' => '/install.php', 'docroot' => 'public'],
         'joomla' => ['finish' => '/installation/', 'docroot' => ''],
