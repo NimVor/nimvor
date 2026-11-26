@@ -66,7 +66,7 @@ final class NativeAppsTest extends HttpTestCase
         $py = ['kind' => 'proxy', 'php_version' => '', 'app_runtime' => 'python:3.12.7'];
         $node = ['kind' => 'proxy', 'php_version' => '', 'app_runtime' => 'node:20.17.0'];
         $static = ['kind' => 'static', 'php_version' => '', 'app_runtime' => ''];
-        foreach (['joomla' => [1, 0, 0, 0, 0], 'gitea' => [0, 1, 0, 0, 0], 'cloudreve' => [0, 1, 0, 0, 0], 'gopeed' => [0, 1, 0, 0, 0], 'django' => [0, 0, 1, 0, 0], 'fastapi' => [0, 0, 1, 0, 0]] as $app => $want) {
+        foreach (['joomla' => [1, 0, 0, 0, 0], 'gitea' => [0, 1, 0, 0, 0], 'cloudreve' => [0, 1, 0, 0, 0], 'gopeed' => [0, 1, 0, 0, 0], 'nocodb' => [0, 1, 0, 0, 0], 'clickhouse' => [0, 1, 0, 0, 0], 'django' => [0, 0, 1, 0, 0], 'fastapi' => [0, 0, 1, 0, 0]] as $app => $want) {
             foreach ([$php, $proxy, $py, $node, $static] as $i => $s) {
                 self::assertSame((bool) $want[$i], AppInstallerService::compatible($s, $app), $app . ' on ' . $s['kind'] . '/' . $s['app_runtime']);
             }
@@ -143,6 +143,33 @@ final class NativeAppsTest extends HttpTestCase
         self::assertStringNotContainsString($sent['admin_password'], (string) json_encode($this->db->fetchAll('SELECT * FROM audit_logs')), 'never in the audit log');
         self::assertStringNotContainsString($sent['admin_password'], (string) json_encode($this->db->fetchAll('SELECT * FROM app_installs')), 'never stored');
         self::assertArrayNotHasKey('admin_email', (array) $this->flash('errors'), 'Gopeed asks for no email address');
+    }
+
+    public function testInstallingNocoDbNeedsAnEmailAndShowsThePasswordOnce(): void
+    {
+        $this->post($this->apps($this->proxy) . '/nocodb', ['path' => 'noco', 'admin_user' => 'owner', 'admin_email' => 'nope']);
+        self::assertArrayHasKey('admin_email', (array) $this->flash('errors'));
+        $this->post($this->apps($this->proxy) . '/nocodb', ['path' => 'noco', 'admin_user' => 'owner', 'admin_email' => 'owner@data.test']);
+        $sent = $this->lastCall('apps.install');
+        self::assertSame('nocodb', $sent['app']);
+        self::assertSame('owner@data.test', $sent['admin_email']);
+        self::assertSame(3101, $sent['port']);
+        self::assertGreaterThanOrEqual(12, strlen((string) $sent['admin_password']));
+        self::assertSame($sent['admin_password'], ((array) $this->flash('secret'))['password']);
+        self::assertSame(0, $this->calls('db.create'));
+        self::assertStringNotContainsString($sent['admin_password'], (string) json_encode($this->db->fetchAll('SELECT * FROM audit_logs')), 'never in the audit log');
+    }
+
+    public function testInstallingClickHouseTakesALoginWithAnXmlSafeName(): void
+    {
+        $this->post($this->apps($this->proxy) . '/clickhouse', ['path' => 'ch', 'admin_user' => 'ana.lyst']);
+        self::assertArrayHasKey('admin_user', (array) $this->flash('errors'), 'the name becomes an element of its configuration');
+        $this->post($this->apps($this->proxy) . '/clickhouse', ['path' => 'ch', 'admin_user' => 'analyst']);
+        $sent = $this->lastCall('apps.install');
+        self::assertSame('clickhouse', $sent['app']);
+        self::assertSame('analyst', $sent['admin_user']);
+        self::assertArrayNotHasKey('admin_email', array_filter((array) $this->flash('errors')), 'ClickHouse asks for no email address');
+        self::assertSame(0, $this->calls('db.create'));
     }
 
     public function testInstallingDjangoCreatesAnAdministratorPasswordShownOnce(): void

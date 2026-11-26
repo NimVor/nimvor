@@ -480,3 +480,21 @@ func TestRealHostGopeedInstall(t *testing.T) {
 	}, "config.json", "gopeed")
 	// (The password check on the process list is in the unit tests: no command line holds it.)
 }
+
+// A real installation of NocoDB: the release file is downloaded from GitHub and checked against the SHA-256 GitHub
+// reports for it; its administrator's login is written to nocodb.env, never to a command line.
+func TestRealHostNocoDBInstall(t *testing.T) {
+	realGoApp(t, "NocoDB", "nocodb", "rtnoco", "2896", 3920, func(n *realNative, slug string) Request {
+		return Request{App: "nocodb", Domain: "nocodb.test", User: n.user, Root: n.home, Path: "noco", URL: "https://nocodb.test", Port: 3920, ServiceSlug: slug, AllowTesting: true,
+			AdminEmail: "owner@nocodb.test", AdminPassword: "rt-nocodb-password-" + strings.Repeat("x", 8)}
+	}, "nocodb.env", "nocodb")
+}
+
+// A real installation of ClickHouse: the release archive is downloaded from GitHub, checked against the SHA-256
+// GitHub reports for it, and the server runs with only its HTTP interface on the loopback port.
+func TestRealHostClickHouseInstall(t *testing.T) {
+	realGoApp(t, "ClickHouse", "clickhouse", "rtclick", "2897", 3921, func(n *realNative, slug string) Request {
+		return Request{App: "clickhouse", Domain: "clickhouse.test", User: n.user, Root: n.home, Path: "ch", URL: "https://clickhouse.test", Port: 3921, ServiceSlug: slug, AllowTesting: true,
+			AdminUser: "analyst", AdminPassword: "rt-clickhouse-password-" + strings.Repeat("x", 8)}
+	}, "users.xml", "clickhouse")
+}

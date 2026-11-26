@@ -182,3 +182,22 @@ writes only under the website's folder and creates a systemd unit like any worke
 container foundation, PostgreSQL, and the Node.js strategy.
 
 > **CI note.** The real-host job and the VM matrix do not run the `internal/apps` real-host tests (application installs and the catalog download check): the vendors' download hosts and the GitHub API rate-limit or block CI runners, which failed runs at random. Application installs are verified on a real server before a release; the package's unit tests still run in the `agent` job.
+
+## Data applications: NocoDB and ClickHouse
+
+Both are single programs from GitHub releases, installed by one shared procedure (`installBinary` in
+`agent/internal/apps/native_data.go`) like Gopeed: the release file is checked against the SHA-256 GitHub reports for
+it (the install refuses when GitHub reports none), written as the website's account, run as a worker service on the
+website's loopback port and published through the website's reverse proxy. Both start in `testing` status until
+`.github/workflows/app-native.yml` has installed them for real.
+
+- **NocoDB** (`Noco-linux-x64` / `Noco-linux-arm64`, the program itself): SQLite data in the website folder. The
+  administrator's email and password, and a JWT secret, go to a private `nocodb.env` that the service reads when it
+  starts, never to the command line or the service's environment (which the panel is told).
+- **ClickHouse** (`clickhouse-common-static-<version>-<arch>.tgz`, the `clickhouse` program inside): only the HTTP
+  interface, on 127.0.0.1 (no native, MySQL, PostgreSQL or interserver listeners), data and logs in the website folder,
+  one user whose password is stored as its SHA-256 in `users.xml`, allowed from this machine only. The Play page is at
+  `/play`. It wants about 2 GB of memory.
+
+InfluxDB is not here: its Linux programs are not release files on GitHub (only on the vendor's download server and its
+package repository), so there is nothing NimVor can verify with a checksum it can fetch today.
