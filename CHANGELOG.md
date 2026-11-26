@@ -8,6 +8,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Added
 - **phpMyAdmin is installed with the panel.** The `full` and `web` server profiles now include a phpMyAdmin step (the same verified install as Databases → Database tools), so every database has its sign-in link on a fresh server. It is skipped, with the reason, when phpMyAdmin is already there or the panel has no NimVor HTTPS address (`--public-https`), and a failure never fails the setup. `install.sh --no-phpmyadmin` (also `nimvor setup:apply --no-phpmyadmin`) turns it off.
+### Changed
+- **Databases list: fewer buttons per row.** Each database shows **Browse** and a **More** menu holding phpMyAdmin, Adminer, Permission, Import, Dump and Delete, so the row no longer runs off the edge of the table.
+- **Database tools in the sidebar.** Databases → Database tools (phpMyAdmin, Adminer) is now listed under Databases in the admin sidebar.
+
 ## [2.8.1] — 2026-11-26
 
 A faster dashboard and working phpMyAdmin and Adminer sign-in. Panel and agent: upgrade both with `sudo nimvor update` (no database migration; the panel restarts with eight workers and the scheduler's sweep corrects the database tools' files within minutes).
