@@ -69,6 +69,7 @@ final class ServerSetupService
         'intrusion' => 'Anti-intrusion',
         'security_defaults' => 'Recommended security settings',
         'auto_updates' => 'Automatic security updates',
+        'dbtools' => 'phpMyAdmin',
         'plans' => 'Hosting plans and feature lists',
         'backups' => 'Weekly backups',
         'profile' => 'Server profile',
@@ -77,7 +78,7 @@ final class ServerSetupService
     /** Steps that do not apply to every profile. */
     private const STEP_PROFILES = [
         'mail' => ['full'], 'webmail' => ['full'], 'mail_extras' => ['full'], 'dns' => ['full'], 'ftp' => ['web', 'full'], 'caches' => ['web', 'full'],
-        'protection' => ['web', 'full'], 'tools' => ['web', 'full'], 'intrusion' => ['web', 'full'],
+        'protection' => ['web', 'full'], 'tools' => ['web', 'full'], 'intrusion' => ['web', 'full'], 'dbtools' => ['web', 'full'],
     ];
 
     /** Feature lists: name => [description, features turned on]. */
@@ -217,7 +218,7 @@ final class ServerSetupService
         if ($hostname !== '' && !preg_match('/^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/', $hostname)) {
             throw new ValidationException(['hostname' => 'Enter the server\'s full host name, e.g. server.example.com.']);
         }
-        return ['hostname' => $hostname, 'php' => $php, 'third_party_repos' => (bool) ($options['third_party_repos'] ?? true)];
+        return ['hostname' => $hostname, 'php' => $php, 'third_party_repos' => (bool) ($options['third_party_repos'] ?? true), 'phpmyadmin' => (bool) ($options['phpmyadmin'] ?? true)];
     }
 
     /**
@@ -999,6 +1000,39 @@ final class ServerSetupService
             $made[] = 'plan ' . $name;
         }
         return $made === [] ? ['skip', 'The plans and feature lists exist (left as they are).'] : ['ok', 'Created ' . implode(', ', $made) . '.'];
+    }
+
+    /**
+     * phpMyAdmin, installed and served on the panel's own HTTPS address under /dbtools/phpmyadmin/ (see DbToolsService):
+     * an extra, so it never fails the setup. It is left out when it was turned off, is there already, or the panel has no
+     * HTTPS address of NimVor's own to serve it on, and a failure is reported as "not installed" with how to do it later.
+     *
+     * @param array<string, mixed> $opts
+     * @return array{0: string, 1: string}
+     */
+    private function stepDbtools(string $profile, array $opts): array
+    {
+        if (empty($opts['phpmyadmin'])) {
+            return ['skip', 'phpMyAdmin was turned off for this setup (--no-phpmyadmin). It can be installed later under Databases → Database tools.'];
+        }
+        try {
+            $status = (array) $this->agent->call('dbtools.status', []);
+            foreach ((array) ($status['tools'] ?? []) as $t) {
+                if ((string) ((array) $t)['id'] === 'phpmyadmin' && !empty(((array) $t)['installed'])) {
+                    return ['skip', 'phpMyAdmin is installed at /dbtools/phpmyadmin/ already.'];
+                }
+            }
+            if (empty($status['panel_https'])) {
+                return ['skip', 'phpMyAdmin needs the panel served by NimVor\'s own HTTPS site (install.sh --public-https), so it has no address yet. Install it later under Databases → Database tools.'];
+            }
+            $job = (string) ((array) $this->agent->call('dbtools.install', ['tool' => 'phpmyadmin']))['job_id'];
+            $this->wait($job, 'Install phpMyAdmin');
+        } catch (SetupJobStarted $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return ['skip', 'phpMyAdmin was not installed: ' . $e->getMessage() . ' Install it later under Databases → Database tools.'];
+        }
+        return ['ok', 'phpMyAdmin is at /dbtools/phpmyadmin/ on the panel\'s address: open it from a database, or from Databases → Database tools.'];
     }
 
     /** @param array<string, mixed> $opts @return array{0: string, 1: string} */

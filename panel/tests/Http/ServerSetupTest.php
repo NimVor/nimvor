@@ -44,6 +44,8 @@ final class ServerSetupTest extends HttpTestCase
         $this->agent->succeed('php.extensions', [['name' => 'intl', 'installed' => true, 'enabled' => true], ['name' => 'gd', 'installed' => true, 'enabled' => false]]);
         $this->agent->succeed('php.profile_plan', ['changes' => true, 'removals' => false, 'items' => []]);
         $this->agent->succeed('php.profile_apply', ['job_id' => self::JOB]);
+        $this->agent->succeed('dbtools.status', ['tools' => [['id' => 'phpmyadmin', 'name' => 'phpMyAdmin', 'installed' => false], ['id' => 'adminer', 'name' => 'Adminer', 'installed' => false]], 'php' => '', 'panel_https' => true]);
+        $this->agent->succeed('dbtools.install', ['job_id' => self::JOB]);
         $this->agent->succeed('mail.configure', ['ok' => true]);
         $this->agent->succeed('dns.configure', ['ok' => true]);
         $this->agent->succeed('ftp.configure', ['ok' => true]);
@@ -121,6 +123,52 @@ final class ServerSetupTest extends HttpTestCase
             }
         }
         return $out;
+    }
+
+    /** @param array<string, mixed> $status */
+    private function dbtoolsStep(array $status, array $options = []): array
+    {
+        $this->agent->succeed('dbtools.status', $status);
+        $res = $this->service()->run('full', ['hostname' => 'server.example.com'] + $options + ['only' => ['dbtools']]);
+        return array_column($res, null, 'id')['dbtools'];
+    }
+
+    public function testPhpMyAdminIsInstalledOnTheWebAndFullProfilesButNotMinimal(): void
+    {
+        self::assertContains('dbtools', ServerSetupService::steps('full'));
+        self::assertContains('dbtools', ServerSetupService::steps('web'));
+        self::assertNotContains('dbtools', ServerSetupService::steps('minimal'));
+
+        $step = $this->dbtoolsStep(['tools' => [['id' => 'phpmyadmin', 'installed' => false]], 'panel_https' => true]);
+        self::assertSame('ok', $step['status']);
+        self::assertStringContainsString('/dbtools/phpmyadmin/', $step['detail']);
+        self::assertSame(['phpmyadmin'], array_column($this->bodies('dbtools.install'), 'tool'));
+    }
+
+    public function testPhpMyAdminIsLeftAloneWhenItIsThereWhenTurnedOffOrWithoutAnHttpsAddress(): void
+    {
+        $before = count($this->bodies('dbtools.install'));
+        $there = $this->dbtoolsStep(['tools' => [['id' => 'phpmyadmin', 'installed' => true]], 'panel_https' => true]);
+        self::assertSame('skip', $there['status']);
+        self::assertStringContainsString('already', $there['detail']);
+
+        $off = $this->dbtoolsStep(['tools' => [['id' => 'phpmyadmin', 'installed' => false]], 'panel_https' => true], ['phpmyadmin' => false]);
+        self::assertSame('skip', $off['status']);
+        self::assertStringContainsString('--no-phpmyadmin', $off['detail']);
+
+        $none = $this->dbtoolsStep(['tools' => [['id' => 'phpmyadmin', 'installed' => false]], 'panel_https' => false]);
+        self::assertSame('skip', $none['status']);
+        self::assertStringContainsString('--public-https', $none['detail']);
+        self::assertSame($before, count($this->bodies('dbtools.install')), 'nothing was installed in any of the three cases');
+    }
+
+    public function testAFailedPhpMyAdminInstallNeverFailsTheSetup(): void
+    {
+        $this->agent->fail('dbtools.install', 409, 'conflict', 'phpMyAdmin and Adminer need PHP with mysqli: PHP 8.3 lacks mysqli.');
+        $step = $this->dbtoolsStep(['tools' => [['id' => 'phpmyadmin', 'installed' => false]], 'panel_https' => true]);
+        self::assertSame('skip', $step['status'], 'an extra must not make the whole setup fail');
+        self::assertStringContainsString('was not installed', $step['detail']);
+        self::assertStringContainsString('Databases → Database tools', $step['detail']);
     }
 
     /** The wizard never removes anything, so it must not fail because a PHP plan wants to: it keeps whatever the plan would remove. */

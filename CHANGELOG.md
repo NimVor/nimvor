@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **phpMyAdmin is installed with the panel.** The `full` and `web` server profiles now include a phpMyAdmin step (the same verified install as Databases → Database tools), so every database has its sign-in link on a fresh server. It is skipped, with the reason, when phpMyAdmin is already there or the panel has no NimVor HTTPS address (`--public-https`), and a failure never fails the setup. `install.sh --no-phpmyadmin` (also `nimvor setup:apply --no-phpmyadmin`) turns it off.
+
 ### Changed
 - The panel's web server now runs eight worker processes instead of four (`PHP_CLI_SERVER_WORKERS=8` in `nimvor-panel.service`), so more of the dashboard's requests run at the same time. It applies to existing servers at their next `nimvor update`, which regenerates the unit and restarts the panel; websites are not affected (they run in PHP-FPM).
 

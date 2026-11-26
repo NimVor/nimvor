@@ -47,7 +47,7 @@
 #                               [--port=8090] [--dry-run] [--yes] [--reinstall|--resume] [--force-unsupported]
 #                               [--telemetry|--no-telemetry] [--enable-writes] [--public-https[=8443]]
 #                               [--profile=full|web|minimal|none] [--hostname=server.example.com]
-#                               [--php=8.3,8.4] [--no-third-party-repos]
+#                               [--php=8.3,8.4] [--no-third-party-repos] [--no-phpmyadmin]
 #                               [--agent-only --remote-access=0.0.0.0:8443 --allow-from=PANEL_IP[,...]]
 #
 # --public-https serves the panel at https://SERVER-IP:8443/ (or the port
@@ -55,6 +55,10 @@
 # UFW or firewalld, and marks the panel's cookies HTTPS-only. The panel
 # itself keeps listening on 127.0.0.1 only. On an installed server run
 # install.sh --reinstall --public-https.
+#
+# phpMyAdmin is installed by the web and full profiles when the panel is served over HTTPS by NimVor's own
+# Nginx site (--public-https): it is served on the panel's address under /dbtools/phpmyadmin/ and opened from a
+# database's row. --no-phpmyadmin leaves it out (it can be installed later under Databases -> Database tools).
 #
 # --enable-writes switches the agent from read-only discovery to write mode
 # (manage websites, databases, certificates, …). Without it NimVor only observes.
@@ -103,6 +107,7 @@ PROFILE_SET=0
 SETUP_HOSTNAME=""
 SETUP_PHP=""
 THIRD_PARTY_REPOS=1
+PHPMYADMIN=1
 # Supported: tested and recommended for production. Preview: installs and
 # is tested the same way, but not yet recommended for production.
 SUPPORTED_UBUNTU=("22.04" "24.04")
@@ -174,6 +179,7 @@ for arg in "$@"; do
         --hostname=*) SETUP_HOSTNAME="${arg#*=}" ;;
         --php=*) SETUP_PHP="${arg#*=}" ;;
         --no-third-party-repos) THIRD_PARTY_REPOS=0 ;;
+        --no-phpmyadmin) PHPMYADMIN=0 ;;
         -h|--help) sed -n '2,73p' "$0"; exit 0 ;;
         *) die "unknown option: $arg" ;;
     esac
@@ -1053,6 +1059,7 @@ if [[ $PROFILE != none && $AGENT_ONLY -eq 0 && $DRY_RUN -eq 0 ]]; then
     [[ -z $SETUP_HOSTNAME ]] || setup_args+=("--hostname=$SETUP_HOSTNAME")
     [[ -z $SETUP_PHP ]] || setup_args+=("--php=$SETUP_PHP")
     [[ $THIRD_PARTY_REPOS -eq 1 ]] || setup_args+=(--no-third-party-repos)
+    [[ $PHPMYADMIN -eq 1 ]] || setup_args+=(--no-phpmyadmin)
     if ! runuser -u nimvor -- env NIMVOR_CONFIG=$CONF_DIR/panel.php "$PHP_BIN" "$PREFIX/panel/bin/nimvor" "${setup_args[@]}"; then
         SETUP_FAILED=1
         warn "some setup steps failed (see above). NimVor itself is installed; fix the cause and run: sudo -u nimvor NIMVOR_CONFIG=$CONF_DIR/panel.php $PHP_BIN $PREFIX/panel/bin/nimvor ${setup_args[*]}"

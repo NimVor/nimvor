@@ -118,7 +118,7 @@ Options: `--no-install-deps` (only list missing packages; by default they are in
 `--port=8090`, `--yes`, `--reinstall` (replace program files, keep config and
 data), `--force-unsupported`, `--enable-writes` (see below),
 `--public-https[=8443]` (see "Opening the panel"), `--profile=`,
-`--hostname=`, `--php=`, `--no-third-party-repos` (see "Server profile").
+`--hostname=`, `--php=`, `--no-third-party-repos`, `--no-phpmyadmin` (see "Server profile").
 
 ### Write mode
 
@@ -168,7 +168,16 @@ Options: `--profile=full|web|minimal|none`, `--hostname=` (the server's
 host name, which the setup applies when it differs from the current one,
 and the name of the mail server and webmail; default the system's full
 host name), `--php=8.2,8.3,8.4`
-(default 8.3,8.4), `--no-third-party-repos`.
+(default 8.3,8.4), `--no-third-party-repos`, `--no-phpmyadmin`.
+
+- **phpMyAdmin.** The `full` and `web` profiles also install phpMyAdmin
+  (Databases → Database tools), at `/dbtools/phpmyadmin/` on the panel's
+  address, so every database has its one-click "phpMyAdmin" sign-in from
+  the start. It needs the panel on NimVor's own HTTPS site
+  (`--public-https`) and PHP with mysqli; without them the step is
+  skipped with the reason, and a failed download or install never fails
+  the setup. `--no-phpmyadmin` leaves it out; it can be installed or
+  removed later from Database tools.
 
 - **New websites.** With a profile that has them, a new website starts
   with its statistics (AWStats) on, its email domain with DKIM (where the

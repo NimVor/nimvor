@@ -20,7 +20,7 @@ declare(strict_types=1);
  *   bin/nimvor hulk:unblock <ip|user|all>   Remove brute force protection blocks
  *   bin/nimvor hulk:geo-import <file>   Load the DB-IP country database (brute force protection countries)
  *   bin/nimvor doctor                      Check the installation (exit code 1 on failures)
- *   bin/nimvor setup:apply --profile=full|web|minimal [--hostname=server.example.com] [--php=8.3,8.4] [--no-third-party-repos] [--only=step,step]
+ *   bin/nimvor setup:apply --profile=full|web|minimal [--hostname=server.example.com] [--php=8.3,8.4] [--no-third-party-repos] [--no-phpmyadmin] [--only=step,step]
  *                                         Set up the server for a profile (idempotent; exit code 1 when a step failed)
  *   bin/nimvor setup:status                The last server setup and each step's result
  */
@@ -194,11 +194,12 @@ switch ($command) {
 
     case 'setup:apply':
         $profile = (string) ($options['profile'] ?? '');
-        isset(\NimVor\Services\ServerSetupService::PROFILES[$profile]) || fail('usage: bin/nimvor setup:apply --profile=full|web|minimal [--hostname=server.example.com] [--php=8.3,8.4] [--no-third-party-repos] [--only=step,step]');
+        isset(\NimVor\Services\ServerSetupService::PROFILES[$profile]) || fail('usage: bin/nimvor setup:apply --profile=full|web|minimal [--hostname=server.example.com] [--php=8.3,8.4] [--no-third-party-repos] [--no-phpmyadmin] [--only=step,step]');
         $c->get(\NimVor\Services\ServerContext::class)->force(1);
         $setupOpts = [
             'hostname' => is_string($options['hostname'] ?? null) ? $options['hostname'] : '',
             'third_party_repos' => !isset($options['no-third-party-repos']),
+            'phpmyadmin' => !isset($options['no-phpmyadmin']),
         ];
         if (is_string($options['php'] ?? null)) {
             $setupOpts['php'] = array_values(array_filter(array_map('trim', explode(',', $options['php']))));
