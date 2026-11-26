@@ -292,6 +292,8 @@ final class Application
                 $this->container->get(\NimVor\Http\Middleware\AjaxForms::class),
                 $this->container->get(VerifyCsrfToken::class),
                 $this->container->get(Authenticate::class),
+                // Last, so the user is signed in and checked first: read-only background requests then let go of the session.
+                $this->container->get(\NimVor\Http\Middleware\ReleaseSession::class),
             ];
             return $this->run($pipeline, $request);
         } catch (Throwable $e) {

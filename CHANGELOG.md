@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **A faster dashboard.** The dashboard asked for its widgets, live figures and top bar all at once, and PHP's session lock made those requests wait for one another (27 requests of 0.3 s took 8.7 s, the last one waiting for all the rest). Read-only background requests now let go of the session as soon as the user is checked: the same burst takes 1.9 s. The widgets also load through a small queue (the ones on screen first, four at a time), widgets far off screen no longer refresh in the background, and the top bar stops polling on the dashboard (which already updates its load figures).
+
 ## [2.8.0] — 2026-11-26
 
 Mail names that turn themselves on, phpMyAdmin and Adminer with one-click sign-in, a step-by-step website wizard and ClickHouse in the app installer. Panel and agent: upgrade both with `sudo nimvor update` (two database migrations, 0087 and 0089; the agent restarts and learns the `dbtools.*` actions). phpMyAdmin and Adminer need the panel to be served by NimVor's own Nginx site (`--public-https`) and are installed by an administrator under Databases → Database tools.

@@ -8,6 +8,12 @@ interface SessionInterface
 {
     public function start(): void;
 
+    /**
+     * Let go of the session file: PHP locks it for the whole request, so every other request of the same browser waits
+     * until this one ends. What was read stays readable; nothing written after this is kept.
+     */
+    public function close(): void;
+
     public function get(string $key, mixed $default = null): mixed;
 
     public function set(string $key, mixed $value): void;
