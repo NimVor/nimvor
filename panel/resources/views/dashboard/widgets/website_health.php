@@ -5,18 +5,24 @@
  *
  * @var \NimVor\View\View $this
  * @var array<string, mixed> $d
+ * @var string $part overview (the counts, what fails now, the last checks) or slowest, inside the Website statistics widget
  */
+$part ??= 'overview';
 $ms = static fn (?int $v): string => $v === null ? 'N/A' : number_format($v) . ' ms';
 $ago = static fn (?int $t): string => $t === null ? 'never' : gmdate('Y-m-d H:i', $t) . ' UTC';
 $checkForm = '<form method="post" action="' . e($this->url('dashboard.websites.check')) . '" data-nim-noajax class="d-inline">' . $this->csrfField() . '<button class="btn btn-sm btn-outline-secondary">Check now</button></form>';
 ?>
 <?php $off = (int) ($d['unmonitored'] ?? 0); $offNote = $off > 0 ? '<div class="text-body-secondary mb-2">' . $off . ' website' . ($off === 1 ? ' is' : 's are') . ' left out of the checks (Website → Advanced → Monitoring).</div>' : ''; ?>
+<?php if (!empty($d['none']) && $part === 'slowest'): ?>
+    <div class="text-body-secondary">No timings yet: no check has run.</div>
+<?php return; endif; ?>
 <?php if (!empty($d['none'])): ?>
     <div class="text-body-secondary mb-2">
         <?php if ((int) $d['enabled'] === 0): ?><?= $off > 0 ? 'Every enabled website is left out of the checks (Website → Advanced → Monitoring).' : 'No enabled websites to check.' ?><?php else: ?>No check has run yet. The scheduler checks every <?= (int) $d['enabled'] ?> enabled website about every five minutes.<?php endif; ?>
     </div>
     <?php if ((int) $d['enabled'] > 0): ?><?= $checkForm ?><?php endif; ?>
 <?php return; endif; ?>
+<?php if ($part === 'overview'): ?>
 <?php $c = (array) $d['counts']; ?>
 <div class="nim-figs">
     <div class="nim-fig"><div class="nim-fig-value"><?= (int) $d['total'] ?></div><div class="nim-fig-label">Websites</div></div>
@@ -39,21 +45,21 @@ $checkForm = '<form method="post" action="' . e($this->url('dashboard.websites.c
         </ul>
     </div>
 <?php endif; ?>
-<div class="row g-3">
-    <div class="col-12 col-md-7">
-        <div class="fw-semibold mb-1">Slowest websites <span class="text-body-secondary fw-normal">(average <?= e($ms($d['average_ms'])) ?>)</span></div>
-        <?php if ($d['slowest'] === []): ?><div class="text-body-secondary">No timings yet.</div><?php else: ?>
-            <table class="table table-sm mb-0"><tbody>
-            <?php foreach ((array) $d['slowest'] as $s): ?>
-                <tr><td class="text-truncate nim-w-9"><?= e((string) $s['domain']) ?></td><td class="text-end text-nowrap <?= (int) $s['ms'] > 2000 ? 'text-warning' : '' ?>"><?= e($ms((int) $s['ms'])) ?></td></tr>
-            <?php endforeach; ?>
-            </tbody></table>
-        <?php endif; ?>
-    </div>
-    <div class="col-12 col-md-5 text-body-secondary">
+<?php endif; ?>
+<?php if ($part === 'slowest'): ?>
+    <div class="fw-semibold mb-1">Slowest websites <span class="text-body-secondary fw-normal">(average <?= e($ms($d['average_ms'])) ?>)</span></div>
+    <?php if ($d['slowest'] === []): ?><div class="text-body-secondary">No timings yet.</div><?php else: ?>
+        <table class="table table-sm mb-0"><tbody>
+        <?php foreach ((array) $d['slowest'] as $s): ?>
+            <tr><td class="text-truncate nim-w-9"><?= e((string) $s['domain']) ?></td><td class="text-end text-nowrap <?= (int) $s['ms'] > 2000 ? 'text-warning' : '' ?>"><?= e($ms((int) $s['ms'])) ?></td></tr>
+        <?php endforeach; ?>
+        </tbody></table>
+    <?php endif; ?>
+<?php else: ?>
+    <div class="text-body-secondary">
         <div>Last success: <?= e($ago($d['last_ok'])) ?></div>
         <div>Last failure: <?= e($ago($d['last_down'])) ?></div>
         <div>Checked: <?= (int) $d['checked'] ?> of <?= (int) $d['enabled'] ?> enabled</div>
         <div class="mt-2"><?= $checkForm ?></div>
     </div>
-</div>
+<?php endif; ?>

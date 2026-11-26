@@ -50,6 +50,52 @@ final class DashboardWidgetsTest extends HttpTestCase
         self::assertStringContainsString('data-nim-site-modal', $html);
     }
 
+    private function widgetHtml(string $id): string
+    {
+        $res = $this->request('GET', '/dashboard/widgets/' . $id, [], ['accept' => 'application/json', 'x-requested-with' => 'XMLHttpRequest']);
+        self::assertSame(200, $res->status(), $res->body());
+        return (string) ((array) json_decode($res->body(), true))['html'];
+    }
+
+    public function testWebsiteHealthAndStatisticsAndTheWebsitesCardAreOneWidgetInTabs(): void
+    {
+        $page = $this->request('GET', '/')->body();
+        foreach (['website_health', 'websites_summary'] as $gone) {
+            self::assertStringNotContainsString('data-widget="' . $gone . '"', $page, $gone . ' is a tab of Website statistics now');
+        }
+        self::assertStringNotContainsString('data-net-rx', $page, 'the Network card is gone from the dashboard');
+        $html = $this->widgetHtml('website_overview');
+        self::assertStringContainsString('data-nim-tabs="website-statistics"', $html);
+        foreach (['overview', 'slowest', 'created', 'websites'] as $tab) {
+            self::assertStringContainsString('data-nim-tab="' . $tab . '"', $html);
+            self::assertStringContainsString('data-nim-pane="' . $tab . '"', $html);
+        }
+        foreach (['Slowest websites', 'Created per month', 'Using HTTPS'] as $text) {
+            self::assertStringContainsString($text, $html);
+        }
+    }
+
+    public function testTopProcessesShowByCpuAndByMemoryInTwoTabs(): void
+    {
+        $this->agent->succeed('system.live', ['processes' => 9, 'top_cpu' => [['pid' => 5, 'name' => 'cpuhog', 'user' => 'u', 'state' => 'R', 'cpu_percent' => 40.0, 'rss_bytes' => 1048576]], 'top_memory' => [['pid' => 6, 'name' => 'memhog', 'user' => 'u', 'state' => 'S', 'cpu_percent' => 0.0, 'rss_bytes' => 5242880]]]);
+        $html = $this->widgetHtml('top_processes');
+        self::assertStringContainsString('data-nim-pane="cpu"', $html);
+        self::assertStringContainsString('data-nim-pane="mem"', $html);
+        self::assertStringContainsString('cpuhog', $html);
+        self::assertStringContainsString('memhog', $html);
+    }
+
+    public function testTheWideWidgetsAreSizedByTheirNewTabs(): void
+    {
+        $reg = new \NimVor\Dashboard\WidgetRegistry();
+        self::assertSame('md', $reg->find('top_processes')->size);
+        self::assertSame('half', $reg->find('traffic_overview')->size);
+        self::assertSame('half', $reg->find('request_trends')->size);
+        self::assertSame('nim-span-half', \NimVor\Dashboard\Widget::SIZES['half']);
+        self::assertNull($reg->find('website_health'));
+        self::assertNull($reg->find('websites_summary'));
+    }
+
     public function testTheLatestDiskScanListsTheBiggestPlaces(): void
     {
         $db = $this->app->container->get(Connection::class);
@@ -66,7 +112,7 @@ final class DashboardWidgetsTest extends HttpTestCase
     public function testTheTopCardsAreWidgetsDrawnWithThePage(): void
     {
         $page = $this->request('GET', '/')->body();
-        foreach (['tile_cpu', 'tile_memory', 'tile_disk', 'tile_load', 'software', 'websites_summary'] as $id) {
+        foreach (['tile_cpu', 'tile_memory', 'tile_disk', 'tile_load', 'software', 'website_overview'] as $id) {
             self::assertStringContainsString('data-widget-host="' . $id . '"', $page, $id);
         }
         self::assertStringContainsString('data-metric', $page, 'the live poll still finds the cards');

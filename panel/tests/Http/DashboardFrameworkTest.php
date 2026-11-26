@@ -60,7 +60,7 @@ final class DashboardFrameworkTest extends HttpTestCase
     public function testTheRegistryListsEveryWidgetWithItsCategoryAndPermission(): void
     {
         $reg = new WidgetRegistry();
-        self::assertSame(['tile_cpu', 'tile_memory', 'tile_disk', 'tile_load', 'software', 'websites_summary', 'alert_center', 'attention', 'performance_history', 'disk', 'website_health', 'website_overview', 'security_overview', 'top_processes', 'services_overview', 'database_overview', 'capacity_forecast', 'traffic_overview', 'backup_health', 'system_updates', 'deployments', 'request_trends', 'wordpress'], array_keys($reg->all()));
+        self::assertSame(['tile_cpu', 'tile_memory', 'tile_disk', 'tile_load', 'software', 'alert_center', 'attention', 'performance_history', 'disk', 'website_overview', 'security_overview', 'top_processes', 'services_overview', 'database_overview', 'capacity_forecast', 'traffic_overview', 'backup_health', 'system_updates', 'deployments', 'request_trends', 'wordpress'], array_keys($reg->all()));
         foreach ($reg->all() as $w) {
             self::assertContains($w->category, WidgetRegistry::CATEGORIES, $w->id);
             self::assertArrayHasKey($w->size, Widget::SIZES, $w->id);
