@@ -159,3 +159,7 @@ and the *Websites* card are no longer widgets of their own: `DashboardWidgetsSer
 and the discovery summary together, and a part that cannot be read shows "not available" in its tab only. The width `half` (6 of 12
 columns, `nim-span-half`) is new.
 
+*Alert center* and *Needs attention* are one widget (`alert_center`, "Alerts and attention", `DashboardWidgetsService::alertsAndAttention()`):
+both parts are always measured (the measurement is shared by every viewer) and the view shows each tab only to those with
+`monitoring.view` and `websites.view` respectively. *Databases* shows its chart, MariaDB / MySQL and PostgreSQL in three tabs.
+

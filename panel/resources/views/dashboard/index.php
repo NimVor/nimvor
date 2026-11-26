@@ -120,7 +120,7 @@ foreach ([
     </div>
 
     <div class="nim-widgets">
-        <div class="nim-span-md">
+        <div class="nim-span-half">
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span><i class="bi bi-list-check me-1"></i>Recent activity</span>
