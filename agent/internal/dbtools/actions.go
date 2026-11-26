@@ -156,7 +156,7 @@ func (e env) install(ctx context.Context, t Tool, log io.Writer) (any, error) {
 		return nil, actions.Failed("The folder for "+t.Name+" could not be created.", err.Error())
 	}
 	cleanup := func() { os.RemoveAll(realNew) }
-	if err := apps.Fetch(ctx, e.Env, apps.DefaultSources, t.ID, t.Def, realNew, 0, gid, log); err != nil {
+	if err := apps.Fetch(ctx, e.Env, apps.DefaultSources, t.ID, t.Def, realNew, rootUID(), gid, log); err != nil {
 		cleanup()
 		return nil, actions.Failed(t.Name+" could not be downloaded.", err.Error())
 	}

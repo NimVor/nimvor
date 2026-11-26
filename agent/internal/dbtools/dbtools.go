@@ -256,6 +256,15 @@ func (e env) ensureAccount(ctx context.Context) (agentfs.Owner, int, error) {
 	return agentfs.Owner{UID: u.UID, GID: u.GID}, u.GID, nil
 }
 
+// rootUID is the owner of the tools' files: root. A test run as an ordinary user cannot give files to root, so
+// there the files stay with the user running it (the agent itself always runs as root).
+func rootUID() int {
+	if os.Geteuid() != 0 {
+		return os.Geteuid()
+	}
+	return 0
+}
+
 // openPerms makes a freshly unpacked tool readable by the web server and PHP-FPM and writable by nobody:
 // folders 0755, files 0644, and the configuration (holding a secret) readable by the pool's account only.
 func openPerms(root string, gid int) error {
@@ -266,14 +275,14 @@ func openPerms(root string, gid int) error {
 		if d.Type()&fs.ModeSymlink != 0 {
 			return fmt.Errorf("%s is a symbolic link", p)
 		}
-		if err := os.Chown(p, 0, 0); err != nil {
+		if err := os.Lchown(p, rootUID(), -1); err != nil {
 			return err
 		}
 		if d.IsDir() {
 			return os.Chmod(p, 0o755)
 		}
 		if filepath.Base(p) == "config.inc.php" {
-			if err := os.Chown(p, 0, gid); err != nil {
+			if err := os.Lchown(p, rootUID(), gid); err != nil {
 				return err
 			}
 			return os.Chmod(p, 0o640)
