@@ -32,7 +32,9 @@ const DEV_ROOT = path.resolve(__dirname, '../../.dev/root');
     await submit('button[type=submit]');
 
     await page.goto(BASE + '/websites/new');
+    await page.click('[data-nim-wizard-next]');
     await page.fill('#f-domain', domain);
+    await page.click('[data-nim-wizard-next]'); await page.click('[data-nim-wizard-next]');
     await submit('main form[action="/websites/new"] button[type=submit]');
     await page.goto(BASE + '/websites');
     const link = await page.$(`tr:has-text("${domain}") a[href^="/sites/"]`) || await page.$(`a[href^="/sites/"]:has-text("${domain}")`);

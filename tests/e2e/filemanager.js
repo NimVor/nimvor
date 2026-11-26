@@ -18,8 +18,9 @@ const OUT = process.env.E2E_OUT || '/tmp';
   step('logged in: ' + page.url());
 
   await page.goto(BASE + '/websites/new');
-  const dom = 'fm' + Date.now() + '.test'; await page.fill('#f-domain', dom);
+  const dom = 'fm' + Date.now() + '.test';
   await page.click('label[for^="f-kind-"]:has-text("Static site")');
+  await page.click('[data-nim-wizard-next]'); await page.fill('#f-domain', dom); await page.click('[data-nim-wizard-next]'); await page.click('[data-nim-wizard-next]');
   await Promise.all([page.waitForNavigation(), page.click('form button[type=submit].btn-primary')]);
   step('site created: ' + page.url());
   const m = page.url().match(/sites\/(\d+)/);
