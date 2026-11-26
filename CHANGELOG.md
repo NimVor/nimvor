@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **One-click sign-in to phpMyAdmin and Adminer showed "404 Not Found".** The web server only ran a tool's front PHP files when their name had letters, digits and underscores, and the sign-in page is `nimvor-signon.php`. The pattern now allows a hyphen. Servers that already have the tools get the corrected configuration by themselves: the scheduler's sweep (every few minutes) rewrites the tools' Nginx snippet and PHP-FPM pool when they differ from what NimVor now writes, validated with `nginx -t` and `php-fpm -t` and rolled back if either refuses it.
+
 ## [2.8.0] — 2026-11-26
 
 Mail names that turn themselves on, phpMyAdmin and Adminer with one-click sign-in, a step-by-step website wizard and ClickHouse in the app installer. Panel and agent: upgrade both with `sudo nimvor update` (two database migrations, 0087 and 0089; the agent restarts and learns the `dbtools.*` actions). phpMyAdmin and Adminer need the panel to be served by NimVor's own Nginx site (`--public-https`) and are installed by an administrator under Databases → Database tools.
