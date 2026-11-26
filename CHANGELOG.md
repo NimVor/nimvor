@@ -8,7 +8,7 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [2.8.0] — 2026-11-26
 
-Mail names that turn themselves on, phpMyAdmin and Adminer with one-click sign-in, a step-by-step website wizard and ClickHouse in the app installer. Panel and agent: upgrade both with `sudo nimvor update` (three database migrations, 0087–0089; the agent restarts and learns the `dbtools.*` actions). phpMyAdmin and Adminer need the panel to be served by NimVor's own Nginx site (`--public-https`) and are installed by an administrator under Databases → Database tools.
+Mail names that turn themselves on, phpMyAdmin and Adminer with one-click sign-in, a step-by-step website wizard and ClickHouse in the app installer. Panel and agent: upgrade both with `sudo nimvor update` (two database migrations, 0087 and 0089; the agent restarts and learns the `dbtools.*` actions). phpMyAdmin and Adminer need the panel to be served by NimVor's own Nginx site (`--public-https`) and are installed by an administrator under Databases → Database tools.
 
 ### Added
 - **ClickHouse** in the app installer (*testing* status, so only administrators can install it until you have tried it). It runs as a service behind a reverse-proxy website, checked against the SHA-256 GitHub reports for its release file, with only its HTTP interface on the local port and one login whose password is stored hashed. Database migration 0089.
