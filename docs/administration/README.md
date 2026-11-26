@@ -2234,6 +2234,9 @@ install **phpMyAdmin** and **Adminer** under *Databases → Database tools*. Use
   hours (`dbtools.signon_sweep`), and removing the last tool locks all of them. Opening the tool again from the same
   database gives a new password and ends the earlier window's session. Only databases the user may manage in NimVor can
   be opened; the tools never get the database server's root account.
+- The tools' Nginx snippet and PHP-FPM pool are kept up to date by the scheduler's sweep: when a release changes what
+  NimVor writes for them, the next sweep (within minutes of an update) rewrites them, validated and rolled back on
+  failure, so a tool does not have to be installed again.
 - Without that link, users sign in to the tool with a database user's own name and password. Because the tools share the panel's address,
   treat them like any third-party program next to the panel: install them only when somebody needs them, and remove
   them when not.

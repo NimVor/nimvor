@@ -153,7 +153,12 @@ const adminerSignon = `$f = static fn (string $v): string => htmlspecialchars($v
 <input type="hidden" name="auth[db]" value="<?= $f($d['db']) ?>">
 <noscript><button>Sign in</button></noscript>
 </form>
-<script>document.forms[0].submit();</script>
+<script>
+// Adminer keeps the password encrypted with a cookie it sets when it shows its own sign-in page: ask for that page
+// first, then sign in.
+var go = function () { document.forms[0].submit(); };
+fetch('index.php', { credentials: 'same-origin' }).then(go, go);
+</script>
 `
 
 func toolByID(id string) (Tool, bool) {
@@ -263,6 +268,13 @@ func (e env) renderPool() string {
 		"php_admin_value[disable_functions] = exec,passthru,shell_exec,system,proc_open,popen,pcntl_exec\n"
 }
 
+// frontPHP is what a tool's front PHP files may be called (index.php, nimvor-signon.php …): only these run, and
+// only directly under the tool's folder.
+const frontPHP = `[A-Za-z0-9_-]+\.php`
+
+// phpmyadminMessages is the one PHP file below a tool's top folder that has to run (phpMyAdmin's js/messages.php).
+const phpmyadminMessages = `js/messages\.php`
+
 // renderSnippet is the Nginx part the panel's site includes: one location for all installed tools. Only the
 // front PHP files of a tool run (never the ones in its subfolders), and files of the tools that hold settings,
 // libraries or temporary data are not served.
@@ -272,7 +284,17 @@ func (e env) renderSnippet(ids []string) string {
 	b.WriteString("# " + header + "\n")
 	b.WriteString("location ^~ /dbtools/ {\n    root " + e.wwwDir() + ";\n    index index.php;\n    absolute_redirect off;\n    client_max_body_size 110m;\n")
 	b.WriteString("    add_header X-Content-Type-Options \"nosniff\" always;\n    add_header X-Frame-Options \"SAMEORIGIN\" always;\n    add_header Referrer-Policy \"same-origin\" always;\n")
-	fmt.Fprintf(&b, "    location ~ ^/dbtools/(%s)/[A-Za-z0-9_]+\\.php$ {\n        include fastcgi_params;\n        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;\n        fastcgi_param HTTPS on;\n        fastcgi_pass unix:%s;\n        fastcgi_read_timeout 300s;\n    }\n", alt, e.socket())
+	php := func(pattern string) {
+		fmt.Fprintf(&b, "    location ~ %s {\n        include fastcgi_params;\n        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;\n        fastcgi_param HTTPS on;\n        fastcgi_pass unix:%s;\n        fastcgi_read_timeout 300s;\n    }\n", pattern, e.socket())
+	}
+	php("^/dbtools/(" + alt + ")/" + frontPHP + "$")
+	// phpMyAdmin's JavaScript fetches its text strings from this one file below its js folder; without it the page loads
+	// but nothing responds to clicks.
+	for _, id := range ids {
+		if id == "phpmyadmin" {
+			php(`^/dbtools/phpmyadmin/` + phpmyadminMessages + `$`)
+		}
+	}
 	b.WriteString("    location ~* \\.php$ {\n        return 404;\n    }\n")
 	b.WriteString("    location ~ /\\. {\n        deny all;\n    }\n")
 	b.WriteString("    location ~ ^/dbtools/[a-z]+/(libraries|setup|vendor|templates|sql|tmp|config|doc|examples)/ {\n        deny all;\n    }\n")

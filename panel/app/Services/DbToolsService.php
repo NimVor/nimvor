@@ -93,8 +93,14 @@ final class DbToolsService
             return '';
         }
         $res = (array) $this->agent->call('dbtools.signon_sweep', [], 60);
-        $n = (int) ($res['locked'] ?? 0);
-        return $n > 0 ? 'database tools: locked ' . $n . ' sign-in account(s)' : '';
+        $parts = [];
+        if ((int) ($res['locked'] ?? 0) > 0) {
+            $parts[] = 'locked ' . (int) $res['locked'] . ' sign-in account(s)';
+        }
+        if (!empty($res['refreshed'])) {
+            $parts[] = 'brought the tools\' web configuration up to date';
+        }
+        return $parts === [] ? '' : 'database tools: ' . implode(', ', $parts);
     }
 
     private function known(string $tool): void

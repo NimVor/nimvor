@@ -103,9 +103,20 @@ func registerSignon(r *actions.Registry, e env) {
 		if err := host.Decode(raw, &struct{}{}); err != nil {
 			return nil, err
 		}
+		defer e.LockWebConfig()()
 		mu.Lock()
 		defer mu.Unlock()
-		return e.sweep(ctx, c, false)
+		// First bring the installed tools' Nginx snippet and PHP-FPM pool up to date: what a release changed in them
+		// (a pattern that was too strict, say) must not wait for someone to install the tool again.
+		refreshed, rerr := e.refresh(ctx)
+		if rerr != nil {
+			e.Log.Warn("the database tools' configuration could not be refreshed", "err", rerr)
+		}
+		res, err := e.sweep(ctx, c, false)
+		if err == nil && refreshed {
+			res["refreshed"] = true
+		}
+		return res, err
 	}})
 }
 

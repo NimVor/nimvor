@@ -161,3 +161,110 @@ func TestRemovingTheLastToolLocksEverySignonAccount(t *testing.T) {
 		t.Error("sign-in accounts were left open after removing the last tool")
 	}
 }
+
+// The 404 on a real server: nginx only runs a tool's front PHP files whose name matches the snippet's pattern, and
+// the sign-in page's name has a hyphen. Check every PHP file NimVor writes for a tool against that pattern.
+func TestTheSnippetRunsEveryFrontFileTheToolsWrite(t *testing.T) {
+	for _, tool := range Tools {
+		re := regexp.MustCompile(`^/dbtools/(` + tool.ID + `)/` + frontPHP + `$`)
+		for name := range tool.Def.Files {
+			if !strings.HasSuffix(name, ".php") || strings.Contains(name, "/") {
+				continue
+			}
+			if name == "config.inc.php" { // settings, never run directly
+				if re.MatchString("/dbtools/" + tool.ID + "/" + name) {
+					t.Errorf("%s: %s must not be a front file", tool.ID, name)
+				}
+				continue
+			}
+			if !re.MatchString("/dbtools/" + tool.ID + "/" + name) {
+				t.Errorf("%s: nginx would answer 404 for /dbtools/%s/%s", tool.ID, tool.ID, name)
+			}
+		}
+	}
+	re := regexp.MustCompile(`^/dbtools/(phpmyadmin)/` + frontPHP + `$`)
+	for _, bad := range []string{"/dbtools/phpmyadmin/libraries/classes/Core.php", "/dbtools/phpmyadmin/config.inc.php", "/dbtools/phpmyadmin/.php", "/dbtools/phpmyadmin/x.php/y", "/dbtools/phpmyadmin/a b.php"} {
+		if re.MatchString(bad) {
+			t.Errorf("%s must not run", bad)
+		}
+	}
+}
+
+// A snippet written by an earlier NimVor is brought up to date by the scheduler's sweep, validated and reloaded.
+func TestSweepRefreshesAnOutdatedSnippet(t *testing.T) {
+	h, e, r := signonSetup(t)
+	path := "etc/nginx/nimvor-dbtools.d/dbtools.conf"
+	old := strings.Replace(h.Read(path), "[A-Za-z0-9_-]+", "[A-Za-z0-9_]+", 1)
+	if err := os.WriteFile(filepath.Join(h.Base, path), []byte(old), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res, err := callAction(t, r, "dbtools.signon_sweep", struct{}{})
+	if err != nil || res["refreshed"] != true {
+		t.Fatalf("sweep: %v %v", res, err)
+	}
+	if got := h.Read(path); !strings.Contains(got, "[A-Za-z0-9_-]+") || strings.Contains(got, "[A-Za-z0-9_]+") {
+		t.Errorf("the snippet was not refreshed:\n%s", got)
+	}
+	// Up to date: nothing is rewritten or reloaded again.
+	res, _ = callAction(t, r, "dbtools.signon_sweep", struct{}{})
+	if _, again := res["refreshed"]; again {
+		t.Error("an up-to-date snippet was refreshed again")
+	}
+
+	// An Nginx that refuses the new snippet leaves the old one as it was.
+	if err := os.WriteFile(filepath.Join(h.Base, path), []byte(old), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	h.Fail["nginx -t"] = "nginx: [emerg] test failure"
+	h.FailFrom["nginx -t"] = 1
+	res, err = callAction(t, r, "dbtools.signon_sweep", struct{}{})
+	if err != nil {
+		t.Fatalf("a failed refresh must not fail the sweep: %v", err)
+	}
+	if _, did := res["refreshed"]; did || h.Read(path) != old {
+		t.Error("a snippet Nginx refused was kept")
+	}
+	_ = e
+}
+
+// On a real server phpMyAdmin's page loaded but nothing responded to clicks: its JavaScript fetches its text strings
+// from js/messages.php, a PHP file below the tool's top folder that the first snippet refused to run.
+func TestPhpMyAdminsMessagesFileRunsAndNothingElseBelowTheTopFolder(t *testing.T) {
+	_, e := setup(t)
+	snippet := e.renderSnippet([]string{"adminer", "phpmyadmin"})
+	if !strings.Contains(snippet, `location ~ ^/dbtools/phpmyadmin/js/messages\.php$ {`) {
+		t.Fatalf("no location for js/messages.php:\n%s", snippet)
+	}
+	if strings.Contains(e.renderSnippet([]string{"adminer"}), "messages") {
+		t.Error("the messages file is for phpMyAdmin only")
+	}
+	// Every PHP location is placed before the rule that answers 404 for any other PHP file.
+	if i, j := strings.Index(snippet, `messages\.php$`), strings.Index(snippet, `location ~* \.php$`); i < 0 || j < 0 || i > j {
+		t.Error("the 404 rule for other PHP files must come last")
+	}
+	re := regexp.MustCompile(`^/dbtools/phpmyadmin/` + phpmyadminMessages + `$`)
+	if !re.MatchString("/dbtools/phpmyadmin/js/messages.php") {
+		t.Error("js/messages.php does not match")
+	}
+	for _, bad := range []string{"/dbtools/phpmyadmin/js/other.php", "/dbtools/phpmyadmin/js/messages.php/x", "/dbtools/phpmyadmin/js/../index.php", "/dbtools/phpmyadmin/libraries/messages.php", "/dbtools/adminer/js/messages.php"} {
+		if re.MatchString(bad) {
+			t.Errorf("%s must not run", bad)
+		}
+	}
+}
+
+// Adminer sets the cookie it encrypts the password with only when it shows its own sign-in page, so the sign-in page asks
+// for that page before it posts.
+func TestAdminersSignInPageLoadsAdminerFirst(t *testing.T) {
+	var body string
+	for _, tool := range Tools {
+		if tool.ID == "adminer" {
+			body = tool.Def.Files["nimvor-signon.php"]
+		}
+	}
+	for _, want := range []string{"fetch('index.php', { credentials: 'same-origin' }).then(go, go);", `<form method="post" action="index.php">`, `name="auth[password]"`, "<noscript>"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the Adminer sign-in page lacks %q", want)
+		}
+	}
+}
