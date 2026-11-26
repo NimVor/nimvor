@@ -226,3 +226,45 @@ func TestSweepRefreshesAnOutdatedSnippet(t *testing.T) {
 	}
 	_ = e
 }
+
+// On a real server phpMyAdmin's page loaded but nothing responded to clicks: its JavaScript fetches its text strings
+// from js/messages.php, a PHP file below the tool's top folder that the first snippet refused to run.
+func TestPhpMyAdminsMessagesFileRunsAndNothingElseBelowTheTopFolder(t *testing.T) {
+	_, e := setup(t)
+	snippet := e.renderSnippet([]string{"adminer", "phpmyadmin"})
+	if !strings.Contains(snippet, `location ~ ^/dbtools/phpmyadmin/js/messages\.php$ {`) {
+		t.Fatalf("no location for js/messages.php:\n%s", snippet)
+	}
+	if strings.Contains(e.renderSnippet([]string{"adminer"}), "messages") {
+		t.Error("the messages file is for phpMyAdmin only")
+	}
+	// Every PHP location is placed before the rule that answers 404 for any other PHP file.
+	if i, j := strings.Index(snippet, `messages\.php$`), strings.Index(snippet, `location ~* \.php$`); i < 0 || j < 0 || i > j {
+		t.Error("the 404 rule for other PHP files must come last")
+	}
+	re := regexp.MustCompile(`^/dbtools/phpmyadmin/` + phpmyadminMessages + `$`)
+	if !re.MatchString("/dbtools/phpmyadmin/js/messages.php") {
+		t.Error("js/messages.php does not match")
+	}
+	for _, bad := range []string{"/dbtools/phpmyadmin/js/other.php", "/dbtools/phpmyadmin/js/messages.php/x", "/dbtools/phpmyadmin/js/../index.php", "/dbtools/phpmyadmin/libraries/messages.php", "/dbtools/adminer/js/messages.php"} {
+		if re.MatchString(bad) {
+			t.Errorf("%s must not run", bad)
+		}
+	}
+}
+
+// Adminer sets the cookie it encrypts the password with only when it shows its own sign-in page, so the sign-in page asks
+// for that page before it posts.
+func TestAdminersSignInPageLoadsAdminerFirst(t *testing.T) {
+	var body string
+	for _, tool := range Tools {
+		if tool.ID == "adminer" {
+			body = tool.Def.Files["nimvor-signon.php"]
+		}
+	}
+	for _, want := range []string{"fetch('index.php', { credentials: 'same-origin' }).then(go, go);", `<form method="post" action="index.php">`, `name="auth[password]"`, "<noscript>"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the Adminer sign-in page lacks %q", want)
+		}
+	}
+}

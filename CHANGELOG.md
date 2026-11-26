@@ -8,6 +8,7 @@ All notable changes to NimVor are documented here. The format follows
 
 ### Fixed
 - **One-click sign-in to phpMyAdmin and Adminer showed "404 Not Found".** The web server only ran a tool's front PHP files when their name had letters, digits and underscores, and the sign-in page is `nimvor-signon.php`. The pattern now allows a hyphen. Servers that already have the tools get the corrected configuration by themselves: the scheduler's sweep (every few minutes) rewrites the tools' Nginx snippet and PHP-FPM pool when they differ from what NimVor now writes, validated with `nginx -t` and `php-fpm -t` and rolled back if either refuses it.
+- **phpMyAdmin showed its page but nothing responded to clicks.** Its JavaScript fetches its text strings from `js/messages.php`, a PHP file the web server refused to run; it now runs (that one file only). **Adminer's one-click sign-in landed on Adminer's sign-in page:** Adminer encrypts the stored password with a cookie it only sets when it shows its own page, so the sign-in page now asks for that page first and then signs in.
 
 ## [2.8.0] — 2026-11-26
 
