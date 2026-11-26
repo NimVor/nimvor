@@ -103,7 +103,7 @@ func TestInstallAndRemove(t *testing.T) {
 		}
 	}
 	snip := h.Read("etc/nginx/nimvor-dbtools.d/dbtools.conf")
-	for _, want := range []string{"location ^~ /dbtools/ {", "root /var/lib/nimvor-dbtools/www;", "^/dbtools/(phpmyadmin)/[A-Za-z0-9_]+\\.php$", "fastcgi_pass unix:/run/php/nimvor-dbtools.sock;", "absolute_redirect off;"} {
+	for _, want := range []string{"location ^~ /dbtools/ {", "root /var/lib/nimvor-dbtools/www;", "^/dbtools/(phpmyadmin)/[A-Za-z0-9_-]+\\.php$", "fastcgi_pass unix:/run/php/nimvor-dbtools.sock;", "absolute_redirect off;"} {
 		if !strings.Contains(snip, want) {
 			t.Errorf("snippet lacks %q:\n%s", want, snip)
 		}
