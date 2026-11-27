@@ -104,7 +104,7 @@ $showOwner = $this->can(P::USERS_VIEW);
                     : ' href="' . e($this->url('services')) . '"')
                 : '';
             ?>
-            <<?= $svcTag ?> class="nim-svc"<?= $svcAttr ?> title="<?= $nginxWindow ? 'Nginx settings' : 'Web server' ?>"><?= $this->logo('nginx', 16, 'nim-logo-chip') ?: '<i class="bi bi-hdd-rack" aria-hidden="true"></i>' ?>Nginx <?= e($nginxVersion) ?> <i class="bi bi-play-fill" aria-hidden="true"></i></<?= $svcTag ?>>
+            <<?= $svcTag ?> class="nim-svc"<?= $svcAttr ?> title="<?= $nginxWindow ? 'Nginx settings' : 'Web server' ?>"><?= $this->logo('nginx', 20, 'nim-logo-chip') ?: '<i class="bi bi-hdd-rack" aria-hidden="true"></i>' ?>Nginx <?= e($nginxVersion) ?> <i class="bi bi-play-fill" aria-hidden="true"></i></<?= $svcTag ?>>
         <?php endif; ?>
         <div class="nim-actionbar-end">
             <select class="form-select form-select-sm w-auto" aria-label="Show" data-nim-dt-select="status">

@@ -478,7 +478,7 @@
         function label(el) {
             if (!el) { return ''; }
             if (el.tagName === 'SELECT') { return el.options[el.selectedIndex] ? el.options[el.selectedIndex].text : ''; }
-            if (el.type === 'radio') { var l = form.querySelector('label[for="' + el.id + '"]'); return l ? l.textContent.trim() : el.value; }
+            if (el.type === 'radio') { var l = form.querySelector('label[for="' + el.id + '"]'); var t = l ? (l.querySelector('[data-nim-label]') || l) : null; return t ? t.textContent.trim() : el.value; }
             return el.value.trim();
         }
         function review() {

@@ -86,21 +86,24 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
                         // feature is off for this account are not shown.
                         $allowedTypes ??= ['type_php' => true, 'type_static' => true, 'type_nodejs' => true, 'type_python' => true, 'type_proxy' => true];
                         $kindCards = array_values(array_filter([
-                            ['php', 'PHP application', 'filetype-php', 'type_php'],
-                            ['static', 'Static site', 'file-earmark-code', 'type_static'],
-                            ['nodejs', 'Node.js', 'hexagon', 'type_nodejs'],
-                            ['python', 'Python', 'filetype-py', 'type_python'],
-                            ['proxy', 'Reverse proxy', 'hdd-network', 'type_proxy'],
+                            ['php', 'PHP application', 'filetype-php', 'type_php', 'WordPress, Laravel and other PHP apps, with PHP-FPM and a database.'],
+                            ['static', 'Static site', 'file-earmark-code', 'type_static', 'HTML, CSS and JavaScript files, served directly by Nginx.'],
+                            ['nodejs', 'Node.js', 'hexagon', 'type_nodejs', 'A Node.js app kept running as a service behind Nginx.'],
+                            ['python', 'Python', 'filetype-py', 'type_python', 'A Python app (Django, Flask, FastAPI) kept running as a service.'],
+                            ['proxy', 'Reverse proxy', 'hdd-network', 'type_proxy', 'Send a domain to an app already running on a local port or another server.'],
                         ], static fn (array $c): bool => !empty($allowedTypes[$c[3]])));
                         $kindChosen = false;
                         ?>
-                        <div class="row row-cols-2 row-cols-sm-4 g-2" role="radiogroup" aria-label="Application type">
-                            <?php foreach ($kindCards as $i => [$k, $label, $icon]): $checked = !$kindChosen && $kind === $k; if ($checked) { $kindChosen = true; } ?>
+                        <div class="row row-cols-1 row-cols-md-2 g-2" role="radiogroup" aria-label="Application type">
+                            <?php foreach ($kindCards as $i => [$k, $label, $icon, , $about]): $checked = !$kindChosen && $kind === $k; if ($checked) { $kindChosen = true; } ?>
                                 <div class="col">
                                     <input type="radio" class="btn-check" name="kind" id="f-kind-<?= $i ?>" value="<?= e($k) ?>" data-nim-toggle-kind autocomplete="off"<?= $checked ? ' checked' : '' ?>>
-                                    <label class="btn btn-outline-secondary w-100 h-100 py-3 d-flex flex-column align-items-center justify-content-center gap-1" for="f-kind-<?= $i ?>">
-                                        <?= $this->logo($k, 32, 'nim-logo-card') ?: '<i class="bi bi-' . e($icon) . ' fs-4" aria-hidden="true"></i>' ?>
-                                        <span class="small"><?= e($label) ?></span>
+                                    <label class="nim-type-card" for="f-kind-<?= $i ?>">
+                                        <span class="nim-type-tile"><?= $this->logo($k === 'proxy' ? 'nginx' : $k, 36) ?: '<i class="bi bi-' . e($icon) . '" aria-hidden="true"></i>' ?></span>
+                                        <span class="nim-type-text">
+                                            <span class="nim-type-title" data-nim-label><?= e($label) ?></span>
+                                            <span class="nim-type-desc"><?= e($about) ?></span>
+                                        </span>
                                     </label>
                                 </div>
                             <?php endforeach; ?>

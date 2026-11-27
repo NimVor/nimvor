@@ -5,7 +5,8 @@ tiles, chips, application-type cards and window titles, so a card says "Nginx" w
 
 | File | Software | Source |
 |---|---|---|
-| nginx.png, php.png, mariadb.png, mongodb.png, postgresql.png, redis.png, nodejs.png, python.png | Nginx, PHP, MariaDB, MongoDB, PostgreSQL, Redis, Node.js, Python | [devicon](https://github.com/devicons/devicon) 2.16.0 (MIT licence), `*-original.svg`, rendered to PNG |
+| php.png, mariadb.png, mongodb.png, postgresql.png, redis.png, nodejs.png, python.png | PHP, MariaDB, MongoDB, PostgreSQL, Redis, Node.js, Python | [devicon](https://github.com/devicons/devicon) 2.16.0 (MIT licence), `*-original.svg`, rendered to PNG |
+| nginx.png | Nginx (the "N" mark, in its green) | [Simple Icons](https://github.com/simple-icons/simple-icons) 11.14.0 (CC0), rendered to PNG |
 
 The marks and names belong to their projects and owners. They are shown only to identify the software NimVor installs and
 manages (nominative use) and say nothing about endorsement. Software without a logo here (Postfix, Dovecot, PowerDNS, FTP, the
