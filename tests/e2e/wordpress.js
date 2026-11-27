@@ -36,6 +36,7 @@ const DEV_ROOT = path.resolve(__dirname, '../../.dev/root');
     await page.click('label.nim-choice:has(input[name=owner_mode][value=none])'); // an administrator says who owns it
     await page.fill('#f-domain', domain);
     
+    await page.click('[data-nim-wizard-next]'); await page.click('[data-nim-wizard-next]'); // settings, then review
     await submit('main form[action="/websites/new"] button[type=submit]');
     await page.goto(BASE + '/websites');
     const link = await page.$(`tr:has-text("${domain}") a[href^="/sites/"]`) || await page.$(`a[href^="/sites/"]:has-text("${domain}")`);

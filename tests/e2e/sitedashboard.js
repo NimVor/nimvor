@@ -67,6 +67,7 @@ const DEV_ROOT = path.resolve(__dirname, '../../.dev/root');
     await page.selectOption('#f-owner', ownerValue);
     
     // The form is sent by the AJAX layer (the next page loads in place).
+    await page.click('[data-nim-wizard-next]'); await page.click('[data-nim-wizard-next]'); // settings, then review
     await Promise.all([page.waitForResponse(r => r.url().endsWith('/websites/new') && r.request().method() === 'POST'), page.click('main form[action="/websites/new"] button[type=submit]')]);
     await page.waitForLoadState('networkidle');
     await page.goto(BASE + '/websites');

@@ -17,24 +17,28 @@ final class CreateWizardTest extends HttpTestCase
         $this->login('admin');
     }
 
-    public function testThePageIsATypePickerThenOneFocusedForm(): void
+    public function testThePageHasFourSteps(): void
     {
         $page = $this->request('GET', '/websites/new')->body();
         self::assertStringContainsString('data-nim-wizard', $page);
-        foreach ([1, 2] as $n) {
+        foreach ([1, 2, 3, 4] as $n) {
+            self::assertStringContainsString('data-nim-step-tab="' . $n . '"', $page, 'the progress bar');
             self::assertStringContainsString('data-nim-step="' . $n . '"', $page);
         }
-        self::assertStringNotContainsString('data-nim-step="3"', $page, 'two stages, not four steps');
-        self::assertStringNotContainsString('data-nim-review', $page);
-        self::assertStringContainsString('class="nim-type-card"', $page, 'the type cards');
-        self::assertStringContainsString('name="domain"', $page);
-        self::assertStringContainsString('name="kind"', $page);
-        self::assertStringContainsString('name="php_version"', $page);
-        self::assertStringContainsString('<summary>Advanced settings</summary>', $page, 'the rarely used settings are folded');
-        self::assertStringContainsString('data-nim-wizard-submit', $page);
-        foreach (['name="system_user"', 'name="client_max_body_mb"'] as $advanced) {
-            self::assertGreaterThan(strpos($page, '<summary>Advanced settings</summary>'), strpos($page, $advanced), $advanced . ' is inside the advanced settings');
+        self::assertStringNotContainsString('data-nim-step="5"', $page);
+        foreach (['Domain and owner', 'Review and create'] as $heading) {
+            self::assertStringContainsString($heading, $page, 'each step has its own heading');
         }
+        self::assertStringContainsString('class="nim-type-card"', $page, 'step 1: the type cards');
+        self::assertStringContainsString('data-nim-review', $page, 'step 4: the review');
+        foreach (['data-nim-wizard-back', 'data-nim-wizard-next', 'data-nim-wizard-submit'] as $button) {
+            self::assertStringContainsString($button, $page, $button);
+        }
+        // What belongs to which step: domain and owner are step 2, the type's settings and the folded advanced ones step 3.
+        $at = static fn (string $needle): int => (int) strpos($page, $needle);
+        self::assertGreaterThan($at('data-nim-step="2"'), $at('name="domain"'));
+        self::assertLessThan($at('<summary>Advanced settings</summary>'), $at('name="php_version"'));
+        self::assertGreaterThan($at('<summary>Advanced settings</summary>'), $at('name="system_user"'), 'advanced settings are folded');
     }
 
     public function testTheSettingsPageIsNotAWizard(): void
@@ -63,7 +67,7 @@ final class CreateWizardTest extends HttpTestCase
         self::assertStringContainsString('data-nim-wizard', $html);
         self::assertStringContainsString('data-nim-site-modal-form', $html, 'sent in the background');
         self::assertStringContainsString('data-nim-modal-error', $html);
-        foreach ([1, 2] as $n) {
+        foreach ([1, 2, 3, 4] as $n) {
             self::assertStringContainsString('data-nim-step="' . $n . '"', $html);
         }
         self::assertStringContainsString('name="domain"', $html);

@@ -25,9 +25,9 @@ $aliases = $old['aliases'] ?? implode("\n", $site['aliases'] ?? []);
 $docSub = $site === null ? '' : ltrim(substr((string) $site['document_root'], strlen((string) $site['root'])), '/');
 $err = static fn (string $k): string => isset($errors[$k]) ? '<div class="invalid-feedback d-block">' . e($errors[$k]) . '</div>' : '';
 $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
-// A new website is two stages: pick the type (its card opens the form), then one focused form for that type. Advanced settings are folded.
-$st = static fn (int $n): string => $site === null ? ' data-nim-step="' . ($n === 1 ? 1 : 2) . '"' : '';
-$steps = [1 => 'Type', 2 => 'Details'];
+// A new website is created step by step: 1 type, 2 domain and owner, 3 settings of that type, 4 review. The form and its field names are the same.
+$st = static fn (int $n): string => $site === null ? ' data-nim-step="' . $n . '"' : '';
+$steps = [1 => 'Type', 2 => 'Domain', 3 => 'Settings', 4 => 'Review'];
 // The website types, with what each needs (cards whose feature is off for this account are not shown). Node.js and Python are hosted as a
 // reverse proxy to the app's local port.
 $allowedTypes ??= ['type_php' => true, 'type_static' => true, 'type_nodejs' => true, 'type_python' => true, 'type_proxy' => true];
@@ -57,24 +57,24 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
 <?php if ($hidden !== []): ?>
     <div class="alert alert-danger"><?php foreach ($hidden as $m): ?><div><?= e((string) $m) ?></div><?php endforeach; ?></div>
 <?php endif; ?>
+<?php if ($isNew): ?>
+<ol class="nim-wizard-steps" aria-label="Steps">
+    <?php foreach ($steps as $n => $label): ?><li class="nim-wizard-tab" data-nim-step-tab="<?= $n ?>"><span class="nim-wizard-num"><?= $n ?></span><span class="nim-wizard-label"><?= e($label) ?></span></li><?php endforeach; ?>
+</ol>
+<?php endif; ?>
 <form method="post" action="<?= e($isNew ? $this->url('sites.store') : $this->url('sites.update', ['id' => (int) $site['id']])) ?>"<?= $modal ? ' data-nim-site-modal-form' : ' data-nim-busy' ?> novalidate<?= $isNew ? ' data-nim-wizard' : '' ?>>
     <?= $this->csrfField() ?>
     <?php if ($modal): ?><div class="alert alert-danger d-none" role="alert" data-nim-modal-error></div><?php endif; ?>
     <div class="row g-3">
         <div class="<?= $isNew ? ($modal ? 'col-12' : 'col-lg-8 mx-auto') : 'col-lg-6' ?>">
             <?php if ($isNew): ?>
+            <?php /* The chosen type stays in view from step 2 on (hidden on step 1 by nimvor.css). */ ?>
             <?php foreach ($kindCards as [$k, $label, $icon, , $about]): ?>
-                <div class="nim-type-head" data-nim-kind="<?= e($k) ?>" data-nim-step="2">
-                    <button type="button" class="btn btn-link btn-sm p-0 mb-2 text-decoration-none" data-nim-wizard-back><i class="bi bi-chevron-left" aria-hidden="true"></i> Change type</button>
-                    <div class="d-flex align-items-center gap-3">
-                        <span class="nim-type-tile"><?= $this->logo($k === 'proxy' ? 'nginx' : $k, 36) ?: '<i class="bi bi-' . e($icon) . '" aria-hidden="true"></i>' ?></span>
-                        <div>
-                            <h3 class="h6 mb-0">New <?= e(strtolower($label) === 'php application' ? 'PHP website' : ($k === 'static' ? 'static website' : ($k === 'proxy' ? 'reverse proxy' : $label . ' website'))) ?></h3>
-                            <div class="small text-body-secondary"><?= e($about) ?></div>
-                        </div>
-                    </div>
-                </div>
+                <div class="nim-type-chip" data-nim-kind="<?= e($k) ?>"><span class="nim-type-tile"><?= $this->logo($k === 'proxy' ? 'nginx' : $k, 24) ?: '<i class="bi bi-' . e($icon) . '" aria-hidden="true"></i>' ?></span><span><strong><?= e($label) ?></strong></span></div>
             <?php endforeach; ?>
+            <div class="nim-step-head" data-nim-step="2"><h3>Domain and owner</h3><p>The address the website answers on, and who it belongs to.</p></div>
+            <div class="nim-step-head" data-nim-step="3"><h3>Settings</h3><p>How the website runs. All of this can be changed later.</p></div>
+            <div class="nim-step-head" data-nim-step="4"><h3>Review and create</h3><p>Check the details, then create the website.</p></div>
             <?php endif; ?>
             <div class="card mb-3" id="domains"<?= $st(2) ?>>
                 <div class="card-header"><i class="bi bi-globe2 me-1"></i>Domains</div>
@@ -103,6 +103,7 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
                         <label class="nim-choice"><input type="radio" name="owner_mode" value="none" required<?= $ownerMode === 'none' ? ' checked' : '' ?>><span>No customer (administrators only)</span></label>
                     </div>
                     <?= $err('owner_mode') ?>
+                    <div class="invalid-feedback" data-nim-owner-error></div>
                     <div class="mt-2<?= $ownerMode === 'existing' ? '' : ' d-none' ?>" data-nim-owner-pane="existing">
                         <?php if ($customers === []): ?>
                             <div class="small text-body-secondary">There are no customers yet. Choose "New customer account" to create one with this website.</div>
@@ -235,7 +236,7 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
             </div>
         <?php if (!$isNew): ?></div>
         <div class="col-lg-6"><?php endif; ?>
-            <?php if ($isNew): ?><details class="nim-adv" data-nim-step="2"><summary>Advanced settings</summary><div class="nim-adv-body"><?php endif; ?>
+            <?php if ($isNew): ?><details class="nim-adv" data-nim-step="3"><summary>Advanced settings</summary><div class="nim-adv-body"><?php endif; ?>
             <?php if ($serverPhp): /* Admins/operators set the account and owner; a hosting customer owns what they create and the account is derived from the domain. */ ?>
             <div class="card mb-3">
                 <div class="card-header"><i class="bi bi-person me-1"></i>System user</div>
@@ -327,20 +328,36 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
             </div>
             <?php if ($isNew): ?>
             </div></details>
-            <div class="form-check mb-3" data-nim-kind="php static" data-nim-step="2">
-                <input class="form-check-input" type="checkbox" id="f-after-apps" name="after_apps" value="1"<?= !empty($old['after_apps']) ? ' checked' : '' ?>>
-                <label class="form-check-label" for="f-after-apps">Open the app installer afterwards (WordPress, Joomla, Nextcloud …)</label>
+            <div class="card mb-3"<?= $st(4) ?>>
+                <div class="card-header"><i class="bi bi-check2-circle me-1"></i>Review</div>
+                <div class="card-body">
+                    <dl class="row mb-0 small nim-review" data-nim-review>
+                        <dt class="col-sm-4">Domain</dt><dd class="col-sm-8" data-nim-review-field="domain"></dd>
+                        <dt class="col-sm-4">Type</dt><dd class="col-sm-8" data-nim-review-field="kind"></dd>
+                        <dt class="col-sm-4">Owner</dt><?php if ($serverPhp): ?><dd class="col-sm-8" data-nim-review-field="owner"></dd><?php else: $meR = (array) ($this->shared('user') ?? []); ?><dd class="col-sm-8"><?= e((string) (($meR['display_name'] ?? '') !== '' ? $meR['display_name'] : ($meR['username'] ?? 'You'))) ?> (you)</dd><?php endif; ?>
+                        <dt class="col-sm-4" data-nim-kind="php">PHP version</dt><dd class="col-sm-8" data-nim-kind="php" data-nim-review-field="php_version"></dd>
+                        <dt class="col-sm-4" data-nim-kind="nodejs python">Runtime and port</dt><dd class="col-sm-8" data-nim-kind="nodejs python" data-nim-review-field="app_runtime"></dd>
+                        <dt class="col-sm-4" data-nim-kind="proxy">Upstream</dt><dd class="col-sm-8" data-nim-kind="proxy" data-nim-review-field="proxy_pass"></dd>
+                        <dt class="col-sm-4">Document root</dt><dd class="col-sm-8" data-nim-review-field="document_root_sub"></dd>
+                    </dl>
+                    <div class="form-check mt-3" data-nim-kind="php static">
+                        <input class="form-check-input" type="checkbox" id="f-after-apps" name="after_apps" value="1"<?= !empty($old['after_apps']) ? ' checked' : '' ?>>
+                        <label class="form-check-label" for="f-after-apps">Open the app installer afterwards (WordPress, Joomla, Nextcloud …)</label>
+                    </div>
+                    <p class="text-body-secondary small mt-3 mb-0">Nginx is validated before it is reloaded, and the website is removed again if anything fails. DNS and email follow your account's defaults.</p>
+                </div>
             </div>
-            <p class="text-body-secondary small mb-0" data-nim-step="2">Nginx is validated before it is reloaded, and the website is removed again if anything fails. DNS and email follow your account's defaults.</p>
             <?php endif; ?>
         </div>
     </div>
     <?php if ($isNew): ?>
-    <?php /* The footer shows on the second stage only (the type cards open it): Cancel and Create website. */ ?>
-    <div class="nim-wizard-foot" data-nim-wizard-submit>
-        <?php if ($modal): ?><button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
-        <?php else: ?><a class="btn btn-outline-secondary" href="<?= e($this->url('websites')) ?>">Cancel</a><?php endif; ?>
-        <button class="btn btn-primary" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Create website</button>
+    <?php /* One footer: Cancel on the left; Back, Next and (on the last step) Create website on the right. nimvor.js shows what the step needs. */ ?>
+    <div class="nim-wizard-foot">
+        <?php if ($modal): ?><button class="btn btn-outline-secondary me-auto" type="button" data-bs-dismiss="modal">Cancel</button>
+        <?php else: ?><a class="btn btn-outline-secondary me-auto" href="<?= e($this->url('websites')) ?>">Cancel</a><?php endif; ?>
+        <button class="btn btn-outline-secondary" type="button" data-nim-wizard-back hidden>Back</button>
+        <button class="btn btn-primary" type="button" data-nim-wizard-next>Next</button>
+        <button class="btn btn-primary" type="submit" data-nim-wizard-submit hidden><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Create website</button>
     </div>
     <?php else: ?>
     <div class="d-flex gap-2 align-items-center">

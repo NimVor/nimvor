@@ -30,6 +30,7 @@ const DEV = path.resolve(__dirname, '../../.dev');
     await page.click('label.nim-choice:has(input[name=owner_mode][value=none])'); // an administrator says who owns it
     await page.fill('#f-domain', domain);
     
+    await page.click('[data-nim-wizard-next]'); await page.click('[data-nim-wizard-next]'); // settings, then review
     await Promise.all([page.waitForNavigation(), page.click('main form[action="/websites/new"] button[type=submit]')]);
     const siteId = execFileSync('sqlite3', [path.join(DEV, 'nimvor.sqlite'), `SELECT id FROM websites WHERE domain = '${domain}'`]).toString().trim();
     const dbName = 'imp_' + stamp.slice(-6);

@@ -478,7 +478,7 @@
     function initWizard(form) {
         var steps = Array.prototype.slice.call(form.querySelectorAll('[data-nim-step]'));
         if (!steps.length) { return; }
-        var nav = form.querySelector('[data-nim-wizard-nav]');
+        var backs = form.querySelectorAll('[data-nim-wizard-back]'), nexts = form.querySelectorAll('[data-nim-wizard-next]');
         var submit = form.querySelector('[data-nim-wizard-submit]');
         var tabs = document.querySelectorAll('[data-nim-step-tab]');
         var last = steps.reduce(function (m, el) { return Math.max(m, parseInt(el.getAttribute('data-nim-step'), 10) || 1); }, 1), cur = 1;
@@ -495,13 +495,22 @@
         function label(el) {
             if (!el) { return ''; }
             if (el.tagName === 'SELECT') { return el.options[el.selectedIndex] ? el.options[el.selectedIndex].text : ''; }
-            if (el.type === 'radio') { var l = form.querySelector('label[for="' + el.id + '"]'); var t = l ? (l.querySelector('[data-nim-label]') || l) : null; return t ? t.textContent.trim() : el.value; }
+            if (el.type === 'radio') { var l = el.id ? form.querySelector('label[for="' + el.id + '"]') : el.closest('label'); var t = l ? (l.querySelector('[data-nim-label]') || l) : null; return t ? t.textContent.trim() : el.value; }
             return el.value.trim();
+        }
+        // Who the website belongs to, for the review: the chosen option and what goes with it.
+        function ownerText() {
+            var m = field('owner_mode');
+            if (!m) { return ''; }
+            var t = label(m), mode = m.value, d = '';
+            if (mode === 'existing') { d = label(field('owner_id')); }
+            if (mode === 'new') { var em = field('new_email'); d = em ? em.value.trim() : ''; }
+            return t + (d ? ': ' + d : '');
         }
         function review() {
             form.querySelectorAll('[data-nim-review-field]').forEach(function (dd) {
                 var n = dd.getAttribute('data-nim-review-field');
-                var v = label(field(n));
+                var v = n === 'owner' ? ownerText() : label(field(n));
                 if (n === 'app_runtime') { var port = field('app_port'); v = v + (port && port.value ? ' on port ' + port.value : ''); }
                 dd.textContent = v === '' ? '—' : v;
             });
@@ -514,19 +523,31 @@
                 t.classList.toggle('active', k === cur);
                 t.classList.toggle('done', k < cur);
             });
-            if (nav) {
-                nav.hidden = false;
-                nav.querySelector('[data-nim-wizard-back]').hidden = cur === 1;
-                nav.querySelector('[data-nim-wizard-next]').hidden = cur === last;
-            }
+            form.setAttribute('data-nim-cur', String(cur));
+            backs.forEach(function (b) { b.hidden = cur === 1; });
+            nexts.forEach(function (b) { b.hidden = cur === last; });
             if (submit) { submit.hidden = cur !== last; }
             if (cur === last) { review(); }
         }
         function ok(n) {
-            // Step 2 needs a domain; the server checks everything else.
+            // Step 2 needs a domain and (for an administrator) a chosen owner with what goes with it; the server checks everything else.
             if (n === 2) {
                 var d = form.querySelector('[name="domain"]');
                 if (d && d.value.trim() === '') { d.classList.add('is-invalid'); d.focus(); return false; }
+                var oe = form.querySelector('[data-nim-owner-error]');
+                var modes = form.querySelectorAll('input[name="owner_mode"]');
+                if (modes.length) {
+                    var m = field('owner_mode'), bad = null, msg = '';
+                    if (!m) { msg = 'Choose who the website belongs to.'; }
+                    else if (m.value === 'existing' && !(field('owner_id') && field('owner_id').value)) { bad = field('owner_id'); msg = 'Choose the customer.'; }
+                    else if (m.value === 'new' && !(field('new_email') && field('new_email').value.trim())) { bad = field('new_email'); msg = 'Enter the customer\'s email address.'; }
+                    if (msg) {
+                        if (oe) { oe.textContent = msg; oe.classList.add('d-block'); }
+                        if (bad) { bad.classList.add('is-invalid'); bad.focus(); } else if (modes[0]) { modes[0].focus(); }
+                        return false;
+                    }
+                    if (oe) { oe.classList.remove('d-block'); }
+                }
             }
             return true;
         }
@@ -561,7 +582,7 @@
         // After a server-side error, start at the first step that has one.
         var first = 1;
         for (var i = 0; i < steps.length; i++) {
-            if (steps[i].querySelector('.is-invalid, .invalid-feedback')) { first = parseInt(steps[i].getAttribute('data-nim-step'), 10); break; }
+            if (steps[i].querySelector('.is-invalid, .invalid-feedback:not([data-nim-owner-error])')) { first = parseInt(steps[i].getAttribute('data-nim-step'), 10); break; }
         }
         show(first);
     }

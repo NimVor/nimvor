@@ -134,8 +134,7 @@ database server settings and the website quick settings.
 
 ## The new-website form
 
-`sites/form.php` is a two-stage form for a new website (`data-nim-wizard`, steps 1 and 2): the type cards (a click opens stage 2) and one form
-for the chosen type; edit mode shares the file without the wizard. Fields that depend on the type carry `data-nim-kind`, the rarely used
+`sites/form.php` is a four-step wizard for a new website (`data-nim-wizard`, `data-nim-step` 1–4: Type, Domain and owner, Settings, Review; `initWizard` in `nimvor.js` validates a step on *Next*, fills the review summary, and only the last step shows the submit button); a type-card click advances. Edit mode shares the file without the wizard. Fields that depend on the type carry `data-nim-kind`, the rarely used
 ones sit in `details.nim-adv`. The window version is `GET /websites/new/modal`; its form is sent in the background and answered as JSON
 (`SitesController::store`). With `wizard=1` an administrator must send `owner_mode` (`existing` + `owner_id`, `new` + `new_email`
 [+ `new_username`], or `none`); `new` creates the customer through `AccountService::createCustomerWebsite()` and flashes the generated

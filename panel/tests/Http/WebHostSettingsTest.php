@@ -152,10 +152,10 @@ final class WebHostSettingsTest extends HttpTestCase
         self::assertStringContainsString('<option value="8.2" selected>PHP 8.2', $form);
         self::assertMatchesRegularExpression('/name="mail_routing"[^>]*value="remote"[^>]*checked|value="remote"[^>]*checked/', $form);
         $site = $this->request('GET', '/websites/new')->body();
-        self::assertStringContainsString('<option value="8.2" selected>PHP 8.2', $site);
+        self::assertStringContainsString('name="php_version" value="8.2" checked', $site, 'the new website form starts on the default PHP version');
         // A default that is not installed: the newest installed.
         $this->settings->update(['default_php_version' => '8.4'], null);
-        self::assertStringContainsString('<option value="8.3" selected>PHP 8.3', $this->request('GET', '/websites/new')->body());
+        self::assertStringContainsString('name="php_version" value="8.3" checked', $this->request('GET', '/websites/new')->body());
     }
 
     public function testSecurityPoliciesNeedARecentPasswordConfirmation(): void
