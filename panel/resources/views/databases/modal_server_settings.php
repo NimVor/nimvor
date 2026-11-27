@@ -14,6 +14,6 @@
     <?php if (empty($status['settings'])): ?>
         <div class="alert alert-warning small mb-0">The database server's settings could not be read. Is it running?</div>
     <?php else: ?>
-        <?= $this->partial('databases/_server_settings', ['status' => $status]) ?>
+        <?= $this->partial('databases/_server_settings', ['status' => $status, 'modal' => true]) ?>
     <?php endif; ?>
 </div>

@@ -122,6 +122,16 @@ must be safe to run twice. Downloads stay GET links.
 - Destructive forms keep `data-nim-confirm` (and
   `data-nim-confirm-word` for high-risk ones).
 
+## Windows instead of pages
+
+A link marked `data-nim-site-modal` loads a window into the one shared `#nim-site-modal` (in `partials/job_modal.php`, so it is on every
+page) from its `href`, or from `data-nim-modal-href` when the plain `href` is the full page (so Ctrl-click and no-JS still work);
+`data-nim-modal-xl` asks for a wider window. The server answers with the window's HTML only (`modal-header`, `modal-body`); its form
+carries `data-nim-site-modal-form` and `data-nim-modal-error`, is sent in the background with `Accept: application/json`, and the
+controller answers `{success, message, redirect?}` or a 422 with `error.errors` (the fields are marked in the window). Scripted parts
+start on the `nim:modal-loaded` event. Used by Create website (`sites.create.modal`), Nginx (`nginx.modal`, Start/Stop at the top), the
+database server settings and the website quick settings.
+
 ## Field hints (tooltips)
 
 A field's explanation is not printed under the input. Put it in a hint right after the label:

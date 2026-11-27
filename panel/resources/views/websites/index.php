@@ -48,7 +48,7 @@ $showOwner = $this->can(P::USERS_VIEW);
             <a class="btn btn-outline-secondary" href="?view=list" title="List" aria-label="List"><i class="bi bi-list-ul"></i></a>
         </div>
     <?php endif; ?>
-    <?php if ($canCreate): ?><a class="btn btn-primary btn-sm" href="<?= e($this->url('sites.create')) ?>"><i class="bi bi-plus-lg me-1"></i>Create site</a><?php endif; ?>
+    <?php if ($canCreate): ?><a class="btn btn-primary btn-sm" href="<?= e($this->url('sites.create')) ?>" data-nim-site-modal data-nim-modal-href="<?= e($this->url('sites.create.modal')) ?>"><i class="bi bi-plus-lg me-1"></i>Create site</a><?php endif; ?>
 </div>
 <?php endif; ?>
 
@@ -58,7 +58,7 @@ $showOwner = $this->can(P::USERS_VIEW);
         <i class="bi bi-globe2" aria-hidden="true"></i>
         <div class="fw-medium">No websites yet</div>
         <div class="small"><?= $canCreate ? 'Create your first website to get started.' : 'Your hosting provider has not set up a website for you yet.' ?></div>
-        <?php if ($canCreate): ?><a class="btn btn-primary mt-3" href="<?= e($this->url('sites.create')) ?>"><i class="bi bi-plus-lg me-1"></i>Create site</a><?php endif; ?>
+        <?php if ($canCreate): ?><a class="btn btn-primary mt-3" href="<?= e($this->url('sites.create')) ?>" data-nim-site-modal data-nim-modal-href="<?= e($this->url('sites.create.modal')) ?>"><i class="bi bi-plus-lg me-1"></i>Create site</a><?php endif; ?>
     </div></div>
 <?php elseif ($layout === 'grid'): ?>
     <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xxl-4 g-3 mb-4" id="nim-sites" data-nim-cards>
@@ -90,11 +90,21 @@ $showOwner = $this->can(P::USERS_VIEW);
 <?php else: ?>
 <div class="nim-panel mb-4" data-nim-dt id="nim-sites-dt">
     <div class="nim-actionbar">
-        <?php if ($canCreate): ?><a class="btn btn-primary btn-sm" href="<?= e($this->url('sites.create')) ?>"><i class="bi bi-plus-lg me-1"></i>Add site</a><?php endif; ?>
+        <?php if ($canCreate): ?><a class="btn btn-primary btn-sm" href="<?= e($this->url('sites.create')) ?>" data-nim-site-modal data-nim-modal-href="<?= e($this->url('sites.create.modal')) ?>"><i class="bi bi-plus-lg me-1"></i>Add site</a><?php endif; ?>
         <?php if ($discoveredAt !== null && $total > 0): ?><a class="btn btn-outline-secondary btn-sm" href="#other-websites"><i class="bi bi-box-arrow-in-down me-1"></i>Import existing (<?= (int) $total ?>)</a><?php endif; ?>
         <?php if ($nginxVersion !== null && $nginxVersion !== ''): ?>
-            <?php $svcTag = $this->can(P::SERVICES_VIEW) && $this->hasRoute('services') ? 'a' : 'span'; ?>
-            <<?= $svcTag ?> class="nim-svc"<?= $svcTag === 'a' ? ' href="' . e($this->url('services')) . '"' : '' ?> title="Web server"><i class="bi bi-hdd-rack" aria-hidden="true"></i>Nginx <?= e($nginxVersion) ?> <i class="bi bi-play-fill" aria-hidden="true"></i></<?= $svcTag ?>>
+            <?php
+            // Nginx opens its settings in a window (with Start / Stop at the top); hovering shows its state. Others get the Services page.
+            $nginxWindow = $this->can(P::SERVER_VIEW) && $this->hasRoute('nginx.modal');
+            $svcTag = $nginxWindow || ($this->can(P::SERVICES_VIEW) && $this->hasRoute('services')) ? 'a' : 'span';
+            $svcAttr = $svcTag === 'a'
+                ? ($nginxWindow
+                    ? ' href="' . e($this->url('nginx')) . '" data-nim-site-modal data-nim-modal-xl data-nim-modal-href="' . e($this->url('nginx.modal') . '?v=' . rawurlencode((string) $nginxVersion)) . '"'
+                      . ($this->hasRoute('dashboard.popover') ? ' data-popover-url="' . e($this->url('dashboard.popover', ['key' => 'web'])) . '"' : '')
+                    : ' href="' . e($this->url('services')) . '"')
+                : '';
+            ?>
+            <<?= $svcTag ?> class="nim-svc"<?= $svcAttr ?> title="<?= $nginxWindow ? 'Nginx settings' : 'Web server' ?>"><i class="bi bi-hdd-rack" aria-hidden="true"></i>Nginx <?= e($nginxVersion) ?> <i class="bi bi-play-fill" aria-hidden="true"></i></<?= $svcTag ?>>
         <?php endif; ?>
         <div class="nim-actionbar-end">
             <select class="form-select form-select-sm w-auto" aria-label="Show" data-nim-dt-select="status">
@@ -277,8 +287,3 @@ $showOwner = $this->can(P::USERS_VIEW);
     </div>
     <div class="nim-pager" data-nim-dt-pager></div>
 </div>
-<?php if ($canCreate): ?>
-<div class="modal fade" id="nim-site-modal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content" data-nim-site-modal-body></div></div>
-</div>
-<?php endif; ?>

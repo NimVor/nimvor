@@ -27,14 +27,14 @@ $stats = [
 ?>
 <?php $this->start(); ?>Websites &amp; domains<?php $this->end('title'); ?>
 <?php $this->start(); ?><?= $nt['account']['plan'] !== '' ? e($nt['account']['plan']) . ' plan' : 'Everything you host, at a glance' ?><?php $this->end('subtitle'); ?>
-<?php $this->start(); ?><?php if ($canCreate): ?><a class="btn btn-primary" href="<?= e($this->url('sites.create')) ?>"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Add website</a><?php endif; ?><?php $this->end('actions'); ?>
+<?php $this->start(); ?><?php if ($canCreate): ?><a class="btn btn-primary" href="<?= e($this->url('sites.create')) ?>" data-nim-site-modal data-nim-modal-href="<?= e($this->url('sites.create.modal')) ?>"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Add website</a><?php endif; ?><?php $this->end('actions'); ?>
 
 <?php if ($managed === []): ?>
     <div class="nt-box"><div class="nim-empty-state">
         <i class="bi bi-globe2" aria-hidden="true"></i>
         <div class="fw-medium">No websites yet</div>
         <div class="small"><?= $canCreate ? 'Add your first website to get started.' : 'Your hosting provider has not set up a website for you yet.' ?></div>
-        <?php if ($canCreate): ?><a class="btn btn-primary mt-3" href="<?= e($this->url('sites.create')) ?>"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Add website</a><?php endif; ?>
+        <?php if ($canCreate): ?><a class="btn btn-primary mt-3" href="<?= e($this->url('sites.create')) ?>" data-nim-site-modal data-nim-modal-href="<?= e($this->url('sites.create.modal')) ?>"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Add website</a><?php endif; ?>
     </div></div>
 <?php else: ?>
 <div class="nws-stats" role="list" aria-label="Summary">

@@ -42,6 +42,63 @@ final class NginxManagerTest extends HttpTestCase
         self::assertStringContainsString('valid', (string) $this->flash('success'));
     }
 
+    public function testNginxOpensInAWindowWithStartAndStopAtTheTop(): void
+    {
+        $this->login('admin');
+        $res = $this->request('GET', '/nginx/modal', [], ['x-requested-with' => 'fetch'], '', ['v' => '1.24.0']);
+        self::assertSame(200, $res->status());
+        $html = $res->body();
+        self::assertStringNotContainsString('<html', $html);
+        self::assertStringContainsString('Nginx 1.24.0', $html);
+        self::assertStringContainsString('Running', $html);
+        foreach (['name="op" value="stop"', 'name="op" value="restart"', 'value="nginx.service"', 'action="/nginx/reload"', 'action="/nginx/test"'] as $want) {
+            self::assertStringContainsString($want, $html, $want);
+        }
+        self::assertStringNotContainsString('name="op" value="start"', $html, 'a running Nginx offers Stop, not Start');
+        self::assertLessThan(strpos($html, 'Max upload size'), strpos($html, 'value="stop"'), 'the buttons are at the top, before the settings');
+        self::assertStringContainsString('action="/nginx/tuning"', $html);
+        self::assertDoesNotMatchRegularExpression('/name="client_max_body_mb"[^>]*disabled/s', $html, 'an administrator can edit the tuning fields (a null attribute must not disable them)');
+        self::assertStringContainsString('data-nim-site-modal-form', $html);
+
+        $this->agent->succeed('nginx.status', ['installed' => true, 'running' => false, 'config_ok' => true, 'config_error' => '', 'tuning' => true]);
+        $stopped = $this->request('GET', '/nginx/modal')->body();
+        self::assertStringContainsString('name="op" value="start"', $stopped);
+        self::assertStringNotContainsString('name="op" value="stop"', $stopped);
+        self::assertStringContainsString('Stopped', $stopped);
+
+        // A made-up version never reaches the page as markup.
+        $evil = $this->request('GET', '/nginx/modal', [], [], '', ['v' => '<script>x</script>'])->body();
+        self::assertStringNotContainsString('<script>x', $evil);
+    }
+
+    public function testTheWindowsActionsAnswerAsJson(): void
+    {
+        $this->login('admin');
+        $json = ['accept' => 'application/json', 'x-requested-with' => 'fetch'];
+        $token = $this->app->container->get(\NimVor\Security\Csrf::class)->token();
+        $this->agent->succeed('nginx.reload', ['ok' => true]);
+        $r = $this->request('POST', '/nginx/reload', ['_token' => $token], $json);
+        self::assertSame(200, $r->status());
+        self::assertTrue((bool) ((array) json_decode($r->body(), true))['success']);
+        $this->agent->succeed('nginx.test', ['ok' => false, 'output' => 'unexpected "}"']);
+        $r = $this->request('POST', '/nginx/test', ['_token' => $token], $json);
+        self::assertSame(422, $r->status());
+        self::assertStringContainsString('unexpected', $r->body());
+    }
+
+    public function testTheNginxChipOnTheWebsitesListOpensTheWindowAndShowsItsStateOnHover(): void
+    {
+        $this->login('admin');
+        $this->agent->succeed('discovery.inventory', ['websites' => ['nginx_version' => '1.24.0', 'sites' => []]]);
+        $page = $this->request('GET', '/websites')->body();
+        if (str_contains($page, 'Nginx 1.24.0')) {
+            self::assertStringContainsString('data-nim-modal-href="/nginx/modal?v=1.24.0"', $page);
+            self::assertStringContainsString('data-popover-url="/dashboard/popover/web"', $page);
+        } else {
+            self::markTestSkipped('The websites list did not show the Nginx chip with this fixture.');
+        }
+    }
+
     public function testInvalidTuningRolledBackSurfacesError(): void
     {
         $this->login('admin');

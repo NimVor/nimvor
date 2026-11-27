@@ -531,6 +531,12 @@
                 if (ok(cur)) { show(cur + 1); }
             }
         });
+        // A refused background submit (the form in a window) marks the fields: go to the first step that has one.
+        form.addEventListener('nim:modal-invalid', function () {
+            for (var j = 0; j < steps.length; j++) {
+                if (steps[j].querySelector('.is-invalid')) { show(parseInt(steps[j].getAttribute('data-nim-step'), 10)); return; }
+            }
+        });
         // After a server-side error, start at the first step that has one.
         var first = 1;
         for (var i = 0; i < steps.length; i++) {
@@ -540,6 +546,12 @@
     }
     document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('form[data-nim-wizard]').forEach(initWizard);
+    });
+    // The wizard opened in a window (Create website): start it, and the card toggles of its fields, once its HTML is loaded.
+    document.addEventListener('nim:modal-loaded', function (e) {
+        var root = e.detail || document;
+        root.querySelectorAll('[data-nim-toggle-kind]').forEach(applyKind);
+        root.querySelectorAll('form[data-nim-wizard]').forEach(initWizard);
     });
 
     // DNS record modal: one form for adding and editing (buttons carry the
@@ -1337,10 +1349,17 @@
             e.preventDefault();
             document.querySelectorAll('details[data-nim-menu][open]').forEach(function (d) { d.open = false; });
             b.body.innerHTML = '<div class="modal-body text-center py-5"><span class="spinner-border" aria-hidden="true"></span></div>';
+            // data-nim-modal-xl on the link: a wider window (two-column settings).
+            var dlg = b.el.querySelector('.modal-dialog');
+            if (dlg) { dlg.classList.toggle('modal-xl', a.hasAttribute('data-nim-modal-xl')); }
             bootstrap.Modal.getOrCreateInstance(b.el).show();
-            fetch(a.getAttribute('href'), { credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch' } })
+            fetch(a.getAttribute('data-nim-modal-href') || a.getAttribute('href'), { credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch' } })
                 .then(function (r) { return r.text(); })
-                .then(function (html) { b.body.innerHTML = html; })
+                .then(function (html) {
+                    b.body.innerHTML = html;
+                    // Windows with scripted parts (the new-website wizard) start them now that their HTML is in the page.
+                    document.dispatchEvent(new CustomEvent('nim:modal-loaded', { detail: b.body }));
+                })
                 .catch(function () { b.body.innerHTML = '<div class="modal-body text-danger small">The window could not be loaded.</div>'; });
         });
         document.addEventListener('submit', function (e) {
@@ -1362,6 +1381,9 @@
                     var b = box();
                     if (b && window.bootstrap) { bootstrap.Modal.getOrCreateInstance(b.el).hide(); }
                     if (NimVor.toast) { NimVor.toast(r.body.message || 'Saved.', 'success'); }
+                    // A window that creates something goes to it (a same-site address only); the others reload the page.
+                    var to = r.body.redirect ? new URL(r.body.redirect, window.location.href) : null;
+                    if (to && to.origin === window.location.origin) { setTimeout(function () { window.location.href = to.href; }, 500); return; }
                     setTimeout(function () { window.location.reload(); }, 700);
                     return;
                 }
@@ -1374,6 +1396,7 @@
                     inp.insertAdjacentElement('afterend', m);
                 });
                 if (err) { err.textContent = er.message || 'The change was not saved.'; err.classList.remove('d-none'); }
+                f.dispatchEvent(new CustomEvent('nim:modal-invalid'));
             }).catch(function () {
                 if (err) { err.textContent = 'The change could not be sent. Check the connection and try again.'; err.classList.remove('d-none'); }
             }).finally(function () {
@@ -1809,6 +1832,7 @@
         var owner = e.target.closest ? e.target.closest('[data-popover-url]') : null;
         // The buttons and links inside a tile (stop, restart, settings) do their own thing.
         if (owner && e.target.closest('a, button') && owner.contains(e.target.closest('a, button'))) { return; }
+        if (owner && owner.hasAttribute('data-nim-site-modal')) { hoverClose(); return; }
         if (owner) { if (hover.owner === owner) { hoverClose(); } else { hoverOpen(owner); } return; }
         if (hover.card && !hover.card.contains(e.target)) { hoverClose(); }
     });

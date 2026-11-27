@@ -27,7 +27,7 @@ foreach ([
     ['Backups', 'cloud-arrow-up', 'backups', P::BACKUPS_VIEW],
 ] as [$label, $icon, $route, $perm]) {
     if ($this->hasRoute($route) && $this->can($perm) && $this->routeAllowed($route)) {
-        $quick[] = [$label, $icon, $this->url($route)];
+        $quick[] = [$label, $icon, $this->url($route), $route === 'sites.create' && $this->hasRoute('sites.create.modal') ? $this->url('sites.create.modal') : ''];
     }
 }
 $fmt = static fn (string $key, int $n): string => in_array($key, ['disk', 'bandwidth'], true) ? format_bytes($n * 1048576) : (string) $n;
@@ -45,7 +45,7 @@ $fmt = static fn (string $key, int $n): string => in_array($key, ['disk', 'bandw
     </div>
     <?php if ($quick !== []): ?>
     <nav class="nim-quick" aria-label="Quick actions">
-        <?php foreach ($quick as [$label, $icon, $url]): ?><a href="<?= e($url) ?>"><i class="bi bi-<?= e($icon) ?>" aria-hidden="true"></i><?= e($label) ?></a><?php endforeach; ?>
+        <?php foreach ($quick as [$label, $icon, $url, $window]): ?><a href="<?= e($url) ?>"<?= $window !== '' ? ' data-nim-site-modal data-nim-modal-href="' . e($window) . '"' : '' ?>><i class="bi bi-<?= e($icon) ?>" aria-hidden="true"></i><?= e($label) ?></a><?php endforeach; ?>
     </nav>
     <?php endif; ?>
 </section>

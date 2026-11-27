@@ -7,7 +7,11 @@ All notable changes to NimVor are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- **Create website, Add site and Nginx open in windows.** *Create website* on the dashboard and *Add site* on the websites list open the four-step wizard in a window instead of a separate page (a refused field is marked in the window, a good submit goes to the new website; the page `/websites/new` still works, and Ctrl-click opens it). The *Nginx* chip on the websites list opens Nginx in a window with **Start / Stop**, Restart, Reload and Test at the top and the server-wide tuning below; hovering the chip shows Nginx's state. The database server settings window has one header only (the second *Settings* header is gone). There is one shared window for all of these on every page.
 - **Field explanations are tooltips.** The long helper lines under settings inputs are replaced by a small info icon beside the field's label: the explanation shows on hover, on keyboard focus and when the icon is clicked or tapped, and Escape (or a click elsewhere) closes it. The text stays in the page for screen readers (`aria-describedby`) and Tweak Settings still finds settings by it. It is one reusable component (`View::hint()`, `assets/js/nimvor.js`) used by the shared form field, the settings pages (Settings, Basic WebHost Settings, Tweak Settings, Customer panel themes, Database server settings, Password strength) and about fifty fields across the panel. The technical variable names stay visible in muted text, and security warnings, notices about destructive actions, consequences (such as a restart) and short section notes stay visible.
+
+### Fixed
+- **Nginx tuning fields could not be edited.** The shared form field printed an empty `disabled` attribute when a page passed `disabled => null`, which disabled the fields (Server → Nginx tuning); it now leaves out an attribute that has no value.
 
 ## [2.9.0] — 2026-11-26
 

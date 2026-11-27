@@ -4,7 +4,9 @@
  *
  * @var \NimVor\View\View $this
  * @var array<string, mixed>|null $status db.server_status
+ * @var bool $modal in a window: no second header (the window has its own title) and no card frame
  */
+$modal = !empty($modal);
 use NimVor\Security\Permissions as P;
 
 $canManage = $this->can(P::SERVER_MANAGE);
@@ -26,9 +28,13 @@ $charset = (string) ($managed['character_set_server'] ?? $vars['character_set_se
 ?>
 <form method="post" action="<?= e($this->url('databases.server.settings')) ?>" data-nim-busy class="mb-3">
     <?= $this->csrfField() ?>
-    <div class="card">
+    <div class="<?= $modal ? '' : 'card' ?>">
+        <?php if ($modal): ?>
+            <div class="small nim-muted mb-2">Saved in <code><?= e((string) ($status['drop_in'] ?? '')) ?></code>, read after the distribution's files</div>
+        <?php else: ?>
         <div class="card-header d-flex flex-wrap align-items-center gap-2"><span><i class="bi bi-sliders me-1"></i>Settings</span><span class="small nim-muted ms-auto">Saved in <code><?= e((string) ($status['drop_in'] ?? '')) ?></code>, read after the distribution's files</span></div>
-        <div class="card-body">
+        <?php endif; ?>
+        <div class="<?= $modal ? '' : 'card-body' ?>">
             <p class="small nim-muted">Empty fields keep the server's own value (shown in grey). Values are checked, then the server program checks the option files; settings marked <span class="badge text-bg-light border fw-normal">now</span> are applied at once, the others at the next restart. If anything fails, the previous settings come back.</p>
             <div class="row g-4">
             <?php foreach ($groups as $group => $list): ?>
@@ -59,7 +65,7 @@ $charset = (string) ($managed['character_set_server'] ?? $vars['character_set_se
             </div>
         </div>
         <?php if ($canManage): ?>
-        <div class="card-footer d-flex flex-wrap align-items-center gap-3">
+        <div class="<?= $modal ? 'border-top pt-3 mt-3' : 'card-footer' ?> d-flex flex-wrap align-items-center gap-3">
             <?php if ($canRestart): ?><div class="form-check mb-0"><input class="form-check-input" type="checkbox" name="restart" value="1" id="dbs-restart"><label class="form-check-label small" for="dbs-restart">Restart the database server now to apply everything (checked first; rolled back if it does not come back)</label></div><?php endif; ?>
             <button class="btn btn-primary ms-auto"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Save settings</button>
         </div>

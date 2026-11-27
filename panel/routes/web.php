@@ -112,6 +112,7 @@ return static function (Router $r): void {
     $r->post('/sites/{id}/thumbnail', [\NimVor\Http\Controllers\SiteThumbnailController::class, 'refresh'], ['name' => 'sites.thumbnail.refresh', 'permission' => P::WEBSITES_VIEW]);
     $r->post('/server/screenshots/install', [\NimVor\Http\Controllers\SiteThumbnailController::class, 'install'], ['name' => 'server.screenshots.install', 'permission' => P::SERVER_MANAGE]);
     $r->get('/websites/new', [SitesController::class, 'create'], ['name' => 'sites.create', 'permission' => P::WEBSITES_MANAGE]);
+    $r->get('/websites/new/modal', [SitesController::class, 'createModal'], ['name' => 'sites.create.modal', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/websites/new', [SitesController::class, 'store'], ['name' => 'sites.store', 'permission' => P::WEBSITES_MANAGE]);
     $r->get('/sites/{id}', [SitesController::class, 'show'], ['name' => 'sites.show', 'permission' => P::WEBSITES_VIEW]);
     $r->get('/sites/{id}/settings', [SitesController::class, 'edit'], ['name' => 'sites.edit', 'permission' => P::WEBSITES_MANAGE]);
@@ -491,6 +492,7 @@ return static function (Router $r): void {
     $r->post('/apps-manager/category', [\NimVor\Http\Controllers\AppManagerController::class, 'category'], ['name' => 'apps.manager.category', 'permission' => P::SETTINGS_MANAGE]);
     $r->post('/apps-manager/app', [\NimVor\Http\Controllers\AppManagerController::class, 'app'], ['name' => 'apps.manager.app', 'permission' => P::SETTINGS_MANAGE]);
     $r->get('/nginx', [\NimVor\Http\Controllers\NginxController::class, 'index'], ['name' => 'nginx', 'permission' => P::SERVER_VIEW]);
+    $r->get('/nginx/modal', [\NimVor\Http\Controllers\NginxController::class, 'modal'], ['name' => 'nginx.modal', 'permission' => P::SERVER_VIEW]);
     $r->post('/nginx/test', [\NimVor\Http\Controllers\NginxController::class, 'test'], ['name' => 'nginx.test', 'permission' => P::SERVER_VIEW]);
     $r->post('/nginx/reload', [\NimVor\Http\Controllers\NginxController::class, 'reload'], ['name' => 'nginx.reload', 'permission' => P::SERVICES_MANAGE]);
     $r->post('/nginx/tuning', [\NimVor\Http\Controllers\NginxController::class, 'tuning'], ['name' => 'nginx.tuning', 'permission' => P::SERVER_MANAGE]);

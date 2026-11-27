@@ -15,6 +15,6 @@ $attrs ??= [];
 <div class="mb-3">
     <label class="form-label" for="<?= e($id) ?>"><?= e($label) ?></label><?= !empty($help) ? $this->hint((string) $help, (string) $label) : '' ?>
     <input class="form-control<?= $err ? ' is-invalid' : '' ?>" id="<?= e($id) ?>" name="<?= e($name) ?>" type="<?= e($type ?? 'text') ?>"
-           value="<?= e($value ?? '') ?>"<?php foreach ($attrs as $k => $v): ?> <?= e($k) ?>="<?= e($v) ?>"<?php endforeach; ?><?= $err ? ' aria-describedby="' . e($id) . '-err"' : '' ?>>
+           value="<?= e($value ?? '') ?>"<?php foreach ($attrs as $k => $v): if ($v === null || $v === false) { continue; } /* no value, no attribute: "disabled" => null must not disable the field */ ?> <?= e($k) ?>="<?= e($v) ?>"<?php endforeach; ?><?= $err ? ' aria-describedby="' . e($id) . '-err"' : '' ?>>
     <?php if ($err): ?><div class="invalid-feedback" id="<?= e($id) ?>-err"><?= e($err) ?></div><?php endif; ?>
 </div>

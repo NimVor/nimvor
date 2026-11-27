@@ -2,6 +2,8 @@
 /** @var \NimVor\View\View $this */
 /** @var array<string, mixed>|null $site */
 $isNew = $site === null;
+// In a window (Create website opened from the dashboard or the websites list): no page sections, a window header, and the form is sent in the background.
+$modal = $isNew && !empty($modal);
 $v = static function (string $k, mixed $default = '') use ($old, $site) {
     if (array_key_exists($k, $old)) {
         return $old[$k];
@@ -27,7 +29,13 @@ $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
 $st = static fn (int $n): string => $site === null ? ' data-nim-step="' . $n . '"' : '';
 $steps = [1 => 'Type', 2 => 'Domain', 3 => 'Settings', 4 => 'Review'];
 ?>
-<?php if ($isNew): ?>
+<?php if ($modal): ?>
+    <div class="modal-header">
+        <h2 class="modal-title h5"><i class="bi bi-plus-circle me-2" aria-hidden="true"></i>New website</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    </div>
+    <div class="modal-body">
+<?php elseif ($isNew): ?>
     <?php $this->start(); ?>New website<?php $this->end('title'); ?>
 
 <?php else: ?>
@@ -44,8 +52,9 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
     <?php foreach ($steps as $n => $label): ?><li class="nim-wizard-tab" data-nim-step-tab="<?= $n ?>"><span class="nim-wizard-num"><?= $n ?></span> <?= e($label) ?></li><?php endforeach; ?>
 </ol>
 <?php endif; ?>
-<form method="post" action="<?= e($isNew ? $this->url('sites.store') : $this->url('sites.update', ['id' => (int) $site['id']])) ?>" data-nim-busy novalidate<?= $isNew ? ' data-nim-wizard' : '' ?>>
+<form method="post" action="<?= e($isNew ? $this->url('sites.store') : $this->url('sites.update', ['id' => (int) $site['id']])) ?>"<?= $modal ? ' data-nim-site-modal-form' : ' data-nim-busy' ?> novalidate<?= $isNew ? ' data-nim-wizard' : '' ?>>
     <?= $this->csrfField() ?>
+    <?php if ($modal): ?><div class="alert alert-danger d-none" role="alert" data-nim-modal-error></div><?php endif; ?>
     <div class="row g-3">
         <div class="<?= $isNew ? 'col-lg-8 mx-auto' : 'col-lg-6' ?>">
             <div class="card mb-3" id="domains"<?= $st(2) ?>>
@@ -294,3 +303,4 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
         <button class="btn btn-primary" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><?= $isNew ? 'Create website' : 'Save and apply' ?></button>
     </div>
 </form>
+<?php if ($modal): ?></div><?php endif; ?>
