@@ -151,6 +151,46 @@ final class WebsiteService
      * process counts and manager, request limits and disabling shell
      * functions.
      */
+    /**
+     * The limits a new website of this PHP version starts with: php.ini's
+     * memory_limit, upload_max_filesize and max_execution_time as PHP-FPM uses
+     * them now, and at most 5 processes within the version's process cap.
+     * Unlimited (-1 / 0) and anything unreadable fall back to the defaults.
+     *
+     * @return array<string, int>
+     */
+    public function phpVersionDefaults(string $version): array
+    {
+        $out = [];
+        try {
+            $eff = (array) (((array) $this->agent->call('php.ini_get', ['version' => $version]))['effective'] ?? []);
+            $mb = static function (mixed $raw): ?int {
+                if (!is_string($raw) || !preg_match('/^(\d+)\s*([KMG]?)B?$/i', trim($raw), $m)) {
+                    return null;
+                }
+                $n = match (strtoupper($m[2])) { 'G' => (int) $m[1] * 1024, 'M' => (int) $m[1], 'K' => intdiv((int) $m[1], 1024), default => intdiv((int) $m[1], 1048576) };
+                return $n > 0 ? $n : null;
+            };
+            if (($v = $mb($eff['memory_limit'] ?? null)) !== null) {
+                $out['memory_limit_mb'] = $v;
+            }
+            if (($v = $mb($eff['upload_max_filesize'] ?? null)) !== null) {
+                $out['upload_max_mb'] = $v;
+            }
+            $t = $eff['max_execution_time'] ?? null;
+            if (is_string($t) && ctype_digit(trim($t)) && (int) $t > 0) {
+                $out['max_execution_seconds'] = (int) $t;
+            }
+            $cap = (int) ((((array) $this->agent->call('php.fpm_get', ['version' => $version]))['settings'] ?? [])['process_max'] ?? 0);
+            if ($cap > 0) {
+                $out['max_children'] = min(5, $cap);
+            }
+        } catch (AgentException) {
+            // Not readable now: the standard defaults apply.
+        }
+        return $out;
+    }
+
     public const SERVER_PHP_SETTINGS = ['max_children', 'harden', 'lock_ini', 'pm', 'start_servers', 'min_spare_servers', 'max_spare_servers', 'idle_timeout_seconds', 'max_requests', 'request_timeout_seconds', 'slowlog_seconds'];
 
     /**
@@ -905,9 +945,13 @@ final class WebsiteService
             'idle_timeout_seconds' => [1, 3600, 10], 'max_requests' => [1, 100000, 500],
             'request_timeout_seconds' => [0, 86400, 0], 'slowlog_seconds' => [1, 3600, 10],
         ];
+        // A new PHP website starts from what its PHP version is set to on the
+        // PHP page (php.ini limits, the FPM process cap); the constants above
+        // only apply where the version reports nothing.
+        $fromVersion = ($existing === null && $php !== '') ? $this->phpVersionDefaults($php) : [];
         $settings = [];
         foreach ($ints as $k => [$lo, $hi, $def]) {
-            $raw = $input[$k] ?? ($existing['php_settings'][$k] ?? $def);
+            $raw = $input[$k] ?? ($existing['php_settings'][$k] ?? (isset($fromVersion[$k]) ? max($lo, min($hi, $fromVersion[$k])) : $def));
             $v = filter_var($raw, FILTER_VALIDATE_INT);
             if ($v === false || $v < $lo || $v > $hi) {
                 $errors[$k] = "Enter a number between {$lo} and {$hi}.";

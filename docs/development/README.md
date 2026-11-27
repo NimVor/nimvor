@@ -135,7 +135,7 @@ database server settings and the website quick settings.
 ## The new-website form
 
 `sites/form.php` is a four-step wizard for a new website (`data-nim-wizard`, `data-nim-step` 1–4: Type, Domain and owner, Settings, Review; `initWizard` in `nimvor.js` validates a step on *Next*, fills the review summary, and only the last step shows the submit button); a type-card click advances. Edit mode shares the file without the wizard. Fields that depend on the type carry `data-nim-kind`, the rarely used
-ones are not asked at all: the system user, PHP limits, security profile and request size take their defaults (edit mode shows the system user and request size). The window version is `GET /websites/new/modal`; its form is sent in the background and answered as JSON
+ones are not asked at all: the system user is derived from the domain, the PHP limits come from the selected version (`WebsiteService::phpVersionDefaults()`: `php.ini_get` effective memory/upload/execution values and `php.fpm_get` process cap, standard defaults when unreadable) and the security profile from the panel default (edit mode shows the system user and request size). The window version is `GET /websites/new/modal`; its form is sent in the background and answered as JSON
 (`SitesController::store`). With `wizard=1` an administrator must send `owner_mode` (`existing` + `owner_id`, `new` + `new_email`
 [+ `new_username`], or `none`); `new` creates the customer through `AccountService::createCustomerWebsite()` and flashes the generated
 password once (`secret`). Customers and resellers own what they create (`WebsiteService::resolveOwner`); API callers send no `wizard`.

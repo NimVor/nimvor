@@ -72,6 +72,24 @@ final class PhpForCustomersTest extends HttpTestCase
         self::assertSame([12, false], [$this->settings()['max_children'], $this->settings()['harden']]);
     }
 
+    public function testNewWebsitesStartWithTheLimitsOfTheirPhpVersion(): void
+    {
+        $sites = $this->app->container->get(WebsiteService::class);
+        $admin = ['role_scope' => 'all', 'id' => 1];
+        $php = fn (int $id): array => (array) json_decode((string) $this->db->scalar('SELECT php_settings FROM websites WHERE id = ?', [$id]), true);
+
+        $this->agent->succeed('php.ini_get', ['effective' => ['memory_limit' => '512M', 'upload_max_filesize' => '128M', 'max_execution_time' => '120']]);
+        $this->agent->succeed('php.fpm_get', ['settings' => ['process_max' => 3]]);
+        $a = $php($sites->create(['domain' => 'ver.test', 'kind' => 'php', 'php_version' => '8.3'], $admin));
+        self::assertSame([512, 128, 120, 3], [$a['memory_limit_mb'], $a['upload_max_mb'], $a['max_execution_seconds'], $a['max_children']]);
+
+        // Unlimited or unreadable values keep the standard defaults; what is typed always wins.
+        $this->agent->succeed('php.ini_get', ['effective' => ['memory_limit' => '-1', 'upload_max_filesize' => '2M', 'max_execution_time' => '0']]);
+        $this->agent->succeed('php.fpm_get', ['settings' => []]);
+        $b = $php($sites->create(['domain' => 'unl.test', 'kind' => 'php', 'php_version' => '8.3', 'upload_max_mb' => '40'], $admin));
+        self::assertSame([256, 40, 60, 5], [$b['memory_limit_mb'], $b['upload_max_mb'], $b['max_execution_seconds'], $b['max_children']]);
+    }
+
     public function testNewWebsitesFollowTheHardeningSetting(): void
     {
         $sites = $this->app->container->get(WebsiteService::class);
