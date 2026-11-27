@@ -236,7 +236,7 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
             </div>
         <?php if (!$isNew): ?></div>
         <div class="col-lg-6"><?php endif; ?>
-            <?php if ($isNew): ?><details class="nim-adv" data-nim-step="3"><summary>Advanced settings</summary><div class="nim-adv-body"><?php endif; ?>
+            <?php if ($isNew): /* New sites get the defaults (account from the domain, recommended PHP profile, 256/64/60/5, 64 MB body); they are changed on the website's own pages. */ else: ?>
             <?php if ($serverPhp): /* Admins/operators set the account and owner; a hosting customer owns what they create and the account is derived from the domain. */ ?>
             <div class="card mb-3">
                 <div class="card-header"><i class="bi bi-person me-1"></i>System user</div>
@@ -244,76 +244,6 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
                     <input class="form-control<?= $cls('system_user') ?>" name="system_user" value="<?= e($v('system_user')) ?>" placeholder="derived from the domain" <?= $isNew ? '' : 'disabled' ?> maxlength="31" aria-label="System user">
                     <?= $err('system_user') ?>
                     <div class="form-text">PHP, cron jobs, workers and deployments run as this Linux account. It is created if it does not exist.</div>
-                </div>
-            </div>
-            <?php endif; ?>
-            <?php if ($isNew && $serverPhp): ?>
-            <div class="card mb-3" data-nim-kind="php" id="php">
-                <div class="card-header"><i class="bi bi-filetype-php me-1"></i>PHP settings</div>
-                <div class="card-body">
-                    <div class="row g-2">
-                        <?php foreach (array_merge([
-                            ['memory_limit_mb', 'Memory limit (MB)', 256], ['upload_max_mb', 'Max upload (MB)', 64],
-                            ['max_execution_seconds', 'Max execution (s)', 60],
-                        ], $serverPhp ? [['max_children', 'Max PHP processes', 5]] : []) as [$k, $label, $def]): ?>
-                            <div class="col-6">
-                                <label class="form-label small" for="f-<?= e($k) ?>"><?= e($label) ?></label>
-                                <input class="form-control form-control-sm<?= $cls($k) ?>" type="number" id="f-<?= e($k) ?>" name="<?= e($k) ?>" value="<?= e($v($k, $def)) ?>">
-                                <?= $err($k) ?>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                    <?php if ($serverPhp): ?>
-                    <?php
-                        // PHP security profile (disable_functions). A new website
-                        // defaults to Recommended; an existing one keeps its own
-                        // choice, and "Keep current" leaves a legacy site unchanged.
-                        $profileNow = (string) $v('profile', (($site ?? null) === null) ? ($profileDefault ?? 'recommended') : '');
-                        $profileOpts = ['recommended' => 'Recommended — disable exec, system, shell_exec, passthru, popen, proc_open, proc_* and pcntl_*', 'balanced' => 'Balanced — disable the shell functions, keep process control for queue workers', 'compatibility' => 'Compatibility — disable nothing', 'custom' => 'Custom — a list you choose'];
-                        if ($profileNow === '') {
-                            $profileOpts = ['' => 'Keep current'] + $profileOpts;
-                        }
-                    ?>
-                    <div class="mt-3">
-                        <label class="form-label small" for="f-php-profile">PHP security profile</label>
-                        <select class="form-select form-select-sm<?= $cls('php_profile') ?>" id="f-php-profile" name="php_profile">
-                            <?php foreach ($profileOpts as $pv => $pl): ?>
-                                <option value="<?= $pv ?>"<?= $profileNow === $pv ? ' selected' : '' ?>><?= htmlspecialchars($pl) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                        <div class="mt-1<?= $profileNow === 'custom' ? '' : ' d-none' ?>" data-nim-php-custom>
-                            <input class="form-control form-control-sm<?= $cls('disable_functions') ?>" name="disable_functions" value="<?= htmlspecialchars((string) $v('disable_functions', '')) ?>" placeholder="exec, system, shell_exec">
-                            <div class="form-text">Comma-separated function names to disable.</div>
-                        </div>
-                    </div>
-                    <details class="mt-3"<?= array_intersect(array_keys($errors ?? []), ['pm', 'start_servers', 'min_spare_servers', 'max_spare_servers', 'idle_timeout_seconds', 'max_requests', 'request_timeout_seconds', 'slowlog_seconds']) !== [] ? ' open' : '' ?>>
-                        <summary class="small fw-semibold">Advanced PHP-FPM</summary>
-                        <div class="row g-2 mt-1">
-                            <div class="col-12">
-                                <label class="form-label small" for="f-pm">Process manager</label>
-                                <select class="form-select form-select-sm<?= $cls('pm') ?>" id="f-pm" name="pm">
-                                    <?php foreach (['ondemand' => 'On demand: start processes when requests come (least memory)', 'dynamic' => 'Dynamic: keep some idle processes ready', 'static' => 'Static: always run all processes (fastest, most memory)'] as $pmv => $pml): ?>
-                                        <option value="<?= e($pmv) ?>"<?= (string) $v('pm', 'ondemand') === $pmv ? ' selected' : '' ?>><?= e($pml) ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <?= $err('pm') ?>
-                            </div>
-                            <?php foreach ([
-                                ['start_servers', 'Start processes (dynamic; 0 = automatic)', 0], ['min_spare_servers', 'Min idle (dynamic; 0 = automatic)', 0],
-                                ['max_spare_servers', 'Max idle (dynamic; 0 = automatic)', 0], ['idle_timeout_seconds', 'Idle timeout (s, on demand)', 10],
-                                ['max_requests', 'Requests per process', 500], ['request_timeout_seconds', 'Request timeout (s, 0 = none)', 0],
-                                ['slowlog_seconds', 'Log requests slower than (s)', 10],
-                            ] as [$k, $label, $def]): ?>
-                                <div class="col-6">
-                                    <label class="form-label small" for="f-<?= e($k) ?>"><?= e($label) ?></label>
-                                    <input class="form-control form-control-sm<?= $cls($k) ?>" type="number" id="f-<?= e($k) ?>" name="<?= e($k) ?>" value="<?= e($v($k, $def)) ?>">
-                                    <?= $err($k) ?>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                        <p class="small text-body-secondary mt-2 mb-0">Server-wide PHP-FPM settings and php.ini are under PHP → the version → Settings.</p>
-                    </details>
-                    <?php endif; ?>
                 </div>
             </div>
             <?php endif; ?>
@@ -326,8 +256,8 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
                     <?php if (!$isNew): ?><div class="small text-body-secondary">Redirects are managed one by one on the <a href="<?= e($this->url('sites.redirects', ['id' => (int) $site['id']])) ?>">Redirects</a> page, and PHP version and php.ini settings on the <a href="<?= e($this->url('sites.php', ['id' => (int) $site['id']])) ?>">PHP settings</a> page.</div><?php endif; ?>
                 </div>
             </div>
+            <?php endif; ?>
             <?php if ($isNew): ?>
-            </div></details>
             <div class="card mb-3"<?= $st(4) ?>>
                 <div class="card-header"><i class="bi bi-check2-circle me-1"></i>Review</div>
                 <div class="card-body">

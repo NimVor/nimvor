@@ -34,11 +34,14 @@ final class CreateWizardTest extends HttpTestCase
         foreach (['data-nim-wizard-back', 'data-nim-wizard-next', 'data-nim-wizard-submit'] as $button) {
             self::assertStringContainsString($button, $page, $button);
         }
-        // What belongs to which step: domain and owner are step 2, the type's settings and the folded advanced ones step 3.
+        // What belongs to which step: domain and owner are step 2, the type's settings step 3.
         $at = static fn (string $needle): int => (int) strpos($page, $needle);
         self::assertGreaterThan($at('data-nim-step="2"'), $at('name="domain"'));
-        self::assertLessThan($at('<summary>Advanced settings</summary>'), $at('name="php_version"'));
-        self::assertGreaterThan($at('<summary>Advanced settings</summary>'), $at('name="system_user"'), 'advanced settings are folded');
+        self::assertGreaterThan($at('data-nim-step="3"'), $at('name="php_version"'));
+        // Nothing advanced is asked while creating: new sites take the defaults, and those are changed on the website's own pages.
+        foreach (['Advanced settings', 'name="system_user"', 'name="memory_limit_mb"', 'name="php_profile"', 'name="client_max_body_mb"'] as $gone) {
+            self::assertStringNotContainsString($gone, $page, $gone . ' is not part of site creation');
+        }
     }
 
     public function testTheSettingsPageIsNotAWizard(): void

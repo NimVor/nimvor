@@ -50,7 +50,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
     // Steps 3 (settings) and 4 (review), then Create: the server refuses the bad domain and the window goes back to step 2 with the field marked.
     await page.click(dlg + ' [data-nim-wizard-next]');
     if (await page.locator(dlg + ' .nim-wizard-tab.active').textContent().then(t => !/Settings/.test(t))) { throw new Error('not on the Settings step'); }
-    if (await page.locator(dlg + ' details.nim-adv[open]').count() !== 0) { throw new Error('the advanced settings are open by default'); }
+    if (await page.locator(dlg + ' details.nim-adv').count() !== 0) { throw new Error('advanced settings are shown while creating'); }
     await page.click(dlg + ' [data-nim-wizard-next]');
     const review = await page.textContent(dlg + ' [data-nim-review]');
     if (!/not a domain!/.test(review) || !/No customer/.test(review)) { throw new Error('the review does not show the choices: ' + review); }
