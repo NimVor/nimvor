@@ -38,6 +38,7 @@ $expected ??= [];
         <div class="col-md-6 col-xxl-4">
             <div class="nim-panel h-100 d-flex flex-column" id="c-<?= e($id) ?>" data-component="<?= e($id) ?>">
                 <div class="d-flex align-items-start gap-2 p-3 pb-2">
+                    <?= $this->logo($id, 32, 'nim-logo-tile flex-shrink-0') ?>
                     <div class="flex-grow-1 min-w-0">
                         <div class="fw-semibold"><?= e((string) $c['name']) ?></div>
                         <div class="small nim-muted"><?= e((string) $c['description']) ?></div>

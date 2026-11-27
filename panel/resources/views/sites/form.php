@@ -56,7 +56,7 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
     <?= $this->csrfField() ?>
     <?php if ($modal): ?><div class="alert alert-danger d-none" role="alert" data-nim-modal-error></div><?php endif; ?>
     <div class="row g-3">
-        <div class="<?= $isNew ? 'col-lg-8 mx-auto' : 'col-lg-6' ?>">
+        <div class="<?= $isNew ? ($modal ? 'col-12' : 'col-lg-8 mx-auto') : 'col-lg-6' ?>">
             <div class="card mb-3" id="domains"<?= $st(2) ?>>
                 <div class="card-header"><i class="bi bi-globe2 me-1"></i>Domains</div>
                 <div class="card-body">
@@ -77,7 +77,7 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
                 <div class="card-header"><i class="bi bi-diagram-3 me-1"></i><?= $isNew ? 'What are you hosting?' : 'Application' ?></div>
                 <div class="card-body">
                     <div class="mb-3">
-                        <span class="form-label d-block">Type</span>
+                        <span class="form-label d-block<?= $isNew ? ' visually-hidden' : '' ?>">Type</span>
                         <?php
                         // Image cards instead of a dropdown. Node.js and Python
                         // are hosted as a reverse proxy to the app's local port,
@@ -99,7 +99,7 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
                                 <div class="col">
                                     <input type="radio" class="btn-check" name="kind" id="f-kind-<?= $i ?>" value="<?= e($k) ?>" data-nim-toggle-kind autocomplete="off"<?= $checked ? ' checked' : '' ?>>
                                     <label class="btn btn-outline-secondary w-100 h-100 py-3 d-flex flex-column align-items-center justify-content-center gap-1" for="f-kind-<?= $i ?>">
-                                        <i class="bi bi-<?= e($icon) ?> fs-4" aria-hidden="true"></i>
+                                        <?= $this->logo($k, 32, 'nim-logo-card') ?: '<i class="bi bi-' . e($icon) . ' fs-4" aria-hidden="true"></i>' ?>
                                         <span class="small"><?= e($label) ?></span>
                                     </label>
                                 </div>
@@ -294,13 +294,20 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
         </div>
     </div>
     <?php if ($isNew): ?>
-    <div class="d-flex gap-2 align-items-center mb-3" data-nim-wizard-nav hidden>
-        <button class="btn btn-outline-secondary" type="button" data-nim-wizard-back>Back</button>
-        <button class="btn btn-primary" type="button" data-nim-wizard-next>Next</button>
+    <?php /* One footer: Back on the left, Next (or Create website on the last step) on the right. The wrappers vanish into it (display: contents, nimvor.css). */ ?>
+    <div class="nim-wizard-foot">
+        <div data-nim-wizard-nav hidden>
+            <button class="btn btn-outline-secondary" type="button" data-nim-wizard-back>Back</button>
+            <button class="btn btn-primary" type="button" data-nim-wizard-next>Next</button>
+        </div>
+        <div data-nim-wizard-submit>
+            <button class="btn btn-primary" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Create website</button>
+        </div>
+    </div>
+    <?php else: ?>
+    <div class="d-flex gap-2 align-items-center">
+        <button class="btn btn-primary" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Save and apply</button>
     </div>
     <?php endif; ?>
-    <div class="d-flex gap-2 align-items-center"<?= $isNew ? ' data-nim-wizard-submit' : '' ?>>
-        <button class="btn btn-primary" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><?= $isNew ? 'Create website' : 'Save and apply' ?></button>
-    </div>
 </form>
 <?php if ($modal): ?></div><?php endif; ?>

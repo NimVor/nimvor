@@ -24,7 +24,7 @@ $post = function (string $route, string $label, string $icon) : string {
 };
 ?>
 <div class="modal-header flex-wrap gap-2">
-    <h2 class="modal-title h5 me-auto"><i class="bi bi-hdd-rack me-2" aria-hidden="true"></i>Nginx<?= $version !== '' ? ' ' . e($version) : '' ?>
+    <h2 class="modal-title h5 me-auto"><?= $this->logo('nginx', 28, 'me-2') ?: '<i class="bi bi-hdd-rack me-2" aria-hidden="true"></i>' ?>Nginx<?= $version !== '' ? ' ' . e($version) : '' ?>
         <?php if ($status !== null && $status['installed']): ?><span class="badge text-bg-<?= $status['running'] ? 'success' : 'danger' ?> ms-2 align-middle"><?= $status['running'] ? 'Running' : 'Stopped' ?></span><?php endif; ?></h2>
     <?php if ($status !== null && $status['installed']): ?>
         <div class="d-flex flex-wrap gap-1" role="group" aria-label="Nginx service">

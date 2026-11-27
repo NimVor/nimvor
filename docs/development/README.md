@@ -132,6 +132,12 @@ controller answers `{success, message, redirect?}` or a 422 with `error.errors` 
 start on the `nim:modal-loaded` event. Used by Create website (`sites.create.modal`), Nginx (`nginx.modal`, Start/Stop at the top), the
 database server settings and the website quick settings.
 
+## Service logos
+
+`View::logo($id, $size, $class)` returns the logo of a service as an `<img>` (or `''`, so `?:` keeps the icon): `$this->logo('nginx', 16) ?: '<i class="bi bi-hdd-rack"></i>'`.
+The files are `public/assets/img/services/NAME.png` (sources and licences in the README next to them) and the ids the panel uses
+for them are in `View::LOGOS`.
+
 ## Field hints (tooltips)
 
 A field's explanation is not printed under the input. Put it in a hint right after the label:

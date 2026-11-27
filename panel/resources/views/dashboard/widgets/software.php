@@ -26,7 +26,7 @@ $details = ['dns' => 'dns', 'mail' => 'mail', 'redis' => 'redis', 'memcached' =>
     <?php $card = ($c['installed'] && isset($details[$c['id']]) && $this->can(\NimVor\Http\Controllers\DashboardController::TILE_DETAILS[$details[$c['id']]])) ? $this->url('dashboard.popover', ['key' => $details[$c['id']]]) : null; ?>
     <div class="nim-software-tile is-<?= e($state) ?>"<?= $card !== null ? ' data-popover-url="' . e($card) . '" tabindex="0"' : '' ?>>
         <span class="nim-software-ribbon"><?= ['ok' => 'Running', 'stopped' => 'Stopped', 'off' => 'Not installed'][$state] ?></span>
-        <i class="bi bi-<?= e($icons[$c['id']] ?? 'box') ?> nim-software-icon" aria-hidden="true"></i>
+        <?php $logo = $this->logo((string) $c['id'], 36, 'nim-logo-tile nim-software-logo'); ?><?= $logo !== '' ? $logo : '<i class="bi bi-' . e($icons[$c['id']] ?? 'box') . ' nim-software-icon" aria-hidden="true"></i>' ?>
         <div class="nim-software-name"><?= e($c['name']) ?></div>
         <div class="nim-software-ops">
             <?php foreach ($ops as [$op, $label, $icon]): ?><button type="button" class="btn btn-sm btn-outline-secondary" data-software-op="<?= e($op) ?>" data-unit="<?= e($unit) ?>" title="<?= e($label . ' ' . $c['name']) ?>" aria-label="<?= e($label . ' ' . $c['name']) ?>"><i class="bi bi-<?= e($icon) ?>" aria-hidden="true"></i></button><?php endforeach; ?>

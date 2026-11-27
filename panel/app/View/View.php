@@ -254,6 +254,26 @@ final class View
         return '<input type="hidden" name="_token" value="' . e($this->csrf->token()) . '">';
     }
 
+    /** Which software has a logo (public/assets/img/services/NAME.png), by the ids the panel uses for it. */
+    private const LOGOS = [
+        'web' => 'nginx', 'nginx' => 'nginx', 'php' => 'php', 'database' => 'mariadb', 'mariadb' => 'mariadb', 'mysql' => 'mariadb',
+        'mongodb' => 'mongodb', 'mongo' => 'mongodb', 'postgres' => 'postgresql', 'postgresql' => 'postgresql', 'redis' => 'redis',
+        'nodejs' => 'nodejs', 'python' => 'python',
+    ];
+
+    /**
+     * The logo of a service as an image, for cards, chips and window titles: "" when there is none, so the caller keeps its icon.
+     * Logos are the projects' own marks (see public/assets/img/services/README.md), shown only to name the software.
+     */
+    public function logo(string $id, int $size = 28, string $class = ''): string
+    {
+        $file = self::LOGOS[strtolower($id)] ?? null;
+        if ($file === null || !is_file($this->publicDir . '/assets/img/services/' . $file . '.png')) {
+            return '';
+        }
+        return '<img class="nim-logo' . ($class !== '' ? ' ' . e($class) : '') . '" src="' . e($this->asset('assets/img/services/' . $file . '.png')) . '" width="' . $size . '" height="' . $size . '" alt="" loading="lazy" decoding="async">';
+    }
+
     private int $hintCount = 0;
     private ?string $hintPrefix = null;
 

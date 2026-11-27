@@ -1379,3 +1379,24 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 .nim-hint-tip { position: fixed; z-index: 2000; max-width: min(20rem, calc(100vw - 16px)); padding: .5rem .7rem; border-radius: .5rem; background: var(--bs-body-bg); color: var(--bs-body-color); border: 1px solid var(--bs-border-color); box-shadow: 0 8px 24px rgba(15, 23, 42, .18); font-size: .8rem; line-height: 1.4; font-weight: 400; text-align: left; white-space: normal; }
 .nim-hint-tip[hidden] { display: none; }
 .nim-var { color: var(--bs-secondary-color); font-family: var(--bs-font-monospace); font-size: .75rem; }
+
+/* New-website wizard footer: Back left, Next / Create website right (the wrappers vanish into the flex row). */
+.nim-wizard-foot { display: flex; align-items: center; gap: .5rem; margin-top: 1rem; }
+.nim-wizard-foot > :not([hidden]) { display: contents; }
+.nim-wizard-foot [data-nim-wizard-back] { margin-right: auto; }
+.nim-wizard-foot { justify-content: flex-end; }
+/* In its window the wizard has no second header and no frame: the step name is a heading, the step cards use the full width. */
+#nim-site-modal form[data-nim-wizard] [data-nim-step].card { border: 0; box-shadow: none; background: transparent; margin-bottom: 0 !important; }
+#nim-site-modal form[data-nim-wizard] [data-nim-step] > .card-header { background: none; border: 0; padding: 0 0 .75rem; font-weight: 600; font-size: 1rem; }
+#nim-site-modal form[data-nim-wizard] [data-nim-step] > .card-body { padding: 0; }
+#nim-site-modal .nim-wizard-foot { padding-top: 1rem; border-top: 1px solid var(--bs-border-color); }
+#nim-site-modal .nim-wizard-steps { margin-bottom: 1.25rem !important; }
+
+/* Service logos (View::logo(), public/assets/img/services): on software tiles, chips, type cards and window titles. */
+.nim-logo { display: inline-block; flex: none; object-fit: contain; vertical-align: middle; }
+.nim-logo-chip { margin-right: .35rem; }
+.nim-logo-card { margin-bottom: .1rem; }
+.nim-software-logo { margin: 0 auto; }
+.nim-logo-tile { padding: 3px; border-radius: .5rem; background: #fff; border: 1px solid var(--bs-border-color); box-sizing: content-box; }
+.nim-software-icon { display: block; height: 44px; line-height: 44px; }
+.nim-software-logo { display: block; }

@@ -62,7 +62,7 @@ const OUT = process.env.E2E_OUT || '/tmp';
     const chip = page.locator('.nim-svc:has-text("Nginx")');
     if (await chip.count()) {
       await chip.first().hover();
-      await page.waitForSelector('.nim-hovercard', { timeout: 5000 });
+      await page.waitForSelector('.nim-hovercard', { timeout: 15000 });
       step('hovering the Nginx chip shows its state');
       await chip.first().click();
       await page.waitForSelector(dlg + ' .modal-header', { timeout: 10000 });

@@ -7,7 +7,7 @@
  */
 ?>
 <div class="modal-header">
-    <h2 class="modal-title h5"><i class="bi bi-database me-2" aria-hidden="true"></i>Database server settings</h2>
+    <h2 class="modal-title h5"><?= $this->logo('mariadb', 28, 'me-2') ?: '<i class="bi bi-database me-2" aria-hidden="true"></i>' ?>Database server settings</h2>
     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 </div>
 <div class="modal-body">
