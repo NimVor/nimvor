@@ -6,6 +6,10 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.10.0] — 2026-11-27
+
+A step-by-step website wizard, settings hints in tooltips, service logos and windows for Create website and Nginx. Panel only (the agent's only change is its version number): upgrade with `sudo nimvor update`; no database migration.
+
 ### Changed
 - **A new website is created step by step.** *Create website* (page and window) is a four-step wizard with a progress bar: **1 Type** (cards for PHP, Static, Node.js, Python, Reverse proxy; a click moves on), **2 Domain and owner** (domain, aliases and who owns the website), **3 Settings** (PHP version or runtime and port, document root; nothing advanced is asked: the system user comes from the domain, the PHP limits (memory, upload size, execution time) and the process count come from the selected PHP version's php.ini and PHP-FPM settings on the PHP page, with the recommended security profile, and all can be changed later on the website's own pages), **4 Review** (a summary, "open the app installer afterwards" and *Create website*). *Next* checks the step before moving on, *Back* keeps what was entered, and the site is only created on the last step. The form fields and their checks are the same. PHP versions are choice buttons.
 - **Who owns a new website.** An administrator creating a website in the wizard must say who it belongs to: an **existing customer** (a list), a **new customer account** (created together with the website: email, a login named after the domain unless given, a generated password shown once, the default plan; if the website is refused the login is removed again), or **no customer** (administrators only). Nothing is chosen for them. A hosting customer's or reseller's websites belong to the signed-in user, shown on the form and not asked. The REST API and other callers are unchanged.
