@@ -22,9 +22,8 @@ $fields = ['password_min_strength' => 'Password strength', 'password_min_length'
     <div class="row g-3">
         <?php foreach ($fields as $key => $label): $d = $definitions[$key]; ?>
             <div class="col-md-6 col-xl-4">
-                <label class="form-label fw-medium" for="ps-<?= e($key) ?>"><?= e($label) ?></label>
+                <label class="form-label fw-medium" for="ps-<?= e($key) ?>"><?= e($label) ?></label><?= $this->hint((string) $d['help'] . ($key === 'password_min_strength' ? ' ' . \NimVor\Security\PasswordPolicy::STRONG . ' or more counts as strong.' : ''), (string) $label) ?>
                 <input class="form-control form-control-sm" type="number" id="ps-<?= e($key) ?>" name="<?= e($key) ?>" min="<?= (int) $d['min'] ?>" max="<?= (int) $d['max'] ?>" value="<?= (int) $values[$key] ?>" required<?= $canManage ? '' : ' disabled' ?>>
-                <div class="form-text"><?= e((string) $d['help']) ?><?= $key === 'password_min_strength' ? ' ' . \NimVor\Security\PasswordPolicy::STRONG . ' or more counts as strong.' : '' ?></div>
             </div>
         <?php endforeach; ?>
     </div>

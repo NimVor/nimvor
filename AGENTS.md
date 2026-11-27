@@ -112,6 +112,7 @@ matrix (Ubuntu 22.04/24.04, AlmaLinux 9, Rocky 9, …).
 - **PHP:** PSR-12, `declare(strict_types=1)`, constructor injection, thin
   controllers, **repositories for SQL**, **services for behaviour**. Escape all
   output with `e()`.
+- **Explain a field with a hint, not a helper line.** Put a field's description in `<?= $this->hint('text', 'Label') ?>` right after its `<label>` (the shared `partials/field` does it for `help`); it draws a small info icon with a tooltip (hover, focus, click/tap, Escape). Keep security warnings, notices about destructive actions and consequences, and the technical key (muted, `nim-var`) visible as ordinary text. Do not add `form-text` helper lines under inputs.
 - **No inline `<script>` or `<style>`.** The panel sends a strict
   Content-Security-Policy (`script-src 'self'`,
   `app/Http/Middleware/SecurityHeaders.php`); inline scripts are blocked by the

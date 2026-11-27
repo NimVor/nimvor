@@ -18,12 +18,11 @@ $status ??= null;
         <div class="card-header"><i class="bi bi-cloud me-1" aria-hidden="true"></i>Connect Cloudflare</div>
         <form class="card-body" method="post" action="<?= e($this->url('sites.cloudflare.connect', ['id' => $id])) ?>" data-nim-busy>
             <?= $this->csrfField() ?>
-            <label class="form-label" for="cf-token">Cloudflare API token</label>
+            <label class="form-label" for="cf-token">Cloudflare API token</label><?= $this->hint('The domain must already be added to your Cloudflare account, and the token must have access to its zone.', 'Cloudflare API token') ?>
             <div class="input-group">
                 <input class="form-control font-monospace" id="cf-token" name="token" type="password" autocomplete="off" required placeholder="your Cloudflare API token">
                 <button class="btn btn-primary" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Connect</button>
             </div>
-            <div class="form-text">The domain must already be added to your Cloudflare account, and the token must have access to its zone.</div>
         </form>
     </div>
     <?php return; ?>

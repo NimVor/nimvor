@@ -19,11 +19,11 @@ $errors = (array) ($this->shared('errors') ?? []);
 $val = static fn (string $k): string => (string) ($old[$k] ?? (is_bool($values[$k] ?? null) ? ($values[$k] ? '1' : '0') : ($values[$k] ?? '')));
 $err = static fn (string $k): string => isset($errors[$k]) ? '<div class="invalid-feedback d-block">' . e((string) $errors[$k]) . '</div>' : '';
 $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
-$help = static fn (string $k): string => '<div class="form-text">' . e((string) ($definitions[$k]['help'] ?? '')) . '</div>';
+$hint = fn (string $k): string => $this->hint((string) ($definitions[$k]['help'] ?? ''), (string) ($definitions[$k]['label'] ?? ''));
 $dis = $canEdit ? '' : ' disabled';
 $save = $canEdit ? '<button class="btn btn-primary" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Save</button>' : '';
 $switch = function (string $k) use ($definitions, $val, $dis): string {
-    return '<div class="mb-3"><div class="form-check form-switch"><input type="hidden" name="' . e($k) . '" value="0"><input class="form-check-input" type="checkbox" role="switch" id="b-' . e($k) . '" name="' . e($k) . '" value="1"' . ($val($k) === '1' ? ' checked' : '') . $dis . '><label class="form-check-label" for="b-' . e($k) . '">' . e((string) $definitions[$k]['label']) . '</label></div><div class="form-text">' . e((string) $definitions[$k]['help']) . '</div></div>';
+    return '<div class="mb-3"><div class="form-check form-switch"><input type="hidden" name="' . e($k) . '" value="0"><input class="form-check-input" type="checkbox" role="switch" id="b-' . e($k) . '" name="' . e($k) . '" value="1"' . ($val($k) === '1' ? ' checked' : '') . $dis . '><label class="form-check-label" for="b-' . e($k) . '">' . e((string) $definitions[$k]['label']) . '</label>' . $this->hint((string) $definitions[$k]['help'], (string) $definitions[$k]['label']) . '</div></div>';
 };
 ?>
 <?php $this->start(); ?>Basic WebHost Settings<?php $this->end('title'); ?>
@@ -52,29 +52,28 @@ $switch = function (string $k) use ($definitions, $val, $dis): string {
         <form class="nim-panel p-3" method="post" action="<?= e($this->url('settings.basic.save')) ?>" data-nim-busy>
             <?= $this->csrfField() ?><input type="hidden" name="tab" value="basic">
             <div class="mb-3">
-                <span class="form-label d-block">Server host name</span>
+                <span class="form-label d-block">Server host name<?= $this->hint('A full name (server.example.com) whose address record points to this server: email and the hostname certificate use it.', 'Server host name') ?></span>
                 <span class="font-monospace"><?= $hostname !== '' ? e($hostname) : '<span class="nim-muted">unknown</span>' ?></span>
                 <?php if ($this->hasRoute('server') && $this->routeAllowed('server')): ?> · <a href="<?= e($this->url('server')) ?>">change on the Server page</a><?php endif; ?>
-                <div class="form-text">A full name (server.example.com) whose address record points to this server: email and the hostname certificate use it.</div>
             </div>
             <?php foreach (['panel_name' => 'text', 'panel_url' => 'url'] as $k => $type): ?>
                 <div class="mb-3">
-                    <label class="form-label" for="b-<?= e($k) ?>"><?= e((string) $definitions[$k]['label']) ?></label>
+                    <label class="form-label" for="b-<?= e($k) ?>"><?= e((string) $definitions[$k]['label']) ?></label><?= $hint($k) ?>
                     <input class="form-control<?= $cls($k) ?>" type="<?= e($type) ?>" id="b-<?= e($k) ?>" name="<?= e($k) ?>" value="<?= e($val($k)) ?>" maxlength="<?= (int) ($definitions[$k]['max_length'] ?? 255) ?>"<?= $k === 'panel_name' ? ' required' : ' placeholder="https://panel.example.com"' ?><?= $dis ?>>
-                    <?= $err($k) ?><?= $help($k) ?>
+                    <?= $err($k) ?>
                 </div>
             <?php endforeach; ?>
             <div class="mb-3">
-                <label class="form-label" for="b-dns_default_ipv4"><?= e((string) $definitions['dns_default_ipv4']['label']) ?></label>
+                <label class="form-label" for="b-dns_default_ipv4"><?= e((string) $definitions['dns_default_ipv4']['label']) ?></label><?= $hint('dns_default_ipv4') ?>
                 <input class="form-control<?= $cls('dns_default_ipv4') ?>" id="b-dns_default_ipv4" name="dns_default_ipv4" value="<?= e($val('dns_default_ipv4')) ?>" maxlength="15" list="b-ips" placeholder="<?= e($addresses[0] ?? '203.0.113.10') ?>"<?= $dis ?>>
                 <datalist id="b-ips"><?php foreach ($addresses as $a): ?><option value="<?= e($a) ?>"></option><?php endforeach; ?></datalist>
-                <?= $err('dns_default_ipv4') ?><?= $help('dns_default_ipv4') ?>
+                <?= $err('dns_default_ipv4') ?>
                 <?php if ($addresses !== []): ?><div class="form-text">This server's addresses: <?= e(implode(', ', $addresses)) ?>.</div><?php endif; ?>
             </div>
             <div class="mb-3">
-                <label class="form-label" for="b-dns_hostmaster"><?= e((string) $definitions['dns_hostmaster']['label']) ?></label>
+                <label class="form-label" for="b-dns_hostmaster"><?= e((string) $definitions['dns_hostmaster']['label']) ?></label><?= $hint('dns_hostmaster') ?>
                 <input class="form-control<?= $cls('dns_hostmaster') ?>" id="b-dns_hostmaster" name="dns_hostmaster" value="<?= e($val('dns_hostmaster')) ?>" maxlength="200" placeholder="hostmaster@example.com"<?= $dis ?>>
-                <?= $err('dns_hostmaster') ?><?= $help('dns_hostmaster') ?>
+                <?= $err('dns_hostmaster') ?>
             </div>
             <?= $save ?>
         </form>
@@ -101,29 +100,29 @@ $switch = function (string $k) use ($definitions, $val, $dis): string {
             <p class="small nim-muted">What the form for a new account or website starts with; each can still be changed there.</p>
             <div class="row g-3 mb-3">
                 <div class="col-md-6">
-                    <label class="form-label" for="b-default_plan_id"><?= e((string) $definitions['default_plan_id']['label']) ?></label>
+                    <label class="form-label" for="b-default_plan_id"><?= e((string) $definitions['default_plan_id']['label']) ?></label><?= $hint('default_plan_id') ?>
                     <select class="form-select<?= $cls('default_plan_id') ?>" id="b-default_plan_id" name="default_plan_id"<?= $dis ?>>
                         <option value="0">None (unlimited)</option>
                         <?php foreach ($plans as $p): ?><option value="<?= (int) $p['id'] ?>"<?= $val('default_plan_id') === (string) $p['id'] ? ' selected' : '' ?>><?= e((string) $p['name']) ?></option><?php endforeach; ?>
                     </select>
-                    <?= $err('default_plan_id') ?><?= $help('default_plan_id') ?>
+                    <?= $err('default_plan_id') ?>
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label" for="b-default_php_version"><?= e((string) $definitions['default_php_version']['label']) ?></label>
+                    <label class="form-label" for="b-default_php_version"><?= e((string) $definitions['default_php_version']['label']) ?></label><?= $hint('default_php_version') ?>
                     <select class="form-select<?= $cls('default_php_version') ?>" id="b-default_php_version" name="default_php_version"<?= $dis ?>>
                         <option value="">The newest installed</option>
                         <?php foreach (array_unique(array_merge($phpVersions, $val('default_php_version') !== '' ? [$val('default_php_version')] : [])) as $pv): ?><option value="<?= e($pv) ?>"<?= $val('default_php_version') === $pv ? ' selected' : '' ?>>PHP <?= e($pv) ?><?= in_array($pv, $phpVersions, true) ? '' : ' (not installed)' ?></option><?php endforeach; ?>
                     </select>
-                    <?= $err('default_php_version') ?><?= $help('default_php_version') ?>
+                    <?= $err('default_php_version') ?>
                 </div>
             </div>
             <?php foreach (['account_dns_dkim', 'account_dns_spf', 'account_dns_dmarc', 'account_spam_filter', 'account_spam_box'] as $k): ?><?= $switch($k) ?><?php endforeach; ?>
             <div class="mb-3">
-                <label class="form-label" for="b-account_mail_routing"><?= e((string) $definitions['account_mail_routing']['label']) ?></label>
+                <label class="form-label" for="b-account_mail_routing"><?= e((string) $definitions['account_mail_routing']['label']) ?></label><?= $hint('account_mail_routing') ?>
                 <select class="form-select<?= $cls('account_mail_routing') ?>" id="b-account_mail_routing" name="account_mail_routing"<?= $dis ?>>
                     <?php foreach ((array) $definitions['account_mail_routing']['options'] as $o => $l): ?><option value="<?= e((string) $o) ?>"<?= $val('account_mail_routing') === (string) $o ? ' selected' : '' ?>><?= e((string) $l) ?></option><?php endforeach; ?>
                 </select>
-                <?= $err('account_mail_routing') ?><?= $help('account_mail_routing') ?>
+                <?= $err('account_mail_routing') ?>
             </div>
             <?= $save ?>
         </form>

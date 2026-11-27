@@ -217,11 +217,10 @@ $whereLabel = ['backups' => 'Made here', 'uploaded' => 'Uploaded', 'folder' => '
 <?= $this->modalEnd() ?>
 <?= $this->modalStart('account-upload', 'Upload an account backup file', false, '') ?>
     <div data-nim-account-upload data-url="<?= e($this->url('backups.accounts.upload')) ?>" data-csrf="<?= e($this->csrfToken()) ?>" data-restore-url="<?= e($this->url('backups.accounts.preview')) ?>">
-        <label class="form-label small" for="au-file">File (<code>.nimvor-account</code>)</label>
+        <label class="form-label small" for="au-file">File (<code>.nimvor-account</code>)</label><?= $this->hint('Uploaded in parts; large files take a while. A file can also be copied to a server folder such as /backup instead.', 'File (.nimvor-account)') ?>
         <input class="form-control form-control-sm" type="file" id="au-file" accept=".nimvor-account" data-nim-account-file>
         <div class="progress mt-3 d-none" role="progressbar" aria-label="Upload progress" data-nim-account-progress><div class="progress-bar" data-width="0"></div></div>
         <div class="small mt-2" data-nim-account-status aria-live="polite"></div>
-        <div class="form-text">Uploaded in parts; large files take a while. A file can also be copied to a server folder such as /backup instead.</div>
         <div class="d-flex justify-content-end gap-2 mt-3"><button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button><button type="button" class="btn btn-sm btn-primary" data-nim-account-start disabled>Upload</button></div>
     </div>
 <?= $this->modalEnd() ?>

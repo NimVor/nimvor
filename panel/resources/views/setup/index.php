@@ -84,16 +84,14 @@ $left = count(array_filter($checklist, static fn (array $i): bool => !$i['done']
     <h2 class="h6 mb-3">2. Options</h2>
     <div class="row g-3 mb-3">
         <div class="col-md-6">
-            <label class="form-label small" for="sp-hostname">Server host name (for email)</label>
+            <label class="form-label small" for="sp-hostname">Server host name (for email)</label><?= $this->hint('Its address record should point to this server and the server\'s reverse DNS (PTR) name should match it. Empty: the system\'s host name.', 'Server host name (for email)') ?>
             <input class="form-control form-control-sm" id="sp-hostname" name="hostname" value="<?= e($hostname) ?>" placeholder="server.example.com" maxlength="253" pattern="[a-z0-9.\-]+\.[a-z]{2,63}">
-            <div class="form-text">Its address record should point to this server and the server's reverse DNS (PTR) name should match it. Empty: the system's host name.</div>
         </div>
         <div class="col-md-6">
             <span class="form-label small d-block">PHP versions</span>
             <?php foreach (SetupController::PHP_CHOICES as $v): ?>
-                <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" name="php" value="<?= e($v) ?>" id="sp-php-<?= e(str_replace('.', '', $v)) ?>"<?= in_array($v, $php, true) ? ' checked' : '' ?>><label class="form-check-label small" for="sp-php-<?= e(str_replace('.', '', $v)) ?>">PHP <?= e($v) ?></label></div>
+                <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" name="php" value="<?= e($v) ?>" id="sp-php-<?= e(str_replace('.', '', $v)) ?>"<?= in_array($v, $php, true) ? ' checked' : '' ?>><label class="form-check-label small" for="sp-php-<?= e(str_replace('.', '', $v)) ?>">PHP <?= e($v) ?></label><?= $this->hint('Installed versions are always kept. More later in the PHP Manager.') ?></div>
             <?php endforeach; ?>
-            <div class="form-text">Installed versions are always kept. More later in the PHP Manager.</div>
         </div>
         <div class="col-12">
             <div class="form-check">

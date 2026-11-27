@@ -95,13 +95,12 @@ foreach ($catalog as $cat):
                     <?php $multi = count($targets) > 1; ?>
                     <?php if ($multi): ?>
                         <div class="mb-3">
-                            <label class="form-label" for="tgt-<?= e($slug) ?>">Install on</label>
+                            <label class="form-label" for="tgt-<?= e($slug) ?>">Install on</label><?= $this->hint('Choose this website or one of its subdomains; the application installs into the chosen site\'s document root.') ?>
                             <select class="form-select" id="tgt-<?= e($slug) ?>" name="target_id">
                                 <?php foreach ($targets as $t): ?>
                                     <option value="<?= (int) $t['id'] ?>"<?= $can($t, $slug) ? '' : ' disabled' ?>><?= e((string) $t['domain']) ?><?= (int) $t['id'] === (int) $site['id'] ? ' — main domain' : ' — subdomain' ?><?= $can($t, $slug) ? '' : ' (needs ' . e(A::needs($slug)) . ')' ?></option>
                                 <?php endforeach; ?>
                             </select>
-                            <div class="form-text">Choose this website or one of its subdomains; the application installs into the chosen site's document root.</div>
                         </div>
                     <?php endif; ?>
                     <?php if ($slug === 'wordpress' || isset(\NimVor\Services\AppInstallerService::WORDPRESS_BASED[$slug])): ?>

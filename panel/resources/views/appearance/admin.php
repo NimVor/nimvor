@@ -10,8 +10,7 @@ $old = (array) ($this->shared('old') ?? []);
 $val = static fn (string $k) => $old[$k] ?? $values[$k];
 $checkbox = function (string $key) use ($definitions, $val, $errors): string {
     $on = filter_var($val($key), FILTER_VALIDATE_BOOL);
-    return '<input type="hidden" name="' . e($key) . '" value="0"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="' . e($key) . '" name="' . e($key) . '" value="1"' . ($on ? ' checked' : '') . '><label class="form-check-label" for="' . e($key) . '">' . e($definitions[$key]['label']) . '</label></div>'
-        . '<div class="form-text mb-2">' . e($definitions[$key]['help']) . '</div>';
+    return '<input type="hidden" name="' . e($key) . '" value="0"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="' . e($key) . '" name="' . e($key) . '" value="1"' . ($on ? ' checked' : '') . '><label class="form-check-label" for="' . e($key) . '">' . e($definitions[$key]['label']) . '</label>' . $this->hint((string) $definitions[$key]['help'], (string) $definitions[$key]['label']) . '</div>';
 };
 ?>
 <?php $this->start(); ?>Customer panel themes<?php $this->end('title'); ?>
@@ -50,28 +49,25 @@ $checkbox = function (string $key) use ($definitions, $val, $errors): string {
                 <div class="card-header"><i class="bi bi-sliders me-1" aria-hidden="true"></i>Defaults</div>
                 <div class="card-body">
                     <div class="mb-3">
-                        <label class="form-label" for="theme_default"><?= e($definitions['theme_default']['label']) ?></label>
+                        <label class="form-label" for="theme_default"><?= e($definitions['theme_default']['label']) ?></label><?= $this->hint((string) $definitions['theme_default']['help'], (string) $definitions['theme_default']['label']) ?>
                         <select class="form-select<?= isset($errors['theme_default']) ? ' is-invalid' : '' ?>" id="theme_default" name="theme_default">
                             <?php foreach ($definitions['theme_default']['options'] as $k => $label): ?><option value="<?= e($k) ?>"<?= (string) $val('theme_default') === $k ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?>
                         </select>
                         <?php if (isset($errors['theme_default'])): ?><div class="invalid-feedback"><?= e($errors['theme_default']) ?></div><?php endif; ?>
-                        <div class="form-text"><?= e($definitions['theme_default']['help']) ?></div>
                     </div>
                     <?= $checkbox('theme_customers_choose') ?>
                     <div class="mb-3">
-                        <label class="form-label" for="theme_default_mode"><?= e($definitions['theme_default_mode']['label']) ?></label>
+                        <label class="form-label" for="theme_default_mode"><?= e($definitions['theme_default_mode']['label']) ?></label><?= $this->hint((string) $definitions['theme_default_mode']['help'], (string) $definitions['theme_default_mode']['label']) ?>
                         <select class="form-select" id="theme_default_mode" name="theme_default_mode">
                             <?php foreach ($definitions['theme_default_mode']['options'] as $k => $label): ?><option value="<?= e($k) ?>"<?= (string) $val('theme_default_mode') === $k ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?>
                         </select>
-                        <div class="form-text"><?= e($definitions['theme_default_mode']['help']) ?></div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label" for="theme_default_accent"><?= e($definitions['theme_default_accent']['label']) ?></label>
+                        <label class="form-label" for="theme_default_accent"><?= e($definitions['theme_default_accent']['label']) ?></label><?= $this->hint((string) $definitions['theme_default_accent']['help'], (string) $definitions['theme_default_accent']['label']) ?>
                         <select class="form-select<?= isset($errors['theme_default_accent']) ? ' is-invalid' : '' ?>" id="theme_default_accent" name="theme_default_accent">
                             <?php foreach ($definitions['theme_default_accent']['options'] as $k => $label): ?><option value="<?= e($k) ?>"<?= (string) $val('theme_default_accent') === $k ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?>
                         </select>
                         <?php if (isset($errors['theme_default_accent'])): ?><div class="invalid-feedback"><?= e($errors['theme_default_accent']) ?></div><?php endif; ?>
-                        <div class="form-text"><?= e($definitions['theme_default_accent']['help']) ?></div>
                     </div>
                 </div>
             </section>

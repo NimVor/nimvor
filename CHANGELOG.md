@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- **Field explanations are tooltips.** The long helper lines under settings inputs are replaced by a small info icon beside the field's label: the explanation shows on hover, on keyboard focus and when the icon is clicked or tapped, and Escape (or a click elsewhere) closes it. The text stays in the page for screen readers (`aria-describedby`) and Tweak Settings still finds settings by it. It is one reusable component (`View::hint()`, `assets/js/nimvor.js`) used by the shared form field, the settings pages (Settings, Basic WebHost Settings, Tweak Settings, Customer panel themes, Database server settings, Password strength) and about fifty fields across the panel. The technical variable names stay visible in muted text, and security warnings, notices about destructive actions, consequences (such as a restart) and short section notes stay visible.
+
 ## [2.9.0] — 2026-11-26
 
 A tidier, tabbed dashboard and easier database tools. Panel only (the agent's only change is its version number): upgrade with `sudo nimvor update`; no database migration. Hard-refresh the browser afterwards. If you saved a dashboard layout, use Customize → Restore default to see the new widths.

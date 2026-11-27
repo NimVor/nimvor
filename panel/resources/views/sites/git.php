@@ -62,10 +62,9 @@ if (is_array($hooks)) {
                         <div class="col-sm-6"><?= $this->partial('partials/field', ['name' => 'branch', 'label' => 'Branch', 'value' => (string) ($form['branch'] ?? 'main'), 'attrs' => ['required' => 'required']]) ?></div>
                         <div class="col-sm-6"><?= $this->partial('partials/field', ['name' => 'path', 'label' => 'Folder in the website', 'value' => (string) ($form['path'] ?? 'app'), 'help' => 'Cloned here; must be empty on first deploy.', 'attrs' => ['required' => 'required']]) ?></div>
                     </div>
-                    <label class="form-label" for="g-hooks">Commands after each deployment (optional)</label>
+                    <label class="form-label" for="g-hooks">Commands after each deployment (optional)</label><?= $this->hint('One command per line, run in order as ' . (string) ($site['system_user']) . ' inside the deployed folder. The deployment stops at the first failing command.', 'Commands after each deployment (optional)') ?>
                     <textarea class="form-control font-monospace mb-1<?= isset($errors['hooks']) ? ' is-invalid' : '' ?>" id="g-hooks" name="hooks" rows="4" placeholder="composer install --no-dev --optimize-autoloader&#10;php artisan migrate --force"><?= e((string) $hooks) ?></textarea>
                     <?php if (isset($errors['hooks'])): ?><div class="invalid-feedback"><?= e($errors['hooks']) ?></div><?php endif; ?>
-                    <div class="form-text mb-3">One command per line, run in order as <code><?= e($site['system_user']) ?></code> inside the deployed folder. The deployment stops at the first failing command.</div>
                     <div class="form-check form-switch mb-3"><input type="hidden" name="auto_deploy" value="0"><input class="form-check-input" type="checkbox" role="switch" id="g-auto" name="auto_deploy" value="1"<?= !empty($form['auto_deploy']) ? ' checked' : '' ?>><label class="form-check-label" for="g-auto">Deploy automatically when the webhook receives a push to this branch</label></div>
                     <button class="btn btn-sm btn-primary" type="submit">Save</button>
                 </form>

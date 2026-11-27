@@ -30,10 +30,9 @@ $fmtMem = static fn (?int $b): string => $b === null ? '' : number_format($b / 1
                     <?= $this->partial('partials/field', ['name' => 'name', 'label' => 'Name', 'value' => (string) ($form['name'] ?? ''), 'attrs' => ['required' => 'required', 'placeholder' => 'Queue worker']]) ?>
                     <?= $this->partial('partials/field', ['name' => 'command', 'label' => 'Command', 'value' => (string) ($form['command'] ?? ''), 'attrs' => ['required' => 'required', 'placeholder' => 'php artisan queue:work --sleep=3 --tries=3']]) ?>
                     <?= $this->partial('partials/field', ['name' => 'directory', 'label' => 'Working folder', 'value' => (string) ($form['directory'] ?? ''), 'help' => 'Relative to the website root; empty for the root itself.', 'attrs' => ['placeholder' => 'app']]) ?>
-                    <label class="form-label" for="w-env">Environment variables</label>
+                    <label class="form-label" for="w-env">Environment variables</label><?= $this->hint('One KEY=value per line. Stored in a root-only file, readable by the process.', 'Environment variables') ?>
                     <textarea class="form-control font-monospace mb-1<?= isset($errors['env']) ? ' is-invalid' : '' ?>" id="w-env" name="env" rows="3" placeholder="NODE_ENV=production&#10;PORT=3000"><?= e((string) $envText) ?></textarea>
                     <?php if (isset($errors['env'])): ?><div class="invalid-feedback"><?= e($errors['env']) ?></div><?php endif; ?>
-                    <div class="form-text mb-3">One KEY=value per line. Stored in a root-only file, readable by the process.</div>
                     <div class="row g-2">
                         <div class="col-4">
                             <label class="form-label" for="w-restart">Restart</label>
@@ -46,12 +45,11 @@ $fmtMem = static fn (?int $b): string => $b === null ? '' : number_format($b / 1
                     </div>
                     <?php $runtimes ??= []; ?>
                     <div class="mt-2">
-                        <label class="form-label" for="w-runtime">Runtime</label>
+                        <label class="form-label" for="w-runtime">Runtime</label><?= $this->hint('Managed Node.js/Python runtimes (Server → Runtimes) are put on the command\'s PATH. “System default” uses the server\'s own.', 'Runtime') ?>
                         <select class="form-select" id="w-runtime" name="runtime">
                             <option value="system"<?= ($form['runtime'] ?? '') === '' ? ' selected' : '' ?>>System default</option>
                             <?php foreach ($runtimes as $rt): ?><option value="<?= e($rt) ?>"<?= ($form['runtime'] ?? '') === $rt ? ' selected' : '' ?>><?= e($rt) ?></option><?php endforeach; ?>
                         </select>
-                        <div class="form-text">Managed Node.js/Python runtimes (Server → Runtimes) are put on the command's PATH. “System default” uses the server's own.</div>
                     </div>
                     <div class="form-check form-switch mb-3"><input type="hidden" name="enabled" value="0"><input class="form-check-input" type="checkbox" role="switch" id="w-en" name="enabled" value="1"<?= ($form['enabled'] ?? true) ? ' checked' : '' ?>><label class="form-check-label" for="w-en">Running</label></div>
                     <button class="btn btn-primary btn-sm" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><?= $edit ? 'Save and restart' : 'Create worker' ?></button>

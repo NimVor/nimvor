@@ -36,7 +36,7 @@ foreach ($byCat as $cat => $defs) {
 $field = function (string $key, array $def) use ($old, $values): string {
     if ($def['type'] === 'bool') {
         $on = filter_var($old[$key] ?? $values[$key], FILTER_VALIDATE_BOOL);
-        return '<div class="mb-3"><div class="form-check form-switch"><input type="hidden" name="' . e($key) . '" value="0"><input class="form-check-input" type="checkbox" role="switch" id="f-' . e($key) . '" name="' . e($key) . '" value="1"' . ($on ? ' checked' : '') . '><label class="form-check-label" for="f-' . e($key) . '">' . e($def['label']) . '</label></div><div class="form-text">' . e($def['help']) . '</div></div>';
+        return '<div class="mb-3"><div class="form-check form-switch"><input type="hidden" name="' . e($key) . '" value="0"><input class="form-check-input" type="checkbox" role="switch" id="f-' . e($key) . '" name="' . e($key) . '" value="1"' . ($on ? ' checked' : '') . '><label class="form-check-label" for="f-' . e($key) . '">' . e($def['label']) . '</label>' . $this->hint((string) $def['help'], (string) $def['label']) . '</div></div>';
     }
     return $this->partial('partials/field', [
         'name' => $key,

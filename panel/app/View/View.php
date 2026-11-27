@@ -254,6 +254,32 @@ final class View
         return '<input type="hidden" name="_token" value="' . e($this->csrf->token()) . '">';
     }
 
+    private int $hintCount = 0;
+    private ?string $hintPrefix = null;
+
+    /**
+     * The info icon that shows a field's explanation in a small tooltip (hover, keyboard focus, click or tap; Escape closes it).
+     * It goes right after the field's label, in place of a long helper line under the input. The text stays in the page (for
+     * screen readers, through aria-describedby); assets/js/nimvor.js draws the tooltip. Security warnings and notices about
+     * destructive actions are not hints: they stay visible as ordinary text.
+     *
+     * @param string $text  the explanation (plain text, escaped here)
+     * @param string $about what the hint is about, for assistive technology ("Hostname"); optional
+     */
+    public function hint(string $text, string $about = ''): string
+    {
+        $text = trim($text);
+        if ($text === '') {
+            return '';
+        }
+        // A prefix per request: windows and widgets are loaded into a page that has hints of its own, and ids must stay unique.
+        $this->hintPrefix ??= bin2hex(random_bytes(3));
+        $id = 'nim-hint-' . $this->hintPrefix . '-' . ++$this->hintCount;
+        $label = $about !== '' ? 'More about ' . $about : 'More information';
+        return '<button type="button" class="nim-hint" aria-label="' . e($label) . '" aria-describedby="' . $id . '" aria-expanded="false" data-nim-hint><i class="bi bi-info-circle" aria-hidden="true"></i></button>'
+            . '<span class="nim-hint-text" id="' . $id . '" hidden>' . e($text) . '</span>';
+    }
+
     public function asset(string $path): string
     {
         $path = '/' . ltrim($path, '/');

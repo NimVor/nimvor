@@ -52,9 +52,8 @@ $fits = static function (array $w) use ($key): bool {
                 <div class="col-md-6 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" name="self_signed" value="1" id="ik-self"><label class="form-check-label small" for="ik-self">Use the self-signed certificate made with this key (browsers warn)</label></div></div>
                 <?php endif; ?>
                 <div class="col-12"><label class="form-label small" for="ik-cert">Certificate from the certificate authority (PEM)</label><textarea class="form-control form-control-sm font-monospace" id="ik-cert" name="certificate" rows="5" placeholder="-----BEGIN CERTIFICATE-----"></textarea></div>
-                <div class="col-12"><label class="form-label small" for="ik-chain">Intermediate certificates (CA bundle, optional)</label><textarea class="form-control form-control-sm font-monospace" id="ik-chain" name="chain" rows="4"></textarea></div>
+                <div class="col-12"><label class="form-label small" for="ik-chain">Intermediate certificates (CA bundle, optional)</label><?= $this->hint('Checked before installing: the certificate belongs to this key, covers the website\'s domain, is valid now and each certificate in the chain signs the one before it. Nginx is checked before it reloads.', 'Intermediate certificates (CA bundle, optional)') ?><textarea class="form-control form-control-sm font-monospace" id="ik-chain" name="chain" rows="4"></textarea></div>
             </div>
-            <div class="form-text mb-2">Checked before installing: the certificate belongs to this key, covers the website's domain, is valid now and each certificate in the chain signs the one before it. Nginx is checked before it reloads.</div>
             <button class="btn btn-primary btn-sm"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Install and enable HTTPS</button>
         </form>
         <?php endif; ?>

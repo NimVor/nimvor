@@ -1711,6 +1711,59 @@
         document.addEventListener('nim:widget-loaded', function (e) { restore(e.detail); });
     })();
 
+    // Field hints: <button data-nim-hint aria-describedby="ID"> after a label, with its text in <span id="ID" hidden> (View::hint()).
+    // The text shows in one small tooltip on hover or keyboard focus, and stays open when the icon is clicked or tapped (so touch
+    // screens work); Escape, a click elsewhere or scrolling closes it. The tooltip stays while the pointer is on it.
+    (function () {
+        var tip = null, owner = null, pinned = false, timer = 0;
+        function textOf(btn) { var t = document.getElementById(btn.getAttribute('aria-describedby') || ''); return t ? t.textContent : ''; }
+        function close() {
+            clearTimeout(timer);
+            if (owner) { owner.setAttribute('aria-expanded', 'false'); }
+            if (tip) { tip.hidden = true; }
+            owner = null; pinned = false;
+        }
+        function place(btn) {
+            var r = btn.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight, vw = document.documentElement.clientWidth, vh = window.innerHeight;
+            var top = r.bottom + 8;
+            if (top + h > vh - 8 && r.top - h - 8 > 8) { top = r.top - h - 8; }
+            tip.style.top = Math.max(8, top) + 'px';
+            tip.style.left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, vw - w - 8)) + 'px';
+        }
+        function open(btn, keep) {
+            if (!tip) {
+                tip = document.createElement('div');
+                tip.className = 'nim-hint-tip';
+                tip.setAttribute('role', 'tooltip');
+                tip.hidden = true;
+                tip.addEventListener('mouseenter', function () { clearTimeout(timer); });
+                tip.addEventListener('mouseleave', function () { if (!pinned) { close(); } });
+                document.body.appendChild(tip);
+            }
+            if (owner && owner !== btn) { owner.setAttribute('aria-expanded', 'false'); }
+            owner = btn; pinned = !!keep;
+            tip.textContent = textOf(btn);
+            tip.hidden = false;
+            btn.setAttribute('aria-expanded', 'true');
+            place(btn);
+        }
+        function later(btn) { clearTimeout(timer); timer = setTimeout(function () { open(btn, false); }, 120); }
+        function soon() { clearTimeout(timer); if (!pinned) { timer = setTimeout(close, 160); } }
+        function hintOf(e) { return e.target.closest ? e.target.closest('[data-nim-hint]') : null; }
+        document.addEventListener('mouseover', function (e) { var b = hintOf(e); if (b && window.matchMedia('(hover: hover)').matches) { later(b); } });
+        document.addEventListener('mouseout', function (e) { var b = hintOf(e); if (b && !b.contains(e.relatedTarget) && !(tip && tip.contains(e.relatedTarget))) { soon(); } });
+        document.addEventListener('focusin', function (e) { var b = hintOf(e); if (b) { open(b, false); } else if (!pinned) { close(); } });
+        document.addEventListener('focusout', function (e) { if (hintOf(e) && !pinned) { soon(); } });
+        document.addEventListener('click', function (e) {
+            var b = hintOf(e);
+            if (b) { e.preventDefault(); if (owner === b && pinned) { close(); } else { open(b, true); } return; }
+            if (tip && !tip.hidden && !tip.contains(e.target)) { close(); }
+        });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && owner) { var b = owner; close(); if (b.focus) { b.focus({ preventScroll: true }); } } });
+        window.addEventListener('scroll', function () { if (owner) { if (pinned) { place(owner); } else { close(); } } }, true);
+        window.addEventListener('resize', function () { if (owner) { place(owner); } });
+    })();
+
     // Hover cards: anything with data-popover-url (a dashboard tile, the server name in the top bar) shows the
     // HTML that address returns in a small card while the pointer rests on it; a click or Enter does the same for
     // touch and keyboard. The card stays while the pointer is on it (it can hold buttons) and closes on Escape.

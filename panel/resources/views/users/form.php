@@ -35,13 +35,12 @@ $active = $isNew ? ($old['is_active'] ?? '1') === '1' : (isset($old['is_active']
 
                     <?php $planId = (int) $val('plan_id', 0); ?>
                     <div class="mb-3">
-                        <label class="form-label" for="f-plan_id">Hosting plan</label>
+                        <label class="form-label" for="f-plan_id">Hosting plan</label><?= $this->hint('Limits websites, databases, cron jobs, workers and disk space. Plans apply to hosting customers and resellers.', 'Hosting plan') ?>
                         <select class="form-select<?= isset($errors['plan_id']) ? ' is-invalid' : '' ?>" id="f-plan_id" name="plan_id">
                             <option value="">No plan (unlimited)</option>
                             <?php foreach ($plans ?? [] as $p): ?><option value="<?= (int) $p['id'] ?>"<?= $planId === (int) $p['id'] ? ' selected' : '' ?>><?= e($p['name']) ?></option><?php endforeach; ?>
                         </select>
                         <?php if (isset($errors['plan_id'])): ?><div class="invalid-feedback"><?= e($errors['plan_id']) ?></div><?php endif; ?>
-                        <div class="form-text">Limits websites, databases, cron jobs, workers and disk space. Plans apply to hosting customers and resellers.</div>
                     </div>
 
                     <div class="form-check form-switch mb-3">

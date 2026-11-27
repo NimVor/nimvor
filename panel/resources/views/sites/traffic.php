@@ -107,9 +107,8 @@ $tabs = ['limits' => 'Traffic limits'];
                         </div>
                     </div>
                     <div class="mb-2">
-                        <label class="form-label small" for="st-burst">Burst</label>
+                        <label class="form-label small" for="st-burst">Burst</label><?= $this->hint('Extra requests allowed at once before the limit answers (a page and its files load together).', 'Burst') ?>
                         <input class="form-control form-control-sm" id="st-burst" name="burst" type="number" min="0" max="1000" value="0">
-                        <div class="form-text">Extra requests allowed at once before the limit answers (a page and its files load together).</div>
                     </div>
                     <div class="form-check mb-3">
                         <input class="form-check-input" type="checkbox" id="st-ua" name="per_ua" value="1">

@@ -100,9 +100,8 @@
                         </div>
                     </div>
                     <div class="mb-2">
-                        <label class="form-label small" for="al-value">Address, browser text or URL</label>
+                        <label class="form-label small" for="al-value">Address, browser text or URL</label><?= $this->hint('Address: 203.0.113.7, 10.0.0.0/8, 10.0.0.1-10.0.0.99, IPv6 too. Browser: part of the User-Agent, any case. URL: starts with /.', 'Address, browser text or URL') ?>
                         <input class="form-control form-control-sm font-monospace" id="al-value" name="value" maxlength="200" required placeholder="203.0.113.0/24">
-                        <div class="form-text">Address: <code>203.0.113.7</code>, <code>10.0.0.0/8</code>, <code>10.0.0.1-10.0.0.99</code>, IPv6 too. Browser: part of the User-Agent, any case. URL: starts with <code>/</code>.</div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label small" for="al-note">Note (optional)</label>

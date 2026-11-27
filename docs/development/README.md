@@ -122,6 +122,24 @@ must be safe to run twice. Downloads stay GET links.
 - Destructive forms keep `data-nim-confirm` (and
   `data-nim-confirm-word` for high-risk ones).
 
+## Field hints (tooltips)
+
+A field's explanation is not printed under the input. Put it in a hint right after the label:
+
+```php
+<label class="form-label" for="f-host">Host name</label><?= $this->hint('A full name such as server1.example.com.', 'Host name') ?>
+```
+
+`View::hint($text, $about)` returns a small info button (`.nim-hint`) and the text in a hidden span that the button points to with
+`aria-describedby`, so screen readers read it. `assets/js/nimvor.js` shows it in one tooltip on hover, on keyboard focus and when the
+button is clicked or tapped (it then stays until Escape, a click elsewhere or scrolling); the tooltip is placed against the window, so
+tables and windows do not cut it off. The shared `partials/field` takes the text from its `help` option. The text is escaped; use plain
+text (no markup).
+
+Keep as ordinary visible text: security warnings, notices about destructive actions, consequences the user must see before saving (a
+restart, a changed address), short section notes, and the technical variable name, shown muted (`.nim-var`) next to the label.
+`tests/e2e/fieldhints.js` covers hover, focus, click, Escape and the phone layout.
+
 ## Fixture server
 
 `agent/tests/fixtures/ubuntu-host` is a miniature Ubuntu 24.04 filesystem:

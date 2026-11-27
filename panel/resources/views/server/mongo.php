@@ -488,9 +488,8 @@ $base = $this->url('mongo');
     <form method="post" action="<?= e($this->url('mongo.database_create')) ?>" data-nim-busy>
         <div class="p-3">
             <?= $this->csrfField() ?>
-            <label class="form-label" for="mdb-name">Name</label>
+            <label class="form-label" for="mdb-name">Name</label><?= $this->hint('Letters, digits, _ and -. The database exists once it has a collection; NimVor adds an empty one.', 'Name') ?>
             <input class="form-control" id="mdb-name" name="name" pattern="[A-Za-z0-9_][A-Za-z0-9_-]*" maxlength="63" required placeholder="shop">
-            <div class="form-text">Letters, digits, _ and -. The database exists once it has a collection; NimVor adds an empty one.</div>
             <hr class="my-3">
             <div class="form-check form-switch mb-2">
                 <input class="form-check-input" type="checkbox" role="switch" id="mdb-withuser" data-mongo-dbuser-toggle>
@@ -521,13 +520,12 @@ $base = $this->url('mongo');
             <div class="row g-2 mt-1">
                 <div class="col-6"><label class="form-label" for="mu-pw">Password</label><input class="form-control" id="mu-pw" name="password" type="password" minlength="8" maxlength="256" required></div>
                 <div class="col-6">
-                    <label class="form-label" for="mu-role">Role</label>
+                    <label class="form-label" for="mu-role">Role</label><?= $this->hint('The user is created in the chosen database with that role on it.', 'Role') ?>
                     <select class="form-select" id="mu-role" name="role">
                         <?php foreach ($roles as $k => $label): ?><option value="<?= e($k) ?>"<?= $k === 'readWrite' ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?>
                     </select>
                 </div>
             </div>
-            <div class="form-text mt-1">The user is created in the chosen database with that role on it.</div>
             <button class="btn btn-primary btn-sm mt-3" type="submit">Create user</button>
         </div>
     </form>

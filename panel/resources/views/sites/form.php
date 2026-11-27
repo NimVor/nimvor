@@ -58,10 +58,9 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
                         <?php if (!$isNew): ?><div class="form-text">The primary domain cannot be changed; create a new website instead.</div><?php endif; ?>
                     </div>
                     <div class="mb-0">
-                        <label class="form-label" for="f-aliases">Aliases</label>
+                        <label class="form-label" for="f-aliases">Aliases</label><?= $this->hint('One per line. Point their DNS records at this server.', 'Aliases') ?>
                         <textarea class="form-control<?= $cls('aliases') ?>" id="f-aliases" name="aliases" rows="3" placeholder="www.example.com"><?= e($aliases) ?></textarea>
                         <?= $err('aliases') ?>
-                        <div class="form-text">One per line. Point their DNS records at this server.</div>
                     </div>
                 </div>
             </div>
@@ -119,10 +118,9 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
                     </div>
                     <?php endif; ?>
                     <div class="mb-3" data-nim-kind="proxy">
-                        <label class="form-label" for="f-proxy">Upstream address</label>
+                        <label class="form-label" for="f-proxy">Upstream address</label><?= $this->hint('Your app must listen on this local port (run it as a Worker).', 'Upstream address') ?>
                         <input class="form-control<?= $cls('proxy_pass') ?>" id="f-proxy" name="proxy_pass" value="<?= e($v('proxy_pass')) ?>" placeholder="http://127.0.0.1:3000">
                         <?= $err('proxy_pass') ?>
-                        <div class="form-text">Your app must listen on this local port (run it as a Worker).</div>
                     </div>
                     <?php
                     $runtimes ??= [];
@@ -148,19 +146,17 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
                                 <?= $err('app_port') ?>
                             </div>
                         </div>
-                        <label class="form-label mt-2" for="f-cmd-<?= e($ak) ?>">Start command <span class="text-body-secondary small">(optional)</span></label>
+                        <label class="form-label mt-2" for="f-cmd-<?= e($ak) ?>">Start command <span class="text-body-secondary small">(optional)</span></label><?= $this->hint('We run your app as a background service on the chosen runtime and serve it over your domain. PORT is set for you. You can edit it later under Runtime.') ?>
                         <input class="form-control font-monospace" id="f-cmd-<?= e($ak) ?>" name="app_command" value="<?= e($v('app_command')) ?>" placeholder="<?= $ak === 'python' ? 'gunicorn app:app --bind 127.0.0.1:$PORT' : 'node server.js' ?>">
-                        <div class="form-text">We run your app as a background service on the chosen runtime and serve it over your domain. <code>PORT</code> is set for you. You can edit it later under Runtime.</div>
                     </div>
                     <?php endforeach; ?>
                     <div class="mb-0">
-                        <label class="form-label" for="f-docsub">Document root</label>
+                        <label class="form-label" for="f-docsub">Document root</label><?= $this->hint('For Laravel use public_html/public.', 'Document root') ?>
                         <div class="input-group">
                             <span class="input-group-text small"><?= e($site['root'] ?? '<sites root>/<domain>') ?>/</span>
                             <input class="form-control<?= $cls('document_root_sub') ?>" id="f-docsub" name="document_root_sub" value="<?= e($old['document_root_sub'] ?? ($docSub !== '' ? $docSub : 'public_html')) ?>">
                         </div>
                         <?= $err('document_root_sub') ?>
-                        <div class="form-text">For Laravel use <code>public_html/public</code>.</div>
                     </div>
                 </div>
             </div>

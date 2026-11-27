@@ -39,19 +39,17 @@ $scheme = !empty($site['https']) ? 'https://' : 'http://';
                 <?= $err('code') ?>
             </div>
             <div class="mb-3">
-                <label class="form-label" for="rd-from">Redirect this address</label>
+                <label class="form-label" for="rd-from">Redirect this address</label><?= $this->hint('The path visitors open, for example /old-page or /blog/2019/post. Use / to redirect the home page.', 'Redirect this address') ?>
                 <div class="input-group">
                     <span class="input-group-text font-monospace small text-break"><?= e($scheme . $site['domain']) ?></span>
                     <input class="form-control font-monospace<?= $cls('from') ?>" id="rd-from" name="from" value="<?= e($val('from')) ?>" placeholder="/old-page" maxlength="201" required autocomplete="off" spellcheck="false">
                 </div>
                 <?= $err('from') ?>
-                <div class="form-text">The path visitors open, for example <code>/old-page</code> or <code>/blog/2019/post</code>. Use <code>/</code> to redirect the home page.</div>
             </div>
             <div class="mb-3">
-                <label class="form-label" for="rd-to">Redirects to</label>
+                <label class="form-label" for="rd-to">Redirects to</label><?= $this->hint('A full address (https://example.com/new-page) or a path on this website (/new-page).', 'Redirects to') ?>
                 <input class="form-control font-monospace<?= $cls('to') ?>" id="rd-to" name="to" value="<?= e($val('to')) ?>" placeholder="https://example.com/new-page" maxlength="400" required autocomplete="off" spellcheck="false">
                 <?= $err('to') ?>
-                <div class="form-text">A full address (<code>https://example.com/new-page</code>) or a path on this website (<code>/new-page</code>).</div>
             </div>
             <div class="d-flex gap-2 justify-content-end">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>

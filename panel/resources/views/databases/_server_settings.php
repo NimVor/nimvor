@@ -36,7 +36,10 @@ $charset = (string) ($managed['character_set_server'] ?? $vars['character_set_se
                     <h2 class="h6"><?= e($group) ?></h2>
                     <?php foreach ($list as $s): $k = (string) $s['key']; $cur = (string) ($managed[$k] ?? ''); $eff = $shown($s, (string) ($vars[$k] ?? '')); $id = 'dbs-' . $k; ?>
                         <div class="row g-2 align-items-start mb-2">
-                            <label class="col-sm-6 col-form-label col-form-label-sm" for="<?= e($id) ?>"><?= e((string) $s['label']) ?> <?= !empty($s['dynamic']) ? '<span class="badge text-bg-light border fw-normal">now</span>' : '<span class="badge text-bg-light border fw-normal">restart</span>' ?><div class="small nim-muted font-monospace"><?= e($k) ?></div></label>
+                            <div class="col-sm-6 col-form-label col-form-label-sm">
+                                <label for="<?= e($id) ?>"><?= e((string) $s['label']) ?></label><?= $this->hint((string) $s['help'], (string) $s['label']) ?> <?= !empty($s['dynamic']) ? '<span class="badge text-bg-light border fw-normal">now</span>' : '<span class="badge text-bg-light border fw-normal">restart</span>' ?>
+                                <div class="nim-var"><?= e($k) ?></div>
+                            </div>
                             <div class="col-sm-6">
                                 <input type="hidden" name="managed[<?= e($k) ?>]" value="<?= e($cur) ?>">
                                 <?php if ($s['kind'] === 'bool' || $s['kind'] === 'choice'):
@@ -48,7 +51,6 @@ $charset = (string) ($managed['character_set_server'] ?? $vars['character_set_se
                                 <?php else: ?>
                                     <input class="form-control form-control-sm font-monospace" id="<?= e($id) ?>" name="settings[<?= e($k) ?>]" value="<?= e($cur) ?>" placeholder="<?= e($eff) ?>"<?= $canManage ? '' : ' disabled' ?>>
                                 <?php endif; ?>
-                                <div class="form-text"><?= e((string) $s['help']) ?></div>
                             </div>
                         </div>
                     <?php endforeach; ?>
