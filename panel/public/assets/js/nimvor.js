@@ -456,6 +456,23 @@
         document.querySelectorAll('[data-nim-toggle-kind]').forEach(applyKind);
     });
 
+    // New-website owner choice (administrators): the pane of the chosen option shows (existing customer: a list; new customer: email
+    // and login); the fields of the others are disabled, so they are not sent.
+    function ownerPanes(root) {
+        (root || document).querySelectorAll('[data-nim-owner]').forEach(function (box) {
+            var on = box.querySelector('input[name="owner_mode"]:checked');
+            var mode = on ? on.value : '';
+            box.querySelectorAll('[data-nim-owner-pane]').forEach(function (pane) {
+                var show = pane.getAttribute('data-nim-owner-pane') === mode;
+                pane.classList.toggle('d-none', !show);
+                pane.querySelectorAll('input, select').forEach(function (f) { f.disabled = !show; });
+            });
+        });
+    }
+    document.addEventListener('change', function (e) { if (e.target.matches && e.target.matches('input[name="owner_mode"]')) { ownerPanes(e.target.closest('form')); } });
+    document.addEventListener('DOMContentLoaded', function () { ownerPanes(document); });
+    document.addEventListener('nim:modal-loaded', function (e) { ownerPanes(e.detail); });
+
     // New-website wizard: the form's cards carry data-nim-step (1 type, 2 domain,
     // 3 settings, 4 review). Without this script every card is shown at once.
     function initWizard(form) {
@@ -464,7 +481,7 @@
         var nav = form.querySelector('[data-nim-wizard-nav]');
         var submit = form.querySelector('[data-nim-wizard-submit]');
         var tabs = document.querySelectorAll('[data-nim-step-tab]');
-        var last = 4, cur = 1;
+        var last = steps.reduce(function (m, el) { return Math.max(m, parseInt(el.getAttribute('data-nim-step'), 10) || 1); }, 1), cur = 1;
         function field(name) {
             var els = form.querySelectorAll('[name="' + name + '"]');
             for (var i = 0; i < els.length; i++) {
@@ -514,6 +531,10 @@
             return true;
         }
         form.classList.add('nim-wizard-on');
+        // A type card opens the form for that type (the radio is already checked when its click arrives).
+        form.addEventListener('click', function (e) {
+            if (cur === 1 && e.target.closest('.nim-type-card')) { setTimeout(function () { show(2); }, 0); }
+        });
         form.addEventListener('click', function (e) {
             if (e.target.closest('[data-nim-wizard-next]')) { if (ok(cur)) { show(cur + 1); } }
             if (e.target.closest('[data-nim-wizard-back]')) { show(cur - 1); }

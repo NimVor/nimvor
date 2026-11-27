@@ -43,6 +43,7 @@ final class SitesController extends Controller
         private readonly \NimVor\Services\SiteHealthService $health,
         private readonly \NimVor\Services\RuntimeService $runtimes,
         private readonly \NimVor\Services\WorkerService $workers,
+        private readonly \NimVor\Services\AccountService $accounts,
         private readonly ?\NimVor\Services\ScreenshotService $shots = null,
     ) {
         parent::__construct($view, $session);
@@ -97,8 +98,32 @@ final class SitesController extends Controller
         $appKind = in_array((string) ($input['kind'] ?? ''), ['nodejs', 'python'], true);
         // From the window (Create website): answered as JSON, so a refusal marks the fields in the window and a success goes to the site.
         $json = $request->wantsJson();
+        $actor = $this->user($request);
+        $newCustomer = null;
         try {
-            $id = $this->service->create($input, $this->user($request));
+            // The wizard makes an administrator say who the website belongs to: an existing customer, a new customer account (created
+            // with the website) or nobody. A customer's or reseller's websites are theirs (WebsiteService::resolveOwner).
+            if (!empty($input['wizard']) && \NimVor\Hosting\Scope::isAll($actor)) {
+                $mode = (string) ($input['owner_mode'] ?? '');
+                if (!in_array($mode, ['existing', 'new', 'none'], true)) {
+                    throw new ValidationException(['owner_mode' => 'Choose who the website belongs to: an existing customer, a new customer account, or no customer.']);
+                }
+                if ($mode === 'existing') {
+                    $owner = $this->users->find((int) ($input['owner_id'] ?? 0));
+                    if ($owner === null || ($owner['role_scope'] ?? 'all') !== 'own') {
+                        throw new ValidationException(['owner_id' => 'Choose the customer this website belongs to.']);
+                    }
+                } else {
+                    $input['owner_id'] = '';
+                }
+            }
+            if (($mode ?? '') === 'new') {
+                $newCustomer = $this->accounts->createCustomerWebsite($input, (string) ($input['new_username'] ?? ''), (string) ($input['new_email'] ?? ''), $actor);
+                $id = $newCustomer['site_id'];
+                $this->session->flash('secret', ['title' => 'Customer account created', 'user' => $newCustomer['username'], 'password' => $newCustomer['password']]);
+            } else {
+                $id = $this->service->create($input, $actor);
+            }
         } catch (ValidationException $e) {
             if ($json) {
                 return Response::json(['success' => false, 'error' => ['message' => $e->getMessage() !== '' ? $e->getMessage() : 'Check the highlighted fields.', 'errors' => $e->errors()]], 422);

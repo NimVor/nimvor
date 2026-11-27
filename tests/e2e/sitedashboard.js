@@ -60,11 +60,12 @@ const DEV_ROOT = path.resolve(__dirname, '../../.dev/root');
     step('customer created');
 
     await page.goto(BASE + '/websites/new');
-    await page.click('[data-nim-wizard-next]');
+    await page.click('label.nim-type-card >> nth=0'); // the type card opens the form
+    await page.click('label.nim-choice:has(input[name=owner_mode][value=existing])'); // an administrator says who owns it: the customer
     await page.fill('#f-domain', domain);
     const ownerValue = await page.$eval('#f-owner', (s, u) => [...s.options].find(o => o.textContent.startsWith(u + ' ')).value, 'cust' + stamp);
     await page.selectOption('#f-owner', ownerValue);
-    await page.click('[data-nim-wizard-next]'); await page.click('[data-nim-wizard-next]');
+    
     // The form is sent by the AJAX layer (the next page loads in place).
     await Promise.all([page.waitForResponse(r => r.url().endsWith('/websites/new') && r.request().method() === 'POST'), page.click('main form[action="/websites/new"] button[type=submit]')]);
     await page.waitForLoadState('networkidle');

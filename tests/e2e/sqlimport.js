@@ -26,9 +26,10 @@ const DEV = path.resolve(__dirname, '../../.dev');
     await page.fill('#username', 'admin'); await page.fill('#password', 'dev-password-change-me');
     await Promise.all([page.waitForNavigation(), page.click('button[type=submit]')]);
     await page.goto(BASE + '/websites/new');
-    await page.click('[data-nim-wizard-next]');
+    await page.click('label.nim-type-card >> nth=0'); // the type card opens the form
+    await page.click('label.nim-choice:has(input[name=owner_mode][value=none])'); // an administrator says who owns it
     await page.fill('#f-domain', domain);
-    await page.click('[data-nim-wizard-next]'); await page.click('[data-nim-wizard-next]');
+    
     await Promise.all([page.waitForNavigation(), page.click('main form[action="/websites/new"] button[type=submit]')]);
     const siteId = execFileSync('sqlite3', [path.join(DEV, 'nimvor.sqlite'), `SELECT id FROM websites WHERE domain = '${domain}'`]).toString().trim();
     const dbName = 'imp_' + stamp.slice(-6);

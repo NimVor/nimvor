@@ -1380,11 +1380,8 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 .nim-hint-tip[hidden] { display: none; }
 .nim-var { color: var(--bs-secondary-color); font-family: var(--bs-font-monospace); font-size: .75rem; }
 
-/* New-website wizard footer: Back left, Next / Create website right (the wrappers vanish into the flex row). */
-.nim-wizard-foot { display: flex; align-items: center; gap: .5rem; margin-top: 1rem; }
-.nim-wizard-foot > :not([hidden]) { display: contents; }
-.nim-wizard-foot [data-nim-wizard-back] { margin-right: auto; }
-.nim-wizard-foot { justify-content: flex-end; }
+/* New-website footer (second stage): Cancel and Create website on the right. */
+.nim-wizard-foot { display: flex; align-items: center; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }
 /* In its window the wizard has no second header and no frame: the step name is a heading, the step cards use the full width. */
 #nim-site-modal form[data-nim-wizard] [data-nim-step].card { border: 0; box-shadow: none; background: transparent; margin-bottom: 0 !important; }
 #nim-site-modal form[data-nim-wizard] [data-nim-step] > .card-header { background: none; border: 0; padding: 0 0 .75rem; font-weight: 600; font-size: 1rem; }
@@ -1411,3 +1408,25 @@ button.nim-nav-group { margin-top: .35rem; padding: .5rem .6rem .3rem; }
 .nim-type-title { font-weight: 600; color: var(--bs-body-color); }
 .nim-type-desc { font-size: .8rem; line-height: 1.35; color: var(--bs-secondary-color); }
 .nim-logo-chip { margin-right: .4rem; }
+
+/* New-website form: the type heading, the folded advanced settings and the PHP version choices. */
+.nim-type-head { margin-bottom: 1rem; padding-bottom: .9rem; border-bottom: 1px solid var(--bs-border-color); }
+.nim-type-head .nim-type-tile { width: 3rem; height: 3rem; }
+form[data-nim-wizard] [data-nim-step].card > .card-header { display: none; }
+form[data-nim-wizard] [data-nim-step].card { border: 0; box-shadow: none; background: transparent; margin-bottom: 1rem !important; }
+form[data-nim-wizard] [data-nim-step].card > .card-body { padding: 0; }
+.nim-adv { margin-bottom: 1rem; border: 1px solid var(--bs-border-color); border-radius: .6rem; background: var(--bs-body-bg); }
+.nim-adv > summary { cursor: pointer; padding: .65rem .9rem; font-weight: 600; font-size: .9rem; list-style: none; display: flex; align-items: center; justify-content: space-between; }
+.nim-adv > summary::-webkit-details-marker { display: none; }
+.nim-adv > summary::after { content: "\F282"; font-family: bootstrap-icons; font-size: .8rem; transition: transform .15s; }
+.nim-adv[open] > summary::after { transform: rotate(180deg); }
+.nim-adv-body { padding: 0 .9rem .6rem; }
+.nim-choice-row { display: flex; flex-wrap: wrap; gap: .5rem; }
+.nim-choice { position: relative; }
+.nim-choice input { position: absolute; opacity: 0; pointer-events: none; }
+.nim-choice span { display: inline-flex; align-items: center; justify-content: center; min-width: 5.5rem; padding: .45rem .9rem; border: 1px solid var(--bs-border-color); border-radius: .55rem; background: var(--bs-body-bg); font-size: .9rem; cursor: pointer; transition: border-color .12s, box-shadow .12s, background-color .12s; }
+.nim-choice input:checked + span { border-color: var(--bs-primary); box-shadow: 0 0 0 1px var(--bs-primary); background: color-mix(in srgb, var(--bs-primary) 7%, var(--bs-body-bg)); font-weight: 600; }
+.nim-choice input:focus-visible + span { outline: 2px solid var(--bs-primary); outline-offset: 2px; }
+.nim-adv .card { border: 0; box-shadow: none; background: transparent; margin-bottom: .75rem !important; }
+.nim-adv .card > .card-header { background: none; border: 0; padding: .25rem 0 .5rem; font-weight: 600; font-size: .85rem; }
+.nim-adv .card > .card-body { padding: 0; }

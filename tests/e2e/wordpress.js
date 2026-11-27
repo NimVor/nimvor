@@ -32,9 +32,10 @@ const DEV_ROOT = path.resolve(__dirname, '../../.dev/root');
     await submit('button[type=submit]');
 
     await page.goto(BASE + '/websites/new');
-    await page.click('[data-nim-wizard-next]');
+    await page.click('label.nim-type-card >> nth=0'); // the type card opens the form
+    await page.click('label.nim-choice:has(input[name=owner_mode][value=none])'); // an administrator says who owns it
     await page.fill('#f-domain', domain);
-    await page.click('[data-nim-wizard-next]'); await page.click('[data-nim-wizard-next]');
+    
     await submit('main form[action="/websites/new"] button[type=submit]');
     await page.goto(BASE + '/websites');
     const link = await page.$(`tr:has-text("${domain}") a[href^="/sites/"]`) || await page.$(`a[href^="/sites/"]:has-text("${domain}")`);

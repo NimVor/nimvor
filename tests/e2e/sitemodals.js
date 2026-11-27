@@ -1,6 +1,6 @@
 // End-to-end test of the windows that replace separate pages:
 // - "Create website" (dashboard) and "Add site" (websites list) open the new-website wizard in a window;
-//   a refused submit marks the field in the window, a good one goes to the new website
+//   a type card opens the form for that type; a refused submit marks the field in the window, a good one goes to the new website
 // - the Nginx chip on the websites list opens Nginx in a window with its buttons at the top
 // - the database server settings window has one header only
 // No script or CSP errors.
@@ -29,22 +29,32 @@ const OUT = process.env.E2E_OUT || '/tmp';
     await page.waitForSelector(dlg + ' form[data-nim-wizard]', { timeout: 10000 });
     if (!page.url().endsWith('/') && !page.url().includes('/?')) { throw new Error('the quick action left the dashboard: ' + page.url()); }
     step('Create website opens the wizard in a window, on the dashboard');
-    // Step 1 (type) -> 2 (domain): a wrong domain is refused in the window, no page change.
-    await page.click(dlg + ' [data-nim-wizard-next]');
+    // A type card opens the form; a wrong domain is refused in the window, no page change.
+    if (await page.locator(dlg + ' [data-nim-wizard-submit]:visible').count() !== 0) { throw new Error('the Create button shows before a type is chosen'); }
+    await page.click(dlg + ' label.nim-type-card >> nth=0');
+    await page.waitForSelector(dlg + ' #f-domain', { state: 'visible', timeout: 5000 });
+    if (await page.locator(dlg + ' [data-nim-wizard-submit]:visible').count() !== 1) { throw new Error('the Create button is missing on the form'); }
+    step('a type card opens the form for that type, with Cancel / Create website');
+    // The owner must be chosen (existing customer, new customer account or none): without a choice the window says so.
+    await page.fill(dlg + ' #f-domain', 'noowner' + stamp + '.example.test');
+    await page.click(dlg + ' button[type=submit]:visible');
+    await page.waitForSelector(dlg + ' [data-nim-owner] .invalid-feedback', { timeout: 10000 });
+    await page.click(dlg + ' label.nim-choice:has(input[name=owner_mode][value=new])');
+    if (!await page.locator(dlg + ' #f-new-email').isVisible()) { throw new Error('the new customer fields did not show'); }
+    step('the owner must be chosen; "New customer account" asks for an email');
+    await page.click(dlg + ' label.nim-choice:has(input[name=owner_mode][value=none])');
     await page.fill(dlg + ' #f-domain', 'not a domain!');
-    await page.click(dlg + ' [data-nim-wizard-next]');
-    await page.click(dlg + ' [data-nim-wizard-next]');
     await page.click(dlg + ' button[type=submit]:visible');
     await page.waitForSelector(dlg + ' .is-invalid, ' + dlg + ' [data-nim-modal-error]:not(.d-none)', { timeout: 10000 });
     if (!await page.locator(dlg).isVisible()) { throw new Error('the window closed on a refused submit'); }
     step('a refused submit stays in the window and marks the field');
-    // Fix it and create.
+    // Advanced settings are folded; Change type goes back to the cards.
+    if (await page.locator(dlg + ' details.nim-adv[open]').count() !== 0) { throw new Error('the advanced settings are open by default'); }
+    await page.click(dlg + ' .nim-type-head:visible [data-nim-wizard-back]');
+    await page.waitForSelector(dlg + ' label.nim-type-card', { state: 'visible', timeout: 5000 });
+    await page.click(dlg + ' label.nim-type-card >> nth=0');
+    await page.click(dlg + ' label.nim-choice:has(input[name=owner_mode][value=none])');
     await page.fill(dlg + ' #f-domain', 'win' + stamp + '.example.test');
-    await page.waitForFunction(() => document.querySelector('#nim-site-modal [data-nim-step="2"]') && !document.querySelector('#nim-site-modal [data-nim-step="2"]').hidden, null, { timeout: 5000 }).catch(() => {});
-    for (let i = 0; i < 3; i++) {
-      const next = page.locator(dlg + ' [data-nim-wizard-next]:visible');
-      if (await next.count()) { await next.first().click(); }
-    }
     await Promise.all([page.waitForURL(/\/sites\/\d+/, { timeout: 60000 }), page.click(dlg + ' button[type=submit]:visible')]);
     step('a good submit goes to the new website: ' + page.url());
 

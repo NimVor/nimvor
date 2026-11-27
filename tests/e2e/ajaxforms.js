@@ -33,9 +33,10 @@ const OUT = process.env.E2E_OUT || '/tmp';
 
     await page.goto(BASE + '/websites/new');
     await mark();
-    await page.click('[data-nim-wizard-next]');
+    await page.click('label.nim-type-card >> nth=0'); // the type card opens the form
+    await page.click('label.nim-choice:has(input[name=owner_mode][value=none])'); // an administrator says who owns it
     await page.fill('#f-domain', 'ajax' + stamp + '.example.test');
-    await page.click('[data-nim-wizard-next]'); await page.click('[data-nim-wizard-next]');
+    
     await swap(() => page.click('main form[action="/websites/new"] button[type=submit]'));
     if (!await same()) { throw new Error('creating a website reloaded the page'); }
     const site = new URL(page.url()).pathname;

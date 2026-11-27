@@ -132,6 +132,15 @@ controller answers `{success, message, redirect?}` or a 422 with `error.errors` 
 start on the `nim:modal-loaded` event. Used by Create website (`sites.create.modal`), Nginx (`nginx.modal`, Start/Stop at the top), the
 database server settings and the website quick settings.
 
+## The new-website form
+
+`sites/form.php` is a two-stage form for a new website (`data-nim-wizard`, steps 1 and 2): the type cards (a click opens stage 2) and one form
+for the chosen type; edit mode shares the file without the wizard. Fields that depend on the type carry `data-nim-kind`, the rarely used
+ones sit in `details.nim-adv`. The window version is `GET /websites/new/modal`; its form is sent in the background and answered as JSON
+(`SitesController::store`). With `wizard=1` an administrator must send `owner_mode` (`existing` + `owner_id`, `new` + `new_email`
+[+ `new_username`], or `none`); `new` creates the customer through `AccountService::createCustomerWebsite()` and flashes the generated
+password once (`secret`). Customers and resellers own what they create (`WebsiteService::resolveOwner`); API callers send no `wizard`.
+
 ## Service logos
 
 `View::logo($id, $size, $class)` returns the logo of a service as an `<img>` (or `''`, so `?:` keeps the icon): `$this->logo('nginx', 16) ?: '<i class="bi bi-hdd-rack"></i>'`.

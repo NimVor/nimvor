@@ -25,9 +25,19 @@ $aliases = $old['aliases'] ?? implode("\n", $site['aliases'] ?? []);
 $docSub = $site === null ? '' : ltrim(substr((string) $site['document_root'], strlen((string) $site['root'])), '/');
 $err = static fn (string $k): string => isset($errors[$k]) ? '<div class="invalid-feedback d-block">' . e($errors[$k]) . '</div>' : '';
 $cls = static fn (string $k): string => isset($errors[$k]) ? ' is-invalid' : '';
-// A new website is created in four steps (what, where, how, review); the form and its field names are the same.
-$st = static fn (int $n): string => $site === null ? ' data-nim-step="' . $n . '"' : '';
-$steps = [1 => 'Type', 2 => 'Domain', 3 => 'Settings', 4 => 'Review'];
+// A new website is two stages: pick the type (its card opens the form), then one focused form for that type. Advanced settings are folded.
+$st = static fn (int $n): string => $site === null ? ' data-nim-step="' . ($n === 1 ? 1 : 2) . '"' : '';
+$steps = [1 => 'Type', 2 => 'Details'];
+// The website types, with what each needs (cards whose feature is off for this account are not shown). Node.js and Python are hosted as a
+// reverse proxy to the app's local port.
+$allowedTypes ??= ['type_php' => true, 'type_static' => true, 'type_nodejs' => true, 'type_python' => true, 'type_proxy' => true];
+$kindCards = array_values(array_filter([
+    ['php', 'PHP application', 'filetype-php', 'type_php', 'WordPress, Laravel and other PHP apps, with PHP-FPM and a database.'],
+    ['static', 'Static site', 'file-earmark-code', 'type_static', 'HTML, CSS and JavaScript files, served directly by Nginx.'],
+    ['nodejs', 'Node.js', 'hexagon', 'type_nodejs', 'A Node.js app kept running as a service behind Nginx.'],
+    ['python', 'Python', 'filetype-py', 'type_python', 'A Python app (Django, Flask, FastAPI) kept running as a service.'],
+    ['proxy', 'Reverse proxy', 'hdd-network', 'type_proxy', 'Send a domain to an app already running on a local port or another server.'],
+], static fn (array $c): bool => !empty($allowedTypes[$c[3]])));
 ?>
 <?php if ($modal): ?>
     <div class="modal-header">
@@ -47,16 +57,25 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
 <?php if ($hidden !== []): ?>
     <div class="alert alert-danger"><?php foreach ($hidden as $m): ?><div><?= e((string) $m) ?></div><?php endforeach; ?></div>
 <?php endif; ?>
-<?php if ($isNew): ?>
-<ol class="nim-wizard-steps list-unstyled d-flex flex-wrap gap-2 mb-3" aria-label="Steps">
-    <?php foreach ($steps as $n => $label): ?><li class="nim-wizard-tab" data-nim-step-tab="<?= $n ?>"><span class="nim-wizard-num"><?= $n ?></span> <?= e($label) ?></li><?php endforeach; ?>
-</ol>
-<?php endif; ?>
 <form method="post" action="<?= e($isNew ? $this->url('sites.store') : $this->url('sites.update', ['id' => (int) $site['id']])) ?>"<?= $modal ? ' data-nim-site-modal-form' : ' data-nim-busy' ?> novalidate<?= $isNew ? ' data-nim-wizard' : '' ?>>
     <?= $this->csrfField() ?>
     <?php if ($modal): ?><div class="alert alert-danger d-none" role="alert" data-nim-modal-error></div><?php endif; ?>
     <div class="row g-3">
         <div class="<?= $isNew ? ($modal ? 'col-12' : 'col-lg-8 mx-auto') : 'col-lg-6' ?>">
+            <?php if ($isNew): ?>
+            <?php foreach ($kindCards as [$k, $label, $icon, , $about]): ?>
+                <div class="nim-type-head" data-nim-kind="<?= e($k) ?>" data-nim-step="2">
+                    <button type="button" class="btn btn-link btn-sm p-0 mb-2 text-decoration-none" data-nim-wizard-back><i class="bi bi-chevron-left" aria-hidden="true"></i> Change type</button>
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="nim-type-tile"><?= $this->logo($k === 'proxy' ? 'nginx' : $k, 36) ?: '<i class="bi bi-' . e($icon) . '" aria-hidden="true"></i>' ?></span>
+                        <div>
+                            <h3 class="h6 mb-0">New <?= e(strtolower($label) === 'php application' ? 'PHP website' : ($k === 'static' ? 'static website' : ($k === 'proxy' ? 'reverse proxy' : $label . ' website'))) ?></h3>
+                            <div class="small text-body-secondary"><?= e($about) ?></div>
+                        </div>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+            <?php endif; ?>
             <div class="card mb-3" id="domains"<?= $st(2) ?>>
                 <div class="card-header"><i class="bi bi-globe2 me-1"></i>Domains</div>
                 <div class="card-body">
@@ -73,6 +92,52 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
                     </div>
                 </div>
             </div>
+            <?php if ($isNew): $ownerMode = (string) ($old['owner_mode'] ?? ''); $customers = array_values(array_filter((array) ($owners ?? []), static fn (array $o): bool => ($o['role_scope'] ?? 'all') === 'own')); ?>
+            <div class="mb-3" data-nim-step="2" data-nim-owner>
+                <?php if ($serverPhp): ?>
+                    <input type="hidden" name="wizard" value="1">
+                    <span class="form-label d-block">Website owner<?= $this->hint('Who the website belongs to. An existing customer, or a new customer account that is created together with the website (its login is named after the domain unless you give one, and its password is generated and shown once), or nobody: administrators only.', 'Website owner') ?></span>
+                    <div class="nim-choice-row" role="radiogroup" aria-label="Website owner">
+                        <label class="nim-choice"><input type="radio" name="owner_mode" value="existing" required<?= $ownerMode === 'existing' ? ' checked' : '' ?>><span>Existing customer</span></label>
+                        <label class="nim-choice"><input type="radio" name="owner_mode" value="new" required<?= $ownerMode === 'new' ? ' checked' : '' ?>><span>New customer account</span></label>
+                        <label class="nim-choice"><input type="radio" name="owner_mode" value="none" required<?= $ownerMode === 'none' ? ' checked' : '' ?>><span>No customer (administrators only)</span></label>
+                    </div>
+                    <?= $err('owner_mode') ?>
+                    <div class="mt-2<?= $ownerMode === 'existing' ? '' : ' d-none' ?>" data-nim-owner-pane="existing">
+                        <?php if ($customers === []): ?>
+                            <div class="small text-body-secondary">There are no customers yet. Choose "New customer account" to create one with this website.</div>
+                        <?php else: ?>
+                            <label class="visually-hidden" for="f-owner">Customer</label>
+                            <select class="form-select<?= $cls('owner_id') ?>" id="f-owner" name="owner_id"<?= $ownerMode === 'existing' ? '' : ' disabled' ?>>
+                                <option value="">Choose a customer…</option>
+                                <?php foreach ($customers as $o): ?>
+                                    <option value="<?= (int) $o['id'] ?>"<?= (string) ($old['owner_id'] ?? '') === (string) $o['id'] ? ' selected' : '' ?>><?= e($o['username']) ?> (<?= e($o['role_label'] ?? 'customer') ?>)</option>
+                                <?php endforeach; ?>
+                            </select>
+                            <?= $err('owner_id') ?>
+                        <?php endif; ?>
+                    </div>
+                    <div class="mt-2<?= $ownerMode === 'new' ? '' : ' d-none' ?>" data-nim-owner-pane="new">
+                        <div class="row g-2">
+                            <div class="col-sm-6">
+                                <label class="form-label small" for="f-new-email">Customer email</label>
+                                <input class="form-control<?= $cls('new_email') ?>" type="email" id="f-new-email" name="new_email" value="<?= e((string) ($old['new_email'] ?? '')) ?>" placeholder="customer@example.com" autocomplete="off"<?= $ownerMode === 'new' ? '' : ' disabled' ?>>
+                                <?= $err('new_email') ?>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label small" for="f-new-user">Login name</label>
+                                <input class="form-control<?= $cls('new_username') ?>" id="f-new-user" name="new_username" value="<?= e((string) ($old['new_username'] ?? '')) ?>" placeholder="derived from the domain" maxlength="31" autocomplete="off"<?= $ownerMode === 'new' ? '' : ' disabled' ?>>
+                                <?= $err('new_username') ?>
+                            </div>
+                        </div>
+                        <div class="small text-body-secondary mt-1">A customer account is created with the website, on the default plan. Its password is generated and shown once afterwards.</div>
+                    </div>
+                <?php else: $me = (array) ($this->shared('user') ?? []); ?>
+                    <span class="form-label d-block">Website owner</span>
+                    <div class="small"><i class="bi bi-person-check me-1" aria-hidden="true"></i><strong><?= e((string) (($me['display_name'] ?? '') !== '' ? $me['display_name'] : ($me['username'] ?? 'You'))) ?></strong> <span class="text-body-secondary">(you): your websites belong to your account.</span></div>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
             <div class="card mb-3"<?= $st(1) ?>>
                 <div class="card-header"><i class="bi bi-diagram-3 me-1"></i><?= $isNew ? 'What are you hosting?' : 'Application' ?></div>
                 <div class="card-body">
@@ -84,14 +149,6 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
                         // so they select the "proxy" type.
                         // Each card names the feature it needs; cards whose
                         // feature is off for this account are not shown.
-                        $allowedTypes ??= ['type_php' => true, 'type_static' => true, 'type_nodejs' => true, 'type_python' => true, 'type_proxy' => true];
-                        $kindCards = array_values(array_filter([
-                            ['php', 'PHP application', 'filetype-php', 'type_php', 'WordPress, Laravel and other PHP apps, with PHP-FPM and a database.'],
-                            ['static', 'Static site', 'file-earmark-code', 'type_static', 'HTML, CSS and JavaScript files, served directly by Nginx.'],
-                            ['nodejs', 'Node.js', 'hexagon', 'type_nodejs', 'A Node.js app kept running as a service behind Nginx.'],
-                            ['python', 'Python', 'filetype-py', 'type_python', 'A Python app (Django, Flask, FastAPI) kept running as a service.'],
-                            ['proxy', 'Reverse proxy', 'hdd-network', 'type_proxy', 'Send a domain to an app already running on a local port or another server.'],
-                        ], static fn (array $c): bool => !empty($allowedTypes[$c[3]])));
                         $kindChosen = false;
                         ?>
                         <div class="row row-cols-1 row-cols-md-2 g-2" role="radiogroup" aria-label="Application type">
@@ -119,13 +176,17 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
                     <?php endif; ?>
                     <?php if ($isNew): ?>
                     <div class="mb-3" data-nim-kind="php">
-                        <label class="form-label" for="f-php">PHP version</label>
-                        <select class="form-select<?= $cls('php_version') ?>" id="f-php" name="php_version">
-                            <?php if ($phpVersions === []): ?><option value="">No PHP-FPM installed</option><?php endif; ?>
-                            <?php foreach (array_reverse($phpVersions) as $pv): ?>
-                                <option value="<?= e($pv) ?>"<?= (string) $v('php_version', $defaultPhp ?? '') === $pv ? ' selected' : '' ?>>PHP <?= e($pv) ?></option>
-                            <?php endforeach; ?>
-                        </select>
+                        <span class="form-label d-block">PHP version</span>
+                        <?php if ($phpVersions === []): ?>
+                            <select class="form-select<?= $cls('php_version') ?>" id="f-php" name="php_version" aria-label="PHP version"><option value="">No PHP-FPM installed</option></select>
+                        <?php else: ?>
+                            <?php $phpPick = (string) $v('php_version', $defaultPhp ?? ''); if (!in_array($phpPick, $phpVersions, true)) { $phpPick = (string) end($phpVersions); } ?>
+                            <div class="nim-choice-row" role="radiogroup" aria-label="PHP version">
+                                <?php foreach (array_reverse($phpVersions) as $pv): ?>
+                                    <label class="nim-choice"><input type="radio" name="php_version" value="<?= e($pv) ?>"<?= $phpPick === $pv ? ' checked' : '' ?>><span>PHP <?= e($pv) ?></span></label>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
                         <?= $err('php_version') ?>
                     </div>
                     <?php endif; ?>
@@ -174,29 +235,19 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
             </div>
         <?php if (!$isNew): ?></div>
         <div class="col-lg-6"><?php endif; ?>
+            <?php if ($isNew): ?><details class="nim-adv" data-nim-step="2"><summary>Advanced settings</summary><div class="nim-adv-body"><?php endif; ?>
             <?php if ($serverPhp): /* Admins/operators set the account and owner; a hosting customer owns what they create and the account is derived from the domain. */ ?>
-            <div class="card mb-3"<?= $st(2) ?>>
+            <div class="card mb-3">
                 <div class="card-header"><i class="bi bi-person me-1"></i>System user</div>
                 <div class="card-body">
                     <input class="form-control<?= $cls('system_user') ?>" name="system_user" value="<?= e($v('system_user')) ?>" placeholder="derived from the domain" <?= $isNew ? '' : 'disabled' ?> maxlength="31" aria-label="System user">
                     <?= $err('system_user') ?>
                     <div class="form-text">PHP, cron jobs, workers and deployments run as this Linux account. It is created if it does not exist.</div>
-                    <?php if (!empty($owners)): ?>
-                        <label class="form-label mt-3" for="f-owner">Owner</label>
-                        <select class="form-select" id="f-owner" name="owner_id">
-                            <option value="">— none (administrators only) —</option>
-                            <?php foreach ($owners as $o): ?>
-                                <?php if (($o['role_scope'] ?? 'all') === 'own'): ?>
-                                    <option value="<?= (int) $o['id'] ?>"<?= (string) ($old['owner_id'] ?? '') === (string) $o['id'] ? ' selected' : '' ?>><?= e($o['username']) ?> (<?= e($o['role_label']) ?>)</option>
-                                <?php endif; ?>
-                            <?php endforeach; ?>
-                        </select>
-                    <?php endif; ?>
                 </div>
             </div>
             <?php endif; ?>
             <?php if ($isNew && $serverPhp): ?>
-            <div class="card mb-3" data-nim-kind="php" id="php"<?= $st(3) ?>>
+            <div class="card mb-3" data-nim-kind="php" id="php">
                 <div class="card-header"><i class="bi bi-filetype-php me-1"></i>PHP settings</div>
                 <div class="card-body">
                     <div class="row g-2">
@@ -265,7 +316,7 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
                 </div>
             </div>
             <?php endif; ?>
-            <div class="card mb-3" id="requests"<?= $st(3) ?>>
+            <div class="card mb-3" id="requests">
                 <div class="card-header"><i class="bi bi-signpost me-1"></i>Requests</div>
                 <div class="card-body">
                     <label class="form-label small" for="f-body">Max request body (MB)</label>
@@ -275,37 +326,21 @@ $hidden = array_filter($errors, static fn (string $k): bool => in_array($k, $ser
                 </div>
             </div>
             <?php if ($isNew): ?>
-            <div class="card mb-3"<?= $st(4) ?>>
-                <div class="card-header"><i class="bi bi-check2-circle me-1"></i>Review</div>
-                <div class="card-body">
-                    <dl class="row mb-0 small" data-nim-review>
-                        <dt class="col-sm-4">Domain</dt><dd class="col-sm-8" data-nim-review-field="domain"></dd>
-                        <dt class="col-sm-4">Type</dt><dd class="col-sm-8" data-nim-review-field="kind"></dd>
-                        <dt class="col-sm-4" data-nim-kind="php">PHP version</dt><dd class="col-sm-8" data-nim-kind="php" data-nim-review-field="php_version"></dd>
-                        <dt class="col-sm-4" data-nim-kind="nodejs python">Runtime and port</dt><dd class="col-sm-8" data-nim-kind="nodejs python" data-nim-review-field="app_runtime"></dd>
-                        <dt class="col-sm-4" data-nim-kind="proxy">Upstream</dt><dd class="col-sm-8" data-nim-kind="proxy" data-nim-review-field="proxy_pass"></dd>
-                        <dt class="col-sm-4">Document root</dt><dd class="col-sm-8" data-nim-review-field="document_root_sub"></dd>
-                    </dl>
-                    <p class="text-body-secondary small mt-3 mb-2">Nginx is validated before it is reloaded and the website is removed again if anything fails. DNS and email are set up as your account's defaults say.</p>
-                    <div class="form-check" data-nim-kind="php static">
-                        <input class="form-check-input" type="checkbox" id="f-after-apps" name="after_apps" value="1"<?= !empty($old['after_apps']) ? ' checked' : '' ?>>
-                        <label class="form-check-label" for="f-after-apps">Open the app installer afterwards (WordPress, Joomla, Nextcloud …)</label>
-                    </div>
-                </div>
+            </div></details>
+            <div class="form-check mb-3" data-nim-kind="php static" data-nim-step="2">
+                <input class="form-check-input" type="checkbox" id="f-after-apps" name="after_apps" value="1"<?= !empty($old['after_apps']) ? ' checked' : '' ?>>
+                <label class="form-check-label" for="f-after-apps">Open the app installer afterwards (WordPress, Joomla, Nextcloud …)</label>
             </div>
+            <p class="text-body-secondary small mb-0" data-nim-step="2">Nginx is validated before it is reloaded, and the website is removed again if anything fails. DNS and email follow your account's defaults.</p>
             <?php endif; ?>
         </div>
     </div>
     <?php if ($isNew): ?>
-    <?php /* One footer: Back on the left, Next (or Create website on the last step) on the right. The wrappers vanish into it (display: contents, nimvor.css). */ ?>
-    <div class="nim-wizard-foot">
-        <div data-nim-wizard-nav hidden>
-            <button class="btn btn-outline-secondary" type="button" data-nim-wizard-back>Back</button>
-            <button class="btn btn-primary" type="button" data-nim-wizard-next>Next</button>
-        </div>
-        <div data-nim-wizard-submit>
-            <button class="btn btn-primary" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Create website</button>
-        </div>
+    <?php /* The footer shows on the second stage only (the type cards open it): Cancel and Create website. */ ?>
+    <div class="nim-wizard-foot" data-nim-wizard-submit>
+        <?php if ($modal): ?><button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
+        <?php else: ?><a class="btn btn-outline-secondary" href="<?= e($this->url('websites')) ?>">Cancel</a><?php endif; ?>
+        <button class="btn btn-primary" type="submit"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Create website</button>
     </div>
     <?php else: ?>
     <div class="d-flex gap-2 align-items-center">
