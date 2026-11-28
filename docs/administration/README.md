@@ -2181,8 +2181,9 @@ NimVor does not open the database server to the network.
 *Settings* lists a fixed set of options: connections and timeouts, the
 largest packet, thread cache, host name lookups, InnoDB buffer pool, redo
 log size and flush at commit, temporary and heap table sizes, open tables
-cache, slow query log and time, and the default character set and
-collation. Values are checked (types, ranges, a collation that belongs
+cache, InnoDB I/O capacity (and its maximum), read and write threads and
+statistics on metadata queries, slow query log and time, and the default
+character set and collation. Values are checked (types, ranges, a collation that belongs
 to the character set) and written to NimVor's own option file
 (`zz-nimvor.cnf` in `/etc/mysql/mariadb.conf.d`, `/etc/mysql/mysql.conf.d`
 or `/etc/my.cnf.d`, read after the distribution's files). Then the server
@@ -2192,6 +2193,26 @@ applied at once with `SET GLOBAL` (if the server refuses one, the file and
 the values applied before it are restored); the others take effect at the
 next restart. An empty field removes NimVor's value, so the server's own
 applies again.
+
+**Performance profiles.** *Small* (about 2–4 GB of memory), *Standard*
+(about 8 GB) and *High performance* (16 GB or more) fill the form with
+starting values calculated from this server's memory (`MemTotal`): the
+InnoDB buffer pool is 25 %, 40 % or 50 % of it (in steps of 128 MB), the redo
+log is 256 MB, 512 MB or 1 GB (at most half the buffer pool), and connections,
+thread and table caches, temporary table sizes, I/O capacity (400/800,
+1000/2000, 2000/4000), I/O threads (4, 8, 16) and *statistics on metadata*
+(off) grow with the profile. The profile that fits the server's memory is
+marked *Recommended here*; one meant for more memory than the server has shows
+a warning. A profile never saves anything: it only fills the form, you change
+what you like and press *Save settings*. It does not touch the listening
+address, character set, logging or how safely commits are written. The
+*Workload check* above the form reads the server's own counters (peak
+connections against the maximum, InnoDB reads that went to disk, statements
+running now, slow queries, temporary tables written to disk) and says in words
+what looks too small; the counters count from the last start, so a young
+server says so. The maximum I/O capacity may not be below the I/O capacity.
+Agent action `db.server_status` now also returns `ram_bytes` and `profiles`
+(`agent/internal/dbmgr/profiles.go`); the advice is `DbTuningAdvisor` in the panel.
 
 *Restart* first checks the option files (it is refused while they have an
 error), restarts the service and waits up to 90 seconds for the server to

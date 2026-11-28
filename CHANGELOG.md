@@ -6,6 +6,9 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Database performance profiles and a workload check.** *Databases → Database server → Settings* offers **Small** (2–4 GB), **Standard** (8 GB) and **High performance** (16 GB+) profiles. Each fills the form with starting values calculated from this server's memory (InnoDB buffer pool, redo log size, connections, caches, temporary table sizes, I/O capacity and threads); the one that fits is marked *Recommended here*. A profile only fills the form, so you can change anything before pressing *Save settings*. A **Workload check** reads the server's own counters (peak connections, statements running, InnoDB reads from disk, slow queries, temporary tables on disk) and says what looks too small. New settings: InnoDB I/O capacity and its maximum, read and write threads (restart), and statistics on metadata queries. Agent and panel change: upgrade both with `sudo nimvor update`.
+
 ### Fixed
 - **Database server settings refused sizes shown as "32 MB".** The form shows sizes with a unit and space ("32 MB", "4 GB") but the server accepted only "32M", so saving gave "max_heap_table_size: a size from 1M to 64G". Both spellings are accepted now and written as "32M"; a size that only differs in spelling from the saved one is not sent again. Agent and panel change: upgrade both with `sudo nimvor update`.
 

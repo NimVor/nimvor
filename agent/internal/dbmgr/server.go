@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -74,6 +75,11 @@ var ServerSettings = []ServerSetting{
 	{Key: "tmp_table_size", Label: "In-memory temporary tables", Help: "Largest temporary table kept in memory, e.g. 64M (together with the heap table size).", Kind: kindSize, Min: 1 << 20, Max: 64 * gib, Dynamic: true, Group: "Memory and storage"},
 	{Key: "max_heap_table_size", Label: "Heap table size", Help: "Largest MEMORY table; also caps in-memory temporary tables.", Kind: kindSize, Min: 1 << 20, Max: 64 * gib, Dynamic: true, Group: "Memory and storage"},
 	{Key: "table_open_cache", Label: "Open tables cache", Help: "Tables kept open for all connections.", Kind: kindInt, Min: 64, Max: 1000000, Dynamic: true, Group: "Memory and storage"},
+	{Key: "innodb_io_capacity", Label: "InnoDB I/O capacity", Help: "Disk operations per second InnoDB assumes for background flushing, e.g. 1000 on SSD. Keep it at or below the maximum below.", Kind: kindInt, Min: 100, Max: 1000000, Dynamic: true, Group: "I/O and statistics"},
+	{Key: "innodb_io_capacity_max", Label: "InnoDB I/O capacity (maximum)", Help: "Upper limit of disk operations per second when InnoDB has to flush faster, e.g. 2000. Not below the I/O capacity.", Kind: kindInt, Min: 100, Max: 1000000, Dynamic: true, Group: "I/O and statistics"},
+	{Key: "innodb_read_io_threads", Label: "InnoDB read threads", Help: "Background threads for reads, e.g. 8. Needs a restart.", Kind: kindInt, Min: 1, Max: 64, Group: "I/O and statistics"},
+	{Key: "innodb_write_io_threads", Label: "InnoDB write threads", Help: "Background threads for writes, e.g. 8. Needs a restart.", Kind: kindInt, Min: 1, Max: 64, Group: "I/O and statistics"},
+	{Key: "innodb_stats_on_metadata", Label: "Refresh statistics on metadata queries", Help: "OFF (recommended): looking at table lists or running SHOW TABLE STATUS does not re-sample every table, which is slow on big servers.", Kind: kindBool, Dynamic: true, Group: "I/O and statistics"},
 	{Key: "slow_query_log", Label: "Slow query log", Help: "Log queries that take longer than the time below (to the server's slow query log file).", Kind: kindBool, Dynamic: true, Group: "Logging"},
 	{Key: "long_query_time", Label: "Slow query time (s)", Help: "Queries slower than this are logged when the slow query log is on, e.g. 2 or 0.5.", Kind: kindFloat, Min: 0, Max: 3600, Dynamic: true, Group: "Logging"},
 	{Key: "character_set_server", Label: "Default character set", Help: "For new databases created without one.", Kind: kindChoice, Choices: []string{"utf8mb4", "utf8mb3", "latin1"}, Dynamic: true, Group: "Character set"},
@@ -173,6 +179,11 @@ func compactSize(v string) string {
 		return strings.ToUpper(v)
 	}
 	return m[1] + m[2]
+}
+
+func atoiOr(v string) int {
+	n, _ := strconv.Atoi(v)
+	return n
 }
 
 func human(n int64) string {
@@ -358,6 +369,12 @@ func registerServer(r *actions.Registry, c Client) {
 		}
 		out["running"] = true
 		out["variables"] = vars
+		if b, err := os.ReadFile(filepath.Join(c.Env.Cfg.ProcDir, "meminfo")); err == nil {
+			if ram := memTotal(b); ram > 0 {
+				out["ram_bytes"] = ram
+				out["profiles"] = Profiles(ram)
+			}
+		}
 		q := make([]string, len(statusNames))
 		for i, n := range statusNames {
 			q[i] = Quote(n)
@@ -510,6 +527,10 @@ func registerServer(r *actions.Registry, c Client) {
 			setSQL[k] = sql
 		}
 		sort.Strings(changed)
+		// A maximum below the capacity is a mistake the server only warns about.
+		if lo, hi := atoiOr(next["innodb_io_capacity"]), atoiOr(next["innodb_io_capacity_max"]); lo > 0 && hi > 0 && hi < lo {
+			return nil, actions.InvalidParams("innodb_io_capacity_max: not below innodb_io_capacity (" + strconv.Itoa(lo) + ")")
+		}
 		// Character set and collation must match (checked by the server).
 		cs, coll := next["character_set_server"], next["collation_server"]
 		if coll != "" {
@@ -604,4 +625,18 @@ func nonNil(s []string) []string {
 		return []string{}
 	}
 	return s
+}
+
+// memTotal reads MemTotal (bytes) from /proc/meminfo; 0 when it is not there.
+func memTotal(b []byte) int64 {
+	for _, line := range strings.Split(string(b), "\n") {
+		if k, rest, ok := strings.Cut(line, ":"); ok && k == "MemTotal" {
+			if f := strings.Fields(rest); len(f) > 0 {
+				if n, err := strconv.ParseInt(f[0], 10, 64); err == nil {
+					return n * 1024
+				}
+			}
+		}
+	}
+	return 0
 }

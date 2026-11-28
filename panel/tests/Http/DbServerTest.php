@@ -9,12 +9,15 @@ use NimVor\Tests\Support\HttpTestCase;
 
 final class DbServerTest extends HttpTestCase
 {
+    /** @var array<string, mixed> */
+    private array $status = [];
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->seedUser('admin', 'admin');
         $this->seedUser('cust', 'customer');
-        $this->agent->succeed('db.server_status', [
+        $this->agent->succeed('db.server_status', $this->status = [
             'running' => true, 'unit' => 'mariadb.service', 'drop_in' => '/etc/mysql/mariadb.conf.d/zz-nimvor.cnf',
             'managed' => ['max_connections' => '300'],
             'settings' => [
@@ -80,6 +83,29 @@ final class DbServerTest extends HttpTestCase
         self::assertEquals(['max_connections' => ''], (array) $call['settings']);
         self::assertTrue($call['restart']);
         self::assertStringContainsString('previous settings were restored', (string) $this->flash('error'));
+    }
+
+    public function testPerformanceProfilesFillTheFormAndAreOnlyOfferedToAdministrators(): void
+    {
+        $this->login('admin');
+        $this->agent->succeed('db.server_status', array_merge($this->status, [
+            'ram_bytes' => 8 * 1024 ** 3,
+            'profiles' => [
+                ['id' => 'small', 'name' => 'Small', 'description' => 'd', 'recommended' => false, 'values' => ['innodb_buffer_pool_size' => '1G', 'max_connections' => '100', 'innodb_io_capacity' => '400', 'innodb_io_capacity_max' => '800']],
+                ['id' => 'standard', 'name' => 'Standard', 'description' => 'd', 'recommended' => true, 'values' => ['innodb_buffer_pool_size' => '3200M', 'max_connections' => '200', 'innodb_io_capacity' => '1000', 'innodb_io_capacity_max' => '2000']],
+                ['id' => 'high', 'name' => 'High performance', 'description' => 'd', 'recommended' => false, 'warning' => 'Less memory than meant for.', 'values' => ['innodb_buffer_pool_size' => '4G', 'max_connections' => '400', 'innodb_io_capacity' => '2000', 'innodb_io_capacity_max' => '4000']],
+            ],
+        ]));
+        $page = $this->request('GET', '/databases/server/settings')->body();
+        self::assertStringContainsString('data-nim-db-profiles', $page);
+        self::assertStringContainsString('8 GB of memory', $page);
+        self::assertSame(3, substr_count($page, 'data-nim-db-profile-name='));
+        self::assertStringContainsString('Recommended here', $page);
+        self::assertStringContainsString('Less memory than meant for.', $page);
+        self::assertStringContainsString('Workload check', $page);
+        // The same window version, and nothing is saved by showing it.
+        self::assertStringContainsString('data-nim-db-profiles', $this->request('GET', '/databases/server/settings/modal')->body());
+        self::assertSame(0, $this->calls('db.server_settings'));
     }
 
     public function testASizeShownWithItsUnitIsNotAChange(): void

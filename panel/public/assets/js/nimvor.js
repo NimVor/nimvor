@@ -2623,3 +2623,24 @@
         if (other) { row.parentNode.insertBefore(row, up ? other : other.nextSibling); }
     });
 })();
+
+/* Database server settings: a performance profile fills the form (nothing is saved until "Save settings"). */
+(function () {
+    document.addEventListener('click', function (e) {
+        var b = e.target.closest ? e.target.closest('[data-nim-db-profile]') : null;
+        if (!b) { return; }
+        var form = b.closest('form');
+        var values;
+        try { values = JSON.parse(b.getAttribute('data-nim-db-profile') || '{}'); } catch (x) { return; }
+        var n = 0;
+        Object.keys(values).forEach(function (k) {
+            var f = form ? form.querySelector('[name="settings[' + k + ']"]') : null;
+            if (!f || f.disabled) { return; }
+            if (f.value !== values[k]) { f.value = values[k]; f.dispatchEvent(new Event('input', { bubbles: true })); n++; }
+        });
+        var note = form ? form.querySelector('[data-nim-db-profile-note]') : null;
+        if (note) {
+            note.textContent = (b.getAttribute('data-nim-db-profile-name') || 'Profile') + ': ' + (n > 0 ? n + ' settings filled in below. Review them, then press Save settings.' : 'the form already has these values.');
+        }
+    });
+})();
