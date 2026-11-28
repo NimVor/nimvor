@@ -139,7 +139,8 @@ final class DashboardController extends Controller
      * core, the busiest processes, where memory and disk space go. Read-only; the same data as the monitoring page.
      */
     /** The Software tiles that show details on hover, and the permission each needs. */
-    public const TILE_DETAILS = ['dns' => Permissions::SERVER_VIEW, 'mail' => Permissions::SERVER_VIEW, 'redis' => Permissions::REDIS_MANAGE, 'memcached' => Permissions::REDIS_MANAGE, 'web' => Permissions::SERVER_VIEW, 'ssl' => Permissions::SSL_VIEW];
+    public const TILE_DETAILS = ['dns' => Permissions::SERVER_VIEW, 'mail' => Permissions::SERVER_VIEW, 'redis' => Permissions::REDIS_MANAGE, 'memcached' => Permissions::REDIS_MANAGE, 'web' => Permissions::SERVER_VIEW, 'ssl' => Permissions::SSL_VIEW,
+        'php' => Permissions::PHP_VIEW, 'database' => Permissions::DATABASES_VIEW, 'firewall' => Permissions::SECURITY_VIEW, 'fail2ban' => Permissions::SECURITY_VIEW, 'clamav' => Permissions::SECURITY_VIEW];
 
     public function popover(Request $request, string $key): Response
     {

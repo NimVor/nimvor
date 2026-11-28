@@ -28,7 +28,7 @@ the navigation. "Gap" is what a widget still needs.
 | Widget | Data source that exists | Gap |
 |---|---|---|
 | CPU, memory, load, network, uptime | agent `system.metrics`, `system.live`, `metric_samples` (30 days) | swap, disk I/O and temperature are not collected |
-| Top processes | agent `system.live` (top 5 by CPU and memory), `processes.list`, `processes.signal` (stop/kill with confirmation on the Processes page) | none — **shipped** (step 1) |
+| Top processes (removed from the dashboard in 2.11) | agent `system.live` (top 5 by CPU and memory), `processes.list`, `processes.signal` (stop/kill with confirmation on the Processes page) | none — **shipped** (step 1) |
 | Disk and inodes | agent `disk.filesystems`, `disk.scan`, `ServerDiskService` | latency and read-only warnings |
 | Website uptime and speed | agent `sites.probe` (read-only), `website_checks` table, `WebsiteMonitor` | none — **shipped** (step 2) |
 | Security overview | `ssh.logins`, `fail2ban.status`, `firewall.status`, `av.status`, `modsec.status`, `security.audit`, panel sign-in failures from the audit log | none — **shipped** (step 3) |

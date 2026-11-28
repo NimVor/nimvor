@@ -37,10 +37,10 @@ const OUT = process.env.E2E_OUT || '/tmp';
     step('widgets: disk and backup health, no tools grid, the folded-in widgets are gone');
 
     // A measured widget is loaded after the page and ends in a real state, never stuck on "Loading".
-    await page.waitForSelector('[data-widget="top_processes"]:not([data-state="loading"])', { timeout: 30000 });
-    const tpState = await page.getAttribute('[data-widget="top_processes"]', 'data-state');
-    if (!['ok', 'empty', 'unavailable', 'error'].includes(tpState)) { throw new Error('top processes widget state: ' + tpState); }
-    step('top processes widget loaded (' + tpState + ')');
+    await page.waitForSelector('[data-widget="services_overview"]:not([data-state="loading"])', { timeout: 30000 });
+    const tpState = await page.getAttribute('[data-widget="services_overview"]', 'data-state');
+    if (!['ok', 'empty', 'unavailable', 'error'].includes(tpState)) { throw new Error('services widget state: ' + tpState); }
+    step('a measured widget loaded (' + tpState + ')');
 
     // Performance history: the chart is drawn from what the monitor recorded; with no history it says so instead of drawing anything.
     // (A new server has no history yet: the plot is then empty and a note says so, which is also a valid state.)

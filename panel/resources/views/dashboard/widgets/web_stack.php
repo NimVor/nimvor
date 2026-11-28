@@ -4,8 +4,9 @@
  *
  * @var \NimVor\View\View $this
  * @var array<string, mixed> $d
+ * @var string|null $only 'php': only the PHP-FPM part (the PHP tile's hover card)
  */
-$nx = $d['nginx'];
+$nx = (($only ?? '') === 'php') ? null : $d['nginx'];
 $n = static fn (?int $v): string => $v === null ? 'N/A' : number_format($v);
 ?>
 <?php if ($nx !== null): ?>

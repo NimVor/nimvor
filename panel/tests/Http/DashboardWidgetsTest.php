@@ -45,7 +45,8 @@ final class DashboardWidgetsTest extends HttpTestCase
         $page = $this->request('GET', '/dashboard/widgets/software', [], ['accept' => 'application/json', 'x-requested-with' => 'XMLHttpRequest']);
         $html = (string) ((array) json_decode($page->body(), true))['html'];
         self::assertStringContainsString('data-popover-url="/dashboard/popover/dns"', $html);
-        self::assertStringNotContainsString('/dashboard/popover/php', $html, 'PHP has no hover card');
+        self::assertStringContainsString('/dashboard/popover/php', $html, 'PHP has a hover card');
+        self::assertStringContainsString('/dashboard/popover/database', $html, 'so has the database server');
         self::assertStringContainsString('/databases/server/settings/modal', $html, 'the database tile\'s settings open in a window');
         self::assertStringContainsString('data-nim-site-modal', $html);
     }
@@ -75,16 +76,6 @@ final class DashboardWidgetsTest extends HttpTestCase
         }
     }
 
-    public function testTopProcessesShowByCpuAndByMemoryInTwoTabs(): void
-    {
-        $this->agent->succeed('system.live', ['processes' => 9, 'top_cpu' => [['pid' => 5, 'name' => 'cpuhog', 'user' => 'u', 'state' => 'R', 'cpu_percent' => 40.0, 'rss_bytes' => 1048576]], 'top_memory' => [['pid' => 6, 'name' => 'memhog', 'user' => 'u', 'state' => 'S', 'cpu_percent' => 0.0, 'rss_bytes' => 5242880]]]);
-        $html = $this->widgetHtml('top_processes');
-        self::assertStringContainsString('data-nim-pane="cpu"', $html);
-        self::assertStringContainsString('data-nim-pane="mem"', $html);
-        self::assertStringContainsString('cpuhog', $html);
-        self::assertStringContainsString('memhog', $html);
-    }
-
     public function testAlertsAndNeedsAttentionAreOneWidgetInTwoTabs(): void
     {
         $page = $this->request('GET', '/')->body();
@@ -112,7 +103,8 @@ final class DashboardWidgetsTest extends HttpTestCase
     public function testTheWideWidgetsAreSizedByTheirNewTabs(): void
     {
         $reg = new \NimVor\Dashboard\WidgetRegistry();
-        self::assertSame('md', $reg->find('top_processes')->size);
+        self::assertNull($reg->find('top_processes'), 'the Top processes widget is gone (the Processes page has the list)');
+        self::assertSame('full', $reg->find('software')->size, 'Software spans the 12 columns');
         self::assertSame('half', $reg->find('traffic_overview')->size);
         self::assertSame('half', $reg->find('request_trends')->size);
         foreach (['backup_health', 'disk', 'alert_center'] as $id) {
@@ -169,5 +161,57 @@ final class DashboardWidgetsTest extends HttpTestCase
         $w = (array) json_decode($res->body(), true);
         self::assertSame(200, $res->status(), $res->body());
         self::assertNotSame('ok', $w['state']);
+    }
+
+    public function testDatabasePhpFirewallFail2banAndMalwareScannerTilesOpenDetailsOnHover(): void
+    {
+        $unit = static fn (string $id, string $name, string $svc): array => ['id' => $id, 'name' => $name, 'installed' => true, 'units' => [$svc], 'steps' => [['id' => 'running', 'status' => 'ok']]];
+        $this->agent->succeed('components.status', [$unit('database', 'Database server', 'mariadb'), $unit('php', 'PHP', 'php8.3-fpm'), $unit('firewall', 'Firewall', 'ufw'), $unit('fail2ban', 'fail2ban', 'fail2ban'), $unit('clamav', 'Malware scanner', 'clamav-freshclam')]);
+        $this->agent->succeed('db.server_status', ['running' => true, 'unit' => 'mariadb', 'variables' => ['version' => '10.11.14-MariaDB', 'max_connections' => '200'],
+            'status' => ['Uptime' => '90000', 'Threads_connected' => '12', 'Threads_running' => '2', 'Slow_queries' => '5', 'Innodb_buffer_pool_read_requests' => '1000', 'Innodb_buffer_pool_reads' => '10'], 'databases' => 7, 'bytes' => 5242880]);
+        $this->agent->succeed('pg.status', ['installed' => false]);
+        $this->agent->succeed('nginx.status', ['installed' => true, 'running' => true, 'config_ok' => true]);
+        $this->agent->succeed('php.fpm_health', ['versions' => [['version' => '8.3', 'installed' => true, 'active' => true, 'log_read' => true, 'max_children_reached' => 0, 'busy_warnings' => 0, 'child_crashes' => 0]]]);
+        $this->agent->succeed('firewall.status', ['installed' => true, 'active' => true]);
+        $this->agent->succeed('fail2ban.status', ['installed' => true, 'running' => true, 'jails' => [['name' => 'sshd', 'currently_banned' => 3]]]);
+        $this->agent->succeed('ssh.logins', ['available' => true, 'today' => [1, 14], 'yesterday' => [0, 0], 'week' => [9, 120], 'last_failure' => ['ip' => '203.0.113.7']]);
+        $this->agent->succeed('av.status', ['installed' => true, 'version' => 'ClamAV 1.4/1/2026', 'freshclam' => true]);
+        $this->agent->succeed('modsec.status', ['active' => false]);
+        $this->agent->succeed('security.audit', []);
+
+        $page = $this->request('GET', '/dashboard/widgets/software', [], ['accept' => 'application/json', 'x-requested-with' => 'XMLHttpRequest']);
+        $html = (string) ((array) json_decode($page->body(), true))['html'];
+        $expect = [
+            'database' => ['Running', '10.11.14-MariaDB', '1 d 1 h', '12 / 200', 'Databases, size', 'Database server'],
+            'php' => ['PHP-FPM', 'No enabled website uses PHP', 'PHP versions'],
+            'firewall' => ['Active', 'Failed SSH sign-ins today', 'Firewall'],
+            'fail2ban' => ['Active', 'Banned addresses', '203.0.113.7'],
+            'clamav' => ['Active', 'ClamAV 1.4/1/2026', 'Malware scanner'],
+        ];
+        foreach ($expect as $key => $wants) {
+            self::assertStringContainsString('data-popover-url="/dashboard/popover/' . $key . '"', $html, $key . ' tile has a hover card');
+            $res = json_decode($this->request('GET', '/dashboard/popover/' . $key)->body(), true);
+            self::assertTrue($res['success'], $key . ': ' . json_encode($res));
+            foreach ($wants as $want) {
+                self::assertStringContainsString($want, $res['html'], $key . ': ' . $want);
+            }
+        }
+        // The PHP card shows PHP-FPM only: the web server's part is the Web server tile's.
+        self::assertStringNotContainsString('configuration test', json_decode($this->request('GET', '/dashboard/popover/php')->body(), true)['html']);
+    }
+
+    public function testASoftwareCardIsOnlyForThoseWhoMaySeeIt(): void
+    {
+        $roles = $this->app->container->get(\NimVor\Repositories\RoleRepository::class);
+        $id = $roles->create('dash_only2', 'Dashboard only', 'x');
+        $roles->setPermissions($id, [\NimVor\Security\Permissions::DASHBOARD_VIEW]);
+        $this->app->container->get(\NimVor\Repositories\UserRepository::class)->create([
+            'username' => 'bare', 'email' => 'bare@example.test', 'display_name' => '',
+            'password_hash' => (new \NimVor\Security\PasswordHasher())->hash('a-long-test-password'), 'role_id' => $id, 'is_active' => true,
+        ]);
+        $this->login('bare');
+        foreach (['database', 'php', 'firewall', 'fail2ban', 'clamav'] as $key) {
+            self::assertSame(403, $this->request('GET', '/dashboard/popover/' . $key)->status(), $key);
+        }
     }
 }

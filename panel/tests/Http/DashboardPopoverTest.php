@@ -99,6 +99,8 @@ final class DashboardPopoverTest extends HttpTestCase
         self::assertTrue($res['success']);
         self::assertStringContainsString('data-software-op="restart" data-unit="nginx.service"', $res['html']);
         self::assertStringContainsString('data-software-op="start" data-unit="redis-server.service"', $res['html']);
-        self::assertStringContainsString('Not installed', $res['html']);
+        self::assertStringNotContainsString('Not installed', $res['html'], 'what is not installed is not a tile');
+        self::assertStringNotContainsString('MongoDB', $res['html']);
+        self::assertStringNotContainsString('>Install<', $res['html']);
     }
 }

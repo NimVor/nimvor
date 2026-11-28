@@ -37,6 +37,10 @@ final class DashboardFrameworkTest extends HttpTestCase
         $this->agent->succeed('system.info', ['system' => ['hostname' => 'srv1'], 'os' => ['pretty_name' => 'Ubuntu', 'supported' => true]]);
         $this->agent->succeed('disk.filesystems', [['mount' => '/', 'device' => '/dev/vda1', 'type' => 'ext4', 'total_bytes' => 100000000000, 'used_bytes' => 40000000000, 'avail_bytes' => 60000000000, 'used_percent' => 40.0, 'inodes' => 100, 'inodes_used' => 10, 'inodes_percent' => 10.0]]);
         $this->agent->succeed('system.live', self::LIVE);
+        $this->agent->succeed('services.status', [
+            ['unit' => 'nginx.service', 'unit_file_state' => 'enabled', 'active_state' => 'inactive'],
+            ['unit' => 'mariadb.service', 'unit_file_state' => 'enabled', 'active_state' => 'active'],
+        ]);
     }
 
     private function json(): array
@@ -60,7 +64,7 @@ final class DashboardFrameworkTest extends HttpTestCase
     public function testTheRegistryListsEveryWidgetWithItsCategoryAndPermission(): void
     {
         $reg = new WidgetRegistry();
-        self::assertSame(['tile_cpu', 'tile_memory', 'tile_disk', 'tile_load', 'software', 'alert_center', 'performance_history', 'disk', 'website_overview', 'security_overview', 'top_processes', 'services_overview', 'database_overview', 'capacity_forecast', 'traffic_overview', 'backup_health', 'system_updates', 'deployments', 'request_trends', 'wordpress'], array_keys($reg->all()));
+        self::assertSame(['tile_cpu', 'tile_memory', 'tile_disk', 'tile_load', 'software', 'alert_center', 'performance_history', 'disk', 'website_overview', 'security_overview', 'services_overview', 'database_overview', 'capacity_forecast', 'traffic_overview', 'backup_health', 'system_updates', 'deployments', 'request_trends', 'wordpress'], array_keys($reg->all()));
         foreach ($reg->all() as $w) {
             self::assertContains($w->category, WidgetRegistry::CATEGORIES, $w->id);
             self::assertArrayHasKey($w->size, Widget::SIZES, $w->id);
@@ -75,55 +79,48 @@ final class DashboardFrameworkTest extends HttpTestCase
         $page = $this->request('GET', '/')->body();
         self::assertStringContainsString('data-widget="disk"', $page, 'a cheap widget comes with the page');
         self::assertStringNotContainsString('mariadbd', $page, 'a measured widget does not hold the page back');
-        self::assertMatchesRegularExpression('/data-widget-host="top_processes"[^>]*data-widget-lazy/', $page);
-        self::assertSame(0, $this->calls('system.live'), 'the page itself did not measure the processes');
+        self::assertMatchesRegularExpression('/data-widget-host="services_overview"[^>]*data-widget-lazy/', $page);
+        self::assertSame(0, $this->calls('services.status'), 'the page itself did not measure the services');
     }
 
-    public function testTopProcessesShowTheRealNumbersAndNotAvailableWhereThereAreNone(): void
+    public function testAWidgetShowsTheRealNumbersAndNotAvailableWhereThereAreNone(): void
     {
         $this->login('admin');
-        $w = $this->widget('top_processes');
+        $w = $this->widget('services_overview');
         self::assertTrue($w['success']);
         self::assertSame('ok', $w['state']);
-        self::assertStringContainsString('php-fpm8.3', $w['html']);
-        self::assertStringContainsString('41.5%', $w['html']);
-        self::assertStringContainsString('142 processes running', $w['html']);
-        // A reading the agent did not give is N/A, never a made-up zero.
-        $this->agent->succeed('system.live', ['processes' => 1, 'top_cpu' => [['pid' => 5, 'name' => 'x', 'user' => 'u', 'state' => 'S']], 'top_memory' => []]);
-        $this->app->container->get(WidgetCache::class)->forget('top_processes');
-        $html = $this->widget('top_processes')['html'];
-        self::assertStringContainsString('N/A', $html);
-        self::assertStringNotContainsString('0.0%', $html);
+        self::assertStringContainsString('Running', $w['html']);
+        self::assertStringContainsString('nginx', $w['html'], 'the stopped service is named');
     }
 
     public function testAMeasurementIsKeptForTheWidgetsTimeSoRefreshesCostOnce(): void
     {
         $this->login('admin');
-        $this->widget('top_processes');
-        $this->widget('top_processes');
-        $this->widget('top_processes');
-        self::assertSame(1, $this->calls('system.live'));
+        $this->widget('services_overview');
+        $this->widget('services_overview');
+        $this->widget('services_overview');
+        self::assertSame(1, $this->calls('services.status'));
     }
 
     public function testAnUnreachableAgentIsShownAsUnavailableNotAsZeros(): void
     {
-        $this->agent->fail('system.live', 503, 'unavailable', 'The agent did not answer.');
+        $this->agent->fail('services.status', 503, 'unavailable', 'The agent did not answer.');
         $this->login('admin');
-        $w = $this->widget('top_processes');
+        $w = $this->widget('services_overview');
         self::assertSame('unavailable', $w['state']);
         self::assertStringContainsString('Not available right now', $w['html']);
-        self::assertStringNotContainsString('<td', $w['html']);
+        self::assertStringNotContainsString('nim-fig-value', $w['html']);
     }
 
-    public function testNoProcessesIsAnEmptyStateAndAFailedMeasurementIsNotKept(): void
+    public function testNoDataIsAnEmptyStateAndAFailedMeasurementIsNotKept(): void
     {
-        $this->agent->succeed('system.live', ['processes' => 0, 'top_cpu' => [], 'top_memory' => []]);
+        $this->agent->succeed('services.status', []);
         $this->login('admin');
-        self::assertSame('empty', $this->widget('top_processes')['state']);
+        self::assertSame('empty', $this->widget('services_overview')['state']);
         // Malformed data is an error state, not a fatal page.
-        $this->agent->succeed('system.live', 'not-an-object');
-        $this->app->container->get(WidgetCache::class)->forget('top_processes');
-        self::assertContains($this->widget('top_processes')['state'], ['empty', 'error']);
+        $this->agent->succeed('services.status', 'not-a-list');
+        $this->app->container->get(WidgetCache::class)->forget('services_overview');
+        self::assertContains($this->widget('services_overview')['state'], ['empty', 'error']);
     }
 
     public function testAWidgetIsOnlyForThoseWhoMaySeeIt(): void
@@ -136,12 +133,12 @@ final class DashboardFrameworkTest extends HttpTestCase
             'password_hash' => (new PasswordHasher())->hash('a-long-test-password'), 'role_id' => $id, 'is_active' => true,
         ]);
         $this->login('bare');
-        $w = $this->widget('top_processes', 403);
+        $w = $this->widget('services_overview', 403);
         self::assertFalse($w['success']);
         self::assertStringNotContainsString('php-fpm', json_encode($w));
-        self::assertSame(0, $this->calls('system.live'), 'the data was not even collected');
+        self::assertSame(0, $this->calls('services.status'), 'the data was not even collected');
         $page = $this->request('GET', '/')->body();
-        self::assertStringNotContainsString('data-widget-host="top_processes"', $page);
+        self::assertStringNotContainsString('data-widget-host="services_overview"', $page);
         self::assertStringNotContainsString('data-widget="disk"', $page);
         $this->widget('no_such_widget', 404);
     }
@@ -152,9 +149,9 @@ final class DashboardFrameworkTest extends HttpTestCase
         $default = $this->request('GET', '/')->body();
         self::assertStringContainsString('data-widget-host="disk"', $default);
         $this->request('POST', '/dashboard/layout', $this->token() + [
-            'order' => ['top_processes', 'website_overview', 'disk', 'alert_center', 'ghost_widget'],
+            'order' => ['services_overview', 'website_overview', 'disk', 'alert_center', 'ghost_widget'],
             'widgets' => [
-                'top_processes' => ['visible' => '1', 'size' => 'full'],
+                'services_overview' => ['visible' => '1', 'size' => 'full'],
                 'website_overview' => ['visible' => '1', 'size' => 'sm'],
                 'alert_center' => ['visible' => '1', 'size' => 'not-a-size'],
                 // disk is left unticked: hidden
@@ -163,8 +160,8 @@ final class DashboardFrameworkTest extends HttpTestCase
         ]);
         $page = $this->request('GET', '/')->body();
         self::assertStringNotContainsString('data-widget-host="disk"', $page, 'a hidden widget is not drawn');
-        self::assertLessThan(strpos($page, 'data-widget-host="website_overview"'), strpos($page, 'data-widget-host="top_processes"'), 'the saved order is kept');
-        self::assertStringContainsString('nim-span-full" data-widget-host="top_processes"', $page, 'the saved size is kept');
+        self::assertLessThan(strpos($page, 'data-widget-host="website_overview"'), strpos($page, 'data-widget-host="services_overview"'), 'the saved order is kept');
+        self::assertStringContainsString('nim-span-full" data-widget-host="services_overview"', $page, 'the saved size is kept');
         self::assertStringNotContainsString('ghost_widget', $page, 'an unknown widget is ignored');
         self::assertStringContainsString('Restore default', $page);
 
@@ -184,21 +181,21 @@ final class DashboardFrameworkTest extends HttpTestCase
     {
         $this->login('admin');
         $this->request('POST', '/dashboard/layout', $this->token() + [
-            'order' => ['top_processes', 'disk', 'website_overview', 'alert_center'],
+            'order' => ['services_overview', 'disk', 'website_overview', 'alert_center'],
             'widgets' => [
-                'top_processes' => ['visible' => '1', 'size' => 'lg', 'refresh' => '300'],
+                'services_overview' => ['visible' => '1', 'size' => 'lg', 'refresh' => '300'],
                 'disk' => ['visible' => '1', 'size' => 'md', 'refresh' => 'not-a-number'],
                 'website_overview' => ['size' => 'md'], // hidden
                 'alert_center' => ['visible' => '1', 'size' => 'md', 'refresh' => '0'],
             ],
         ]);
         $page = $this->request('GET', '/')->body();
-        self::assertMatchesRegularExpression('/data-widget-host="top_processes"[^>]*data-refresh="300"/', $page, 'the chosen refresh interval is used');
+        self::assertMatchesRegularExpression('/data-widget-host="services_overview"[^>]*data-refresh="300"/', $page, 'the chosen refresh interval is used');
         self::assertMatchesRegularExpression('/data-widget-host="alert_center"[^>]*data-refresh="0"/', $page, 'manual refresh is a choice too');
         self::assertStringContainsString('data-arrange-toggle', $page);
 
         $r = $this->request('POST', '/dashboard/layout/arrange', $this->token() + [
-            'order' => ['alert_center', 'ghost', 'disk', 'top_processes', 'disk'],
+            'order' => ['alert_center', 'ghost', 'disk', 'services_overview', 'disk'],
             'sizes' => ['alert_center' => 'full', 'disk' => 'nope', 'ghost' => 'sm', 'website_overview' => 'full'],
         ]);
         self::assertTrue(json_decode($r->body(), true)['success']);
@@ -208,14 +205,14 @@ final class DashboardFrameworkTest extends HttpTestCase
         self::assertArrayNotHasKey('ghost', $saved);
         self::assertSame('full', $saved['alert_center']['size']);
         self::assertSame('md', $saved['disk']['size'], 'an unknown size is ignored');
-        self::assertSame(300, $saved['top_processes']['refresh']);
+        self::assertSame(300, $saved['services_overview']['refresh']);
         self::assertSame(0, $saved['alert_center']['refresh']);
         self::assertArrayNotHasKey('refresh', $saved['disk'], 'an invalid choice means the default');
 
         $page = $this->request('GET', '/')->body();
         $pos = static fn (string $id): int => (int) strpos($page, 'data-widget-host="' . $id . '"');
         self::assertLessThan($pos('disk'), $pos('alert_center'));
-        self::assertLessThan($pos('top_processes'), $pos('disk'));
+        self::assertLessThan($pos('services_overview'), $pos('disk'));
         self::assertStringNotContainsString('data-widget-host="website_overview"', $page);
     }
 
@@ -237,7 +234,7 @@ final class DashboardFrameworkTest extends HttpTestCase
         $this->login('admin');
         $page = $this->request('GET', '/')->body();
         self::assertStringNotContainsString('data-widget-host="disk"', $page, 'the user kept disk hidden');
-        self::assertStringContainsString('data-widget-host="top_processes"', $page, 'new widgets appear with their defaults');
+        self::assertStringContainsString('data-widget-host="services_overview"', $page, 'new widgets appear with their defaults');
         self::assertStringContainsString('data-widget-host="website_overview"', $page);
         self::assertSame($before, (string) $db->scalar('SELECT layout FROM dashboard_layouts WHERE user_id = ?', [$this->adminId]), 'reading does not rewrite the layout');
     }

@@ -4,10 +4,10 @@
  * and links to the pages that manage it.
  *
  * @var \NimVor\View\View $this
- * @var string $key dns, mail, redis, memcached, web or ssl
+ * @var string $key dns, mail, redis, memcached, web, php, database, firewall, fail2ban, clamav or ssl
  * @var array<string, mixed> $d
  */
-$titles = ['dns' => 'DNS server', 'mail' => 'Email', 'redis' => 'Redis', 'memcached' => 'Memcached', 'web' => 'Web server', 'ssl' => "Let's Encrypt certificates"];
+$titles = ['dns' => 'DNS server', 'mail' => 'Email', 'redis' => 'Redis', 'memcached' => 'Memcached', 'web' => 'Web server', 'ssl' => "Let's Encrypt certificates", 'php' => 'PHP-FPM', 'database' => 'Database server', 'firewall' => 'Firewall', 'fail2ban' => 'fail2ban', 'clamav' => 'Malware scanner'];
 $links = [
     'dns' => [['dns', 'DNS zones', 'diagram-3']],
     'mail' => [['mail.admin.server', 'Mail server', 'envelope'], ['mail.admin.queue', 'Mail queue', 'inbox'], ['mail.admin.reports', 'Delivery reports', 'bar-chart']],
@@ -15,6 +15,11 @@ $links = [
     'memcached' => [['memcached', 'Memcached', 'lightning']],
     'web' => [['nginx', 'Nginx', 'hdd-network'], ['php', 'PHP versions', 'filetype-php'], ['websites', 'Websites', 'globe2']],
     'ssl' => [['ssl.hosts', 'Certificates', 'lock'], ['ssl.autossl', 'AutoSSL', 'arrow-repeat']],
+    'php' => [['php', 'PHP versions', 'filetype-php'], ['websites', 'Websites', 'globe2']],
+    'database' => [['databases.server', 'Database server', 'database'], ['databases', 'Databases and users', 'table'], ['databases.server.connections', 'Connections', 'plug']],
+    'firewall' => [['security.firewall', 'Firewall', 'shield-lock']],
+    'fail2ban' => [['security.fail2ban', 'fail2ban', 'shield-exclamation']],
+    'clamav' => [['security.malware', 'Malware scanner', 'bug']],
 ];
 ?>
 <div class="nim-pop-title mb-2 d-flex align-items-center gap-2"><?= $this->logo($key, 22, 'nim-logo-tile') ?><?= e($titles[$key] ?? $key) ?></div>
@@ -30,6 +35,17 @@ switch ($key) {
         break;
     case 'web':
         echo $this->partial('dashboard/widgets/web_stack', ['d' => $d]);
+        break;
+    case 'php':
+        echo $this->partial('dashboard/widgets/web_stack', ['d' => $d, 'only' => 'php']);
+        break;
+    case 'database':
+        echo $this->partial('dashboard/tile_database', ['d' => $d]);
+        break;
+    case 'firewall':
+    case 'fail2ban':
+    case 'clamav':
+        echo $this->partial('dashboard/tile_security', ['d' => $d, 'key' => $key]);
         break;
     default:
         echo $this->partial('dashboard/widgets/ssl_overview', ['d' => $d]);

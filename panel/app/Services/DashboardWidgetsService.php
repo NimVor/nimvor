@@ -57,7 +57,6 @@ final class DashboardWidgetsService
                 'software' => $this->software(),
                 'request_trends' => $this->requestTrends(),
                 'disk' => $this->disk(),
-                'top_processes' => $this->topProcesses(),
                 'security_overview' => ($this->security ?? throw new AgentException('Security status unavailable'))->security(),
                 'alert_center' => $this->alertsAndAttention($user),
                 'performance_history' => $this->performanceHistory(),
@@ -121,9 +120,15 @@ final class DashboardWidgetsService
             'redis', 'memcached' => ($this->services ?? throw new AgentException('Cache status unavailable'))->caches(),
             'web' => ($this->services ?? throw new AgentException('Web stack status unavailable'))->webStack(),
             'ssl' => ($this->security ?? throw new AgentException('Certificates unavailable'))->ssl(),
+            'php' => ($this->services ?? throw new AgentException('PHP status unavailable'))->webStack(),
+            'database' => ($this->services ?? throw new AgentException('Database status unavailable'))->databases(),
+            'firewall', 'fail2ban', 'clamav' => ($this->security ?? throw new AgentException('Security status unavailable'))->security(),
             default => throw new \InvalidArgumentException('No details for ' . $key),
         };
-        $group = match ($key) { 'dns', 'mail' => 'dns_mail', 'redis', 'memcached' => 'cache_overview', 'web' => 'web_stack', default => 'ssl_overview' };
+        $group = match ($key) {
+            'dns', 'mail' => 'dns_mail', 'redis', 'memcached' => 'cache_overview', 'web', 'php' => 'web_stack', 'database' => 'database_overview',
+            'firewall', 'fail2ban', 'clamav' => 'security_overview', default => 'ssl_overview',
+        };
         if ($this->cache === null) {
             return $measure();
         }
@@ -473,33 +478,6 @@ final class DashboardWidgetsService
             'enabled' => (int) $this->db->scalar('SELECT COUNT(*) FROM websites WHERE server_id = ? AND enabled = 1 AND monitor_disabled = 0', [$this->server->id()]),
             'unmonitored' => (int) $this->db->scalar('SELECT COUNT(*) FROM websites WHERE server_id = ? AND enabled = 1 AND monitor_disabled = 1', [$this->server->id()]),
         ];
-    }
-
-    /**
-     * The five busiest processes by CPU and by memory (one half-second sample
-     * by the agent). The Processes page has the full list and the confirmed
-     * stop/kill actions.
-     *
-     * @return array<string, mixed>
-     */
-    public function topProcesses(): array
-    {
-        if ($this->agent === null) {
-            throw new AgentException('Agent unavailable');
-        }
-        $live = (array) json_decode((string) json_encode($this->agent->call('system.live')), true);
-        $pick = static fn (mixed $rows): array => array_map(static fn ($p): array => [
-            'pid' => (int) ($p['pid'] ?? 0),
-            'name' => (string) ($p['name'] ?? ''),
-            'user' => (string) ($p['user'] ?? ''),
-            'state' => (string) ($p['state'] ?? ''),
-            'cpu' => isset($p['cpu_percent']) ? (float) $p['cpu_percent'] : null,
-            'rss' => isset($p['rss_bytes']) ? (int) $p['rss_bytes'] : null,
-            'mem' => isset($p['mem_percent']) ? (float) $p['mem_percent'] : null,
-        ], array_slice(is_array($rows) ? $rows : [], 0, 5));
-        $cpu = $pick($live['top_cpu'] ?? []);
-        $mem = $pick($live['top_memory'] ?? []);
-        return ['cpu' => $cpu, 'mem' => $mem, 'processes' => isset($live['processes']) ? (int) $live['processes'] : null, '_state' => $cpu === [] && $mem === [] ? 'empty' : 'ok'];
     }
 
     /**

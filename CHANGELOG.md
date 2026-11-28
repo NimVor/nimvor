@@ -6,6 +6,13 @@ All notable changes to NimVor are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- **Dashboard: Top processes is gone, Software spans the full width and shows only what is installed.** The Top processes widget is removed (the Processes page under Monitoring has the full list). The Software widget now uses all 12 columns by default (change it in the widget's size menu; a size you saved earlier is kept) and no longer shows "Not installed" tiles: software that is missing is installed from the Components page.
+- **Database server, PHP, Firewall, fail2ban and Malware scanner tiles show details on hover**, like DNS, Email and the web server: the database's version, uptime, connections against the limit, slow queries, cache hit ratio and size; PHP-FPM's state per version; the firewall's and fail2ban's state with failed SSH sign-ins, banned addresses and jails; the malware scanner's state and signature version. Each card has links to where the part is managed and needs the same permission as the matching page.
+
+### Fixed
+- **`nimvor help`, `nimvor version` and an unknown command now answer.** Help lists every command (including `update`, `schedule:run` and `setup:apply`), `nimvor version` prints the installed version, and an unknown command says so, shows the help and exits with status 2 instead of printing nothing. Help and version work even when the database or agent is unreachable. The monitoring pass is `sudo nimvor schedule:run`.
+
 ## [2.10.0] — 2026-11-27
 
 A step-by-step website wizard, settings hints in tooltips, service logos and windows for Create website and Nginx. Panel only (the agent's only change is its version number): upgrade with `sudo nimvor update`; no database migration.

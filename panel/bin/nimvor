@@ -43,6 +43,43 @@ if (PHP_SAPI !== 'cli') {
     exit(1);
 }
 
+const NIMVOR_CLI_HELP = <<<'TXT'
+NimVor panel CLI
+
+Usage: sudo nimvor <command> [options]
+
+Server and installation
+  update [--check] [--version X.Y.Z | --branch NAME]
+                              Update NimVor (with its database migrations)
+  version                     Print the installed version
+  doctor                      Check the installation (exit code 1 on failures)
+  agent:check                 Check the connection to the server agent
+  migrate                     Apply database migrations and sync roles
+  schedule:run                One monitoring and scheduler pass: metrics, website resources, alerts,
+                              due backups, retention (run every few minutes by nimvor-scheduler.timer)
+  discovery:run               Read the server's state and store a snapshot
+  cron:sync                   Write every website's cron schedule again
+  setup:apply --profile=full|web|minimal [--hostname=NAME] [--php=8.3,8.4]
+                              Set the server up for a profile (idempotent)
+  setup:status                The last server setup and each step's result
+
+Users
+  user:create <username> <email> [--role=admin|operator|viewer]
+  user:password <username>    Reset a password (alias: reset-password)
+  user:2fa-reset <username>   Turn off two-factor sign-in (alias: reset-2fa)
+  user:verify-ip <username> <ip>
+                              Let a user sign in from an address without an emailed code
+  users:count                 Number of panel users
+
+Security
+  hulk:unblock <ip|user|all>  Remove brute force protection blocks
+  hulk:geo-import <file>      Load the DB-IP country database
+  modsec:installs             ModSecurity installations
+  modsec:rollback <installation id>
+
+  help                        This list
+TXT;
+
 $args = array_slice($argv, 1);
 $command = array_shift($args) ?? 'help';
 $options = [];
@@ -84,6 +121,23 @@ function readPassword(string $prompt): string
     }
     fwrite(STDOUT, PHP_EOL);
     return $value;
+}
+
+// Help and the version need neither the database nor the agent: they work on a broken installation too.
+if (in_array($command, ['help', '--help', '-h'], true)) {
+    out(NIMVOR_CLI_HELP);
+    exit(0);
+}
+if (in_array($command, ['version', '--version', '-v'], true)) {
+    $version = '';
+    foreach ([dirname(__DIR__) . '/VERSION', dirname(__DIR__, 2) . '/VERSION'] as $f) {
+        if (is_file($f)) {
+            $version = trim((string) file_get_contents($f));
+            break;
+        }
+    }
+    out('NimVor ' . ($version !== '' ? $version : '(version unknown)'));
+    exit(0);
 }
 
 $app = Application::fromEnvironment();
@@ -559,5 +613,6 @@ switch ($command) {
         break;
 
     default:
-        out("NimVor panel CLI\n\nCommands:\n  migrate\n  user:create <username> <email> [--role=admin|operator|viewer]\n  user:password <username>\n  user:2fa-reset <username>\n  user:verify-ip <username> <ip>\n  hulk:geo-import <file>\n  hulk:unblock <ip|user|all>\n  agent:check\n  discovery:run\n  cron:sync\n  schedule:run\n  doctor\n  modsec:installs\n  modsec:rollback <installation id>");
+        fwrite(STDERR, 'Unknown command: ' . $command . PHP_EOL . PHP_EOL . NIMVOR_CLI_HELP . PHP_EOL);
+        exit(2);
 }
