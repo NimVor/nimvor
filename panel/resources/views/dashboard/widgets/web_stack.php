@@ -21,7 +21,7 @@ $n = static fn (?int $v): string => $v === null ? 'N/A' : number_format($v);
         <?php endif; ?>
     </div>
 <?php endif; ?>
-<div class="fw-semibold mb-1">PHP-FPM</div>
+<?php if (($only ?? '') !== 'php'): ?><div class="fw-semibold mb-1">PHP-FPM</div><?php endif; ?>
 <?php if ($d['php'] === []): ?>
     <div class="text-body-secondary"><?= $d['fpm_known'] ? 'No enabled website uses PHP.' : 'PHP-FPM status could not be read.' ?></div>
 <?php else: ?>
