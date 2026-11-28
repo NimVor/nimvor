@@ -90,11 +90,11 @@ func settingByKey(k string) (ServerSetting, bool) {
 }
 
 var (
-	sizeRe      = regexp.MustCompile(`^([0-9]{1,13})([KMGT]?)$`)
+	sizeRe      = regexp.MustCompile(`^([0-9]{1,13})\s*([KMGT]?)B?$`)
 	collationRe = regexp.MustCompile(`^[a-z0-9]+_[a-z0-9_]+$`)
 )
 
-// ParseSize reads "256M", "1g" or "1048576" as bytes.
+// ParseSize reads "256M", "1g", "32 MB" (as the panel shows sizes) or "1048576" as bytes.
 func ParseSize(v string) (int64, bool) {
 	m := sizeRe.FindStringSubmatch(strings.ToUpper(strings.TrimSpace(v)))
 	if m == nil {
@@ -130,7 +130,7 @@ func (s ServerSetting) normalize(v string) (file, sql string, err error) {
 		if !ok || float64(n) < s.Min || float64(n) > s.Max {
 			return bad(fmt.Sprintf("a size from %s to %s, e.g. 256M or 1G", human(int64(s.Min)), human(int64(s.Max))))
 		}
-		return strings.ToUpper(v), strconv.FormatInt(n, 10), nil
+		return compactSize(v), strconv.FormatInt(n, 10), nil
 	case kindBool:
 		switch strings.ToLower(v) {
 		case "1", "on", "true", "yes":
@@ -164,6 +164,15 @@ func (s ServerSetting) normalize(v string) (file, sql string, err error) {
 		return bad("one of " + strings.Join(s.Choices, ", "))
 	}
 	return bad("unsupported")
+}
+
+// compactSize writes a size the way option files read it: "32 MB" and "32m" become "32M".
+func compactSize(v string) string {
+	m := sizeRe.FindStringSubmatch(strings.ToUpper(strings.TrimSpace(v)))
+	if m == nil {
+		return strings.ToUpper(v)
+	}
+	return m[1] + m[2]
 }
 
 func human(n int64) string {

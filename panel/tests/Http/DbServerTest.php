@@ -82,6 +82,18 @@ final class DbServerTest extends HttpTestCase
         self::assertStringContainsString('previous settings were restored', (string) $this->flash('error'));
     }
 
+    public function testASizeShownWithItsUnitIsNotAChange(): void
+    {
+        $this->login('admin');
+        $this->agent->succeed('db.server_settings', ['changed' => ['innodb_buffer_pool_size'], 'applied' => ['innodb_buffer_pool_size'], 'restart_needed' => []]);
+        // "32 MB" is how sizes are shown; the file holds "32M": the same value, so it is not sent again.
+        $this->post('/databases/server/settings', [
+            'settings' => ['max_heap_table_size' => '32 MB', 'innodb_buffer_pool_size' => '4 GB'],
+            'managed' => ['max_heap_table_size' => '32M', 'innodb_buffer_pool_size' => '2G'],
+        ]);
+        self::assertEquals(['innodb_buffer_pool_size' => '4 GB'], (array) $this->lastCall('db.server_settings')['settings']);
+    }
+
     public function testRestartFlushAndKill(): void
     {
         $this->login('admin');

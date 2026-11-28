@@ -114,8 +114,11 @@ final class DbServerController extends Controller
         $managed = array_map(static fn (mixed $v): string => is_scalar($v) ? (string) $v : '', (array) $request->input('managed', []));
         // Send only what changed: a value that differs from NimVor's file, or a field emptied that was set.
         $send = [];
+        // A size is shown as "32 MB" but written as "32M": compare them as the same value.
+        $same = static fn (string $a, string $b): bool => $a === $b || (preg_match('/^(\d+)\s*([KMGT]?)B?$/i', $a, $x) === 1
+            && preg_match('/^(\d+)\s*([KMGT]?)B?$/i', $b, $y) === 1 && $x[1] === $y[1] && strtoupper($x[2]) === strtoupper($y[2]));
         foreach ($in as $k => $v) {
-            if ($v !== ($managed[$k] ?? '')) {
+            if (!$same($v, $managed[$k] ?? '')) {
                 $send[$k] = $v;
             }
         }

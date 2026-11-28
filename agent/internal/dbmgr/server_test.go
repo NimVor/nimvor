@@ -18,6 +18,8 @@ func TestServerSettingNormalize(t *testing.T) {
 		{"max_connections", " 300 ", "300", "300"},
 		{"innodb_buffer_pool_size", "1g", "1G", "1073741824"},
 		{"max_allowed_packet", "64M", "64M", "67108864"},
+		{"max_heap_table_size", "32 MB", "32M", "33554432"}, // as the panel shows sizes
+		{"innodb_buffer_pool_size", "4 GB", "4G", "4294967296"},
 		{"slow_query_log", "on", "ON", "ON"},
 		{"long_query_time", "0.5", "0.5", "0.5"},
 		{"innodb_flush_log_at_trx_commit", "2", "2", "2"},
