@@ -310,9 +310,8 @@ foreach ($rules as $i => $r) {
                 </select>
                 <div class="row g-2 mb-1">
                     <div class="col-6"><label class="form-label small" for="ms-in">Inbound anomaly threshold</label><input class="form-control form-control-sm" type="number" min="2" max="1000" id="ms-in" name="inbound_threshold" value="<?= (int) ($crsCfg['inbound_threshold'] ?? 5) ?>"></div>
-                    <div class="col-6"><label class="form-label small" for="ms-out">Outbound anomaly threshold</label><input class="form-control form-control-sm" type="number" min="2" max="1000" id="ms-out" name="outbound_threshold" value="<?= (int) ($crsCfg['outbound_threshold'] ?? 4) ?>"></div>
+                    <div class="col-6"><label class="form-label small" for="ms-out">Outbound anomaly threshold</label><?= $this->hint('A request is blocked when the rules it matches add up to the threshold (a critical match counts 5). Higher: fewer false positives, less protection.', 'Outbound anomaly threshold') ?><input class="form-control form-control-sm" type="number" min="2" max="1000" id="ms-out" name="outbound_threshold" value="<?= (int) ($crsCfg['outbound_threshold'] ?? 4) ?>"></div>
                 </div>
-                <div class="form-text mt-0 mb-3">A request is blocked when the rules it matches add up to the threshold (a critical match counts 5). Higher: fewer false positives, less protection.</div>
                 <div class="form-check form-switch mb-1">
                     <input type="hidden" name="detection_only" value="0">
                     <input class="form-check-input" type="checkbox" role="switch" id="ms-detect" name="detection_only" value="1"<?= !empty($cfg['detection_only']) ? ' checked' : '' ?>>

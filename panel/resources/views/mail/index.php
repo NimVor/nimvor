@@ -101,9 +101,8 @@ $ready = !empty($status['configured']) && !empty($running['postfix']);
             <p class="text-body-secondary">Mail apps send through port 587 (STARTTLS). Some office, hotel and mobile networks block that port; port 465 (SSL/TLS from the first byte) usually gets through. Turn it on to offer both. The sign-in rules are the same as on 587.</p>
             <form method="post" action="<?= e($this->url('mail.smtps')) ?>" data-nim-busy>
                 <?= $this->csrfField() ?>
-                <div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" role="switch" name="enabled" value="1" id="smtps-on"<?= !empty($status['smtps']) ? ' checked' : '' ?>><label class="form-check-label" for="smtps-on">Sending on port 465</label></div>
+                <div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" role="switch" name="enabled" value="1" id="smtps-on"<?= !empty($status['smtps']) ? ' checked' : '' ?>><label class="form-check-label" for="smtps-on">Sending on port 465</label><?= $this->hint('NimVor changes Postfix\'s service list, checks it, reloads Postfix and tries a TLS connection; it keeps the previous configuration if any step fails. The port is opened in the firewall.', 'Sending on port 465') ?></div>
                 <button class="btn btn-sm btn-primary">Save</button>
-                <div class="form-text mt-2">NimVor changes Postfix's service list, checks it, reloads Postfix and tries a TLS connection; it keeps the previous configuration if any step fails. The port is opened in the firewall.</div>
             </form>
         </div>
     <?= $this->modalEnd() ?>
@@ -119,11 +118,10 @@ $ready = !empty($status['configured']) && !empty($running['postfix']);
                     <form method="post" action="<?= e($this->url('mail.webmail')) ?>" data-nim-busy>
                         <?= $this->csrfField() ?>
                         <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" role="switch" name="enabled" value="1" id="webmail-on"<?= !empty($wm['enabled']) ? ' checked' : '' ?>><label class="form-check-label" for="webmail-on">Webmail on</label></div>
-                        <label class="form-label small" for="webmail-host">Host name</label>
+                        <label class="form-label small" for="webmail-host">Host name</label><?= $this->hint('Point the host name\'s DNS at this server. A Let\'s Encrypt certificate for it is used when one exists; otherwise a self-signed one until you issue it and save again.', 'Host name') ?>
                         <input class="form-control form-control-sm mb-2<?= isset($errors['webmail_hostname']) ? ' is-invalid' : '' ?>" id="webmail-host" name="hostname" placeholder="webmail.example.com" value="<?= e((string) ($old['hostname'] ?? ($wm['hostname'] ?? '') ?: ($status['hostname'] ?? ''))) ?>">
                         <?php if (isset($errors['webmail_hostname'])): ?><div class="text-danger mb-2"><?= e($errors['webmail_hostname']) ?></div><?php endif; ?>
                         <button class="btn btn-sm btn-primary">Save</button>
-                        <div class="form-text">Point the host name's DNS at this server. A Let's Encrypt certificate for it is used when one exists; otherwise a self-signed one until you issue it and save again.</div>
                     </form>
                 <?php endif; ?>
             </div>

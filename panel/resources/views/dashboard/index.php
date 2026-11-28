@@ -27,7 +27,7 @@ foreach ([
     ['Settings', 'sliders', 'settings', $P::SETTINGS_VIEW],
 ] as [$label, $icon, $route, $perm]) {
     if ($this->hasRoute($route) && $this->can($perm)) {
-        $quick[] = [$label, $icon, $this->url($route)];
+        $quick[] = [$label, $icon, $this->url($route), $route === 'sites.create' && $this->hasRoute('sites.create.modal') ? $this->url('sites.create.modal') : ''];
     }
 }
 ?>
@@ -45,7 +45,7 @@ foreach ([
     </div>
     <?php if ($quick !== []): ?>
     <nav class="nim-quick" aria-label="Quick actions">
-        <?php foreach ($quick as [$label, $icon, $url]): ?><a href="<?= e($url) ?>"><i class="bi bi-<?= e($icon) ?>" aria-hidden="true"></i><?= e($label) ?></a><?php endforeach; ?>
+        <?php foreach ($quick as [$label, $icon, $url, $window]): ?><a href="<?= e($url) ?>"<?= $window !== '' ? ' data-nim-site-modal data-nim-modal-href="' . e($window) . '"' : '' ?>><i class="bi bi-<?= e($icon) ?>" aria-hidden="true"></i><?= e($label) ?></a><?php endforeach; ?>
     </nav>
     <?php endif; ?>
 </section>
@@ -188,10 +188,5 @@ foreach ([
             </div>
         </form>
     </div>
-</div>
-<?php endif; ?>
-<?php if ($this->serverScope() && $this->hasRoute('databases.server.settings_modal')): ?>
-<div class="modal fade" id="nim-site-modal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content" data-nim-site-modal-body></div></div>
 </div>
 <?php endif; ?>

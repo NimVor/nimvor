@@ -43,6 +43,7 @@ final class SitesController extends Controller
         private readonly \NimVor\Services\SiteHealthService $health,
         private readonly \NimVor\Services\RuntimeService $runtimes,
         private readonly \NimVor\Services\WorkerService $workers,
+        private readonly \NimVor\Services\AccountService $accounts,
         private readonly ?\NimVor\Services\ScreenshotService $shots = null,
     ) {
         parent::__construct($view, $session);
@@ -61,6 +62,18 @@ final class SitesController extends Controller
 
     public function create(Request $request): Response
     {
+        return $this->render('sites/form', ['site' => null] + $this->createData($request));
+    }
+
+    /** The new-website wizard in a window (Create website on the dashboard, Add site on the websites list). */
+    public function createModal(Request $request): Response
+    {
+        return Response::html($this->view->partial('sites/form', ['site' => null, 'modal' => true, 'old' => [], 'errors' => []] + $this->createData($request)));
+    }
+
+    /** @return array<string, mixed> */
+    private function createData(Request $request): array
+    {
         $php = $this->service->phpVersions();
         $user = $this->user($request);
         // Which site-creation types this account's plan includes (staff: all).
@@ -68,8 +81,7 @@ final class SitesController extends Controller
         foreach (['type_php', 'type_static', 'type_nodejs', 'type_python', 'type_proxy'] as $t) {
             $allowedTypes[$t] = $this->features->enabledFor($user, $t);
         }
-        return $this->render('sites/form', [
-            'site' => null,
+        return [
             'phpVersions' => $php,
             'defaultPhp' => $this->service->defaultPhpVersion($php),
             'hardenDefault' => $this->service->hardenNewSites(),
@@ -77,18 +89,50 @@ final class SitesController extends Controller
             'owners' => \NimVor\Hosting\Scope::isAll($user) ? $this->users->all() : [],
             'allowedTypes' => $allowedTypes,
             'runtimes' => $this->runtimes->selectable(),
-        ]);
+        ];
     }
 
     public function store(Request $request): Response
     {
         $input = $request->all();
         $appKind = in_array((string) ($input['kind'] ?? ''), ['nodejs', 'python'], true);
+        // From the window (Create website): answered as JSON, so a refusal marks the fields in the window and a success goes to the site.
+        $json = $request->wantsJson();
+        $actor = $this->user($request);
+        $newCustomer = null;
         try {
-            $id = $this->service->create($input, $this->user($request));
+            // The wizard makes an administrator say who the website belongs to: an existing customer, a new customer account (created
+            // with the website) or nobody. A customer's or reseller's websites are theirs (WebsiteService::resolveOwner).
+            if (!empty($input['wizard']) && \NimVor\Hosting\Scope::isAll($actor)) {
+                $mode = (string) ($input['owner_mode'] ?? '');
+                if (!in_array($mode, ['existing', 'new', 'none'], true)) {
+                    throw new ValidationException(['owner_mode' => 'Choose who the website belongs to: an existing customer, a new customer account, or no customer.']);
+                }
+                if ($mode === 'existing') {
+                    $owner = $this->users->find((int) ($input['owner_id'] ?? 0));
+                    if ($owner === null || ($owner['role_scope'] ?? 'all') !== 'own') {
+                        throw new ValidationException(['owner_id' => 'Choose the customer this website belongs to.']);
+                    }
+                } else {
+                    $input['owner_id'] = '';
+                }
+            }
+            if (($mode ?? '') === 'new') {
+                $newCustomer = $this->accounts->createCustomerWebsite($input, (string) ($input['new_username'] ?? ''), (string) ($input['new_email'] ?? ''), $actor);
+                $id = $newCustomer['site_id'];
+                $this->session->flash('secret', ['title' => 'Customer account created', 'user' => $newCustomer['username'], 'password' => $newCustomer['password']]);
+            } else {
+                $id = $this->service->create($input, $actor);
+            }
         } catch (ValidationException $e) {
+            if ($json) {
+                return Response::json(['success' => false, 'error' => ['message' => $e->getMessage() !== '' ? $e->getMessage() : 'Check the highlighted fields.', 'errors' => $e->errors()]], 422);
+            }
             return $this->backWithErrors('/websites/new', $e, $input);
         } catch (UserFacingException $e) {
+            if ($json) {
+                return Response::json(['success' => false, 'error' => ['message' => $e->getMessage()]], 422);
+            }
             $this->session->flash('old', array_diff_key($input, ['_token' => 1]));
             return $this->redirectWithFailure('/websites/new', $e);
         }
@@ -96,12 +140,22 @@ final class SitesController extends Controller
         // runtime (best effort — the Runtime page lets them fix it otherwise).
         if ($appKind) {
             $this->provisionApp($request, $id, $input);
-            return $this->redirectWithSuccess('/sites/' . $id . '/' . ($input['kind'] === 'python' ? 'python' : 'nodejs'), 'Website created. Set up your app below.');
+            return $this->createdAt($json, '/sites/' . $id . '/' . ($input['kind'] === 'python' ? 'python' : 'nodejs'), 'Website created. Set up your app below.');
         }
         if (!empty($input['after_apps']) && in_array((string) ($input['kind'] ?? ''), ['php', 'static'], true)) {
-            return $this->redirectWithSuccess('/sites/' . $id . '/apps', 'Website created. Choose an application to install.');
+            return $this->createdAt($json, '/sites/' . $id . '/apps', 'Website created. Choose an application to install.');
         }
-        return $this->redirectWithSuccess('/sites/' . $id, 'Website created. Nginx and PHP-FPM were validated and reloaded.');
+        return $this->createdAt($json, '/sites/' . $id, 'Website created. Nginx and PHP-FPM were validated and reloaded.');
+    }
+
+    /** Where a new website goes next: a redirect with a message, or (from the window) JSON with the address. */
+    private function createdAt(bool $json, string $to, string $message): Response
+    {
+        if (!$json) {
+            return $this->redirectWithSuccess($to, $message);
+        }
+        $this->session->flash('success', $message);
+        return Response::json(['success' => true, 'message' => $message, 'redirect' => $to]);
     }
 
     /**

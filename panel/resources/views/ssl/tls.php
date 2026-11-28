@@ -27,7 +27,7 @@ $p = (array) ($tls['profile'] ?? []);
                         <div class="form-check"><input class="form-check-input" type="radio" name="ciphers" value="<?= $v ?>" id="tls-c-<?= $v ?>"<?= ($p['ciphers'] ?? 'default') === $v ? ' checked' : '' ?><?= $canManage ? '' : ' disabled' ?>><label class="form-check-label" for="tls-c-<?= $v ?>"><?= e($l) ?><div class="form-text mt-0"><?= e($h) ?></div></label></div>
                     <?php endforeach; ?>
                 </fieldset>
-                <div class="form-check"><input class="form-check-input" type="checkbox" name="session_tickets" value="1" id="tls-t"<?= !empty($p['session_tickets']) ? ' checked' : '' ?><?= $canManage ? '' : ' disabled' ?>><label class="form-check-label" for="tls-t">Session tickets<div class="form-text mt-0">Faster reconnects; off keeps forward secrecy for resumed sessions (recommended off).</div></label></div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" name="session_tickets" value="1" id="tls-t"<?= !empty($p['session_tickets']) ? ' checked' : '' ?><?= $canManage ? '' : ' disabled' ?>><label class="form-check-label" for="tls-t">Session tickets</label><?= $this->hint('Faster reconnects; off keeps forward secrecy for resumed sessions (recommended off).', 'Session tickets') ?></div>
             </div>
             <?php if ($canManage): ?><div class="card-footer text-end"><button class="btn btn-primary btn-sm"><span class="spinner-border spinner-border-sm d-none me-1" aria-hidden="true"></span>Apply</button></div><?php endif; ?>
         </form>

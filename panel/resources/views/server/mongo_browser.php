@@ -229,9 +229,8 @@
                 </div>
                 <div class="d-none" data-mb-nc-view>
                     <label class="form-label small mb-0" for="mb-nc-on">Based on collection</label><input class="form-control form-control-sm font-monospace mb-1" id="mb-nc-on" data-mb-nc-on autocomplete="off">
-                    <label class="form-label small mb-0" for="mb-nc-pipe">Pipeline (JSON array of stages)</label>
+                    <label class="form-label small mb-0" for="mb-nc-pipe">Pipeline (JSON array of stages)</label><?= $this->hint('A view cannot write: $out and $merge are not allowed.', 'Pipeline (JSON array of stages)') ?>
                     <textarea class="form-control form-control-sm font-monospace" id="mb-nc-pipe" data-mb-nc-pipe rows="4" spellcheck="false" placeholder='[ { "$match": { "status": "active" } } ]'></textarea>
-                    <div class="form-text">A view cannot write: <code>$out</code> and <code>$merge</code> are not allowed.</div>
                 </div>
                 <div class="invalid-feedback d-block" data-mb-nc-err></div>
             </div>
@@ -277,9 +276,8 @@
         <form class="modal-content" data-mb-index-form novalidate>
             <div class="modal-header"><h2 class="modal-title h6" id="mb-index-title">New index</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
             <div class="modal-body">
-                <label class="form-label small" for="mb-index-keys">Keys (JSON)</label>
+                <label class="form-label small" for="mb-index-keys">Keys (JSON)</label><?= $this->hint('1 ascending, -1 descending, or "text". Compound: { "a": 1, "b": -1 }.', 'Keys (JSON)') ?>
                 <input class="form-control font-monospace" id="mb-index-keys" data-mb-index-keys placeholder='{ "email": 1 }' autocomplete="off" spellcheck="false">
-                <div class="form-text">1 ascending, -1 descending, or "text". Compound: <code>{ "a": 1, "b": -1 }</code>.</div>
                 <div class="row g-2 mt-1">
                     <div class="col-6 form-check ms-2"><input class="form-check-input" type="checkbox" id="mb-index-unique" data-mb-index-unique><label class="form-check-label small" for="mb-index-unique">Unique</label></div>
                     <div class="col-6 form-check"><input class="form-check-input" type="checkbox" id="mb-index-sparse" data-mb-index-sparse><label class="form-check-label small" for="mb-index-sparse">Sparse</label></div>
@@ -316,10 +314,9 @@
                         <input class="form-control form-control-sm" type="file" id="mb-import-file" accept=".json,.jsonl,.ndjson,application/json,text/plain" data-mb-import-file>
                     </div>
                 </div>
-                <label class="form-label small" for="mb-import-text">Documents</label>
+                <label class="form-label small" for="mb-import-text">Documents</label><?= $this->hint('Up to 5000 documents (4 MB). Each must be a JSON object; a document whose _id already exists is counted as an error and skipped.', 'Documents') ?>
                 <textarea class="form-control font-monospace" id="mb-import-text" rows="14" spellcheck="false" data-mb-import-text placeholder='[ { "name": "a" }, { "name": "b" } ]'></textarea>
                 <div class="invalid-feedback d-block" data-mb-import-err></div>
-                <div class="form-text">Up to 5000 documents (4&nbsp;MB). Each must be a JSON object; a document whose <code>_id</code> already exists is counted as an error and skipped.</div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -339,9 +336,8 @@
                     <input class="form-control form-control-sm font-monospace" id="mb-user-name" data-mb-user-name autocomplete="off" spellcheck="false">
                 </div>
                 <div class="mb-2">
-                    <label class="form-label small mb-1" for="mb-user-pass">Password</label>
+                    <label class="form-label small mb-1" for="mb-user-pass">Password</label><?= $this->hint('8 to 256 characters.', 'Password') ?>
                     <input class="form-control form-control-sm font-monospace" type="text" id="mb-user-pass" data-mb-user-pass autocomplete="off" spellcheck="false">
-                    <div class="form-text">8 to 256 characters.</div>
                 </div>
                 <div class="mb-1" data-mb-user-rolewrap>
                     <label class="form-label small mb-1" for="mb-user-role">Role on this database</label>

@@ -28,6 +28,23 @@ final class CentralSettingsTest extends HttpTestCase
         }
     }
 
+    public function testSettingsExplainTheirFieldsInTooltipsNotInLongHelperLines(): void
+    {
+        $this->login('admin');
+        foreach (['/settings', '/settings/basic', '/settings/tweak'] as $url) {
+            $page = $this->request('GET', $url)->body();
+            self::assertStringContainsString('data-nim-hint', $page, $url . ' has info icons');
+            self::assertStringContainsString('class="nim-hint-text"', $page, $url . ' keeps the text in the page for screen readers');
+        }
+        $page = $this->request('GET', '/settings')->body();
+        foreach (SettingsService::definitions() as $key => $def) {
+            if (($def['help'] ?? '') !== '' && str_contains($page, 'name="' . $key . '"')) {
+                self::assertStringNotContainsString('<div class="form-text">' . e((string) $def['help']) . '</div>', $page, $key . ' no longer has an always-visible helper line');
+                self::assertStringContainsString(e((string) $def['help']), $page, $key . ' still has its explanation');
+            }
+        }
+    }
+
     public function testSavingOneCategoryReturnsToItsTab(): void
     {
         $this->login('admin');

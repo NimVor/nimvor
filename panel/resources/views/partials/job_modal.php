@@ -17,3 +17,7 @@
         </div>
     </div>
 </div>
+<?php /* One window for the quick forms and settings that open without leaving the page (links marked data-nim-site-modal; assets/js/nimvor.js). */ ?>
+<div class="modal fade" id="nim-site-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content" data-nim-site-modal-body></div></div>
+</div>

@@ -48,18 +48,16 @@ $id = (int) $site['id'];
                 <form method="post" action="<?= e($this->url('sites.access.protect', ['id' => $id])) ?>" data-nim-busy autocomplete="off">
                     <?= $this->csrfField() ?>
                     <div class="mb-2">
-                        <label class="form-label small" for="sa-path">What to protect</label>
+                        <label class="form-label small" for="sa-path">What to protect</label><?= $this->hint('/ protects the whole website; /admin/ only that folder. Using an address that is already protected changes its user and password.', 'What to protect') ?>
                         <input class="form-control form-control-sm font-monospace" id="sa-path" name="path" value="/" maxlength="200" required>
-                        <div class="form-text"><code>/</code> protects the whole website; <code>/admin/</code> only that folder. Using an address that is already protected changes its user and password.</div>
                     </div>
                     <div class="mb-2">
                         <label class="form-label small" for="sa-user">User name</label>
                         <input class="form-control form-control-sm" id="sa-user" name="user" maxlength="64" required autocomplete="off">
                     </div>
                     <div class="mb-2">
-                        <label class="form-label small" for="sa-password">Password</label>
+                        <label class="form-label small" for="sa-password">Password</label><?= $this->hint('8 to 128 characters.', 'Password') ?>
                         <input class="form-control form-control-sm" id="sa-password" name="password" type="password" minlength="8" maxlength="128" required autocomplete="new-password">
-                        <div class="form-text">8 to 128 characters.</div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label small" for="sa-realm">Message in the sign-in prompt <span class="text-body-secondary">(optional)</span></label>

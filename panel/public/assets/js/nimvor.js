@@ -456,15 +456,32 @@
         document.querySelectorAll('[data-nim-toggle-kind]').forEach(applyKind);
     });
 
+    // New-website owner choice (administrators): the pane of the chosen option shows (existing customer: a list; new customer: email
+    // and login); the fields of the others are disabled, so they are not sent.
+    function ownerPanes(root) {
+        (root || document).querySelectorAll('[data-nim-owner]').forEach(function (box) {
+            var on = box.querySelector('input[name="owner_mode"]:checked');
+            var mode = on ? on.value : '';
+            box.querySelectorAll('[data-nim-owner-pane]').forEach(function (pane) {
+                var show = pane.getAttribute('data-nim-owner-pane') === mode;
+                pane.classList.toggle('d-none', !show);
+                pane.querySelectorAll('input, select').forEach(function (f) { f.disabled = !show; });
+            });
+        });
+    }
+    document.addEventListener('change', function (e) { if (e.target.matches && e.target.matches('input[name="owner_mode"]')) { ownerPanes(e.target.closest('form')); } });
+    document.addEventListener('DOMContentLoaded', function () { ownerPanes(document); });
+    document.addEventListener('nim:modal-loaded', function (e) { ownerPanes(e.detail); });
+
     // New-website wizard: the form's cards carry data-nim-step (1 type, 2 domain,
     // 3 settings, 4 review). Without this script every card is shown at once.
     function initWizard(form) {
         var steps = Array.prototype.slice.call(form.querySelectorAll('[data-nim-step]'));
         if (!steps.length) { return; }
-        var nav = form.querySelector('[data-nim-wizard-nav]');
+        var backs = form.querySelectorAll('[data-nim-wizard-back]'), nexts = form.querySelectorAll('[data-nim-wizard-next]');
         var submit = form.querySelector('[data-nim-wizard-submit]');
         var tabs = document.querySelectorAll('[data-nim-step-tab]');
-        var last = 4, cur = 1;
+        var last = steps.reduce(function (m, el) { return Math.max(m, parseInt(el.getAttribute('data-nim-step'), 10) || 1); }, 1), cur = 1;
         function field(name) {
             var els = form.querySelectorAll('[name="' + name + '"]');
             for (var i = 0; i < els.length; i++) {
@@ -478,13 +495,22 @@
         function label(el) {
             if (!el) { return ''; }
             if (el.tagName === 'SELECT') { return el.options[el.selectedIndex] ? el.options[el.selectedIndex].text : ''; }
-            if (el.type === 'radio') { var l = form.querySelector('label[for="' + el.id + '"]'); return l ? l.textContent.trim() : el.value; }
+            if (el.type === 'radio') { var l = el.id ? form.querySelector('label[for="' + el.id + '"]') : el.closest('label'); var t = l ? (l.querySelector('[data-nim-label]') || l) : null; return t ? t.textContent.trim() : el.value; }
             return el.value.trim();
+        }
+        // Who the website belongs to, for the review: the chosen option and what goes with it.
+        function ownerText() {
+            var m = field('owner_mode');
+            if (!m) { return ''; }
+            var t = label(m), mode = m.value, d = '';
+            if (mode === 'existing') { d = label(field('owner_id')); }
+            if (mode === 'new') { var em = field('new_email'); d = em ? em.value.trim() : ''; }
+            return t + (d ? ': ' + d : '');
         }
         function review() {
             form.querySelectorAll('[data-nim-review-field]').forEach(function (dd) {
                 var n = dd.getAttribute('data-nim-review-field');
-                var v = label(field(n));
+                var v = n === 'owner' ? ownerText() : label(field(n));
                 if (n === 'app_runtime') { var port = field('app_port'); v = v + (port && port.value ? ' on port ' + port.value : ''); }
                 dd.textContent = v === '' ? '—' : v;
             });
@@ -497,23 +523,39 @@
                 t.classList.toggle('active', k === cur);
                 t.classList.toggle('done', k < cur);
             });
-            if (nav) {
-                nav.hidden = false;
-                nav.querySelector('[data-nim-wizard-back]').hidden = cur === 1;
-                nav.querySelector('[data-nim-wizard-next]').hidden = cur === last;
-            }
+            form.setAttribute('data-nim-cur', String(cur));
+            backs.forEach(function (b) { b.hidden = cur === 1; });
+            nexts.forEach(function (b) { b.hidden = cur === last; });
             if (submit) { submit.hidden = cur !== last; }
             if (cur === last) { review(); }
         }
         function ok(n) {
-            // Step 2 needs a domain; the server checks everything else.
+            // Step 2 needs a domain and (for an administrator) a chosen owner with what goes with it; the server checks everything else.
             if (n === 2) {
                 var d = form.querySelector('[name="domain"]');
                 if (d && d.value.trim() === '') { d.classList.add('is-invalid'); d.focus(); return false; }
+                var oe = form.querySelector('[data-nim-owner-error]');
+                var modes = form.querySelectorAll('input[name="owner_mode"]');
+                if (modes.length) {
+                    var m = field('owner_mode'), bad = null, msg = '';
+                    if (!m) { msg = 'Choose who the website belongs to.'; }
+                    else if (m.value === 'existing' && !(field('owner_id') && field('owner_id').value)) { bad = field('owner_id'); msg = 'Choose the customer.'; }
+                    else if (m.value === 'new' && !(field('new_email') && field('new_email').value.trim())) { bad = field('new_email'); msg = 'Enter the customer\'s email address.'; }
+                    if (msg) {
+                        if (oe) { oe.textContent = msg; oe.classList.add('d-block'); }
+                        if (bad) { bad.classList.add('is-invalid'); bad.focus(); } else if (modes[0]) { modes[0].focus(); }
+                        return false;
+                    }
+                    if (oe) { oe.classList.remove('d-block'); }
+                }
             }
             return true;
         }
         form.classList.add('nim-wizard-on');
+        // A type card opens the form for that type (the radio is already checked when its click arrives).
+        form.addEventListener('click', function (e) {
+            if (cur === 1 && e.target.closest('.nim-type-card')) { setTimeout(function () { show(2); }, 0); }
+        });
         form.addEventListener('click', function (e) {
             if (e.target.closest('[data-nim-wizard-next]')) { if (ok(cur)) { show(cur + 1); } }
             if (e.target.closest('[data-nim-wizard-back]')) { show(cur - 1); }
@@ -531,15 +573,27 @@
                 if (ok(cur)) { show(cur + 1); }
             }
         });
+        // A refused background submit (the form in a window) marks the fields: go to the first step that has one.
+        form.addEventListener('nim:modal-invalid', function () {
+            for (var j = 0; j < steps.length; j++) {
+                if (steps[j].querySelector('.is-invalid')) { show(parseInt(steps[j].getAttribute('data-nim-step'), 10)); return; }
+            }
+        });
         // After a server-side error, start at the first step that has one.
         var first = 1;
         for (var i = 0; i < steps.length; i++) {
-            if (steps[i].querySelector('.is-invalid, .invalid-feedback')) { first = parseInt(steps[i].getAttribute('data-nim-step'), 10); break; }
+            if (steps[i].querySelector('.is-invalid, .invalid-feedback:not([data-nim-owner-error])')) { first = parseInt(steps[i].getAttribute('data-nim-step'), 10); break; }
         }
         show(first);
     }
     document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('form[data-nim-wizard]').forEach(initWizard);
+    });
+    // The wizard opened in a window (Create website): start it, and the card toggles of its fields, once its HTML is loaded.
+    document.addEventListener('nim:modal-loaded', function (e) {
+        var root = e.detail || document;
+        root.querySelectorAll('[data-nim-toggle-kind]').forEach(applyKind);
+        root.querySelectorAll('form[data-nim-wizard]').forEach(initWizard);
     });
 
     // DNS record modal: one form for adding and editing (buttons carry the
@@ -1337,10 +1391,17 @@
             e.preventDefault();
             document.querySelectorAll('details[data-nim-menu][open]').forEach(function (d) { d.open = false; });
             b.body.innerHTML = '<div class="modal-body text-center py-5"><span class="spinner-border" aria-hidden="true"></span></div>';
+            // data-nim-modal-xl on the link: a wider window (two-column settings).
+            var dlg = b.el.querySelector('.modal-dialog');
+            if (dlg) { dlg.classList.toggle('modal-xl', a.hasAttribute('data-nim-modal-xl')); }
             bootstrap.Modal.getOrCreateInstance(b.el).show();
-            fetch(a.getAttribute('href'), { credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch' } })
+            fetch(a.getAttribute('data-nim-modal-href') || a.getAttribute('href'), { credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch' } })
                 .then(function (r) { return r.text(); })
-                .then(function (html) { b.body.innerHTML = html; })
+                .then(function (html) {
+                    b.body.innerHTML = html;
+                    // Windows with scripted parts (the new-website wizard) start them now that their HTML is in the page.
+                    document.dispatchEvent(new CustomEvent('nim:modal-loaded', { detail: b.body }));
+                })
                 .catch(function () { b.body.innerHTML = '<div class="modal-body text-danger small">The window could not be loaded.</div>'; });
         });
         document.addEventListener('submit', function (e) {
@@ -1362,6 +1423,9 @@
                     var b = box();
                     if (b && window.bootstrap) { bootstrap.Modal.getOrCreateInstance(b.el).hide(); }
                     if (NimVor.toast) { NimVor.toast(r.body.message || 'Saved.', 'success'); }
+                    // A window that creates something goes to it (a same-site address only); the others reload the page.
+                    var to = r.body.redirect ? new URL(r.body.redirect, window.location.href) : null;
+                    if (to && to.origin === window.location.origin) { setTimeout(function () { window.location.href = to.href; }, 500); return; }
                     setTimeout(function () { window.location.reload(); }, 700);
                     return;
                 }
@@ -1374,6 +1438,7 @@
                     inp.insertAdjacentElement('afterend', m);
                 });
                 if (err) { err.textContent = er.message || 'The change was not saved.'; err.classList.remove('d-none'); }
+                f.dispatchEvent(new CustomEvent('nim:modal-invalid'));
             }).catch(function () {
                 if (err) { err.textContent = 'The change could not be sent. Check the connection and try again.'; err.classList.remove('d-none'); }
             }).finally(function () {
@@ -1711,6 +1776,59 @@
         document.addEventListener('nim:widget-loaded', function (e) { restore(e.detail); });
     })();
 
+    // Field hints: <button data-nim-hint aria-describedby="ID"> after a label, with its text in <span id="ID" hidden> (View::hint()).
+    // The text shows in one small tooltip on hover or keyboard focus, and stays open when the icon is clicked or tapped (so touch
+    // screens work); Escape, a click elsewhere or scrolling closes it. The tooltip stays while the pointer is on it.
+    (function () {
+        var tip = null, owner = null, pinned = false, timer = 0;
+        function textOf(btn) { var t = document.getElementById(btn.getAttribute('aria-describedby') || ''); return t ? t.textContent : ''; }
+        function close() {
+            clearTimeout(timer);
+            if (owner) { owner.setAttribute('aria-expanded', 'false'); }
+            if (tip) { tip.hidden = true; }
+            owner = null; pinned = false;
+        }
+        function place(btn) {
+            var r = btn.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight, vw = document.documentElement.clientWidth, vh = window.innerHeight;
+            var top = r.bottom + 8;
+            if (top + h > vh - 8 && r.top - h - 8 > 8) { top = r.top - h - 8; }
+            tip.style.top = Math.max(8, top) + 'px';
+            tip.style.left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, vw - w - 8)) + 'px';
+        }
+        function open(btn, keep) {
+            if (!tip) {
+                tip = document.createElement('div');
+                tip.className = 'nim-hint-tip';
+                tip.setAttribute('role', 'tooltip');
+                tip.hidden = true;
+                tip.addEventListener('mouseenter', function () { clearTimeout(timer); });
+                tip.addEventListener('mouseleave', function () { if (!pinned) { close(); } });
+                document.body.appendChild(tip);
+            }
+            if (owner && owner !== btn) { owner.setAttribute('aria-expanded', 'false'); }
+            owner = btn; pinned = !!keep;
+            tip.textContent = textOf(btn);
+            tip.hidden = false;
+            btn.setAttribute('aria-expanded', 'true');
+            place(btn);
+        }
+        function later(btn) { clearTimeout(timer); timer = setTimeout(function () { open(btn, false); }, 120); }
+        function soon() { clearTimeout(timer); if (!pinned) { timer = setTimeout(close, 160); } }
+        function hintOf(e) { return e.target.closest ? e.target.closest('[data-nim-hint]') : null; }
+        document.addEventListener('mouseover', function (e) { var b = hintOf(e); if (b && window.matchMedia('(hover: hover)').matches) { later(b); } });
+        document.addEventListener('mouseout', function (e) { var b = hintOf(e); if (b && !b.contains(e.relatedTarget) && !(tip && tip.contains(e.relatedTarget))) { soon(); } });
+        document.addEventListener('focusin', function (e) { var b = hintOf(e); if (b) { open(b, false); } else if (!pinned) { close(); } });
+        document.addEventListener('focusout', function (e) { if (hintOf(e) && !pinned) { soon(); } });
+        document.addEventListener('click', function (e) {
+            var b = hintOf(e);
+            if (b) { e.preventDefault(); if (owner === b && pinned) { close(); } else { open(b, true); } return; }
+            if (tip && !tip.hidden && !tip.contains(e.target)) { close(); }
+        });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && owner) { var b = owner; close(); if (b.focus) { b.focus({ preventScroll: true }); } } });
+        window.addEventListener('scroll', function () { if (owner) { if (pinned) { place(owner); } else { close(); } } }, true);
+        window.addEventListener('resize', function () { if (owner) { place(owner); } });
+    })();
+
     // Hover cards: anything with data-popover-url (a dashboard tile, the server name in the top bar) shows the
     // HTML that address returns in a small card while the pointer rests on it; a click or Enter does the same for
     // touch and keyboard. The card stays while the pointer is on it (it can hold buttons) and closes on Escape.
@@ -1756,6 +1874,7 @@
         var owner = e.target.closest ? e.target.closest('[data-popover-url]') : null;
         // The buttons and links inside a tile (stop, restart, settings) do their own thing.
         if (owner && e.target.closest('a, button') && owner.contains(e.target.closest('a, button'))) { return; }
+        if (owner && owner.hasAttribute('data-nim-site-modal')) { hoverClose(); return; }
         if (owner) { if (hover.owner === owner) { hoverClose(); } else { hoverOpen(owner); } return; }
         if (hover.card && !hover.card.contains(e.target)) { hoverClose(); }
     });

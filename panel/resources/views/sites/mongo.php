@@ -173,9 +173,8 @@ $base = $this->url('sites.mongo', ['id' => $id]);
 <?= $this->modalStart('mongo-db', 'Add database') ?>
     <form method="post" action="<?= e($this->url('sites.mongo.database_create', ['id' => $id])) ?>" data-nim-busy>
         <div class="p-3"><?= $this->csrfField() ?>
-            <label class="form-label" for="mdb-name">Name</label>
+            <label class="form-label" for="mdb-name">Name</label><?= $this->hint('Letters, digits, _ and -. The name is prefixed with ' . (string) ($prefix) . '.', 'Name') ?>
             <div class="input-group"><span class="input-group-text font-monospace"><?= e($prefix) ?></span><input class="form-control" id="mdb-name" name="name" pattern="[A-Za-z0-9_][A-Za-z0-9_-]*" maxlength="48" required placeholder="shop"></div>
-            <div class="form-text">Letters, digits, _ and -. The name is prefixed with <code><?= e($prefix) ?></code>.</div>
             <button class="btn btn-primary btn-sm mt-3" type="submit">Create</button>
         </div>
     </form>
@@ -194,9 +193,8 @@ $base = $this->url('sites.mongo', ['id' => $id]);
             </div>
             <div class="row g-2 mt-1">
                 <div class="col-6"><label class="form-label" for="mu-pw">Password</label><input class="form-control" id="mu-pw" name="password" type="password" minlength="8" maxlength="256" required></div>
-                <div class="col-6"><label class="form-label" for="mu-role">Role</label><select class="form-select" id="mu-role" name="role"><?php foreach ($roles as $k => $label): ?><option value="<?= e($k) ?>"<?= $k === 'readWrite' ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
+                <div class="col-6"><label class="form-label" for="mu-role">Role</label><?= $this->hint('The user is created in the chosen database with that role. Its name is prefixed with ' . (string) ($prefix) . '.', 'Role') ?><select class="form-select" id="mu-role" name="role"><?php foreach ($roles as $k => $label): ?><option value="<?= e($k) ?>"<?= $k === 'readWrite' ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
             </div>
-            <div class="form-text mt-1">The user is created in the chosen database with that role. Its name is prefixed with <code><?= e($prefix) ?></code>.</div>
             <button class="btn btn-primary btn-sm mt-3" type="submit">Create user</button>
         </div>
     </form>

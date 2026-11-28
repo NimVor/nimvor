@@ -250,29 +250,24 @@ $strategy = ['allow' => ['Allow', 'nim-good'], 'limit' => ['Allow (rate-limited)
         </div>
         <div class="row g-3">
             <div class="col-md-6">
-                <label class="form-label small fw-medium" for="pr-syn">SYN flood: new connections per second per address</label>
+                <label class="form-label small fw-medium" for="pr-syn">SYN flood: new connections per second per address</label><?= $this->hint('0 turns it off. Above it, new connections from that address are dropped.', 'SYN flood: new connections per second per address') ?>
                 <input class="form-control form-control-sm" id="pr-syn" name="syn_rate" inputmode="numeric" value="<?= e((string) ($fresh ? 100 : (int) ($pc['syn_rate'] ?? 0))) ?>"<?= $dis ?>>
-                <div class="form-text">0 turns it off. Above it, new connections from that address are dropped.</div>
             </div>
             <div class="col-md-6">
-                <label class="form-label small fw-medium" for="pr-icmp">Ping: echo requests per second per address</label>
+                <label class="form-label small fw-medium" for="pr-icmp">Ping: echo requests per second per address</label><?= $this->hint('0 turns it off.', 'Ping: echo requests per second per address') ?>
                 <input class="form-control form-control-sm" id="pr-icmp" name="icmp_rate" inputmode="numeric" value="<?= e((string) ($fresh ? 5 : (int) ($pc['icmp_rate'] ?? 0))) ?>"<?= $dis ?>>
-                <div class="form-text">0 turns it off.</div>
             </div>
             <div class="col-md-6">
-                <label class="form-label small fw-medium" for="pr-conn">Connection limits: port:connections at once per address</label>
+                <label class="form-label small fw-medium" for="pr-conn">Connection limits: port:connections at once per address</label><?= $this->hint('TCP. Above the limit, new connections are refused. Keep web ports generous: browsers open several connections.', 'Connection limits: port:connections at once per address') ?>
                 <input class="form-control form-control-sm font-monospace" id="pr-conn" name="conn_limits" placeholder="22:10, 80:150, 443:150" value="<?= e($limits((array) ($pc['conn_limits'] ?? []), false)) ?>"<?= $dis ?>>
-                <div class="form-text">TCP. Above the limit, new connections are refused. Keep web ports generous: browsers open several connections.</div>
             </div>
             <div class="col-md-6">
-                <label class="form-label small fw-medium" for="pr-flood">Port flood: protocol/port:new connections per minute per address</label>
+                <label class="form-label small fw-medium" for="pr-flood">Port flood: protocol/port:new connections per minute per address</label><?= $this->hint('Above the rate, new connections are dropped until it falls.', 'Port flood: protocol/port:new connections per minute per address') ?>
                 <input class="form-control form-control-sm font-monospace" id="pr-flood" name="port_flood" placeholder="tcp/22:20, tcp/25:60, udp/53:600" value="<?= e($limits((array) ($pc['port_flood'] ?? []), true)) ?>"<?= $dis ?>>
-                <div class="form-text">Above the rate, new connections are dropped until it falls.</div>
             </div>
             <div class="col-12">
-                <label class="form-label small fw-medium" for="pr-exempt">Exempt addresses and networks</label>
+                <label class="form-label small fw-medium" for="pr-exempt">Exempt addresses and networks</label><?= $this->hint('These skip the protections (monitoring, your office, a load balancer). The firewall\'s own rules still apply to them.', 'Exempt addresses and networks') ?>
                 <textarea class="form-control form-control-sm font-monospace" id="pr-exempt" name="exempt" rows="2" placeholder="203.0.113.4, 10.0.0.0/8"<?= $dis ?>><?= e(implode(', ', (array) ($pc['exempt'] ?? []))) ?></textarea>
-                <div class="form-text">These skip the protections (monitoring, your office, a load balancer). The firewall's own rules still apply to them.</div>
                 <?php if ($myIp !== ''): ?>
                     <div class="form-check mt-1">
                         <input class="form-check-input" type="checkbox" id="pr-me" name="exempt_me" value="1" checked<?= $dis ?>>

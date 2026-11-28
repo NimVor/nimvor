@@ -310,12 +310,11 @@ $levels = PostgresService::LEVELS;
         <select class="form-select mb-3" id="pg-grant-role" name="role_id" required>
             <?php foreach ($roles as $r): ?><option value="<?= (int) $r['id'] ?>"><?= e((string) $r['name']) ?></option><?php endforeach; ?>
         </select>
-        <label class="form-label" for="pg-grant-level">May</label>
+        <label class="form-label" for="pg-grant-level">May</label><?= $this->hint('Applies to the tables that exist and to the ones created later. The database owner always has full access.', 'May') ?>
         <select class="form-select" id="pg-grant-level" name="level" required>
             <option value="none">Nothing (remove access)</option>
             <?php foreach ($levels as $k => $label): ?><option value="<?= e($k) ?>"><?= e($label) ?></option><?php endforeach; ?>
         </select>
-        <div class="form-text mt-2">Applies to the tables that exist and to the ones created later. The database owner always has full access.</div>
     </div>
     <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Save</button></div>
 </form></div></div>

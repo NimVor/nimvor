@@ -19,8 +19,10 @@ const OUT = process.env.E2E_OUT || '/tmp';
 
   await page.goto(BASE + '/websites/new');
   const dom = 'fm' + Date.now() + '.test';
-  await page.click('label[for^="f-kind-"]:has-text("Static site")');
-  await page.click('[data-nim-wizard-next]'); await page.fill('#f-domain', dom); await page.click('[data-nim-wizard-next]'); await page.click('[data-nim-wizard-next]');
+  await page.click('label[for^="f-kind-"]:has-text("Static site")'); // the type card opens the form
+  await page.click('label.nim-choice:has(input[name=owner_mode][value=none])'); // an administrator says who owns it
+  await page.fill('#f-domain', dom);
+  await page.click('[data-nim-wizard-next]'); await page.click('[data-nim-wizard-next]'); // settings, then review
   await Promise.all([page.waitForNavigation(), page.click('form button[type=submit].btn-primary')]);
   step('site created: ' + page.url());
   const m = page.url().match(/sites\/(\d+)/);

@@ -94,9 +94,8 @@ foreach ($tabs as $t => $defs) {
                             <div class="list-group-item py-3" data-setting="<?= e($key) ?>" data-changed="<?= $changed ? '1' : '0' ?>" data-search="<?= e($hay) ?>">
                                 <div class="row g-2 align-items-start">
                                     <div class="col-md-6">
-                                        <label class="fw-medium" for="<?= e($id) ?>"><?= e((string) $def['label']) ?></label>
+                                        <label class="fw-medium" for="<?= e($id) ?>"><?= e((string) $def['label']) ?></label><?= $this->hint((string) $def['help'], (string) $def['label']) ?>
                                         <?php if ($changed): ?><span class="badge text-bg-warning ms-1">Changed</span><?php endif; ?>
-                                        <?php if ((string) $def['help'] !== ''): ?><div class="small nim-muted"><?= e((string) $def['help']) ?></div><?php endif; ?>
                                         <div class="small nim-muted mt-1">Default: <span class="fw-medium"><?= e($show($key, $def, $def['default'])) ?></span> · <code class="small"><?= e($key) ?></code></div>
                                     </div>
                                     <div class="col-md-6">

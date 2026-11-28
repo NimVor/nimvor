@@ -131,8 +131,7 @@ $sortLink = fn (string $k): string => $this->url('dns.zone', ['id' => $id], $k =
                 </div>
                 <div class="row g-2 mt-1" data-nim-kind="SRV">
                     <div class="col-sm-3"><label class="form-label small" for="rec-srvs">Service</label><input class="form-control form-control-sm font-monospace" id="rec-srvs" name="srv_service" value="<?= e($fv('srv_service')) ?>" placeholder="sip"></div>
-                    <div class="col-sm-3"><label class="form-label small" for="rec-srvp">Protocol</label><select class="form-select form-select-sm" id="rec-srvp" name="srv_protocol"><option value="">(in the name)</option><?php foreach (['tcp', 'udp', 'tls'] as $p): ?><option<?= $fv('srv_protocol') === $p ? ' selected' : '' ?>><?= $p ?></option><?php endforeach; ?></select></div>
-                    <div class="col-sm-6 form-text align-self-end">With a service and protocol the name becomes <code>_service._protocol</code> (plus the name, unless it is @).</div>
+                    <div class="col-sm-3"><label class="form-label small" for="rec-srvp">Protocol</label><?= $this->hint('With a service and protocol the name becomes _service._protocol (plus the name, unless it is @).', 'Protocol') ?><select class="form-select form-select-sm" id="rec-srvp" name="srv_protocol"><option value="">(in the name)</option><?php foreach (['tcp', 'udp', 'tls'] as $p): ?><option<?= $fv('srv_protocol') === $p ? ' selected' : '' ?>><?= $p ?></option><?php endforeach; ?></select></div>
                 </div>
                 <div class="row g-2 mt-1">
                     <div class="col-sm-3" data-nim-kind="MX SRV"><label class="form-label small" for="rec-prio">Priority</label><input class="form-control form-control-sm<?= $bad('priority') ?>" id="rec-prio" type="number" min="0" max="65535" name="priority" value="<?= e($fv('priority', 10)) ?>"><?= $err('priority') ?></div>

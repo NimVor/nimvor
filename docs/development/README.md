@@ -122,6 +122,48 @@ must be safe to run twice. Downloads stay GET links.
 - Destructive forms keep `data-nim-confirm` (and
   `data-nim-confirm-word` for high-risk ones).
 
+## Windows instead of pages
+
+A link marked `data-nim-site-modal` loads a window into the one shared `#nim-site-modal` (in `partials/job_modal.php`, so it is on every
+page) from its `href`, or from `data-nim-modal-href` when the plain `href` is the full page (so Ctrl-click and no-JS still work);
+`data-nim-modal-xl` asks for a wider window. The server answers with the window's HTML only (`modal-header`, `modal-body`); its form
+carries `data-nim-site-modal-form` and `data-nim-modal-error`, is sent in the background with `Accept: application/json`, and the
+controller answers `{success, message, redirect?}` or a 422 with `error.errors` (the fields are marked in the window). Scripted parts
+start on the `nim:modal-loaded` event. Used by Create website (`sites.create.modal`), Nginx (`nginx.modal`, Start/Stop at the top), the
+database server settings and the website quick settings.
+
+## The new-website form
+
+`sites/form.php` is a four-step wizard for a new website (`data-nim-wizard`, `data-nim-step` 1–4: Type, Domain and owner, Settings, Review; `initWizard` in `nimvor.js` validates a step on *Next*, fills the review summary, and only the last step shows the submit button); a type-card click advances. Edit mode shares the file without the wizard. Fields that depend on the type carry `data-nim-kind`, the rarely used
+ones are not asked at all: the system user is derived from the domain, the PHP limits come from the selected version (`WebsiteService::phpVersionDefaults()`: `php.ini_get` effective memory/upload/execution values and `php.fpm_get` process cap, standard defaults when unreadable) and the security profile from the panel default (edit mode shows the system user and request size). The window version is `GET /websites/new/modal`; its form is sent in the background and answered as JSON
+(`SitesController::store`). With `wizard=1` an administrator must send `owner_mode` (`existing` + `owner_id`, `new` + `new_email`
+[+ `new_username`], or `none`); `new` creates the customer through `AccountService::createCustomerWebsite()` and flashes the generated
+password once (`secret`). Customers and resellers own what they create (`WebsiteService::resolveOwner`); API callers send no `wizard`.
+
+## Service logos
+
+`View::logo($id, $size, $class)` returns the logo of a service as an `<img>` (or `''`, so `?:` keeps the icon): `$this->logo('nginx', 16) ?: '<i class="bi bi-hdd-rack"></i>'`.
+The files are `public/assets/img/services/NAME.png` (sources and licences in the README next to them) and the ids the panel uses
+for them are in `View::LOGOS`.
+
+## Field hints (tooltips)
+
+A field's explanation is not printed under the input. Put it in a hint right after the label:
+
+```php
+<label class="form-label" for="f-host">Host name</label><?= $this->hint('A full name such as server1.example.com.', 'Host name') ?>
+```
+
+`View::hint($text, $about)` returns a small info button (`.nim-hint`) and the text in a hidden span that the button points to with
+`aria-describedby`, so screen readers read it. `assets/js/nimvor.js` shows it in one tooltip on hover, on keyboard focus and when the
+button is clicked or tapped (it then stays until Escape, a click elsewhere or scrolling); the tooltip is placed against the window, so
+tables and windows do not cut it off. The shared `partials/field` takes the text from its `help` option. The text is escaped; use plain
+text (no markup).
+
+Keep as ordinary visible text: security warnings, notices about destructive actions, consequences the user must see before saving (a
+restart, a changed address), short section notes, and the technical variable name, shown muted (`.nim-var`) next to the label.
+`tests/e2e/fieldhints.js` covers hover, focus, click, Escape and the phone layout.
+
 ## Fixture server
 
 `agent/tests/fixtures/ubuntu-host` is a miniature Ubuntu 24.04 filesystem:

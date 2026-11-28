@@ -18,14 +18,14 @@ foreach ($nt['accountPages'] as $p) {
 ?>
 <?php $this->start(); ?>Home<?php $this->end('title'); ?>
 <?php $this->start(); ?><?= count($managed) ?> website<?= count($managed) === 1 ? '' : 's' ?> on this account<?php $this->end('subtitle'); ?>
-<?php $this->start(); ?><?php if ($site !== null): ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('sites.show', ['id' => (int) $site['id']])) ?>"><i class="bi bi-speedometer2 me-1" aria-hidden="true"></i>Overview</a><?php if ($site['enabled']): ?> <a class="btn btn-sm btn-outline-secondary" href="<?= e(($site['https'] ? 'https://' : 'http://') . $site['domain']) ?>/" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>Visit</a><?php endif; ?><?php endif; ?><?php if ($canCreate): ?> <a class="btn btn-sm btn-primary" href="<?= e($this->url('sites.create')) ?>"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Create site</a><?php endif; ?><?php $this->end('actions'); ?>
+<?php $this->start(); ?><?php if ($site !== null): ?><a class="btn btn-sm btn-outline-secondary" href="<?= e($this->url('sites.show', ['id' => (int) $site['id']])) ?>"><i class="bi bi-speedometer2 me-1" aria-hidden="true"></i>Overview</a><?php if ($site['enabled']): ?> <a class="btn btn-sm btn-outline-secondary" href="<?= e(($site['https'] ? 'https://' : 'http://') . $site['domain']) ?>/" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>Visit</a><?php endif; ?><?php endif; ?><?php if ($canCreate): ?> <a class="btn btn-sm btn-primary" href="<?= e($this->url('sites.create')) ?>" data-nim-site-modal data-nim-modal-href="<?= e($this->url('sites.create.modal')) ?>"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Create site</a><?php endif; ?><?php $this->end('actions'); ?>
 
 <?php if ($site === null): ?>
     <div class="ncl-card"><div class="nim-empty-state">
         <i class="bi bi-globe2" aria-hidden="true"></i>
         <div class="fw-medium">No websites yet</div>
         <div class="small"><?= $canCreate ? 'Create your first website to get started.' : 'Your hosting provider has not set up a website for you yet.' ?></div>
-        <?php if ($canCreate): ?><a class="btn btn-primary mt-3" href="<?= e($this->url('sites.create')) ?>"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Create site</a><?php endif; ?>
+        <?php if ($canCreate): ?><a class="btn btn-primary mt-3" href="<?= e($this->url('sites.create')) ?>" data-nim-site-modal data-nim-modal-href="<?= e($this->url('sites.create.modal')) ?>"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Create site</a><?php endif; ?>
     </div></div>
 <?php else: ?>
 

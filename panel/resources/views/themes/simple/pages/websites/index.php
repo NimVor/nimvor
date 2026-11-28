@@ -28,14 +28,14 @@ $rings = array_slice($rings, 0, 4);
 ?>
 <?php $this->start(); ?><?= e($greet) ?><?= $who !== '' ? ', ' . e($who) : '' ?><?php $this->end('title'); ?>
 <?php $this->start(); ?><?= count($managed) ?> website<?= count($managed) === 1 ? '' : 's' ?> · here is how they are doing<?php $this->end('subtitle'); ?>
-<?php $this->start(); ?><?php if ($canCreate): ?><a class="btn btn-primary" href="<?= e($this->url('sites.create')) ?>"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>New website</a><?php endif; ?><?php $this->end('actions'); ?>
+<?php $this->start(); ?><?php if ($canCreate): ?><a class="btn btn-primary" href="<?= e($this->url('sites.create')) ?>" data-nim-site-modal data-nim-modal-href="<?= e($this->url('sites.create.modal')) ?>"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>New website</a><?php endif; ?><?php $this->end('actions'); ?>
 
 <?php if ($site === null): ?>
     <div class="nsi-card text-center py-5">
         <i class="bi bi-globe2 display-5 text-body-secondary" aria-hidden="true"></i>
         <h2 class="h5 mt-3">No websites yet</h2>
         <p class="text-body-secondary"><?= $canCreate ? 'Create your first website to get started.' : 'Your hosting provider has not set up a website for you yet.' ?></p>
-        <?php if ($canCreate): ?><a class="btn btn-primary" href="<?= e($this->url('sites.create')) ?>">Create a website</a><?php endif; ?>
+        <?php if ($canCreate): ?><a class="btn btn-primary" href="<?= e($this->url('sites.create')) ?>" data-nim-site-modal data-nim-modal-href="<?= e($this->url('sites.create.modal')) ?>">Create a website</a><?php endif; ?>
     </div>
 <?php else: ?>
     <section class="nsi-hero" aria-label="Website">

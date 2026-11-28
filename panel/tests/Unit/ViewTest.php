@@ -117,4 +117,28 @@ final class ViewTest extends TestCase
         }
         self::assertSame([], $offenders, 'inline <script> blocks violate the Content-Security-Policy; move the code to an external asset');
     }
+
+    public function testAFieldHintIsAnAccessibleInfoButtonWithItsTextInThePage(): void
+    {
+        $html = $this->view->hint('Letters & digits <only>.', 'Host name');
+        self::assertStringContainsString('class="nim-hint"', $html);
+        self::assertStringContainsString('data-nim-hint', $html);
+        self::assertStringContainsString('type="button"', $html, 'it never submits the form');
+        self::assertStringContainsString('aria-label="More about Host name"', $html);
+        self::assertStringContainsString('aria-expanded="false"', $html);
+        self::assertMatchesRegularExpression('/aria-describedby="(nim-hint-[a-f0-9]+-1)".*id="\1" hidden>/s', $html, 'the text is in the page for screen readers');
+        self::assertStringContainsString('Letters &amp; digits &lt;only&gt;.', $html, 'the text is escaped');
+        self::assertStringNotContainsString('<only>', $html);
+    }
+
+    public function testFieldHintsHaveUniqueIdsAndEmptyTextHasNoHint(): void
+    {
+        $a = $this->view->hint('One');
+        $b = $this->view->hint('Two');
+        preg_match('/id="(nim-hint-[a-f0-9]+-\d+)"/', $a, $ma);
+        preg_match('/id="(nim-hint-[a-f0-9]+-\d+)"/', $b, $mb);
+        self::assertNotSame($ma[1], $mb[1]);
+        self::assertStringContainsString('aria-label="More information"', $a);
+        self::assertSame('', $this->view->hint('   '));
+    }
 }

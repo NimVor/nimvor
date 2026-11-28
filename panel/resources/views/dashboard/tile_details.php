@@ -17,7 +17,7 @@ $links = [
     'ssl' => [['ssl.hosts', 'Certificates', 'lock'], ['ssl.autossl', 'AutoSSL', 'arrow-repeat']],
 ];
 ?>
-<div class="nim-pop-title mb-2"><?= e($titles[$key] ?? $key) ?></div>
+<div class="nim-pop-title mb-2 d-flex align-items-center gap-2"><?= $this->logo($key, 22, 'nim-logo-tile') ?><?= e($titles[$key] ?? $key) ?></div>
 <?php
 switch ($key) {
     case 'dns':

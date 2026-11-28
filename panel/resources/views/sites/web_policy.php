@@ -49,32 +49,29 @@ $brotliOn = $redo ? (string) ($old['brotli'] ?? '1') === '1' : ($c['brotli'] ?? 
         <div class="card-header">Security headers</div>
         <div class="card-body">
             <div class="mb-4">
-                <label class="form-label fw-medium" for="wp-click">Framing protection (clickjacking)</label>
+                <label class="form-label fw-medium" for="wp-click">Framing protection (clickjacking)</label><?= $this->hint('Stops other websites from showing your pages inside a frame to trick visitors into clicking. Sends X-Frame-Options and frame-ancestors together.', 'Framing protection (clickjacking)') ?>
                 <select class="form-select<?= $err('clickjacking') ? ' is-invalid' : '' ?>" id="wp-click" name="clickjacking">
                     <?php foreach (W::CLICKJACKING as $k => [$label]): ?><option value="<?= e($k) ?>"<?= $hv('clickjacking', $h['clickjacking']) === $k ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?>
                 </select>
                 <?= $fb($err('clickjacking')) ?>
-                <div class="form-text">Stops other websites from showing your pages inside a frame to trick visitors into clicking. Sends <code>X-Frame-Options</code> and <code>frame-ancestors</code> together.</div>
                 <label class="form-label small mt-2" for="wp-fa">Sites allowed to embed this website <span class="text-body-secondary">(only for “this website and chosen sites”, one https:// address per line)</span></label>
                 <textarea class="form-control form-control-sm font-monospace<?= $err('frame_ancestors') ? ' is-invalid' : '' ?>" id="wp-fa" name="frame_ancestors" rows="2" maxlength="1000" placeholder="https://partner.example.com"><?= e((string) $hv('frame_ancestors', implode("\n", (array) $h['frame_ancestors']))) ?></textarea>
                 <?= $fb($err('frame_ancestors')) ?>
             </div>
 
             <div class="mb-4">
-                <label class="form-label fw-medium" for="wp-csp">Content Security Policy</label>
+                <label class="form-label fw-medium" for="wp-csp">Content Security Policy</label><?= $this->hint('Tells browsers where scripts, styles, images and other content may come from. Leave empty to send none. A wrong policy can break your site, so start in report-only mode and check your browser\'s console. frame-ancestors is set by the framing option above.', 'Content Security Policy') ?>
                 <textarea class="form-control form-control-sm font-monospace<?= $err('csp') ? ' is-invalid' : '' ?>" id="wp-csp" name="csp" rows="4" maxlength="<?= W::MAX_CSP ?>" placeholder="default-src 'self'; img-src 'self' https: data:"><?= e((string) $hv('csp', (string) $h['csp'])) ?></textarea>
                 <?= $fb($err('csp')) ?>
-                <div class="form-text">Tells browsers where scripts, styles, images and other content may come from. Leave empty to send none. A wrong policy can break your site, so start in report-only mode and check your browser's console. <code>frame-ancestors</code> is set by the framing option above.</div>
                 <div class="form-check form-switch mt-2"><input type="hidden" name="csp_report_only" value="0"><input class="form-check-input" type="checkbox" role="switch" name="csp_report_only" value="1" id="wp-cspro"<?= $flag('csp_report_only', !empty($h['csp_report_only'])) ? ' checked' : '' ?>><label class="form-check-label" for="wp-cspro">Report-only: browsers log violations but block nothing</label></div>
             </div>
 
             <div class="mb-4">
-                <label class="form-label fw-medium" for="wp-ref">Referrer policy</label>
+                <label class="form-label fw-medium" for="wp-ref">Referrer policy</label><?= $this->hint('How much of the page address is sent to other websites when visitors follow a link.', 'Referrer policy') ?>
                 <select class="form-select<?= $err('referrer') ? ' is-invalid' : '' ?>" id="wp-ref" name="referrer">
                     <?php foreach (W::REFERRER as $k => [$label, $help]): ?><option value="<?= e($k) ?>"<?= $hv('referrer', $h['referrer']) === $k ? ' selected' : '' ?>><?= e($label) ?> — <?= e($help) ?></option><?php endforeach; ?>
                 </select>
                 <?= $fb($err('referrer')) ?>
-                <div class="form-text">How much of the page address is sent to other websites when visitors follow a link.</div>
             </div>
 
             <div class="mb-4">
@@ -174,10 +171,9 @@ $brotliOn = $redo ? (string) ($old['brotli'] ?? '1') === '1' : ($c['brotli'] ?? 
                     <?php foreach (W::DYNAMIC_MODES as $k => [$label, $help]): ?><option value="<?= e($k) ?>"<?= $hv('dynamic_mode', $c['dynamic_mode']) === $k ? ' selected' : '' ?>><?= e($label) ?> — <?= e($help) ?></option><?php endforeach; ?>
                 </select>
                 <?= $fb($err('dynamic_mode')) ?>
-                <label class="form-label small mt-2" for="wp-dyn-ttl">Public cache lifetime in seconds <span class="text-body-secondary">(only for “short public cache”; <?= W::MIN_DYNAMIC_TTL ?> to <?= W::MAX_DYNAMIC_TTL ?>)</span></label>
+                <label class="form-label small mt-2" for="wp-dyn-ttl">Public cache lifetime in seconds <span class="text-body-secondary">(only for “short public cache”; <?= W::MIN_DYNAMIC_TTL ?> to <?= W::MAX_DYNAMIC_TTL ?>)</span></label><?= $this->hint('If the application sends its own Cache-Control, it is left alone.', 'Public cache lifetime in seconds (only for “short public cache”;  to )') ?>
                 <input class="form-control form-control-sm<?= $err('dynamic_ttl') ? ' is-invalid' : '' ?>" id="wp-dyn-ttl" name="dynamic_ttl" type="number" min="<?= W::MIN_DYNAMIC_TTL ?>" max="<?= W::MAX_DYNAMIC_TTL ?>" value="<?= e((string) $hv('dynamic_ttl', (int) $c['dynamic_ttl'])) ?>">
                 <?= $fb($err('dynamic_ttl')) ?>
-                <div class="form-text">If the application sends its own <code>Cache-Control</code>, it is left alone.</div>
             </div>
 
             <div class="mb-3">

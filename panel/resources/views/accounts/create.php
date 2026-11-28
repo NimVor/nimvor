@@ -39,16 +39,14 @@ $routing = $v('mail_routing', (string) $defaults['mail_routing']);
                 <div class="card-body">
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label" for="a-domain">Domain</label>
+                            <label class="form-label" for="a-domain">Domain</label><?= $this->hint('Optional: the account\'s first website (with www).', 'Domain') ?>
                             <input class="form-control<?= $cls('domain') ?>" id="a-domain" name="domain" value="<?= e($v('domain')) ?>" placeholder="example.com" autocomplete="off" spellcheck="false">
                             <?= $err('domain') ?>
-                            <div class="form-text">Optional: the account's first website (with www).</div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label" for="a-username">Username</label>
+                            <label class="form-label" for="a-username">Username</label><?= $this->hint('For signing in; also the website\'s system account.', 'Username') ?>
                             <input class="form-control<?= $cls('username') ?>" id="a-username" name="username" value="<?= e($v('username')) ?>" required maxlength="31" autocomplete="off" spellcheck="false">
                             <?= $err('username') ?>
-                            <div class="form-text">For signing in; also the website's system account.</div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label" for="a-password">Password</label>
@@ -64,10 +62,9 @@ $routing = $v('mail_routing', (string) $defaults['mail_routing']);
                             <?= $err('password_confirmation') ?>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label" for="a-email">Contact email</label>
+                            <label class="form-label" for="a-email">Contact email</label><?= $this->hint('Also for Let\'s Encrypt expiry notices.', 'Contact email') ?>
                             <input class="form-control<?= $cls('email') ?>" type="email" id="a-email" name="email" value="<?= e($v('email')) ?>" required maxlength="190">
                             <?= $err('email') ?>
-                            <div class="form-text">Also for Let's Encrypt expiry notices.</div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label" for="a-php">PHP version</label>
