@@ -17,6 +17,11 @@
 
     function fmtPct(v) { return (Math.abs(v) >= 10 || v === 0 ? v.toFixed(0) : v.toFixed(1)) + '%'; }
     function fmtNum(v) { return Math.abs(v) >= 100 ? v.toFixed(0) : (Math.abs(v) >= 10 ? v.toFixed(1) : v.toFixed(2)); }
+    function fmtSize(v) {
+        var u = ['B', 'KB', 'MB', 'GB'], i = 0;
+        while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+        return (i === 0 || v >= 100 ? v.toFixed(0) : v.toFixed(1)) + ' ' + u[i];
+    }
     function fmtBytes(v) {
         var u = ['B', 'KB', 'MB', 'GB'], i = 0;
         while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
@@ -32,6 +37,14 @@
         disk: { label: 'Disk', series: [{ key: 'disk', label: 'Fullest disk' }], max: 100, fmt: fmtPct },
         svc: { label: 'Services', series: [{ key: 'svc', label: 'Services running' }], max: 100, fmt: fmtPct, none: 'Service availability has not been recorded yet: it is kept from now on.' },
         db_conn: { label: 'Connections', series: [{ key: 'db_conn', label: 'Connections' }], fmt: function (v) { return v.toFixed(0); }, none: 'No database history yet: it is recorded every five minutes while a database server runs.' },
+        // A website's Resources page (GET /sites/{id}/resources/series). The values are what the recorded samples measured.
+        site_cpu: { label: 'CPU', series: [{ key: 'cpu', label: 'CPU of the PHP workers (100% = one core)' }], fmt: function (v) { return (v >= 10 ? v.toFixed(0) : v.toFixed(1)) + '%'; }, none: 'No CPU samples of this website in this range yet.' },
+        site_mem: { label: 'Memory', series: [{ key: 'mem', label: 'PHP memory (average)' }, { key: 'mem_max', label: 'PHP memory (highest)' }], fmt: fmtSize, none: 'No memory samples of this website in this range yet.' },
+        site_io: { label: 'Disk', series: [{ key: 'read', label: 'Read' }, { key: 'write', label: 'Written' }], fmt: fmtBytes, none: 'No disk samples of this website in this range yet.' },
+        site_req: { label: 'Requests', series: [{ key: 'rpm', label: 'Requests per minute' }], fmt: fmtNum, none: 'No access-log samples of this website in this range yet.' },
+        site_traffic: { label: 'Traffic', series: [{ key: 'bw_out', label: 'Sent to visitors' }], fmt: fmtBytes, none: 'No access-log samples of this website in this range yet.' },
+        site_err: { label: 'Errors', series: [{ key: 'e5', label: '5xx per minute' }, { key: 'e4', label: '4xx per minute' }], fmt: fmtNum, none: 'No access-log samples of this website in this range yet.' },
+        site_workers: { label: 'PHP workers', series: [{ key: 'workers', label: 'Workers (average)' }, { key: 'workers_max', label: 'Workers (most)' }], fmt: function (v) { return v.toFixed(v >= 10 ? 0 : 1); }, none: 'No PHP worker samples of this website in this range yet.' },
         db_qps: { label: 'Statements per second', series: [{ key: 'db_qps', label: 'Statements/s' }], fmt: fmtNum, none: 'No database history yet: it is recorded every five minutes while a database server runs.' }
     };
 

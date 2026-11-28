@@ -27,6 +27,7 @@ final class Navigation
             'Hosting' => [
                 ['Websites', 'globe2', 'websites', P::WEBSITES_VIEW, '/websites', 'Create and manage websites'],
                 ['Site health', 'heart-pulse', 'sites.healthcheck', P::WEBSITES_VIEW, '/sites-health', 'What needs attention across the websites'],
+                ['Resource usage', 'cpu', 'resources', P::WEBSITES_VIEW, '/resources', 'Which websites use the most CPU, memory, disk, requests and traffic'],
                 ['Domains', 'signpost-split', 'domains', P::WEBSITES_VIEW, '/domains', 'Domains, aliases and subdomains'],
                 ['Databases', 'database', 'databases', P::DATABASES_VIEW, '/databases', 'MariaDB databases and users', [
                     ['Databases and users', 'databases', P::DATABASES_VIEW],

@@ -249,7 +249,52 @@ type Usage struct {
 	OOMKills      int64  `json:"oom_kills"`
 	ThrottledUsec int64  `json:"cpu_throttled_usec"`
 	Path          string `json:"path"`
+	// Added for resource monitoring. Zero when the kernel does not report them
+	// (memory.peak needs Linux 5.19); MemoryPeakKnown tells "none" from "zero".
+	NrPeriods       int64 `json:"cpu_nr_periods,omitempty"`
+	NrThrottled     int64 `json:"cpu_nr_throttled,omitempty"`
+	MemoryPeakBytes int64 `json:"memory_peak_bytes,omitempty"`
+	MemoryPeakKnown bool  `json:"memory_peak_known,omitempty"`
+	IOReadBytes     int64 `json:"io_read_bytes,omitempty"` // io.stat, summed over devices (cumulative)
+	IOWriteBytes    int64 `json:"io_write_bytes,omitempty"`
+	IOReadOps       int64 `json:"io_read_ops,omitempty"`
+	IOWriteOps      int64 `json:"io_write_ops,omitempty"`
 }
+
+// ParseIOStat sums the per-device lines of a cgroup v2 io.stat
+// ("8:0 rbytes=1 wbytes=2 rios=3 wios=4 dbytes=0 dios=0").
+func ParseIOStat(text string) (rbytes, wbytes, rios, wios int64) {
+	for _, line := range strings.Split(text, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		for _, f := range fields[1:] {
+			k, v, ok := strings.Cut(f, "=")
+			if !ok {
+				continue
+			}
+			n, err := strconv.ParseInt(v, 10, 64)
+			if err != nil {
+				continue
+			}
+			switch k {
+			case "rbytes":
+				rbytes += n
+			case "wbytes":
+				wbytes += n
+			case "rios":
+				rios += n
+			case "wios":
+				wios += n
+			}
+		}
+	}
+	return
+}
+
+// ReadUsage is an account slice's current use (Active false: no such slice).
+func ReadUsage(e *host.Env, account string) Usage { return readUsage(e, account) }
 
 func readUsage(e *host.Env, account string) Usage {
 	dir := filepath.Join("/sys/fs/cgroup/nimvor.slice", SliceName(account))
@@ -286,6 +331,15 @@ func readUsage(e *host.Env, account string) Usage {
 	u.CPUUsageUsec, u.ThrottledUsec = cpu["usage_usec"], cpu["throttled_usec"]
 	ev := kv("memory.events")
 	u.MemoryHighHit, u.MemoryMaxHit, u.OOMKills = ev["high"], ev["max"], ev["oom_kill"]
+	u.NrPeriods, u.NrThrottled = cpu["nr_periods"], cpu["nr_throttled"]
+	if b, err := e.Root.ReadFile(filepath.Join(dir, "memory.peak")); err == nil {
+		if n, err := strconv.ParseInt(strings.TrimSpace(string(b)), 10, 64); err == nil {
+			u.MemoryPeakBytes, u.MemoryPeakKnown = n, true
+		}
+	}
+	if b, err := e.Root.ReadFile(filepath.Join(dir, "io.stat")); err == nil {
+		u.IOReadBytes, u.IOWriteBytes, u.IOReadOps, u.IOWriteOps = ParseIOStat(string(b))
+	}
 	return u
 }
 

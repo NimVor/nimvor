@@ -1443,3 +1443,16 @@ form[data-nim-cur="1"] .nim-type-chip { display: none; }
 .nim-step-head p { margin: .15rem 0 0; color: var(--bs-secondary-color); font-size: .85rem; }
 .nim-review dt { font-weight: 500; color: var(--bs-secondary-color); padding-top: .25rem; padding-bottom: .25rem; }
 .nim-review dd { padding-top: .25rem; padding-bottom: .25rem; border-bottom: 1px solid var(--bs-border-color-translucent); margin-bottom: 0; font-weight: 500; }
+
+/* Database server settings: a value that differs from the selected profile. */
+.nim-db-custom { border-left: 3px solid var(--bs-info, #0dcaf0); }
+[data-nim-db-profile].active { background: var(--bs-success-bg-subtle, #d1e7dd); color: var(--bs-body-color); border-color: var(--bs-success, #198754); box-shadow: 0 0 0 1px var(--bs-success, #198754) inset; }
+[data-nim-db-profile].active .nim-muted { color: var(--bs-secondary-color); }
+
+/* Website resource charts: series colours (the shared ones are above). */
+:root { --nim-c-err: #d6455d; }
+.s-cpu_seconds { stroke: var(--nim-c-cpu); fill: var(--nim-c-cpu); } .s-read { stroke: var(--nim-c-rx); fill: var(--nim-c-rx); } .s-write { stroke: var(--nim-c-tx); fill: var(--nim-c-tx); } .s-rpm { stroke: var(--nim-c-db); fill: var(--nim-c-db); } .s-bw_out { stroke: var(--nim-c-rx); fill: var(--nim-c-rx); } .s-e4 { stroke: var(--nim-c-swap); fill: var(--nim-c-swap); } .s-e5 { stroke: var(--nim-c-err); fill: var(--nim-c-err); } .s-workers { stroke: var(--nim-c-svc); fill: var(--nim-c-svc); } .s-workers_max { stroke: var(--nim-c-db2); fill: var(--nim-c-db2); } .s-mem_max { stroke: var(--nim-c-swap); fill: var(--nim-c-swap); }
+.nim-chart .line.s-cpu_seconds, .nim-chart .line.s-read, .nim-chart .line.s-write, .nim-chart .line.s-rpm, .nim-chart .line.s-bw_out, .nim-chart .line.s-e4, .nim-chart .line.s-e5, .nim-chart .line.s-workers, .nim-chart .line.s-workers_max, .nim-chart .line.s-mem_max { fill: none; }
+.nim-chart .area.s-cpu_seconds, .nim-chart .area.s-read, .nim-chart .area.s-write, .nim-chart .area.s-rpm, .nim-chart .area.s-bw_out, .nim-chart .area.s-e4, .nim-chart .area.s-e5, .nim-chart .area.s-workers, .nim-chart .area.s-workers_max, .nim-chart .area.s-mem_max { stroke: none; }
+.nim-chart-key.s-cpu_seconds, .nim-chart-key.s-read, .nim-chart-key.s-write, .nim-chart-key.s-rpm, .nim-chart-key.s-bw_out, .nim-chart-key.s-e4, .nim-chart-key.s-e5, .nim-chart-key.s-workers, .nim-chart-key.s-workers_max, .nim-chart-key.s-mem_max { background: currentColor; stroke: none; }
+.nim-chart-key.s-cpu_seconds { color: var(--nim-c-cpu); } .nim-chart-key.s-read { color: var(--nim-c-rx); } .nim-chart-key.s-write { color: var(--nim-c-tx); } .nim-chart-key.s-rpm { color: var(--nim-c-db); } .nim-chart-key.s-bw_out { color: var(--nim-c-rx); } .nim-chart-key.s-e4 { color: var(--nim-c-swap); } .nim-chart-key.s-e5 { color: var(--nim-c-err); } .nim-chart-key.s-workers { color: var(--nim-c-svc); } .nim-chart-key.s-workers_max { color: var(--nim-c-db2); } .nim-chart-key.s-mem_max { color: var(--nim-c-swap); }

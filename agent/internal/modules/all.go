@@ -38,6 +38,7 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/security"
 	"github.com/NimVor/nimvor/agent/internal/services"
 	"github.com/NimVor/nimvor/agent/internal/shotmgr"
+	"github.com/NimVor/nimvor/agent/internal/sitemetrics"
 	"github.com/NimVor/nimvor/agent/internal/sites"
 	"github.com/NimVor/nimvor/agent/internal/sslmgr"
 	"github.com/NimVor/nimvor/agent/internal/statsmgr"
@@ -89,6 +90,7 @@ func All() []Module {
 		swapmgr.Register,
 		terminal.Register,
 		usage.Register,
+		sitemetrics.Register,
 		diskmgr.Register,
 		shotmgr.Register,
 		probemgr.Register,

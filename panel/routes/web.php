@@ -661,6 +661,9 @@ return static function (Router $r): void {
     $r->post('/security/modsec/rollback/{id}', [\NimVor\Http\Controllers\ModSecurityController::class, 'rollback'], ['name' => 'security.modsec.rollback', 'permission' => P::SECURITY_MANAGE]);
     $r->post('/security/modsec/sites/{id}', [\NimVor\Http\Controllers\ModSecurityController::class, 'saveSite'], ['name' => 'security.modsec.site', 'permission' => P::SECURITY_MANAGE]);
     $r->get('/sites/{id}/firewall', [\NimVor\Http\Controllers\ModSecurityController::class, 'site'], ['name' => 'sites.firewall', 'permission' => P::WEBSITES_VIEW]);
+    $r->get('/sites/{id}/resources', [\NimVor\Http\Controllers\SiteResourcesController::class, 'show'], ['name' => 'sites.resources', 'permission' => P::WEBSITES_VIEW]);
+    $r->get('/sites/{id}/resources/series', [\NimVor\Http\Controllers\SiteResourcesController::class, 'series'], ['name' => 'sites.resources.series', 'permission' => P::WEBSITES_VIEW]);
+    $r->get('/resources', [\NimVor\Http\Controllers\SiteResourcesController::class, 'ranking'], ['name' => 'resources', 'permission' => P::WEBSITES_VIEW]);
     $r->get('/sites/{id}/traffic', [\NimVor\Http\Controllers\SiteTrafficController::class, 'show'], ['name' => 'sites.traffic', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/traffic/limit', [\NimVor\Http\Controllers\SiteTrafficController::class, 'saveLimit'], ['name' => 'sites.traffic.limit', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/traffic/limit/remove', [\NimVor\Http\Controllers\SiteTrafficController::class, 'removeLimit'], ['name' => 'sites.traffic.limit.remove', 'permission' => P::WEBSITES_MANAGE]);
@@ -823,6 +826,8 @@ return static function (Router $r): void {
     $r->add('DELETE', '/api/v1/database-users/{id}', [DatabasesApiController::class, 'deleteUser'], ['name' => 'api.dbusers.delete', 'permission' => P::DATABASES_MANAGE]);
     $r->post('/api/v1/database-users/{id}/password', [DatabasesApiController::class, 'resetPassword'], ['name' => 'api.dbusers.password', 'permission' => P::DATABASES_MANAGE]);
     $r->post('/api/v1/database-users/{id}/hosts', [DatabasesApiController::class, 'addHost'], ['name' => 'api.dbusers.host', 'permission' => P::DATABASES_MANAGE]);
+    $r->get('/api/v1/websites/{id}/resources', [\NimVor\Http\Controllers\Api\ResourcesApiController::class, 'site'], ['name' => 'api.resources.site', 'permission' => P::WEBSITES_VIEW]);
+    $r->get('/api/v1/resources/ranking', [\NimVor\Http\Controllers\Api\ResourcesApiController::class, 'ranking'], ['name' => 'api.resources.ranking', 'permission' => P::WEBSITES_VIEW]);
     $r->get('/api/v1/websites/{id}/traffic-limits', [ProtectionApiController::class, 'listLimits'], ['name' => 'api.limits', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/api/v1/websites/{id}/traffic-limits', [ProtectionApiController::class, 'saveLimit'], ['name' => 'api.limits.save', 'permission' => P::WEBSITES_MANAGE]);
     $r->add('PUT', '/api/v1/websites/{id}/traffic-limits/status', [ProtectionApiController::class, 'setLimitStatus'], ['name' => 'api.limits.status', 'permission' => P::WEBSITES_MANAGE]);

@@ -356,6 +356,14 @@ switch ($command) {
             foreach ($c->get(\NimVor\Services\MonitoringService::class)->run() as $line) {
                 out('[' . $srv['name'] . '] ' . $line);
             }
+            // Website resource usage rides on the same pass (no second collector); it never fails the pass.
+            try {
+                foreach ($c->get(\NimVor\Services\SiteResourceService::class)->collect() as $line) {
+                    out('[' . $srv['name'] . '] ' . $line);
+                }
+            } catch (\Throwable $e) {
+                out('[' . $srv['name'] . '] website resources: not collected: ' . $e->getMessage());
+            }
             foreach ($c->get(\NimVor\Services\WebsiteMonitor::class)->run() as $line) {
                 out('[' . $srv['name'] . '] ' . $line);
             }

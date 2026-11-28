@@ -36,6 +36,7 @@ final class SiteMenu
         ['logs', 'Logs', 'journal-text', 'sites.logs', P::LOGS_VIEW],
         ['stats', 'Statistics', 'bar-chart-line', 'sites.stats', P::LOGS_VIEW],
         ['health', 'Site health', 'heart-pulse', 'sites.health', P::WEBSITES_VIEW],
+        ['resources', 'Resource usage', 'cpu', 'sites.resources', P::WEBSITES_VIEW],
         ['security', 'Security', 'shield-check', 'sites.security', P::WEBSITES_VIEW],
         ['malware', 'Malware scan', 'bug', 'sites.malware', P::WEBSITES_VIEW],
         ['firewall', 'Web firewall', 'shield-shaded', 'sites.firewall', P::WEBSITES_VIEW],

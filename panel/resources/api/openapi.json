@@ -146,6 +146,10 @@
             "description": "The PHP version, limits and `php.ini` directives of a PHP website.\n\nA change writes the website's PHP-FPM pool, which is checked with `php-fpm -t` before it is reloaded; if the server refuses it the previous settings are restored. Process limits, hardening and the security profile are the administrator's: a hosting customer who sends them gets `422` naming the fields. The customer's own `php.ini` and `.user.ini` files are never changed by the API."
         },
         {
+            "name": "Resources",
+            "description": "What websites use, recorded with every monitoring pass: the CPU, memory and disk bytes of a website's own PHP-FPM workers (sampled), its requests, traffic and errors from its own access log, and the kernel's counters of the account's limits (shared by the account's websites). A value that was not measured is `null`, never zero. Read-only; needs the websites permission and only shows websites the token may see."
+        },
+        {
             "name": "Services",
             "description": "The server's services (web server, PHP-FPM, databases, mail, DNS, FTP, …) and NimVor's own.\n\nNeeds the services permissions, which hosting customers do not have. The agent controls only the services on its allowlist and never SSH; it refuses anything else (`502` with a `reason`). Every operation is audited.\n\n**Restarting the web server or NimVor itself.** Nginx carries the panel and the agent and the panel restart a few seconds after they answer, so such a call answers `202` with `scheduled: true`, and the API may not answer for a moment afterwards."
         },
@@ -19960,6 +19964,221 @@
                     },
                     "502": {
                         "$ref": "#/components/responses/AgentError"
+                    }
+                }
+            }
+        },
+        "/websites/{id}/resources": {
+            "get": {
+                "operationId": "getWebsiteResources",
+                "tags": [
+                    "Resources"
+                ],
+                "summary": "A website's resource use",
+                "description": "The latest sample, the history of the period (`cpu` in percent of one core, `mem` and `mem_max` in bytes, `read` and `write` in bytes per second, `rpm` requests per minute, `bw_out` bytes per second, `e4` and `e5` per minute), the account's limit counters and the faults and warnings of the period. A fault is a limit that was actually hit; a warning is a threshold crossed.",
+                "x-permission": "websites.view",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The website's id.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "range",
+                        "in": "query",
+                        "required": false,
+                        "description": "The period: `1h`, `24h` (default), `7d` or `30d`.",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "1h",
+                                "24h",
+                                "7d",
+                                "30d"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The readings.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "domain": "example.com",
+                                        "range": "24h",
+                                        "current": null,
+                                        "account": null,
+                                        "websites_in_account": 0,
+                                        "points": [],
+                                        "account_points": [],
+                                        "events": []
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
+                    }
+                }
+            }
+        },
+        "/resources/ranking": {
+            "get": {
+                "operationId": "getResourceRanking",
+                "tags": [
+                    "Resources"
+                ],
+                "summary": "Websites ranked by what they use",
+                "description": "The websites the token may see, with what each used in the period. Sort by `cpu`, `memory`, `io`, `requests`, `traffic`, `errors` or `faults`; `q` filters by part of the domain and `faults=1` keeps websites whose account had a fault.",
+                "x-permission": "websites.view",
+                "parameters": [
+                    {
+                        "name": "range",
+                        "in": "query",
+                        "required": false,
+                        "description": "The period: `1h`, `24h` (default), `7d` or `30d`.",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "1h",
+                                "24h",
+                                "7d",
+                                "30d"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "required": false,
+                        "description": "The sort key (default `cpu`).",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "cpu",
+                                "memory",
+                                "io",
+                                "requests",
+                                "traffic",
+                                "errors",
+                                "faults"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "q",
+                        "in": "query",
+                        "required": false,
+                        "description": "Part of a domain.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "faults",
+                        "in": "query",
+                        "required": false,
+                        "description": "`1`: only websites with faults.",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "1"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "description": "At most this many (1–500, default 100).",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 500
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The ranking.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "success",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "success": {
+                                            "const": true
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                },
+                                "example": {
+                                    "success": true,
+                                    "data": {
+                                        "range": "24h",
+                                        "sort": "cpu",
+                                        "websites": [
+                                            {
+                                                "id": 1,
+                                                "domain": "example.com",
+                                                "cpu": 12.5,
+                                                "mem_max": 268435456,
+                                                "requests": 1000,
+                                                "faults": 0
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/RateLimited"
                     }
                 }
             }

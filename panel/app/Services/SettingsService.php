@@ -49,6 +49,18 @@ final class SettingsService
                 'category' => 'general', 'type' => 'int', 'default' => 10, 'min' => 3, 'max' => 300,
                 'label' => 'Dashboard refresh interval (seconds)', 'help' => 'How often the dashboard polls live metrics.',
             ],
+            'resource_monitoring' => [
+                'category' => 'monitoring', 'type' => 'bool', 'default' => true,
+                'label' => 'Website resource monitoring', 'help' => 'Record what each website uses (PHP workers, requests, the account\'s limits) with every monitoring pass. It only reads; nothing about a website\'s limits changes.',
+            ],
+            'resource_raw_days' => [
+                'category' => 'monitoring', 'type' => 'int', 'default' => 3, 'min' => 1, 'max' => 14,
+                'label' => 'Website resource samples: detailed history (days)', 'help' => 'Per-minute samples are kept this long (they feed the 1-hour view). Older data lives on in the hourly roll-ups.',
+            ],
+            'resource_hourly_days' => [
+                'category' => 'monitoring', 'type' => 'int', 'default' => 90, 'min' => 31, 'max' => 400,
+                'label' => 'Website resource history: hourly roll-ups (days)', 'help' => 'Hourly roll-ups (24-hour, 7-day and 30-day views, the ranking) and fault records are kept this long.',
+            ],
             'alert_disk_percent' => [
                 'category' => 'monitoring', 'type' => 'int', 'default' => 90, 'min' => 50, 'max' => 99,
                 'label' => 'Disk usage alert (%)', 'help' => 'Alert when any disk is fuller than this.',
