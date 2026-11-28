@@ -110,16 +110,15 @@ final class DbServerController extends Controller
         if ($r = $this->denied($request)) {
             return $r;
         }
+        // What the form sends is untrusted: the agent checks every key against its list of supported settings,
+        // every value against its type and range, and compares with what is saved. An empty field keeps the
+        // saved value; only a field the administrator explicitly reset (reset[key]) goes back to the server's own.
         $in = array_map(static fn (mixed $v): string => is_scalar($v) ? trim((string) $v) : '', (array) $request->input('settings', []));
-        $managed = array_map(static fn (mixed $v): string => is_scalar($v) ? (string) $v : '', (array) $request->input('managed', []));
-        // Send only what changed: a value that differs from NimVor's file, or a field emptied that was set.
-        $send = [];
-        // A size is shown as "32 MB" but written as "32M": compare them as the same value.
-        $same = static fn (string $a, string $b): bool => $a === $b || (preg_match('/^(\d+)\s*([KMGT]?)B?$/i', $a, $x) === 1
-            && preg_match('/^(\d+)\s*([KMGT]?)B?$/i', $b, $y) === 1 && $x[1] === $y[1] && strtoupper($x[2]) === strtoupper($y[2]));
-        foreach ($in as $k => $v) {
-            if (!$same($v, $managed[$k] ?? '')) {
-                $send[$k] = $v;
+        $reset = array_keys(array_filter((array) $request->input('reset', []), static fn (mixed $v): bool => $v === '1' || $v === 1));
+        $send = array_filter($in, static fn (string $v): bool => $v !== '');
+        foreach ($reset as $k) {
+            if (is_string($k) && ($in[$k] ?? '') === '') {
+                $send[$k] = '';
             }
         }
         $restart = $request->input('restart') === '1';
@@ -132,7 +131,12 @@ final class DbServerController extends Controller
             $this->audit->record('database.server_settings', 'server', 'database', AuditLogger::FAILURE, ['settings' => $send, 'restart' => $restart, 'error' => $e->getMessage()]);
             return $this->redirectWithFailure(self::PAGE . '/settings', $e);
         }
-        $this->audit->record('database.server_settings', 'server', 'database', AuditLogger::SUCCESS, ['settings' => $send, 'restart' => $restart]);
+        // The agent saves and applies only what differs from the saved file: audit and report exactly that.
+        $changed = array_map('strval', (array) ($res['changed'] ?? []));
+        $this->audit->record('database.server_settings', 'server', 'database', AuditLogger::SUCCESS, ['settings' => array_intersect_key($send, array_flip($changed)), 'restart' => $restart]);
+        if ($changed === [] && empty($res['restarted'])) {
+            return $this->redirectWithSuccess(self::PAGE . '/settings', 'Nothing changed.');
+        }
         $pending = (array) ($res['restart_needed'] ?? []);
         $msg = !empty($res['restarted']) ? 'Settings saved; the database server was restarted with them.' : 'Settings saved and applied.';
         if ($pending !== []) {

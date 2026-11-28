@@ -2194,25 +2194,51 @@ the values applied before it are restored); the others take effect at the
 next restart. An empty field removes NimVor's value, so the server's own
 applies again.
 
-**Performance profiles.** *Small* (about 2–4 GB of memory), *Standard*
-(about 8 GB) and *High performance* (16 GB or more) fill the form with
-starting values calculated from this server's memory (`MemTotal`): the
-InnoDB buffer pool is 25 %, 40 % or 50 % of it (in steps of 128 MB), the redo
-log is 256 MB, 512 MB or 1 GB (at most half the buffer pool), and connections,
-thread and table caches, temporary table sizes, I/O capacity (400/800,
-1000/2000, 2000/4000), I/O threads (4, 8, 16) and *statistics on metadata*
-(off) grow with the profile. The profile that fits the server's memory is
-marked *Recommended here*; one meant for more memory than the server has shows
-a warning. A profile never saves anything: it only fills the form, you change
-what you like and press *Save settings*. It does not touch the listening
-address, character set, logging or how safely commits are written. The
-*Workload check* above the form reads the server's own counters (peak
-connections against the maximum, InnoDB reads that went to disk, statements
-running now, slow queries, temporary tables written to disk) and says in words
-what looks too small; the counters count from the last start, so a young
-server says so. The maximum I/O capacity may not be below the I/O capacity.
-Agent action `db.server_status` now also returns `ram_bytes` and `profiles`
-(`agent/internal/dbmgr/profiles.go`); the advice is `DbTuningAdvisor` in the panel.
+**Performance profiles.** *Small* (about 2–4 GB of memory), *Standard* (about
+8 GB) and *High performance* (16 GB or more) fill the form with starting values
+calculated from this server's detected memory (`MemTotal`) and its open files
+limit. The InnoDB buffer pool is kept in a range per profile and never above
+55 % of the memory or the memory minus 1.5 GB (the reserve for the system,
+PHP-FPM, Nginx, Redis and mail): *Small* 25 % within 512 MB–1 GB, *Standard*
+35 % within 2–4 GB, *High performance* 40 % at 16 GB growing to 55 % at 64 GB and
+more. The redo log is 256 MB, 512 MB, 1 GB (2 GB from 32 GB), at most half the
+pool. Maximum connections (100/200/400) are limited to one per 16 MB of memory,
+temporary and heap tables (32/64/128 MB) to 1/64 of the memory, the thread cache
+(16/32/64) to the connections, and the open tables cache (1000/2000/4000) to
+what the open files limit allows. I/O capacity is 400/800, 1000/2000 and
+2000/4000, I/O threads 4, 8 and 16, and *statistics on metadata* is off. The
+profile that fits the memory is marked *Recommended here*; one meant for more
+memory than the server has shows a warning. A profile never saves anything: it
+only fills the form. The page shows which profile is selected, marks every field
+that differs from it as *customized*, and shows the profile's value and the value
+in use next to each field. It does not touch the listening address, character set,
+logging or how safely commits are written.
+
+**Workload check.** Shows the server's version, detected memory and uptime, and
+keeps two kinds of numbers apart: *cumulative counters* (peak connections,
+buffer-pool read miss ratio = `Innodb_buffer_pool_reads` ÷
+`Innodb_buffer_pool_read_requests`, slow queries, temporary tables written to
+disk) count from the last start and reset when MariaDB restarts; *snapshots*
+(`Threads_running`, `Threads_connected`) are the moment the page was loaded. The
+miss ratio is a cache miss ratio, not disk utilisation. Until the server has run
+for 24 hours the page says it is too early to judge and recommends no change.
+
+**Saving safely.** The form is never trusted: the agent accepts only the
+settings it lists, checks every value (numbers and ranges, sizes written as
+`512M` or `512 MB`, on/off, listed choices) and compares with the file it wrote
+itself. An empty field keeps the saved value; *Reset to the server's own value*
+(or choosing the server's value in a list) is the explicit way back. Also
+checked: the maximum I/O capacity is not below the I/O capacity, the buffer
+pool is at most 85 % of the memory, and the open tables cache fits the open files
+limit (`(open_files_limit - 10 - max_connections) / 2`, MariaDB's own rule).
+Settings that need a restart are marked *needs restart* and listed as you edit;
+risky values (commits flushed less often than every commit, a buffer pool above
+60 % of the memory, fewer connections than now, skipping host name lookups, a
+restart) are explained and confirmed before saving. Nothing is applied before
+the new option file passes the server's own check, and a failed restart brings
+the previous file back (below).
+Agent action `db.server_status` also returns `ram_bytes` and `profiles`
+(`agent/internal/dbmgr/profiles.go`, `limits.go`); the advice is `DbTuningAdvisor`.
 
 *Restart* first checks the option files (it is refused while they have an
 error), restarts the service and waits up to 90 seconds for the server to

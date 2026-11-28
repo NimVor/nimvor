@@ -2624,23 +2624,138 @@
     });
 })();
 
-/* Database server settings: a performance profile fills the form (nothing is saved until "Save settings"). */
+/* Database server settings: performance profiles fill the form (nothing is saved until "Save settings"),
+   customized fields are marked, restart-only changes are listed and risky ones are explained before saving. */
 (function () {
+    var SEL = '[data-nim-db-settings]';
+    function bytes(v) {
+        var m = /^(\d+)\s*([KMGT]?)B?$/i.exec(String(v).trim());
+        if (!m) { return null; }
+        return parseInt(m[1], 10) * ({ '': 1, K: 1024, M: 1048576, G: 1073741824, T: 1099511627776 })[m[2].toUpperCase()];
+    }
+    function same(kind, a, b) {
+        if (kind === 'size') { var x = bytes(a), y = bytes(b); return x !== null && y !== null && x === y; }
+        return String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+    }
+    function controls(form) { return Array.prototype.slice.call(form.querySelectorAll('[data-nim-db-key]')); }
+    function profileValues(form) {
+        var cur = form.querySelector('[data-nim-db-profile][aria-pressed="true"]');
+        if (!cur) { return null; }
+        try { return { name: cur.getAttribute('data-nim-db-profile-name'), values: JSON.parse(cur.getAttribute('data-nim-db-profile')) }; } catch (x) { return null; }
+    }
+    function allProfiles(form) {
+        return Array.prototype.slice.call(form.querySelectorAll('[data-nim-db-profile]')).map(function (b) {
+            try { return { btn: b, name: b.getAttribute('data-nim-db-profile-name'), values: JSON.parse(b.getAttribute('data-nim-db-profile')) }; } catch (x) { return null; }
+        }).filter(Boolean);
+    }
+    function ramOf(form) { return parseInt(form.getAttribute('data-nim-db-ram') || '0', 10) || 0; }
+    function fmt(n) { return n >= 1073741824 ? (Math.round(n / 107374182.4) / 10) + ' GB' : Math.round(n / 1048576) + ' MB'; }
+
+    function refresh(form) {
+        var cs = controls(form);
+        cs.forEach(function (c) { if (c.dataset.nimInit === undefined) { c.dataset.nimInit = c.value; } });
+        var profiles = allProfiles(form);
+        // Which profile is the form showing? The one chosen last, or one the form matches exactly.
+        var active = profileValues(form);
+        var matched = profiles.filter(function (p) {
+            return Object.keys(p.values).every(function (k) {
+                var c = form.querySelector('[data-nim-db-key="' + k + '"]');
+                return c && same(c.getAttribute('data-nim-db-kind'), c.value, p.values[k]);
+            });
+        })[0];
+        if (!active && matched) { active = matched; }
+        profiles.forEach(function (p) { p.btn.setAttribute('aria-pressed', active && active.name === p.name ? 'true' : 'false'); p.btn.classList.toggle('active', !!(active && active.name === p.name)); });
+        var custom = 0;
+        var changed = [], restart = [], risks = [];
+        var ram = ramOf(form);
+        cs.forEach(function (c) {
+            var k = c.getAttribute('data-nim-db-key'), kind = c.getAttribute('data-nim-db-kind');
+            var row = c.closest('.row'), badge = row ? row.querySelector('[data-nim-db-custom]') : null, rec = row ? row.querySelector('[data-nim-db-rec]') : null;
+            var inP = active && Object.prototype.hasOwnProperty.call(active.values, k);
+            var differs = inP && !same(kind, c.value, active.values[k]);
+            if (differs) { custom++; }
+            if (badge) { badge.classList.toggle('d-none', !differs); }
+            if (rec) { rec.textContent = inP ? ('· ' + active.name + ': ' + active.values[k] + (differs ? ' (you changed it)' : '')) : ''; }
+            c.classList.toggle('nim-db-custom', !!differs);
+            var now = c.value.trim();
+            if (now !== '' && !same(kind, now, c.dataset.nimInit || '')) {
+                var label = c.getAttribute('data-nim-db-label') || k;
+                changed.push(k);
+                if (c.hasAttribute('data-nim-db-restart')) { restart.push(label); }
+                if (k === 'innodb_flush_log_at_trx_commit' && now !== '1') { risks.push(label + ' = ' + now + ': a crash or power cut can lose up to a second of committed transactions.'); }
+                if (k === 'skip_name_resolve' && now.toUpperCase() === 'ON') { risks.push('Skipping host name lookups: database users defined with a host name (not an IP address) stop matching.'); }
+                if (k === 'innodb_buffer_pool_size' && ram > 0) {
+                    var b = bytes(now);
+                    if (b !== null && b > 0.6 * ram) { risks.push('A buffer pool of ' + fmt(b) + ' is more than 60% of this server\'s ' + fmt(ram) + ' of memory; PHP-FPM, Nginx, mail and the system get less, and the server may start swapping.'); }
+                }
+                if (k === 'max_connections') {
+                    var have = parseInt((c.getAttribute('placeholder') || '').replace(/\D/g, ''), 10), want = parseInt(now, 10);
+                    if (have > 0 && want < have) { risks.push('Fewer connections (' + want + ' instead of ' + have + '): applications that need more will get "Too many connections" errors.'); }
+                }
+            }
+        });
+        var st = form.querySelector('[data-nim-db-profile-status]');
+        if (st) {
+            st.textContent = !active ? 'No profile selected: the values below are set by hand.'
+                : 'Selected profile: ' + active.name + (custom > 0 ? ' · customized (' + custom + (custom === 1 ? ' value differs' : ' values differ') + ' from the profile)' : ' · the form has the profile\'s values');
+        }
+        var note = form.querySelector('[data-nim-db-restart-note]');
+        if (note) {
+            note.classList.toggle('d-none', restart.length === 0);
+            var span = note.querySelector('span');
+            if (span) { span.textContent = 'These changes take effect only after the database server restarts: ' + restart.join(', ') + '. Tick "Restart the database server now" below to apply them straight away, or restart it later.'; }
+        }
+        var rs = form.querySelector('[name="restart"]');
+        if (rs && rs.checked) { risks.push('The database server will be restarted: every connection drops for a few seconds. If it does not come back, the previous settings are restored.'); }
+        if (risks.length) { form.setAttribute('data-nim-confirm', 'Please confirm. ' + risks.map(function (r) { return '• ' + r; }).join(' ')); } else { form.removeAttribute('data-nim-confirm'); }
+        form.dataset.nimDbChanged = String(changed.length);
+        delete form.dataset.nimConfirmed; // a new edit is asked about again
+    }
+    function init(root) {
+        (root || document).querySelectorAll(SEL).forEach(refresh);
+    }
+
     document.addEventListener('click', function (e) {
+        var rb = e.target.closest ? e.target.closest('[data-nim-db-reset]') : null;
+        if (rb) {
+            var row = rb.closest('.row'), c = row.querySelector('[data-nim-db-key]'), flag = row.querySelector('[data-nim-db-reset-flag]');
+            if (c) { c.value = ''; }
+            if (flag) { flag.value = '1'; }
+            rb.classList.add('d-none');
+            var f0 = rb.closest(SEL); if (f0) { refresh(f0); }
+            return;
+        }
         var b = e.target.closest ? e.target.closest('[data-nim-db-profile]') : null;
         if (!b) { return; }
         var form = b.closest('form');
         var values;
         try { values = JSON.parse(b.getAttribute('data-nim-db-profile') || '{}'); } catch (x) { return; }
         var n = 0;
+        form.querySelectorAll('[data-nim-db-profile]').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
         Object.keys(values).forEach(function (k) {
-            var f = form ? form.querySelector('[name="settings[' + k + ']"]') : null;
+            var f = form.querySelector('[name="settings[' + k + ']"]');
             if (!f || f.disabled) { return; }
-            if (f.value !== values[k]) { f.value = values[k]; f.dispatchEvent(new Event('input', { bubbles: true })); n++; }
+            if (f.value !== values[k]) { f.value = values[k]; n++; }
+            var flag = f.closest('.row') && f.closest('.row').querySelector('[data-nim-db-reset-flag]');
+            if (flag) { flag.value = '0'; }
         });
-        var note = form ? form.querySelector('[data-nim-db-profile-note]') : null;
-        if (note) {
-            note.textContent = (b.getAttribute('data-nim-db-profile-name') || 'Profile') + ': ' + (n > 0 ? n + ' settings filled in below. Review them, then press Save settings.' : 'the form already has these values.');
-        }
+        refresh(form);
+        var st = form.querySelector('[data-nim-db-profile-status]');
+        if (st && n === 0) { st.textContent += ' (nothing needed to change)'; }
     });
+    function onEdit(e) {
+        var form = e.target.closest ? e.target.closest(SEL) : null;
+        if (!form) { return; }
+        var c = e.target;
+        if (c.matches && c.matches('[data-nim-db-key]')) {
+            var flag = c.closest('.row').querySelector('[data-nim-db-reset-flag]');
+            if (flag) { flag.value = (c.tagName === 'SELECT' && c.value === '' && (c.dataset.nimInit || '') !== '') ? '1' : '0'; }
+            // Editing a field by hand ends the "profile just applied" state for that field only; the status is recomputed.
+        }
+        refresh(form);
+    }
+    document.addEventListener('input', onEdit);
+    document.addEventListener('change', onEdit);
+    document.addEventListener('nim:modal-loaded', function (e) { init(e.detail); });
+    if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', function () { init(); }); } else { init(); }
 })();

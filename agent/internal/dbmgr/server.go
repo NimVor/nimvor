@@ -341,7 +341,7 @@ var statusNames = []string{"Uptime", "Threads_connected", "Threads_running", "Ma
 	"Innodb_buffer_pool_pages_total", "Innodb_buffer_pool_pages_free", "Innodb_buffer_pool_pages_data", "Innodb_buffer_pool_read_requests", "Innodb_buffer_pool_reads",
 	"Com_select", "Com_insert", "Com_update", "Com_delete", "Table_locks_waited"}
 
-var infoVariables = []string{"version", "version_comment", "datadir", "socket", "port", "bind_address", "skip_networking", "log_error", "slow_query_log_file", "innodb_page_size", "have_ssl"}
+var infoVariables = []string{"open_files_limit", "version", "version_comment", "datadir", "socket", "port", "bind_address", "skip_networking", "log_error", "slow_query_log_file", "innodb_page_size", "have_ssl"}
 
 func registerServer(r *actions.Registry, c Client) {
 	r.Register(actions.Action{Name: "db.server_status", Description: "Database server: version, uptime, status counters, connection details, managed settings (effective and NimVor's) and whether the configuration is valid.", Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
@@ -372,7 +372,7 @@ func registerServer(r *actions.Registry, c Client) {
 		if b, err := os.ReadFile(filepath.Join(c.Env.Cfg.ProcDir, "meminfo")); err == nil {
 			if ram := memTotal(b); ram > 0 {
 				out["ram_bytes"] = ram
-				out["profiles"] = Profiles(ram)
+				out["profiles"] = Profiles(ram, atoiOr(vars["open_files_limit"]))
 			}
 		}
 		q := make([]string, len(statusNames))
@@ -520,16 +520,17 @@ func registerServer(r *actions.Registry, c Client) {
 			if err != nil {
 				return nil, err
 			}
-			if old[k] != file {
-				changed = append(changed, k)
+			if old[k] == file {
+				continue // already saved: nothing to write or apply
 			}
+			changed = append(changed, k)
 			next[k] = file
 			setSQL[k] = sql
 		}
 		sort.Strings(changed)
-		// A maximum below the capacity is a mistake the server only warns about.
-		if lo, hi := atoiOr(next["innodb_io_capacity"]), atoiOr(next["innodb_io_capacity_max"]); lo > 0 && hi > 0 && hi < lo {
-			return nil, actions.InvalidParams("innodb_io_capacity_max: not below innodb_io_capacity (" + strconv.Itoa(lo) + ")")
+		lim := c.limits(ctx)
+		if err := checkConsistency(next, lim); err != nil {
+			return nil, err
 		}
 		// Character set and collation must match (checked by the server).
 		cs, coll := next["character_set_server"], next["collation_server"]

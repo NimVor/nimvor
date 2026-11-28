@@ -61,27 +61,40 @@ final class DbServerTest extends HttpTestCase
         self::assertStringContainsString('/databases/server', $this->request('GET', '/databases')->body());
     }
 
-    public function testSettingsSendOnlyChangesAndAreAudited(): void
+    public function testSettingsAreCheckedByTheAgentNotByTheForm(): void
     {
         $this->login('admin');
+        $page = $this->request('GET', '/databases/server/settings')->body();
+        self::assertStringNotContainsString('name="managed[', $page, 'what is saved is read by the agent, never taken from the form');
         $this->agent->succeed('db.server_settings', ['changed' => ['innodb_buffer_pool_size', 'skip_name_resolve'], 'applied' => ['innodb_buffer_pool_size'], 'restart_needed' => ['skip_name_resolve']]);
         $this->post('/databases/server/settings', [
             'settings' => ['max_connections' => '300', 'innodb_buffer_pool_size' => '1G', 'skip_name_resolve' => 'ON', 'collation_server' => ''],
-            'managed' => ['max_connections' => '300', 'innodb_buffer_pool_size' => '', 'skip_name_resolve' => '', 'collation_server' => ''],
+            'managed' => ['max_connections' => 'forged', 'innodb_buffer_pool_size' => 'forged'], // ignored
         ]);
         $call = $this->lastCall('db.server_settings');
-        self::assertEquals(['innodb_buffer_pool_size' => '1G', 'skip_name_resolve' => 'ON'], (array) $call['settings']);
+        // Every filled field is sent (the agent compares with its file); an empty one is left alone.
+        self::assertEquals(['max_connections' => '300', 'innodb_buffer_pool_size' => '1G', 'skip_name_resolve' => 'ON'], (array) $call['settings']);
         self::assertFalse($call['restart']);
         self::assertStringContainsString('skip_name_resolve take effect after', (string) $this->flash('success'));
         $db = $this->app->container->get(Connection::class);
         self::assertSame('success', $db->scalar("SELECT result FROM audit_logs WHERE action = 'database.server_settings'"));
+        $audit = (string) $db->scalar("SELECT details FROM audit_logs WHERE action = 'database.server_settings' ORDER BY id DESC LIMIT 1");
+        self::assertStringContainsString('skip_name_resolve', $audit);
+        self::assertStringNotContainsString('max_connections', $audit, 'only what changed is audited');
 
-        // Clearing a managed value sends "" (back to the server's own value); a refusal is reported.
+        // An empty field keeps the saved value; only an explicit reset sends "" (back to the server's own value).
+        $this->agent->succeed('db.server_settings', ['changed' => ['max_connections'], 'applied' => ['max_connections'], 'restart_needed' => []]);
+        $this->post('/databases/server/settings', ['settings' => ['max_connections' => '', 'wait_timeout' => ''], 'reset' => ['max_connections' => '1', 'wait_timeout' => '0']]);
+        self::assertEquals(['max_connections' => ''], (array) $this->lastCall('db.server_settings')['settings']);
+        $calls = $this->calls('db.server_settings');
+        $this->post('/databases/server/settings', ['settings' => ['max_connections' => '', 'wait_timeout' => '']]);
+        self::assertSame($calls, $this->calls('db.server_settings'), 'nothing is sent when nothing is filled in or reset');
+        self::assertStringContainsString('Nothing changed', (string) $this->flash('success'));
+
+        // The agent's refusal is reported and the restart flag is passed on.
         $this->agent->fail('db.server_settings', 409, 'failed', 'The server refused innodb_buffer_pool_size; the previous settings were restored.');
-        $this->post('/databases/server/settings', ['settings' => ['max_connections' => ''], 'managed' => ['max_connections' => '300'], 'restart' => '1']);
-        $call = $this->lastCall('db.server_settings');
-        self::assertEquals(['max_connections' => ''], (array) $call['settings']);
-        self::assertTrue($call['restart']);
+        $this->post('/databases/server/settings', ['settings' => ['max_connections' => '300'], 'restart' => '1']);
+        self::assertTrue($this->lastCall('db.server_settings')['restart']);
         self::assertStringContainsString('previous settings were restored', (string) $this->flash('error'));
     }
 
@@ -103,21 +116,13 @@ final class DbServerTest extends HttpTestCase
         self::assertStringContainsString('Recommended here', $page);
         self::assertStringContainsString('Less memory than meant for.', $page);
         self::assertStringContainsString('Workload check', $page);
+        self::assertStringContainsString('data-nim-db-profile-status', $page);
+        foreach (['Detected memory', '10.11.14-MariaDB', 'Running for', 'reset whenever MariaDB restarts', 'Too early to judge', 'at least 24 hours', 'Right now (a snapshot)', 'needs restart', 'data-nim-db-reset-flag'] as $want) {
+            self::assertStringContainsString($want, $page, $want);
+        }
         // The same window version, and nothing is saved by showing it.
         self::assertStringContainsString('data-nim-db-profiles', $this->request('GET', '/databases/server/settings/modal')->body());
         self::assertSame(0, $this->calls('db.server_settings'));
-    }
-
-    public function testASizeShownWithItsUnitIsNotAChange(): void
-    {
-        $this->login('admin');
-        $this->agent->succeed('db.server_settings', ['changed' => ['innodb_buffer_pool_size'], 'applied' => ['innodb_buffer_pool_size'], 'restart_needed' => []]);
-        // "32 MB" is how sizes are shown; the file holds "32M": the same value, so it is not sent again.
-        $this->post('/databases/server/settings', [
-            'settings' => ['max_heap_table_size' => '32 MB', 'innodb_buffer_pool_size' => '4 GB'],
-            'managed' => ['max_heap_table_size' => '32M', 'innodb_buffer_pool_size' => '2G'],
-        ]);
-        self::assertEquals(['innodb_buffer_pool_size' => '4 GB'], (array) $this->lastCall('db.server_settings')['settings']);
     }
 
     public function testRestartFlushAndKill(): void
