@@ -1452,3 +1452,10 @@ form[data-nim-cur="1"] .nim-type-chip { display: none; }
 .nim-chart .area.s-cpu_seconds, .nim-chart .area.s-read, .nim-chart .area.s-write, .nim-chart .area.s-rpm, .nim-chart .area.s-bw_out, .nim-chart .area.s-e4, .nim-chart .area.s-e5, .nim-chart .area.s-workers, .nim-chart .area.s-workers_max, .nim-chart .area.s-mem_max { stroke: none; }
 .nim-chart-key.s-cpu_seconds, .nim-chart-key.s-read, .nim-chart-key.s-write, .nim-chart-key.s-rpm, .nim-chart-key.s-bw_out, .nim-chart-key.s-e4, .nim-chart-key.s-e5, .nim-chart-key.s-workers, .nim-chart-key.s-workers_max, .nim-chart-key.s-mem_max { background: currentColor; stroke: none; }
 .nim-chart-key.s-cpu_seconds { color: var(--nim-c-cpu); } .nim-chart-key.s-read { color: var(--nim-c-rx); } .nim-chart-key.s-write { color: var(--nim-c-tx); } .nim-chart-key.s-rpm { color: var(--nim-c-db); } .nim-chart-key.s-bw_out { color: var(--nim-c-rx); } .nim-chart-key.s-e4 { color: var(--nim-c-swap); } .nim-chart-key.s-e5 { color: var(--nim-c-err); } .nim-chart-key.s-workers { color: var(--nim-c-svc); } .nim-chart-key.s-workers_max { color: var(--nim-c-db2); } .nim-chart-key.s-mem_max { color: var(--nim-c-swap); }
+
+/* PHP-FPM status series. */
+.s-fpm_active { stroke: var(--nim-c-svc); fill: var(--nim-c-svc); } .s-fpm_active_max { stroke: var(--nim-c-db2); fill: var(--nim-c-db2); } .s-fpm_queue { stroke: var(--nim-c-err); fill: var(--nim-c-err); }
+.nim-chart .line.s-fpm_active, .nim-chart .line.s-fpm_active_max, .nim-chart .line.s-fpm_queue { fill: none; }
+.nim-chart .area.s-fpm_active, .nim-chart .area.s-fpm_active_max, .nim-chart .area.s-fpm_queue { stroke: none; }
+.nim-chart-key.s-fpm_active, .nim-chart-key.s-fpm_active_max, .nim-chart-key.s-fpm_queue { background: currentColor; stroke: none; }
+.nim-chart-key.s-fpm_active { color: var(--nim-c-svc); } .nim-chart-key.s-fpm_active_max { color: var(--nim-c-db2); } .nim-chart-key.s-fpm_queue { color: var(--nim-c-err); }

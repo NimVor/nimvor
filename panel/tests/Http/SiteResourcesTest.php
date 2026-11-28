@@ -33,6 +33,7 @@ final class SiteResourcesTest extends HttpTestCase
         }
         $this->shop = (int) $this->db->scalar("SELECT id FROM websites WHERE domain = 'shop.test'");
         $this->blog = (int) $this->db->scalar("SELECT id FROM websites WHERE domain = 'blog.test'");
+        $this->db->run('UPDATE websites SET php_settings = ? WHERE id = ?', ['{"max_children":4}', $this->shop]);
     }
 
     private function svc(): SiteResourceService
@@ -252,5 +253,93 @@ final class SiteResourcesTest extends HttpTestCase
         $rank = (array) json_decode($call('/api/v1/resources/ranking?sort=memory')->body(), true)['data'];
         self::assertSame('memory', $rank['sort']);
         self::assertNotEmpty($rank['websites']);
+    }
+
+    /** @param array<string, mixed> $o @return array<string, mixed> */
+    private static function fpm(array $o = []): array
+    {
+        return $o + ['active' => 1, 'idle' => 2, 'total' => 3, 'queue' => 0, 'max_queue' => 0, 'max_active' => 2, 'start_time' => 1000, 'max_children_reached' => 0, 'slow_requests' => 0, 'accepted' => 30];
+    }
+
+    public function testPhpFpmStatusIsRecordedAndSaturationIsAFault(): void
+    {
+        $site = fn (array $fpm): array => [['domain' => 'shop.test', 'account' => '', 'php' => self::php(3, 90 << 20, 1.0) + ['fpm' => $fpm]]];
+        // First sample: instants only, no deltas.
+        $this->answer(0, $site(self::fpm(['max_children_reached' => null, 'slow_requests' => null, 'accepted' => null])));
+        $this->svc()->collect(self::T0);
+        $row = $this->db->fetch('SELECT * FROM site_metric_samples WHERE website_id = ?', [$this->shop]);
+        self::assertSame([1, 2, 3, 0, 2], [(int) $row['fpm_active'], (int) $row['fpm_idle'], (int) $row['fpm_total'], (int) $row['fpm_queue'], (int) $row['fpm_max_active']]);
+        self::assertNull($row['fpm_hits'], 'no delta on the first sample');
+        self::assertSame(0, (int) $this->db->scalar('SELECT COUNT(*) FROM site_resource_events'));
+
+        // The pool hit pm.max_children 3 times (limit 4 in the website's settings), 2 requests wait, all 4 workers are busy.
+        $this->answer(60, $site(self::fpm(['active' => 4, 'idle' => 0, 'total' => 4, 'queue' => 2, 'max_active' => 4, 'max_children_reached' => 3, 'slow_requests' => 1, 'accepted' => 25])));
+        $this->svc()->collect(self::T0 + 60);
+        $by = array_column($this->db->fetchAll('SELECT kind, severity, website_id FROM site_resource_events'), 'severity', 'kind');
+        self::assertSame('fault', $by['fpm_max_children'], 'the limit was actually hit');
+        self::assertSame('warning', $by['fpm_queue']);
+        self::assertArrayNotHasKey('fpm_near_limit', $by, 'a hit is already a fault, not also a "nearly" warning');
+        self::assertSame($this->shop, (int) $this->db->scalar("SELECT website_id FROM site_resource_events WHERE kind = 'fpm_max_children'"), 'a pool fault belongs to its website, not to an account');
+        $row = $this->db->fetch('SELECT * FROM site_metric_samples WHERE website_id = ? ORDER BY taken_at DESC LIMIT 1', [$this->shop]);
+        self::assertSame([3, 1, 25], [(int) $row['fpm_hits'], (int) $row['fpm_slow'], (int) $row['fpm_accepted']]);
+
+        // Busy but not yet at the limit: a warning only.
+        $this->answer(60, $site(self::fpm(['active' => 4, 'idle' => 0, 'total' => 4, 'max_children_reached' => 0, 'slow_requests' => 0, 'accepted' => 15])));
+        $this->svc()->collect(self::T0 + 7200);
+        self::assertSame('warning', $this->db->scalar("SELECT severity FROM site_resource_events WHERE kind = 'fpm_near_limit'"));
+
+        // The site page and the ranking see the website's own events; the series carries the new keys.
+        $events = $this->svc()->events($this->shop, '24h', 50, self::T0 + 7300);
+        self::assertContains('fpm_max_children', array_column($events, 'kind'));
+        $admin = ['id' => $this->adminId, 'role_scope' => 'all'];
+        $rank = $this->svc()->ranking($admin, '24h', 'faults', [], 100, self::T0 + 7300);
+        self::assertSame('shop.test', $rank[0]['domain']);
+        self::assertSame(1, $rank[0]['faults']);
+        $pts = $this->svc()->series($this->shop, '24h', self::T0 + 7300);
+        self::assertSame(4, max(array_column($pts, 'fpm_active_max')));
+        self::assertSame(2, max(array_column($pts, 'fpm_queue')));
+        $h = $this->db->fetch('SELECT fpm_hits, fpm_active_max FROM site_metric_hourly WHERE website_id = ? AND bucket = ?', [$this->shop, self::T0]);
+        self::assertSame([3, 4], [(int) $h['fpm_hits'], (int) $h['fpm_active_max']]);
+    }
+
+    public function testASiteWithoutStatusPageHasNullFpmColumns(): void
+    {
+        $this->answer(60, [['domain' => 'shop.test', 'php' => self::php(3, 90 << 20, 1.0)]]);
+        $this->svc()->collect(self::T0);
+        $row = $this->db->fetch('SELECT fpm_active, fpm_queue, fpm_hits FROM site_metric_samples');
+        self::assertSame([null, null, null], array_values($row));
+        self::assertSame(0, (int) $this->db->scalar('SELECT COUNT(*) FROM site_resource_events'));
+        $pts = $this->svc()->series($this->shop, '1h', self::T0 + 100);
+        self::assertNull($pts[0]['fpm_active'], 'a gap, not zero');
+    }
+
+    public function testOnlyAdministratorsSeeAndUseTheSwitch(): void
+    {
+        $this->agent->succeed('sites.fpm_status', ['enabled' => false, 'php_sites' => 2, 'with_status' => 0]);
+        $this->agent->succeed('sites.fpm_status_set', ['enabled' => true, 'php_sites' => 2, 'with_status' => 1, 'skipped' => ['hand.test (pool file was changed by hand)']]);
+        $this->login('admin');
+        $page = $this->request('GET', '/resources')->body();
+        foreach (['PHP-FPM status', 'Switch on', 'name="enabled" value="1"', 'data-nim-confirm=', 'Off: the pools publish nothing'] as $want) {
+            self::assertStringContainsString($want, $page, $want);
+        }
+        $this->post('/resources/fpm-status', ['enabled' => '1']);
+        self::assertTrue($this->lastCall('sites.fpm_status_set')['enabled']);
+        $flash = (string) $this->flash('success');
+        self::assertStringContainsString('1 of 2 PHP websites', $flash);
+        self::assertStringContainsString('hand.test', $flash, 'pools left alone are named');
+        self::assertSame('success', $this->db->scalar("SELECT result FROM audit_logs WHERE action = 'resources.fpm_status'"));
+
+        $this->switchTo('cust');
+        self::assertStringNotContainsString('PHP-FPM status', $this->request('GET', '/resources')->body(), 'customers do not see the switch');
+        $calls = $this->calls('sites.fpm_status_set');
+        self::assertContains($this->post('/resources/fpm-status', ['enabled' => '1'])->status(), [302, 403]);
+        self::assertSame($calls, $this->calls('sites.fpm_status_set'), 'a customer cannot change it');
+    }
+
+    public function testAnOldAgentHidesTheSwitch(): void
+    {
+        $this->agent->fail('sites.fpm_status', 400, 'unknown_action', 'Unknown action');
+        $this->login('admin');
+        self::assertStringNotContainsString('Switch on', $this->request('GET', '/resources')->body());
     }
 }

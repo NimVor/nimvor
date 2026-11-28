@@ -7,6 +7,8 @@
  * @var list<array<string, mixed>> $events
  * @var list<array<string, mixed>> $accountPoints
  * @var mixed $first
+ * @var array<string, mixed>|null $fpm
+ * @var bool $admin
  */
 $id = (int) $site['id'];
 $ranges = ['1h' => '1 hour', '24h' => '24 hours', '7d' => '7 days', '30d' => '30 days'];
@@ -18,6 +20,7 @@ $charts = [
     ['site_mem', 'Memory', 'Memory of the website\'s PHP workers (proportional set size: shared pages are split fairly between processes).'],
     ['site_io', 'Disk I/O', 'Bytes the website\'s PHP workers read from and wrote to disk (what reached the disk, not cached reads).'],
     ['site_workers', 'PHP workers', 'How many PHP-FPM workers the website\'s pool had at each sample.'],
+    ['site_fpm', 'Concurrent requests', 'Busy PHP workers (each serves one request at a time) and the requests waiting for a free worker, from the pool\'s own status page.'],
     ['site_req', 'Requests', 'Requests per minute, counted from the website\'s own access log.'],
     ['site_traffic', 'Traffic', 'Response bytes sent to visitors per second (the access log\'s size field).'],
     ['site_err', 'Errors', 'Responses with status 5xx and 4xx per minute.'],
@@ -105,7 +108,11 @@ $kinds = [
     <div class="card-header"><i class="bi bi-info-circle me-1"></i>Not measured, and why</div>
     <div class="card-body small">
         <ul class="mb-0">
-            <li><strong>PHP-FPM active, idle and queued workers, concurrent requests:</strong> the pools do not publish a status page yet; worker count is read from the processes. Active/idle cannot be told apart reliably from them.</li>
+            <?php if ($fpm !== null && $fpm['enabled']): ?>
+            <li><strong>PHP-FPM busy workers and queue:</strong> recorded from the pool's status page (switched on). A pool that did not answer at a sample leaves a gap.</li>
+            <?php else: ?>
+            <li><strong>PHP-FPM busy and idle workers, the request queue, worker-limit faults:</strong> the pools' status page is off, so these are not recorded; the worker count above is read from the processes.<?= $admin ? ' An administrator can switch it on under <a href="' . e($this->url('resources')) . '">Resource usage</a>.' : '' ?></li>
+            <?php endif; ?>
             <li><strong>Response times:</strong> the access log format has no request time, so none is shown rather than guessed.</li>
             <li><strong>Database activity per website:</strong> not shown. MariaDB's Performance Schema is not used by NimVor, and attribution by default schema is not reliable enough to display as a website's figure.</li>
             <li><strong>Disk I/O limit exhaustion and IOPS:</strong> the kernel keeps no counter for I/O limit throttling; per-account IOPS are recorded when the account has a slice (<?= $a === null ? 'this one has none' : 'see the account limits above' ?>).</li>

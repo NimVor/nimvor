@@ -30,10 +30,9 @@ start). Charts show a gap; the ranking shows a dash. Nothing is zero-filled.
 
 ### Not measured (and why)
 
-* **PHP-FPM active / idle / queued workers, max active, concurrent requests**: need `pm.status_path` in each
-  pool and a FastCGI status request. That changes every existing pool's configuration, so it is left for an
-  explicit, opt-in step rather than done silently. Worker *count* is real; active/idle cannot be told apart
-  reliably from process state.
+* **PHP-FPM busy / idle workers, the request queue, worker-limit faults** are recorded only while the
+  administrator's *PHP-FPM status* switch is on (below). Off, the worker *count* is read from the processes;
+  busy and idle cannot be told apart reliably from process state.
 * **Average and slow response times**: the access log format has no `$request_time`. Changing the format
   would break the statistics and report parsers; adding a second log doubles log I/O.
 * **Database activity per website**: not shown. MariaDB's Performance Schema is off by default and attributes
@@ -41,6 +40,28 @@ start). Charts show a gap; the ranking shows a dash. Nothing is zero-filled.
   accounts. It is not displayed as a website figure until a reliable mapping exists.
 * **Disk I/O limit exhaustion**: cgroup v2 keeps no counter for `io.max` throttling. Only per-account bytes and
   IOPS are recorded.
+
+## PHP-FPM status (opt-in)
+
+*Resource usage → PHP-FPM status → Switch on* (administrators) adds one line, `pm.status_path = /nimvor-status`,
+to each website's PHP pool (agent actions `sites.fpm_status`, `sites.fpm_status_set`). It is not on by
+default because it edits live pool files:
+
+* The new pool file is the old one plus that line (the flag is part of the pool rendering, so a later save of
+  the website keeps it); switching it off restores the previous file byte for byte.
+* All pools are written in one change set, the configuration of every affected PHP-FPM master is checked with
+  `php-fpm -t` before anything is reloaded, and a refusal or failed reload puts every file back. Pools that
+  were edited by hand, or have no pool file, are left alone and listed.
+* No limit changes. PHP-FPM answers the status request itself, on the pool's FastCGI socket (the agent asks as
+  root; Nginx never routes `/nimvor-status`, and no PHP file runs).
+
+With it on, each monitoring pass also records, per website: busy, idle and total workers, requests waiting in the
+listen queue, the highest number busy at once since PHP-FPM started, and (as differences against the previous
+pass) accepted requests, slow requests and how often the pool wanted more workers than `pm.max_children`
+(`max children reached`). Busy workers are the requests being served at once. Counters that went backwards
+(PHP-FPM restarted) give no difference. Faults: *PHP-FPM limit reached* (a fault: the limit was actually hit);
+warnings: requests waiting for a worker, and busy workers at 90 % of `pm.max_children`. These belong to the
+website, not to its account.
 
 ## Faults and warnings
 

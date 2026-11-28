@@ -16,7 +16,7 @@ return [
             'operationId' => 'getWebsiteResources',
             'tags' => ['Resources'],
             'summary' => 'A website\'s resource use',
-            'description' => 'The latest sample, the history of the period (`cpu` in percent of one core, `mem` and `mem_max` in bytes, `read` and `write` in bytes per second, `rpm` requests per minute, `bw_out` bytes per second, `e4` and `e5` per minute), the account\'s limit counters and the faults and warnings of the period. A fault is a limit that was actually hit; a warning is a threshold crossed.',
+            'description' => 'The latest sample, the history of the period (`cpu` in percent of one core, `mem` and `mem_max` in bytes, `read` and `write` in bytes per second, `rpm` requests per minute, `bw_out` bytes per second, `e4` and `e5` per minute, and with PHP-FPM status switched on `fpm_active` (busy workers, average), `fpm_active_max` and `fpm_queue` (requests waiting for a worker, highest)), the account\'s limit counters and the faults and warnings of the period. A fault is a limit that was actually hit; a warning is a threshold crossed.',
             'x-permission' => 'websites.view',
             'parameters' => [$id, $range],
             'responses' => ['200' => O::res('The readings.', ['type' => 'object'], ['domain' => 'example.com', 'range' => '24h', 'current' => null, 'account' => null, 'websites_in_account' => 0, 'points' => [], 'account_points' => [], 'events' => []]), '404' => O::err('NotFound')],

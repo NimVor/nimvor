@@ -6,6 +6,8 @@
  * @var string $sort
  * @var string $q
  * @var bool $faults
+ * @var bool $admin
+ * @var array<string, mixed>|null $fpm
  */
 $ranges = ['1h' => '1 hour', '24h' => '24 hours', '7d' => '7 days', '30d' => '30 days'];
 $sorts = ['cpu' => 'CPU', 'memory' => 'Memory', 'io' => 'Disk I/O', 'requests' => 'Requests', 'traffic' => 'Traffic', 'errors' => 'Errors', 'faults' => 'Faults'];
@@ -16,6 +18,21 @@ $bytes = static fn (?int $b): string => $b === null ? '—' : format_bytes($b, 1
 <?php $this->start(); ?>Which websites use the most, from what the monitoring pass recorded<?php $this->end('subtitle'); ?>
 
 <p class="small nim-muted">CPU, memory and disk I/O are those of each website's own PHP-FPM workers (sampled with every monitoring pass: a worker that starts and ends between two samples is not seen). Requests, traffic and errors come from the website's own access log. Fault counts are those of the website's limits account, whose slice the account's websites share. A dash means nothing was measured, not zero.</p>
+
+<?php if ($admin && $fpm !== null): ?>
+<div class="card mb-3"><div class="card-body d-flex flex-wrap gap-3 align-items-center">
+    <div class="flex-grow-1">
+        <div class="fw-semibold">PHP-FPM status<?= $this->hint('Adds one line, pm.status_path, to each website\'s PHP pool so the monitor can read busy and idle workers, the request queue and how often a pool hit its worker limit. It is answered by PHP-FPM itself on the pool\'s socket: it runs no PHP file, shows only counters, and is not reachable from the web. NimVor checks the configuration (php-fpm -t) before reloading PHP-FPM, leaves pools you edited by hand alone, and puts everything back if a step fails. No limit changes.', 'PHP-FPM status') ?>
+            <?= $fpm['enabled'] ? '<span class="badge text-bg-success fw-normal">On</span>' : '<span class="badge text-bg-secondary fw-normal">Off</span>' ?></div>
+        <div class="small nim-muted"><?= $fpm['enabled'] ? 'Switched on for ' . (int) $fpm['with_status'] . ' of ' . (int) $fpm['php_sites'] . ' PHP websites. Busy workers, the request queue and worker-limit faults are recorded.' : 'Off: the pools publish nothing, so busy/idle workers, the queue and worker-limit faults are not recorded. Switching it on reloads PHP-FPM once.' ?></div>
+    </div>
+    <form method="post" action="<?= e($this->url('resources.fpm')) ?>" data-nim-busy<?= $fpm['enabled'] ? '' : ' data-nim-confirm="Add the PHP-FPM status page to the pools of your PHP websites? NimVor checks the configuration and reloads PHP-FPM once; no limit changes."' ?>>
+        <?= $this->csrfField() ?>
+        <input type="hidden" name="enabled" value="<?= $fpm['enabled'] ? '0' : '1' ?>">
+        <button class="btn btn-sm <?= $fpm['enabled'] ? 'btn-outline-secondary' : 'btn-primary' ?>"><?= $fpm['enabled'] ? 'Switch off' : 'Switch on' ?></button>
+    </form>
+</div></div>
+<?php endif; ?>
 
 <form class="row g-2 align-items-end mb-3" method="get" action="<?= e($this->url('resources')) ?>">
     <div class="col-auto"><label class="form-label small mb-0" for="r-range">Period</label>

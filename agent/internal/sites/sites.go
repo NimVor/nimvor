@@ -39,6 +39,7 @@ func Register(r *actions.Registry, env *host.Env) {
 	}
 	r.Register(actions.Action{Name: "sites.apply", Mutating: true, Description: "Create or update a NimVor website (Nginx, PHP-FPM pool, directories, system user).", Handler: m.handleApply})
 	m.registerRepair(r)
+	m.registerFPMStatus(r)
 	r.Register(actions.Action{Name: "sites.delete", Mutating: true, Description: "Remove a NimVor website's configuration; optionally move its files to the trash.", Handler: m.handleDelete})
 	r.Register(actions.Action{Name: "sites.page_cache_purge", Mutating: true, Description: "Empty a website's Nginx page cache (cached PHP pages).", Handler: m.handlePageCachePurge})
 	r.Register(actions.Action{Name: "sites.inspect", Description: "State of a NimVor website on disk.", Handler: m.handleInspect})
@@ -66,6 +67,7 @@ func (m *Manager) layout(s Spec) Layout {
 		ModSecInclude: modsec.SiteInclude(e, s.Domain),
 		// Password, hotlink and WordPress protection, when it has any.
 		ProtectInclude: webprotect.SiteInclude(e, s.Domain),
+		FPMStatus:      FPMStatusEnabled(e),
 	}
 	if execx.SendmailShim != "" && !strings.ContainsAny(execx.SendmailShim, " \t\n;\"'") {
 		l.Sendmail = execx.SendmailShim + " sendmail -t -i"

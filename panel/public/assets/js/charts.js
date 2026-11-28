@@ -45,6 +45,7 @@
         site_traffic: { label: 'Traffic', series: [{ key: 'bw_out', label: 'Sent to visitors' }], fmt: fmtBytes, none: 'No access-log samples of this website in this range yet.' },
         site_err: { label: 'Errors', series: [{ key: 'e5', label: '5xx per minute' }, { key: 'e4', label: '4xx per minute' }], fmt: fmtNum, none: 'No access-log samples of this website in this range yet.' },
         site_workers: { label: 'PHP workers', series: [{ key: 'workers', label: 'Workers (average)' }, { key: 'workers_max', label: 'Workers (most)' }], fmt: function (v) { return v.toFixed(v >= 10 ? 0 : 1); }, none: 'No PHP worker samples of this website in this range yet.' },
+        site_fpm: { label: 'Concurrent requests', series: [{ key: 'fpm_active', label: 'Busy workers (average)' }, { key: 'fpm_active_max', label: 'Busy workers (most)' }, { key: 'fpm_queue', label: 'Waiting for a worker (most)' }], fmt: function (v) { return v.toFixed(v >= 10 ? 0 : 1); }, none: 'No PHP-FPM status samples yet: an administrator can switch the status page on under Resource usage.' },
         db_qps: { label: 'Statements per second', series: [{ key: 'db_qps', label: 'Statements/s' }], fmt: fmtNum, none: 'No database history yet: it is recorded every five minutes while a database server runs.' }
     };
 

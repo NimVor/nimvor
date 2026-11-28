@@ -206,7 +206,10 @@ func (m *Manager) reconcilePHP(ctx context.Context, domain string, force bool) e
 	// or older pool is left alone until the website is saved.
 	prev := l
 	prev.Customer = st.Layer
-	if string(cur) != RenderPool(s, prev) {
+	// A pool written before the opt-in status page was switched on (or off) is still NimVor's own.
+	other := prev
+	other.FPMStatus = !prev.FPMStatus
+	if string(cur) != RenderPool(s, prev) && string(cur) != RenderPool(s, other) {
 		st.Error = "The website's PHP pool was not written by this version of NimVor or was changed by hand. Save the website once to bring it up to date."
 		return m.writeState(m.statusFile(domain), st)
 	}

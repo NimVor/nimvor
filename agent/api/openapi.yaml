@@ -498,6 +498,8 @@ paths:
               - sites.bandwidth
               - sites.delete
               - sites.disk_usage
+              - sites.fpm_status
+              - sites.fpm_status_set
               - sites.inspect
               - sites.list
               - sites.metrics
@@ -1108,6 +1110,8 @@ x-nimvor-actions:
   sites.bandwidth: { mutating: false, description: "Bytes sent by websites per month, read from their access logs from where the last read stopped (read-only)." }
   sites.delete: { mutating: true, description: "Remove a NimVor website's configuration; optionally move its files to the trash." }
   sites.disk_usage: { mutating: false, description: "Start a background job measuring the folders of a website folder (or a folder below it; the top level also counts the domain's mailboxes). Read-only." }
+  sites.fpm_status: { mutating: false, description: "Whether PHP-FPM's status page (workers in use, queue, saturation) is switched on for the websites' pools, and for how many. Read-only." }
+  sites.fpm_status_set: { mutating: true, description: "Switch PHP-FPM's status page on or off for every website pool NimVor wrote (one added line, pm.status_path). Checked with php-fpm -t before a reload; pools changed by hand are left alone; everything is put back if a step fails. No limit is changed." }
   sites.inspect: { mutating: false, description: "State of a NimVor website on disk." }
   sites.list: { mutating: false, description: "NimVor-managed websites present on this server." }
   sites.metrics: { mutating: false, description: "Resource use of the given websites since the previous call: PHP-FPM workers' CPU time, memory and disk bytes (attributed by pool), requests and status classes from the website's own access log, and the cgroup counters of the websites' limits accounts. Read-only; the first call after an agent start reports no rates." }

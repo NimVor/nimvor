@@ -37,6 +37,7 @@ import (
 	"github.com/NimVor/nimvor/agent/internal/actions"
 	"github.com/NimVor/nimvor/agent/internal/host"
 	"github.com/NimVor/nimvor/agent/internal/limits"
+	"github.com/NimVor/nimvor/agent/internal/sites"
 	"github.com/NimVor/nimvor/agent/internal/validate"
 )
 
@@ -71,6 +72,8 @@ type PHP struct {
 	WriteBytes     int64   `json:"write_bytes"`     // disk bytes the workers wrote since the previous call
 	WorkersExited  int     `json:"workers_exited"`  // workers seen last time and gone now: their last interval is not counted
 	WorkersStarted int     `json:"workers_started"` // workers new since the previous call
+	// FPM is the pool's own status page, when an administrator switched it on.
+	FPM *FPM `json:"fpm,omitempty"`
 }
 
 // Site is one website's sample. Absent parts were not measured.
@@ -114,14 +117,15 @@ type logState struct {
 type Collector struct {
 	mu     sync.Mutex
 	prevAt time.Time
-	procs  map[string]procState // pool|pid|starttime
-	logs   map[string]logState  // domain
+	procs  map[string]procState   // pool|pid|starttime
+	logs   map[string]logState    // domain
+	fpm    map[string]fpmCounters // domain
 	// uidName names a user id (the host's /etc/passwd unless a test replaces it).
 	uidName func(e *host.Env, uid uint32) string
 }
 
 func New() *Collector {
-	return &Collector{procs: map[string]procState{}, logs: map[string]logState{}, uidName: uidToName}
+	return &Collector{procs: map[string]procState{}, logs: map[string]logState{}, fpm: map[string]fpmCounters{}, uidName: uidToName}
 }
 
 var statusLine = regexp.MustCompile(`" (\d{3}) (\d+|-)(?: |$)`)
@@ -391,6 +395,9 @@ func (c *Collector) Collect(e *host.Env, domains []string, now time.Time) Result
 	}
 	c.procs = next
 	sort.Strings(domains)
+	if sites.FPMStatusEnabled(e) {
+		c.queryFPM(e, domains, php, interval > 0)
+	}
 	accounts := map[string]bool{}
 	for _, d := range domains {
 		s := Site{Domain: d}
@@ -441,4 +448,59 @@ func Register(r *actions.Registry, e *host.Env) {
 		}
 		return c.Collect(e, in.Domains, time.Now()), nil
 	}})
+}
+
+// queryFPM asks each website's pool for its status page (a few at a time) and
+// attaches the answer to the website's PHP block. A pool that does not answer
+// (not reloaded yet, no PHP) simply has no FPM block.
+func (c *Collector) queryFPM(e *host.Env, domains []string, php map[string]*PHP, rates bool) {
+	type answer struct {
+		domain string
+		st     statusJSON
+	}
+	jobs := make(chan string)
+	out := make(chan answer)
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for d := range jobs {
+				sock, err := e.Root.Path(filepath.Join(e.M.PHPSocketDir, "nimvor-"+d+".sock"))
+				if err != nil {
+					continue
+				}
+				body, err := QueryStatus(sock, sites.FPMStatusPath, 2*time.Second)
+				if err != nil {
+					continue
+				}
+				if st, err := ParseStatus(body); err == nil {
+					out <- answer{d, st}
+				}
+			}
+		}()
+	}
+	go func() {
+		for _, d := range domains {
+			jobs <- d
+		}
+		close(jobs)
+		wg.Wait()
+		close(out)
+	}()
+	for a := range out {
+		var prev *fpmCounters
+		if p, ok := c.fpm[a.domain]; ok && rates {
+			prev = &p
+		}
+		f, cur := fpmOf(a.st, prev)
+		c.fpm[a.domain] = cur
+		p := php[a.domain]
+		if p == nil { // an on-demand pool with no worker alive right now still answers: zero workers is a measurement
+			p = &PHP{MemoryKind: "pss"}
+			php[a.domain] = p
+		}
+		p.FPM = f
+		p.Workers = a.st.Total
+	}
 }

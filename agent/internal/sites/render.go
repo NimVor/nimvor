@@ -22,6 +22,8 @@ type Layout struct {
 	IPv6        bool   // add [::] listeners
 	TLSInclude  string // the server-wide TLS snippet's include line
 	Slice       string // the account's slice when it has resource limits
+	// FPMStatus adds pm.status_path to the pool (an administrator's opt-in, see fpmstatus.go).
+	FPMStatus bool
 	// ModSecInclude is the website's ModSecurity include (a glob that
 	// matches nothing while ModSecurity is off for it).
 	ModSecInclude string
@@ -225,6 +227,9 @@ func poolHead(s Spec, l Layout) string {
 		fmt.Fprintf(&b, "pm.process_idle_timeout = %ds\n", p.IdleTimeoutSec)
 	}
 	fmt.Fprintf(&b, "pm.max_requests = %d\n", p.MaxRequests)
+	if l.FPMStatus {
+		fmt.Fprintf(&b, "pm.status_path = %s\n", FPMStatusPath)
+	}
 	if p.RequestTimeoutSec > 0 {
 		fmt.Fprintf(&b, "request_terminate_timeout = %ds\n", p.RequestTimeoutSec)
 	}

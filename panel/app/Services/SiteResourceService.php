@@ -49,8 +49,10 @@ final class SiteResourceService
         $now ??= time();
         $sid = $this->server->id();
         $ids = [];
-        foreach ($this->db->fetchAll('SELECT id, domain FROM websites WHERE server_id = ? AND enabled = 1', [$sid]) as $r) {
+        $maxChildren = [];
+        foreach ($this->db->fetchAll('SELECT id, domain, php_settings FROM websites WHERE server_id = ? AND enabled = 1', [$sid]) as $r) {
             $ids[(string) $r['domain']] = (int) $r['id'];
+            $maxChildren[(int) $r['id']] = (int) (((array) json_decode((string) $r['php_settings'], true))['max_children'] ?? 0);
         }
         if ($ids === []) {
             return [];
@@ -61,7 +63,7 @@ final class SiteResourceService
             return ['website resources: not collected (' . $e->getMessage() . ')'];
         }
         $n = 0;
-        $this->db->transaction(function () use ($res, $ids, $now, $sid, &$n): void {
+        $this->db->transaction(function () use ($res, $ids, $maxChildren, $now, $sid, &$n): void {
             $interval = (float) ($res['interval_seconds'] ?? 0);
             foreach ((array) ($res['sites'] ?? []) as $s) {
                 $s = (array) $s;
@@ -75,10 +77,17 @@ final class SiteResourceService
                     continue; // nothing was measured for this website: no row, not a row of zeros
                 }
                 $rates = $interval > 0;
+                $fpm = $php !== null && isset($php['fpm']) ? (array) $php['fpm'] : null;
+                $delta = static fn (string $k): ?int => $fpm !== null && $rates && isset($fpm[$k]) ? (int) $fpm[$k] : null;
                 $this->db->run(
-                    'INSERT INTO site_metric_samples (server_id, website_id, taken_at, account, interval_s, workers, mem_bytes, cpu_s, read_b, write_b, exited, req, s2, s3, s4, s5, bytes_sent)
-                     VALUES (:sid, :w, :t, :acct, :iv, :workers, :mem, :cpu, :rb, :wb, :ex, :req, :s2, :s3, :s4, :s5, :bytes)',
+                    'INSERT INTO site_metric_samples (server_id, website_id, taken_at, account, interval_s, workers, mem_bytes, cpu_s, read_b, write_b, exited, req, s2, s3, s4, s5, bytes_sent,
+                                                      fpm_active, fpm_idle, fpm_total, fpm_queue, fpm_max_active, fpm_hits, fpm_slow, fpm_accepted)
+                     VALUES (:sid, :w, :t, :acct, :iv, :workers, :mem, :cpu, :rb, :wb, :ex, :req, :s2, :s3, :s4, :s5, :bytes,
+                             :fa, :fi, :ft, :fq, :fm, :fh, :fs, :facc)',
                     [
+                        'fa' => $fpm === null ? null : (int) ($fpm['active'] ?? 0), 'fi' => $fpm === null ? null : (int) ($fpm['idle'] ?? 0), 'ft' => $fpm === null ? null : (int) ($fpm['total'] ?? 0),
+                        'fq' => $fpm === null ? null : (int) ($fpm['queue'] ?? 0), 'fm' => $fpm === null ? null : (int) ($fpm['max_active'] ?? 0),
+                        'fh' => $delta('max_children_reached'), 'fs' => $delta('slow_requests'), 'facc' => $delta('accepted'),
                         'sid' => $sid, 'w' => $wid, 't' => $now, 'acct' => ($s['account'] ?? '') !== '' ? (string) $s['account'] : null, 'iv' => $interval,
                         'workers' => $php === null ? null : (int) ($php['workers'] ?? 0), 'mem' => $php === null ? null : (int) ($php['memory_bytes'] ?? 0),
                         'cpu' => $php !== null && $rates ? (float) ($php['cpu_seconds'] ?? 0) : null,
@@ -91,6 +100,9 @@ final class SiteResourceService
                     ]
                 );
                 $n++;
+                if ($fpm !== null) {
+                    $this->fpmEvents($sid, $wid, (string) ($s['account'] ?? ''), $fpm, $delta('max_children_reached'), $maxChildren[$wid] ?? 0, $now);
+                }
             }
             foreach ((array) ($res['accounts'] ?? []) as $a) {
                 $this->ingestAccount((array) $a, $now, $interval, $sid);
@@ -177,14 +189,39 @@ final class SiteResourceService
         }
     }
 
-    private function event(int $sid, string $account, string $kind, string $severity, string $detail, int $now): void
+    /** An account's event (website null) or one website's own (PHP-FPM) event. */
+    private function event(int $sid, string $account, string $kind, string $severity, string $detail, int $now, ?int $website = null): void
     {
-        $open = $this->db->fetch('SELECT id FROM site_resource_events WHERE server_id = ? AND account = ? AND kind = ? AND last_at >= ? ORDER BY last_at DESC LIMIT 1', [$sid, $account, $kind, $now - self::EVENT_GAP]);
+        $open = $this->db->fetch(
+            'SELECT id FROM site_resource_events WHERE server_id = ? AND account = ? AND kind = ? AND ' . ($website === null ? 'website_id IS NULL' : 'website_id = ?') . ' AND last_at >= ? ORDER BY last_at DESC LIMIT 1',
+            array_merge([$sid, $account, $kind], $website === null ? [] : [$website], [$now - self::EVENT_GAP])
+        );
         if ($open !== null) {
             $this->db->run('UPDATE site_resource_events SET last_at = ?, occurrences = occurrences + 1, detail = ? WHERE id = ?', [$now, $detail, (int) $open['id']]);
             return;
         }
-        $this->db->run('INSERT INTO site_resource_events (server_id, account, kind, severity, first_at, last_at, detail) VALUES (?, ?, ?, ?, ?, ?, ?)', [$sid, $account, $kind, $severity, $now, $now, $detail]);
+        $this->db->run('INSERT INTO site_resource_events (server_id, account, website_id, kind, severity, first_at, last_at, detail) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [$sid, $account, $website, $kind, $severity, $now, $now, $detail]);
+    }
+
+    /**
+     * PHP-FPM saturation, from the pool's own status page. A fault is the limit actually hit (the pool wanted more
+     * workers than pm.max_children allows); requests waiting and workers nearly all busy are warnings.
+     *
+     * @param array<string, mixed> $fpm
+     */
+    private function fpmEvents(int $sid, int $website, string $account, array $fpm, ?int $hits, int $maxChildren, int $now): void
+    {
+        if ($hits !== null && $hits > 0) {
+            $this->event($sid, $account, 'fpm_max_children', 'fault', 'PHP-FPM reached its limit of ' . ($maxChildren > 0 ? $maxChildren . ' workers' : 'workers') . ' ' . $hits . ' time' . ($hits === 1 ? '' : 's') . '; requests had to wait', $now, $website);
+        }
+        $queue = (int) ($fpm['queue'] ?? 0);
+        if ($queue > 0) {
+            $this->event($sid, $account, 'fpm_queue', 'warning', $queue . ' request' . ($queue === 1 ? ' was' : 's were') . ' waiting for a free PHP worker', $now, $website);
+        }
+        $active = (int) ($fpm['active'] ?? 0);
+        if ($maxChildren > 0 && $active >= self::NEAR * $maxChildren && ($hits === null || $hits === 0)) {
+            $this->event($sid, $account, 'fpm_near_limit', 'warning', $active . ' of ' . $maxChildren . ' PHP workers were busy', $now, $website);
+        }
     }
 
     /** The current and the previous hour are (re)built from the raw samples: cheap, and a late sample is not lost. */
@@ -193,9 +230,10 @@ final class SiteResourceService
         $this->db->transaction(function () use ($now): void {
             foreach ([intdiv($now, 3600) * 3600 - 3600, intdiv($now, 3600) * 3600] as $b) {
                 $this->db->run(
-                    'INSERT OR REPLACE INTO site_metric_hourly (website_id, bucket, samples, secs_php, secs_web, cpu_s, read_b, write_b, mem_avg, mem_max, workers_max, req, s2, s3, s4, s5, bytes_sent)
+                    'INSERT OR REPLACE INTO site_metric_hourly (website_id, bucket, samples, secs_php, secs_web, cpu_s, read_b, write_b, mem_avg, mem_max, workers_max, req, s2, s3, s4, s5, bytes_sent, fpm_active_avg, fpm_active_max, fpm_queue_max, fpm_hits, fpm_slow)
                      SELECT website_id, :b, COUNT(*), COALESCE(SUM(CASE WHEN cpu_s IS NOT NULL THEN interval_s END), 0), COALESCE(SUM(CASE WHEN req IS NOT NULL THEN interval_s END), 0),
-                            SUM(cpu_s), SUM(read_b), SUM(write_b), AVG(mem_bytes), MAX(mem_bytes), MAX(workers), SUM(req), SUM(s2), SUM(s3), SUM(s4), SUM(s5), SUM(bytes_sent)
+                            SUM(cpu_s), SUM(read_b), SUM(write_b), AVG(mem_bytes), MAX(mem_bytes), MAX(workers), SUM(req), SUM(s2), SUM(s3), SUM(s4), SUM(s5), SUM(bytes_sent),
+                            AVG(fpm_active), MAX(fpm_active), MAX(fpm_queue), SUM(fpm_hits), SUM(fpm_slow)
                      FROM site_metric_samples WHERE server_id = :sid AND taken_at >= :b AND taken_at < :e GROUP BY website_id',
                     ['b' => $b, 'e' => $b + 3600, 'sid' => $this->server->id()]
                 );
@@ -214,6 +252,28 @@ final class SiteResourceService
     }
 
     // ---- reading --------------------------------------------------------------------------------------------------
+
+    /**
+     * Whether PHP-FPM's status page is switched on for the websites' pools (null: the agent cannot say, e.g. an older agent).
+     *
+     * @return array{enabled: bool, php_sites: int, with_status: int, skipped: list<string>}|null
+     */
+    public function fpmStatus(): ?array
+    {
+        try {
+            $r = (array) $this->agent->call('sites.fpm_status');
+        } catch (AgentException) {
+            return null;
+        }
+        return ['enabled' => !empty($r['enabled']), 'php_sites' => (int) ($r['php_sites'] ?? 0), 'with_status' => (int) ($r['with_status'] ?? 0), 'skipped' => array_map('strval', (array) ($r['skipped'] ?? []))];
+    }
+
+    /** @return array{enabled: bool, php_sites: int, with_status: int, skipped: list<string>} */
+    public function setFpmStatus(bool $enabled): array
+    {
+        $r = (array) $this->agent->call('sites.fpm_status_set', ['enabled' => $enabled], 120);
+        return ['enabled' => !empty($r['enabled']), 'php_sites' => (int) ($r['php_sites'] ?? 0), 'with_status' => (int) ($r['with_status'] ?? 0), 'skipped' => array_map('strval', (array) ($r['skipped'] ?? []))];
+    }
 
     public static function range(string $range): string
     {
@@ -234,13 +294,15 @@ final class SiteResourceService
             $sql = 'SELECT (taken_at - :from) / :size AS b, MIN(taken_at) AS t,
                         SUM(cpu_s) AS cpu_s, SUM(CASE WHEN cpu_s IS NOT NULL THEN interval_s END) AS secs_php, SUM(CASE WHEN req IS NOT NULL THEN interval_s END) AS secs_web,
                         AVG(mem_bytes) AS mem, MAX(mem_bytes) AS mem_max, AVG(workers) AS workers, MAX(workers) AS workers_max, SUM(read_b) AS rb, SUM(write_b) AS wb,
-                        SUM(req) AS req, SUM(s4) AS s4, SUM(s5) AS s5, SUM(bytes_sent) AS bytes
+                        SUM(req) AS req, SUM(s4) AS s4, SUM(s5) AS s5, SUM(bytes_sent) AS bytes,
+                        AVG(fpm_active) AS fa, MAX(fpm_active) AS fam, MAX(fpm_queue) AS fq
                     FROM site_metric_samples WHERE website_id = :w AND taken_at >= :from GROUP BY b ORDER BY b';
         } else {
             $sql = 'SELECT (bucket - :from) / :size AS b, MIN(bucket) AS t,
                         SUM(cpu_s) AS cpu_s, SUM(secs_php) AS secs_php, SUM(secs_web) AS secs_web,
                         AVG(mem_avg) AS mem, MAX(mem_max) AS mem_max, NULL AS workers, MAX(workers_max) AS workers_max, SUM(read_b) AS rb, SUM(write_b) AS wb,
-                        SUM(req) AS req, SUM(s4) AS s4, SUM(s5) AS s5, SUM(bytes_sent) AS bytes
+                        SUM(req) AS req, SUM(s4) AS s4, SUM(s5) AS s5, SUM(bytes_sent) AS bytes,
+                        AVG(fpm_active_avg) AS fa, MAX(fpm_active_max) AS fam, MAX(fpm_queue_max) AS fq
                     FROM site_metric_hourly WHERE website_id = :w AND bucket >= :from GROUP BY b ORDER BY b';
         }
         $rows = $this->db->fetchAll($sql, ['from' => $from, 'size' => $size, 'w' => $websiteId]);
@@ -259,6 +321,8 @@ final class SiteResourceService
                 'rpm' => $f($r['req'], $web, 2, 60.0),
                 'bw_out' => $f($r['bytes'], $web, 0),               // response bytes per second
                 'e4' => $f($r['s4'], $web, 2, 60.0), 'e5' => $f($r['s5'], $web, 2, 60.0),   // per minute
+                // The pool's own status page (an administrator's opt-in): busy workers = requests being served at once.
+                'fpm_active' => $r['fa'] === null ? null : round((float) $r['fa'], 1), 'fpm_active_max' => $i($r['fam']), 'fpm_queue' => $i($r['fq']),
             ];
         }, $rows);
     }
@@ -303,12 +367,11 @@ final class SiteResourceService
     {
         $now ??= time();
         $acct = $this->db->scalar('SELECT account FROM site_metric_samples WHERE website_id = ? AND account IS NOT NULL ORDER BY taken_at DESC LIMIT 1', [$websiteId]);
-        if (!is_string($acct) || $acct === '') {
-            return [];
-        }
+        // The account's events (shared by its websites) and this website's own.
         return $this->db->fetchAll(
-            'SELECT kind, severity, first_at, last_at, occurrences, detail FROM site_resource_events WHERE server_id = ? AND account = ? AND last_at >= ? ORDER BY severity = \'fault\' DESC, last_at DESC LIMIT ' . max(1, min(200, $limit)),
-            [$this->server->id(), $acct, $now - self::RANGES[self::range($range)][0]]
+            'SELECT kind, severity, first_at, last_at, occurrences, detail FROM site_resource_events WHERE server_id = ? AND (website_id = ? OR (website_id IS NULL AND account = ? AND account <> \'\')) AND last_at >= ?
+             ORDER BY severity = \'fault\' DESC, last_at DESC LIMIT ' . max(1, min(200, $limit)),
+            [$this->server->id(), $websiteId, is_string($acct) ? $acct : '', $now - self::RANGES[self::range($range)][0]]
         );
     }
 
@@ -346,7 +409,7 @@ final class SiteResourceService
                     CASE WHEN h.secs_php > 0 THEN h.cpu_s / h.secs_php * 100 END AS cpu,
                     COALESCE(h.s4, 0) + COALESCE(h.s5, 0) AS errs,
                     (SELECT account FROM site_metric_samples s WHERE s.website_id = w.id AND s.account IS NOT NULL ORDER BY s.taken_at DESC LIMIT 1) AS account,
-                    (SELECT COUNT(*) FROM site_resource_events e WHERE e.severity = 'fault' AND e.last_at >= :from AND e.account = (SELECT account FROM site_metric_samples s2 WHERE s2.website_id = w.id AND s2.account IS NOT NULL ORDER BY s2.taken_at DESC LIMIT 1)) AS faults
+                    (SELECT COUNT(*) FROM site_resource_events e WHERE e.severity = 'fault' AND e.last_at >= :from AND (e.website_id = w.id OR (e.website_id IS NULL AND e.account = (SELECT account FROM site_metric_samples s2 WHERE s2.website_id = w.id AND s2.account IS NOT NULL ORDER BY s2.taken_at DESC LIMIT 1)))) AS faults
              FROM websites w LEFT JOIN users u ON u.id = w.owner_id JOIN ({$agg}) h ON h.website_id = w.id
              WHERE w.server_id = :sid AND {$where}",
             ['from' => $from, 'sid' => $this->server->id()] + $params

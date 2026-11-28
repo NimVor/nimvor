@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace NimVor\Http\Controllers;
 
+use NimVor\Agent\AgentException;
 use NimVor\Database\Connection;
+use NimVor\Hosting\Scope;
 use NimVor\Http\Request;
 use NimVor\Http\Response;
 use NimVor\Http\Session\SessionInterface;
 use NimVor\Repositories\WebsiteRepository;
+use NimVor\Services\AuditLogger;
 use NimVor\Services\ServerContext;
 use NimVor\Services\SiteResourceService;
 use NimVor\View\View;
@@ -23,6 +26,7 @@ final class SiteResourcesController extends Controller
         private readonly WebsiteRepository $websites,
         private readonly ServerContext $server,
         private readonly Connection $db,
+        private readonly AuditLogger $audit,
     ) {
         parent::__construct($view, $session);
     }
@@ -52,6 +56,8 @@ final class SiteResourcesController extends Controller
             'events' => $this->resources->events($wid, $range),
             'accountPoints' => ($account = (string) ($this->resources->current($wid)['site']['account'] ?? '')) !== '' ? $this->resources->accountSeries($account, $range) : [],
             'first' => $this->db->scalar('SELECT MIN(taken_at) FROM site_metric_samples WHERE website_id = ?', [$wid]),
+            'fpm' => $this->resources->fpmStatus(),
+            'admin' => Scope::isAll($this->user($request)),
         ]);
     }
 
@@ -81,6 +87,28 @@ final class SiteResourcesController extends Controller
         return $this->render('resources/index', [
             'rows' => $this->resources->ranking($this->user($request), $range, $sort, ['q' => $q, 'faults' => $faults]),
             'range' => $range, 'sort' => $sort, 'q' => $q, 'faults' => $faults,
+            'admin' => Scope::isAll($this->user($request)), 'fpm' => Scope::isAll($this->user($request)) ? $this->resources->fpmStatus() : null,
         ]);
+    }
+
+    /** An administrator switches PHP-FPM's status page on or off for the websites' pools (opt-in; see the page for what it changes). */
+    public function fpmStatus(Request $request): Response
+    {
+        if (!Scope::isAll($this->user($request))) {
+            return $this->render('errors/error', ['title' => 'Access denied', 'message' => 'Only server administrators can change this.', 'status' => 403], 403);
+        }
+        $enable = $request->input('enabled') === '1';
+        try {
+            $r = $this->resources->setFpmStatus($enable);
+        } catch (AgentException $e) {
+            $this->audit->record('resources.fpm_status', 'server', 'php-fpm', AuditLogger::FAILURE, ['enabled' => $enable, 'error' => $e->getMessage()]);
+            return $this->redirectWithFailure('/resources', $e);
+        }
+        $this->audit->record('resources.fpm_status', 'server', 'php-fpm', AuditLogger::SUCCESS, ['enabled' => $enable, 'pools' => $r['with_status'], 'skipped' => count($r['skipped'])]);
+        $msg = $enable ? 'PHP-FPM status is on for ' . $r['with_status'] . ' of ' . $r['php_sites'] . ' PHP websites. The numbers appear from the next monitoring pass.' : 'PHP-FPM status is off again.';
+        if ($r['skipped'] !== []) {
+            $msg .= ' Left alone (edited by hand or without a pool file): ' . implode(', ', array_slice($r['skipped'], 0, 5)) . '.';
+        }
+        return $this->redirectWithSuccess('/resources', $msg);
     }
 }

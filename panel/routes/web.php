@@ -664,6 +664,7 @@ return static function (Router $r): void {
     $r->get('/sites/{id}/resources', [\NimVor\Http\Controllers\SiteResourcesController::class, 'show'], ['name' => 'sites.resources', 'permission' => P::WEBSITES_VIEW]);
     $r->get('/sites/{id}/resources/series', [\NimVor\Http\Controllers\SiteResourcesController::class, 'series'], ['name' => 'sites.resources.series', 'permission' => P::WEBSITES_VIEW]);
     $r->get('/resources', [\NimVor\Http\Controllers\SiteResourcesController::class, 'ranking'], ['name' => 'resources', 'permission' => P::WEBSITES_VIEW]);
+    $r->post('/resources/fpm-status', [\NimVor\Http\Controllers\SiteResourcesController::class, 'fpmStatus'], ['name' => 'resources.fpm', 'permission' => P::SERVER_MANAGE]);
     $r->get('/sites/{id}/traffic', [\NimVor\Http\Controllers\SiteTrafficController::class, 'show'], ['name' => 'sites.traffic', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/traffic/limit', [\NimVor\Http\Controllers\SiteTrafficController::class, 'saveLimit'], ['name' => 'sites.traffic.limit', 'permission' => P::WEBSITES_MANAGE]);
     $r->post('/sites/{id}/traffic/limit/remove', [\NimVor\Http\Controllers\SiteTrafficController::class, 'removeLimit'], ['name' => 'sites.traffic.limit.remove', 'permission' => P::WEBSITES_MANAGE]);
