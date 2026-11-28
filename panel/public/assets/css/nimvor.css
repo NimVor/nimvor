@@ -1444,10 +1444,6 @@ form[data-nim-cur="1"] .nim-type-chip { display: none; }
 .nim-review dt { font-weight: 500; color: var(--bs-secondary-color); padding-top: .25rem; padding-bottom: .25rem; }
 .nim-review dd { padding-top: .25rem; padding-bottom: .25rem; border-bottom: 1px solid var(--bs-border-color-translucent); margin-bottom: 0; font-weight: 500; }
 
-/* Database server settings: a value that differs from the selected profile. */
-.nim-db-custom { border-left: 3px solid var(--bs-info, #0dcaf0); }
-[data-nim-db-profile].active { background: var(--bs-success-bg-subtle, #d1e7dd); color: var(--bs-body-color); border-color: var(--bs-success, #198754); box-shadow: 0 0 0 1px var(--bs-success, #198754) inset; }
-[data-nim-db-profile].active .nim-muted { color: var(--bs-secondary-color); }
 
 /* Website resource charts: series colours (the shared ones are above). */
 :root { --nim-c-err: #d6455d; }
